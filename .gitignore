@@ -1,0 +1,8 @@
+.envrc
+.env.dev
+.env.prod
+.env.prod.db
+.env
+.venv
+venv
+env

@@ -1,0 +1,8 @@
+-r requirements.txt
+coverage==7.7.0
+django-debug-toolbar==5.0.1
+pip-audit==2.8.0
+pytest-django==4.8.0
+pytest==8.3.5
+pytest-cov==6.0.0
+coverage==7.7.0
