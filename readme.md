@@ -4,10 +4,10 @@
 
 Requirements: Have these installed first before continuing further.
 
-- Python 3.13
-- Postgres 16.8
+- Docker
+- Docker compose
+- GNU Make
 - GitHub CLI (optional, but recommended) https://cli.github.com/
-- Direnv (https://direnv.net/)
 
 
 ## Starting the local env
@@ -18,66 +18,18 @@ Requirements: Have these installed first before continuing further.
 gh repo clone pyladies/pyladiescon-portal
 ```
 
-2. Set up virtual environments:
+2. Start the local environment:
 
 ```
-python3 -m venv .env
-source .env/bin/activate
+(.env) make serve
 ```
 
-3. Install dependencies. Be sure you are in the virtual environment.
+3. Open the browser and go to `http://localhost:8000/` to see the app running.
+
+4. Run the tests:
 
 ```
-(.env) python3 -m pip install -r requirements-dev.txt
-```
-
-4. Create the postgres db:
-
-```
-createdb -U postgres pyladiescon_db_dev
-```
-
-### Local dev setup
-
-1. Create an `.envrc` file, add the following to the file (adjust the values):
-
-```
-export DEBUG=1
-export SECRET_KEY=abc123
-export DJANGO_ALLOWED_HOSTS=localhost
-export SQL_ENGINE=django.db.backends.postgresql
-export SQL_DATABASE=pyladiescon_db_dev
-export SQL_USER=postgres
-export SQL_PASSWORD=admin
-export SQL_HOST=localhost
-export SQL_PORT=5432
-export DATABASE=postgres
-export DJANGO_SETTINGS_MODULE=portal.settings
-```
-
-2. Load the environment using direnv:
-```
-(.env) direnv allow
-```
-
-3. Run the migrations:
-
-```
-(.env) python manage.py migrate
-```
-
-4. Start the local environment:
-
-```
-(.env) python manage.py runserver
-```
-
-5. Open the browser and go to `http://localhost:8000/` to see the app running.
-
-6. Run the tests:
-
-```
-(.env) python manage.py test
+(.env) make test
 ```
 
 ## Set up your Account as a Staff user
