@@ -1,0 +1,14 @@
+name: CI
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  repository_dispatch:
+    types: [automated-update-trigger]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Dummy CI
+      run: echo "OK"
