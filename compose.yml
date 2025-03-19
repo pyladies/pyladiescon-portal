@@ -1,0 +1,52 @@
+services:
+  postgres:
+    image: postgres:16
+    restart: always
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_USER: pyladiescon
+      POSTGRES_PASSWORD: pyladiescon
+      POSTGRES_DB: pyladiescon
+      POSTGRES_HOST_AUTH_METHOD: trust  # never do this in production!
+      POSTGRES_FSYNC: null
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "pyladiescon", "-d", "pyladiescon"]
+      interval: 1s
+    volumes:
+      - ./docker-compose/postgres/docker-entrypoint-initdb.d:/docker-entrypoint-initdb.d
+
+  redis:
+    image: redis:7-bullseye
+    ports:
+      - "6379:6379"
+    healthcheck:
+     test: ["CMD", "redis-cli","ping"]
+     interval: 1s
+
+  web:
+    build:
+      target: dev
+    image: pyladiescon-portal-web:docker-compose
+    command: python manage.py runserver 0.0.0.0:8000
+    volumes:
+      - .:/code
+      - ./media:/code/media
+    ports:
+      - "8000:8000"
+    environment:
+      DEBUG: True
+      DJANGO_ALLOWED_HOSTS: localhost,127.0.0.1
+      SECRET_KEY: verysecure
+      DATABASE_URL: postgresql://pyladiescon:pyladiescon@postgres:5432/pyladiescon
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+
+  maildev:
+    image: maildev/maildev:2.2.1
+    ports:
+      - "1080:1080"
+      - "1025:1025"

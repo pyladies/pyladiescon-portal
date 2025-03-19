@@ -6,3 +6,7 @@
 .venv
 venv
 env
+
+.coverage
+.state
+staticroot
