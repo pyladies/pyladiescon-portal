@@ -85,9 +85,9 @@ WSGI_APPLICATION = "portal.wsgi.application"
 # Database
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
 
-if os.environ.get('DATABASE_URL', None) is not None:
+if os.environ.get("DATABASE_URL", None) is not None:
     DATABASES = {
-        'default': dj_database_url.config(
+        "default": dj_database_url.config(
             conn_max_age=600,
             conn_health_checks=True,
         )
@@ -164,7 +164,7 @@ LOGIN_REDIRECT_URL = "/"
 ACCOUNT_LOGIN_METHODS = {"username"}
 ACCOUNT_SIGNUP_FIELDS = ["email*", "username*", "password1*", "password2*"]
 ACCOUNT_CHANGE_EMAIL = True
-EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+
 
 # Default settings
 BOOTSTRAP5 = {
@@ -224,3 +224,9 @@ BOOTSTRAP5 = {
         "default": "django_bootstrap5.renderers.FieldRenderer",
     },
 }
+
+## DEBUG mode
+if DEBUG:
+    # Show emails to console in DEBUG mode
+    # Otherwise, use the default SMTP backend
+    EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
