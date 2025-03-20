@@ -233,6 +233,7 @@ if "DJANGO_EMAIL_HOST" in os.environ:
     EMAIL_HOST_USER = os.getenv("DJANGO_EMAIL_HOST_USER")
     EMAIL_HOST_PASSWORD = os.getenv("DJANOG_EMAIL_HOST_PASSWORD")
     EMAIL_USE_TLS = os.getenv("DJANGO_EMAIL_USE_TLS")
+    DEFAULT_FROM_EMAIL = os.getenv("DJANGO_DEFAULT_FROM_EMAIL")
 else:
     # Otherwise, send emails to the console
     EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
