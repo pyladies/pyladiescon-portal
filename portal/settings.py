@@ -225,8 +225,14 @@ BOOTSTRAP5 = {
     },
 }
 
-## DEBUG mode
-if DEBUG:
-    # Show emails to console in DEBUG mode
-    # Otherwise, use the default SMTP backend
+## Email settings
+if "DJANGO_EMAIL_HOST" in os.environ:
+    # If the env vars are set, use them
+    EMAIL_HOST = os.getenv("DJANGO_EMAIL_HOST")
+    EMAIL_PORT = os.getenv("DJANGO_EMAIL_PORT")
+    EMAIL_HOST_USER = os.getenv("DJANGO_EMAIL_HOST_USER")
+    EMAIL_HOST_PASSWORD = os.getenv("DJANOG_EMAIL_HOST_PASSWORD")
+    EMAIL_USE_TLS = os.getenv("DJANGO_EMAIL_USE_TLS")
+else:
+    # Otherwise, send emails to the console
     EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
