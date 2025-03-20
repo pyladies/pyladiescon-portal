@@ -39,6 +39,9 @@ services:
       DJANGO_ALLOWED_HOSTS: localhost,127.0.0.1
       SECRET_KEY: verysecure
       DATABASE_URL: postgresql://pyladiescon:pyladiescon@postgres:5432/pyladiescon
+      DJANGO_DEFAULT_FROM_EMAIL: PyLadiesCon <pyladiescon@example.com>
+      DJANGO_EMAIL_HOST: maildev
+      DJANGO_EMAIL_PORT: 1025
     depends_on:
       redis:
         condition: service_healthy

@@ -21,31 +21,38 @@ gh repo clone pyladies/pyladiescon-portal
 2. Start the local environment:
 
 ```
-(.env) make serve
+make serve
 ```
 
-3. Open the browser and go to `http://localhost:8000/` to see the app running.
+3. Open the browser and go to <http://localhost:8000/> to see the app running.
 
 4. Run the tests:
 
 ```
-(.env) make test
+make test
 ```
+
+## Emails in local env
+
+The docker compose development environment includes a
+[maildev](https://maildev.github.io/maildev/)
+instance for previewing emails locally.
+
+It is accessible at <http://localhost:1080> and will show all emails sent by the application.
 
 ## Set up your Account as a Staff user
 
-1. Go to http://localhost:8000/accounts/login/
+1. Go to <http://localhost:8000/accounts/login/>
 2. Go to the "Sign up" link
 3. Fill in the email address, username, and password.
-4. No email will be sent, everything is done locally.
-5. Upon signing up, the terminal will show the verification code. Enter this code on the sign up form.
-6. Your account is now verified.
-7. On the terminal, go to Django shell:
+4. Upon signing up, the confirmation email will be available at <http://localhost:1080/>. Enter this code on the sign up form.
+5. Your account is now verified.
+6. On the terminal, go to Django shell:
 
 ```
-(.env) python manage.py shell
+make manage shell
 ```
-8. Set your account as a staff and superuser:
+7. Set your account as a staff and superuser:
 
 ```
 from django.contrib.auth.models import User
@@ -55,5 +62,4 @@ user.is_superuser = True
 user.save()
 ```
 
-9. After that, restart the server. You can now access the /admin page.
-
+8. You can now access the /admin page.
