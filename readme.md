@@ -38,7 +38,13 @@ We also want to build a conference dashboard to provide overview and statistics 
 
 ## Support PyLadiesCon
 
-We welcome contributions. Check the Local Dev Setup section below to learn how to set this up on your local development environment and get started.
+We welcome contributions. There are many contributions opportunity including code, testing, and documentations.
+Check the Local Dev Setup section below to learn how to set this up on your local development environment and get started.
+
+- Repo: https://github.com/pyladies/pyladiescon-portal
+- Issues: https://github.com/pyladies/pyladiescon-portal/issues
+- Project: https://github.com/orgs/pyladies/projects/11
+- Milestone with due dates and goals: https://github.com/pyladies/pyladiescon-portal/milestones
 
 [Donate to PyLadiesCon](https://psfmember.org/civicrm/contribute/transact/?reset=1&id=53).
 In addition to developing this web portal, we have plans to further improve our conference by hiring more professional services, investing in tools and automations.
