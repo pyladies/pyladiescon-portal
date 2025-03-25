@@ -10,8 +10,6 @@ class VolunteerProfileForm(ModelForm):
 
     def clean(self):
         cleaned_data = super().clean()
-        print("cleaned data volunteer form")
-        print(cleaned_data)
         return cleaned_data
 
     def __init__(self, *args, **kwargs):
@@ -22,7 +20,5 @@ class VolunteerProfileForm(ModelForm):
         """ """
         user = self.user
         self.instance.user = user
-        print("languegs")
-        print(self.cleaned_data["languages_spoken"])
         volunteer_profile = super().save(commit)
         return volunteer_profile
