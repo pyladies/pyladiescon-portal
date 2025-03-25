@@ -42,11 +42,12 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "django.contrib.sites",
-    "portal",
-    "volunteer",
+    "django_bootstrap5",
     "allauth",
     "allauth.account",
-    "django_bootstrap5",
+    "portal",
+    "volunteer",
+    "portal_account",
 ]
 
 MIDDLEWARE = [

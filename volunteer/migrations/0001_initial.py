@@ -7,6 +7,7 @@ from django.conf import settings
 from django.db import migrations, models
 from volunteer.constants import RoleTypes
 
+
 def create_initial_roles(apps, schema_editor):
     Role = apps.get_model("volunteer", "Role")
     for role_type in RoleTypes:
@@ -320,5 +321,5 @@ class Migration(migrations.Migration):
                 verbose_name="team leads",
             ),
         ),
-        migrations.RunPython(create_initial_roles, migrations.RunPython.noop)
+        migrations.RunPython(create_initial_roles, migrations.RunPython.noop),
     ]

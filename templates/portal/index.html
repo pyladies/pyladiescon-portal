@@ -1,0 +1,70 @@
+{% extends "portal/base.html" %}
+{% load allauth i18n %}
+{% load django_bootstrap5 %}
+
+{% block body %}
+{% endblock %}
+{% block content %}
+    {% if user.is_authenticated %}
+        <div class="container px-4 py-5" id="featured-3">
+            <h2 class="pb-2 border-bottom">PyLadiesCon Portal</h2>
+            <div class="row g-4 py-5 row-cols-1 row-cols-lg-3">
+                <div class="feature col">
+                    <div class="d-inline-flex align-items-center justify-content-center fa-3x mb-3">
+                        <i class="fa-solid fa-user-group"></i>
+                    </div>
+                    <h3 class="fs-2 text-body-emphasis">Volunteer</h3>
+                    <p>Sign up to volunteer with us! Fill in your Volunteer profile and we'll get you set up.</p>
+                    <a href="{% url 'volunteer:index' %}" class="icon-link">
+                      Volunteer Now
+                      <i class="fa-solid fa-chevron-right"></i>
+                    </a>
+                </div>
+                <div class="feature col">
+                    <div class="d-inline-flex align-items-center justify-content-center fa-3x mb-3">
+                        <i class="fa-solid fa-hand-holding-dollar"></i>
+                    </div>
+                    <h3 class="fs-2 text-body-emphasis">Sponsor Us</h3>
+                    <p>Sponsorship package is coming soon!</p>
+{#                        <a href="#" class="icon-link">#}
+{#                          Call to action#}
+{#                          <svg class="bi"><use xlink:href="#chevron-right"></use></svg>#}
+{#                        </a>#}
+                </div>
+                <div class="feature col">
+                    <div class="d-inline-flex align-items-center justify-content-center fa-3x mb-3">
+                        <i class="fa-solid fa-microphone"></i>
+                    </div>
+                    <h3 class="fs-2 text-body-emphasis">Speaker Portal</h3>
+                    <p>Are you one of our speakers? Soon, you'll have access to this page. </p>
+{#                        <a href="#" class="icon-link">#}
+{#                          Call to action#}
+{#                          <svg class="bi"><use xlink:href="#chevron-right"></use></svg>#}
+{#                        </a>#}
+                </div>
+            </div>
+
+        </div>
+
+    {% else %}
+        <div class="p-5 text-center bg-body-tertiary rounded-3">
+            <svg class="bi mt-4 mb-3" style="color: var(--bs-indigo);" width="100" height="100"><use xlink:href="#bootstrap"></use></svg>
+            <h1 class="text-body-emphasis">PyLadiesCon Web Portal</h1>
+            <p class="col-lg-8 mx-auto fs-5 text-muted">
+                Welcome to our PyLadiesCon Conference Management Portal.
+                <br> Sign up to volunteer with us.
+            </p>
+            <div class="d-inline-flex gap-2 mb-5">
+
+                <a class="d-inline-flex align-items-center btn btn-primary btn-lg px-4 rounded-pill" href="{% url 'account_signup' %}" role="button">
+                    Sign up
+                    <svg class="bi ms-2" width="24" height="24"><use xlink:href="#arrow-right-short"></use></svg>
+                </a>
+                <a class="btn btn-outline-secondary btn-lg px-4 rounded-pill" href="{% url 'account_login' %}" role="button">
+                    Login
+                </a>
+            </div>
+        </div>
+    {% endif %}
+
+{% endblock %}
