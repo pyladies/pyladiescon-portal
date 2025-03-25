@@ -1,3 +1,4 @@
+from django.contrib.auth.decorators import login_required
 from django.shortcuts import render
 from django.views.generic import ListView, DetailView
 from django.views.generic.edit import CreateView, UpdateView, DeleteView
@@ -7,14 +8,14 @@ from .models import VolunteerProfile
 from .forms import VolunteerProfileForm
 
 
+@login_required
 def index(request):
     context = {}
-    if request.user.is_authenticated:
-        try:
-            profile = VolunteerProfile.objects.get(user=request.user)
-            context["profile_id"] = profile.id
-        except VolunteerProfile.DoesNotExist:
-            context["profile_id"] = None
+    try:
+        profile = VolunteerProfile.objects.get(user=request.user)
+        context["profile_id"] = profile.id
+    except VolunteerProfile.DoesNotExist:
+        context["profile_id"] = None
     return render(request, "volunteer/index.html", context)
 
 

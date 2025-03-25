@@ -1,3 +1,4 @@
+from django.contrib.auth.decorators import login_required
 from django.shortcuts import render
 
 from django.views.generic import DetailView
@@ -7,14 +8,14 @@ from .models import PortalProfile
 from .forms import PortalProfileForm
 
 
+@login_required
 def index(request):
     context = {}
-    if request.user.is_authenticated:
-        try:
-            profile = PortalProfile.objects.get(user=request.user)
-            context["profile_id"] = profile.id
-        except PortalProfile.DoesNotExist:
-            context["profile_id"] = None
+    try:
+        profile = PortalProfile.objects.get(user=request.user)
+        context["profile_id"] = profile.id
+    except PortalProfile.DoesNotExist:
+        context["profile_id"] = None
     return render(request, "portal_account/index.html", context)
 
 
