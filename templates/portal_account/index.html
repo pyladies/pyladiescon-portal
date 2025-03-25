@@ -1,0 +1,23 @@
+{% extends "portal/base.html" %}
+{% load allauth i18n %}
+{% load django_bootstrap5 %}
+
+{% block body %}
+{% endblock %}
+{% block content %}
+    <h1 class="display-5">Account Management</h1>
+
+    <a class="btn btn-primary btn-lg" role="button" href="{% url 'account_email'%}">Change Email address</a>
+    <a class="btn btn-primary btn-lg" role="button" href="{% url 'account_change_password'%}">Change Password</a>
+    <a class="btn btn-primary btn-lg" role="button" href="{% url 'account_logout'%}">Sign out</a>
+    <hr>
+    <h1 class="display-5">Your Portal Profile</h1>
+    {% if profile_id %}
+        <a class="btn btn-primary btn-lg" role="button" href="{% url 'portal_account:portal_profile_detail' profile_id%}">View my profile</a>
+    {% else %}
+    <p class="col-md-8 fs-4">
+        Your profile is not complete. Please complete your profile before proceeding.
+    </p>
+    <a class="btn btn-primary btn-lg" role="button" href="{% url 'portal_account:portal_profile_new'%}">Create my profile</a>
+    {% endif %}
+{% endblock %}

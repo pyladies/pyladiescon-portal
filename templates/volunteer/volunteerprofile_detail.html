@@ -1,0 +1,21 @@
+{% extends "portal/base.html" %}
+{% load allauth i18n %}
+{% load django_bootstrap5 %}
+
+{% block body %}
+{% endblock %}
+{% block content %}
+    <h1>Your Profile</h1>
+    <div>
+    {% bootstrap_label object.timezone %}
+    </div>
+    {% bootstrap_label object.github_username %}
+    {% bootstrap_label object.instagram_username %}
+    {% bootstrap_label object.discord_username %}
+    <div>
+    {% bootstrap_label object.status %}
+    </div>
+    <div>
+    {% bootstrap_label object.pyladies_chapter %}
+    </div>
+{% endblock %}

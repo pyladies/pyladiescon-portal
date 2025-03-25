@@ -22,7 +22,8 @@ from portal import views
 
 urlpatterns = [
     path("", views.index, name="index"),
-    path("volunteer/", include("volunteer.urls")),
+    path("volunteer/", include("volunteer.urls", namespace="volunteer")),
     path("admin/", admin.site.urls),
     path("accounts/", include("allauth.urls")),
+    path("portal_account/", include("portal_account.urls", namespace="portal_account")),
 ]

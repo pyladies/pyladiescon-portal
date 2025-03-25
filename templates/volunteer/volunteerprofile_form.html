@@ -1,0 +1,31 @@
+{% extends "portal/base.html" %}
+{% load allauth i18n %}
+{% load django_bootstrap5 %}
+
+{% block body %}
+{% endblock %}
+{% block content %}
+    <main>
+        <h1 class="display-5">Create your Volunteer Profile</h1>
+        <p class="lead">
+            Fill in the profile below.
+        </p>
+        <div class="row g-5">
+            {% bootstrap_form_errors form %}
+            <form action="{% url 'volunteer:volunteer_profile_new' %}" method="post" class="form">{% csrf_token %}
+                {% bootstrap_field form.languages_spoken %}
+                {% bootstrap_field form.teams %}
+                {% bootstrap_field form.pyladies_chapter %}
+                {% bootstrap_field form.timezone %}
+                {% bootstrap_field form.github_username %}
+                {% bootstrap_field form.discord_username %}
+                {% bootstrap_field form.instagram_username %}
+                {% bootstrap_field form.bluesky_username %}
+                {% bootstrap_field form.mastodon_url %}
+                {% bootstrap_field form.x_username %}
+                {% bootstrap_field form.linkedin_url %}
+                <input type="submit" value="Submit" />
+            </form>
+        </div>
+    </main>
+{% endblock %}

@@ -4,6 +4,7 @@ from django.contrib.auth.models import User
 
 from portal.models import BaseModel, ChoiceArrayField
 from .constants import ApplicationStatus
+from django.urls import reverse
 
 TIMEZONE_CHOICES = [
     ("UTC+14", "UTC+14"),
@@ -76,7 +77,6 @@ class VolunteerProfile(BaseModel):
         default=ApplicationStatus.PENDING,
     )
 
-    coc_agreement = models.BooleanField(default=False)
     # social media urls
     github_username = models.CharField(max_length=50, blank=True, null=True)
     discord_username = models.CharField(max_length=50, blank=True, null=True)
@@ -85,7 +85,6 @@ class VolunteerProfile(BaseModel):
     mastodon_url = models.CharField(max_length=100, blank=True, null=True)
     x_username = models.CharField(max_length=100, blank=True, null=True)
     linkedin_url = models.CharField(max_length=100, blank=True, null=True)
-    pronouns = models.CharField(max_length=100, blank=True, null=True)
     languages_spoken = ChoiceArrayField(
         models.CharField(max_length=32, blank=True, choices=LANGUAGES)
     )
@@ -98,3 +97,6 @@ class VolunteerProfile(BaseModel):
 
     def __str__(self):
         return self.user.username
+
+    def get_absolute_url(self):
+        return reverse("volunteer_profile_edit", kwargs={"pk": self.pk})

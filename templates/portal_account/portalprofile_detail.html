@@ -1,0 +1,15 @@
+{% extends "portal/base.html" %}
+{% load allauth i18n %}
+{% load django_bootstrap5 %}
+
+{% block body %}
+{% endblock %}
+{% block content %}
+    <h1>Your Profile</h1>
+    <div>
+    {% bootstrap_label object.user.username %}
+    </div>
+    {% bootstrap_label object.user.first_name %}
+    {% bootstrap_label object.user.last_name %}
+
+{% endblock %}
