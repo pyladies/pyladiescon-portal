@@ -22,14 +22,11 @@
         {% element form form=form method="post" action=action_url tags="entrance,signup" %}
             {% slot body %}
                 {% csrf_token %}
-                {% element fields form=form unlabeled=True %}
-                {% endelement %}
+                {% bootstrap_form form show_help=False layout="horizontal" %}
                 {{ redirect_field }}
             {% endslot %}
             {% slot actions %}
-                {% element button tags="prominent,signup" type="submit" %}
-                    {% trans "Sign Up" %}
-                {% endelement %}
+                {% bootstrap_button "Sign up" button_type="submit" extra_classes="btn-prominent btn-signup" %}
             {% endslot %}
         {% endelement %}
     {% endif %}
