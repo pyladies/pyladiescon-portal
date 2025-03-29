@@ -28,7 +28,9 @@
                 {{ redirect_field }}
             {% endslot %}
             {% slot actions %}
-                {% bootstrap_button "Sign up" button_type="submit" extra_classes="btn-prominent btn-signup" %}
+                {% element button type="submit" %}
+                    {% trans "Sign Up" %}
+                {% endelement %}
             {% endslot %}
         {% endelement %}
 
