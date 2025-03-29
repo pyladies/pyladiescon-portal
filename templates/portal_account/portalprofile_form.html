@@ -12,13 +12,9 @@
         </p>
         <div class="row g-5">
             {% bootstrap_form_errors form %}
-            <form action="{% url 'portal_account:portal_profile_new' %}" method="post" class="form">{% csrf_token %}
-                {% bootstrap_field form.username %}
-                {% bootstrap_field form.first_name %}
-                {% bootstrap_field form.last_name %}
-                {% bootstrap_field form.email %}
-                {% bootstrap_field form.pronouns %}
-                {% bootstrap_field form.coc_agreement %}
+            <form action="{% url 'portal_account:portal_profile_new' %}" method="post" class="form" enctype="multipart/form-data">
+                {% csrf_token %}
+                {% bootstrap_form form %}
                 <input type="submit" value="Submit" />
             </form>
 {#                <form class="needs-validation" novalidate="">#}
