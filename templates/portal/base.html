@@ -10,6 +10,17 @@
             {% block head_title %}
             {% endblock head_title %}
         </title>
+
+        <meta property="og:title" content="{% block og_title %}PyLadiesCon Portal{% endblock og_title %}" />
+        <meta property="og:description" content="{% block og_description %}PyLadiesCon volunteer portal and conference management system{% endblock og_description %}" />
+        <meta property="og:type" content="{% block og_type %}website{% endblock og_type %}" />
+        <meta property="og:url" content="{% block og_url %}{{ request.build_absolute_uri }}{% endblock og_url %}" />
+        <meta property="og:image" content="{% block og_image %}{% endblock og_image %}" />
+        <meta property="og:image:alt" content="{% block og_image_alt %}PyLadiesCon logo{% endblock og_image_alt %}">
+        <meta property="og:site_name" content="PyLadiesCon Portal" />
+        <meta property="og:locale" content="en_US">
+
+
         {% block extra_head %}
             <script src="https://kit.fontawesome.com/8774ceef9d.js" crossorigin="anonymous"></script>
         {% endblock extra_head %}
