@@ -16,6 +16,7 @@ services:
     volumes:
       - ./docker-compose/postgres/docker-entrypoint-initdb.d:/docker-entrypoint-initdb.d
       - postgres_data:/var/lib/postgresql/data
+      
   redis:
     image: redis:7-bullseye
     ports:
