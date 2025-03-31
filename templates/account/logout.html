@@ -20,6 +20,14 @@
             {% element button type="submit" %}
                 {% trans 'Sign Out' %}
             {% endelement %}
+            {% element button type="button" id="cancel-button" %}
+            {% trans 'Cancel' %}
+            {% endelement %}
         {% endslot %}
     {% endelement %}
+    <script>
+        document.getElementById('cancel-button').addEventListener('click', function() {
+            history.back();
+        });
+    </script>
 {% endblock content %}
