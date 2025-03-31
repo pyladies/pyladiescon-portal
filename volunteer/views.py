@@ -4,6 +4,8 @@ from django.views.generic import ListView, DetailView
 from django.views.generic.edit import CreateView, UpdateView, DeleteView
 from django.urls import reverse_lazy
 
+from django.http import HttpResponse
+
 from .models import VolunteerProfile
 from .forms import VolunteerProfileForm
 
@@ -48,3 +50,6 @@ class VolunteerProfileUpdate(UpdateView):
 class VolunteerProfileDelete(DeleteView):
     model = VolunteerProfile
     success_url = reverse_lazy("volunteer:index")
+
+def sponsorship_success(request):
+    return HttpResponse("Thank you for submitting your sponsorship profile!")

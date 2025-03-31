@@ -2,7 +2,7 @@ from django.db import models
 from django.conf.global_settings import LANGUAGES
 from django.contrib.auth.models import User
 
-from portal.models import BaseModel, ChoiceArrayField
+from portal.models import BaseModel
 from .constants import ApplicationStatus
 from django.urls import reverse
 
@@ -85,8 +85,11 @@ class VolunteerProfile(BaseModel):
     mastodon_url = models.CharField(max_length=100, blank=True, null=True)
     x_username = models.CharField(max_length=100, blank=True, null=True)
     linkedin_url = models.CharField(max_length=100, blank=True, null=True)
-    languages_spoken = ChoiceArrayField(
-        models.CharField(max_length=32, blank=True, choices=LANGUAGES)
+    languages_spoken = models.CharField(
+    max_length=255,
+    blank=True,
+    null=True,
+    help_text="Comma-separated list of languages"
     )
     teams = models.ManyToManyField(
         "volunteer.Team", verbose_name="team", related_name="team", blank=True

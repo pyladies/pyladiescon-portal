@@ -13,3 +13,6 @@ def index(request):
     ):
         return redirect("portal_account:portal_profile_new")
     return render(request, "portal/index.html", context)
+
+def sponsorship_success(request):
+    return render(request, "sponsorship/success.html")

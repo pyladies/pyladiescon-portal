@@ -9,6 +9,9 @@ https://docs.djangoproject.com/en/5.1/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.1/ref/settings/
 """
+from dotenv import load_dotenv
+load_dotenv()
+
 
 import os
 from pathlib import Path
@@ -28,9 +31,7 @@ SECRET_KEY = os.environ.get("SECRET_KEY")
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = bool(os.environ.get("DEBUG", default=0))
 
-ALLOWED_HOSTS = os.environ.get("DJANGO_ALLOWED_HOSTS")
-if ALLOWED_HOSTS:
-    ALLOWED_HOSTS = ALLOWED_HOSTS.split(",")
+ALLOWED_HOSTS = ['localhost', '127.0.0.1']
 
 # Application definition
 
@@ -46,6 +47,7 @@ INSTALLED_APPS = [
     "allauth",
     "allauth.account",
     "portal",
+    'sponsorship',
     "volunteer",
     "portal_account",
 ]
@@ -104,6 +106,7 @@ else:
             "PORT": os.environ.get("SQL_PORT", "5432"),
         }
     }
+    
 
 
 # Password validation
@@ -238,3 +241,5 @@ if "DJANGO_EMAIL_HOST" in os.environ:
 else:
     # Otherwise, send emails to the console
     EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+
+DEBUG = True 
