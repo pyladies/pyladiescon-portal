@@ -49,6 +49,7 @@ INSTALLED_APPS = [
     "volunteer",
     "portal_account",
     "sponsorship",
+    "dashboard",
 ]
 
 MIDDLEWARE = [
