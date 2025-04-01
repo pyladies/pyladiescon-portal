@@ -46,6 +46,7 @@ INSTALLED_APPS = [
     "allauth",
     "allauth.account",
     "portal",
+    'sponsorship',
     "volunteer",
     "portal_account",
 ]
@@ -104,6 +105,7 @@ else:
             "PORT": os.environ.get("SQL_PORT", "5432"),
         }
     }
+    
 
 
 # Password validation
