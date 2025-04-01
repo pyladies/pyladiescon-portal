@@ -19,20 +19,129 @@
     {% endelement %}
     {% if not SOCIALACCOUNT_ONLY %}
         {% url 'account_signup' as action_url %}
-        {% element form form=form method="post" action=action_url tags="entrance,signup" %}
-            {% slot body %}
-                {% csrf_token %}
-                {% element fields form=form unlabeled=True %}
-                {% endelement %}
-                {{ redirect_field }}
-            {% endslot %}
-            {% slot actions %}
-                {% element button tags="prominent,signup" type="submit" %}
-                    {% trans "Sign Up" %}
-                {% endelement %}
-            {% endslot %}
-        {% endelement %}
+        <form method="post" action="{{ action_url }}" class="entrance signup">
+            {% csrf_token %}
+            
+            <h3 class="mb-3">Personal Information</h3>
+            {% bootstrap_field form.username %}
+            {% bootstrap_field form.email %}
+            {% bootstrap_field form.first_name %}
+            {% bootstrap_field form.last_name %}
+            
+            <h3 class="mb-3">Password</h3>
+            {% bootstrap_field form.password1 %}
+            {% bootstrap_field form.password2 %}
+            
+            <h3 class="mb-3">Agreements</h3>
+            <div class="card mb-3">
+                <div class="card-body">
+                    <p>By creating an account, you are agreeing to our terms and conditions.</p>
+                    
+                    <div class="form-check mb-3">
+                        {{ form.coc_agreement }}
+                        <label class="form-check-label" for="{{ form.coc_agreement.id_for_label }}">
+                            I agree to the <a href="#" data-bs-toggle="modal" data-bs-target="#coc-modal">Code of Conduct</a>
+                        </label>
+                        {% if form.coc_agreement.errors %}
+                            <div class="invalid-feedback d-block">
+                                {{ form.coc_agreement.errors }}
+                            </div>
+                        {% endif %}
+                        <div class="form-text">{{ form.coc_agreement.help_text }}</div>
+                    </div>
+                    
+                    <div class="form-check">
+                        {{ form.tos_agreement }}
+                        <label class="form-check-label" for="{{ form.tos_agreement.id_for_label }}">
+                            I agree to the <a href="#" data-bs-toggle="modal" data-bs-target="#tos-modal">Terms of Service</a>
+                        </label>
+                        {% if form.tos_agreement.errors %}
+                            <div class="invalid-feedback d-block">
+                                {{ form.tos_agreement.errors }}
+                            </div>
+                        {% endif %}
+                        <div class="form-text">{{ form.tos_agreement.help_text }}</div>
+                    </div>
+                </div>
+            </div>
+            
+            {{ redirect_field }}
+            
+            <div class="d-grid gap-2">
+                <button class="btn btn-primary btn-lg" type="submit">{% trans "Sign Up" %}</button>
+            </div>
+        </form>
     {% endif %}
+    
+    <div class="modal fade" id="coc-modal" tabindex="-1" aria-labelledby="coc-modal-label" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="coc-modal-label">PyLadiesCon Code of Conduct</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <h4>Our Pledge</h4>
+                    <p>We as members, contributors, and leaders pledge to make participation in our community a harassment-free experience for everyone, regardless of age, body size, visible or invisible disability, ethnicity, sex characteristics, gender identity and expression, level of experience, education, socio-economic status, nationality, personal appearance, race, caste, color, religion, or sexual identity and orientation.</p>
+                    
+                    <h4>Our Standards</h4>
+                    <p>Examples of behavior that contributes to creating a positive environment include:</p>
+                    <ul>
+                        <li>Using welcoming and inclusive language</li>
+                        <li>Being respectful of differing viewpoints and experiences</li>
+                        <li>Gracefully accepting constructive criticism</li>
+                        <li>Focusing on what is best for the community</li>
+                        <li>Showing empathy towards other community members</li>
+                    </ul>
+                    
+                    <p>Examples of unacceptable behavior include:</p>
+                    <ul>
+                        <li>The use of sexualized language or imagery and unwelcome sexual attention or advances</li>
+                        <li>Trolling, insulting/derogatory comments, and personal or political attacks</li>
+                        <li>Public or private harassment</li>
+                        <li>Publishing others' private information without explicit permission</li>
+                        <li>Other conduct which could reasonably be considered inappropriate in a professional setting</li>
+                    </ul>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-primary" data-bs-dismiss="modal">I Understand</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="modal fade" id="tos-modal" tabindex="-1" aria-labelledby="tos-modal-label" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="tos-modal-label">PyLadiesCon Terms of Service</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <h4>1. Acceptance of Terms</h4>
+                    <p>By accessing and using the PyLadiesCon Portal ("Service"), you agree to be bound by these Terms of Service ("Terms"). The Service is operated by PyLadiesCon team ("we", "us", "our").</p>
+                    
+                    <h4>2. User Accounts</h4>
+                    <p>When you create an account with us, you must provide accurate, complete, and up-to-date information. You are responsible for safeguarding the password that you use to access the Service and for any activities or actions under your password.</p>
+                    
+                    <h4>3. Content and Conduct</h4>
+                    <p>Our Service allows you to post, link, store, share and otherwise make available certain information, text, graphics, or other material. You are responsible for the content you post and your conduct on the Service.</p>
+                    
+                    <h4>4. Privacy</h4>
+                    <p>Your privacy is important to us. Please review our Privacy Policy, which explains how we collect, use, and disclose information about you.</p>
+                    
+                    <h4>5. Changes to Terms</h4>
+                    <p>We reserve the right, at our sole discretion, to modify or replace these Terms at any time. If a revision is material, we will provide at least 30 days' notice prior to any new terms taking effect.</p>
+                    
+                    <p><em>Note: These Terms of Service are pending review by the Python Software Foundation. The final Terms of Service may be different.</em></p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-primary" data-bs-dismiss="modal">I Understand</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
     {% if PASSKEY_SIGNUP_ENABLED %}
         {% element hr %}
         {% endelement %}
