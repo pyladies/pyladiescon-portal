@@ -1,0 +1,6 @@
+{% extends "volunteer/email/base_message.txt" %}
+{% load i18n %}
+
+{% block content %}
+Your current volunteer application status: {{ status }}.
+{% endblock content %}
