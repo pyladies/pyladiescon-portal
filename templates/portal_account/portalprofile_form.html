@@ -6,16 +6,23 @@
 {% endblock %}
 {% block content %}
     <main>
-        <h1 class="display-5">Create your Portal Profile</h1>
+        <h1 class="display-5">{% if object.pk %}Edit{% else %}Create{% endif %} your Portal Profile</h1>
         <p class="lead">
-            Please complete your portal profile before proceeding.
+            {% if object.pk %}Update your portal profile information below.{% else %}Please complete your portal profile before proceeding.{% endif %}
         </p>
         <div class="row g-5">
             {% bootstrap_form_errors form %}
             <form action="{% url 'portal_account:portal_profile_new' %}" method="post" class="form" enctype="multipart/form-data">
                 {% csrf_token %}
                 {% bootstrap_form form %}
-                <input type="submit" value="Submit" />
+                <div class="mt-4">
+                    <input type="submit" value="{% if object.pk %}Update Profile{% else %}Create Profile{% endif %}" class="btn btn-primary" />
+                    {% if object.pk %}
+                    <a href="{% url 'portal_account:portal_profile_detail' object.pk %}" class="btn btn-secondary">Cancel</a>
+                    {% else %}
+                    <a href="{% url 'portal_account:index' %}" class="btn btn-secondary">Cancel</a>
+                    {% endif %}
+                </div>
             </form>
 {#                <form class="needs-validation" novalidate="">#}
 {#                  <div class="row g-3">#}
