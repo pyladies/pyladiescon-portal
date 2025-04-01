@@ -166,9 +166,13 @@ ACCOUNT_EMAIL_VERIFICATION_BY_CODE_ENABLED = True
 ACCOUNT_EMAIL_SUBJECT_PREFIX = "[PyLadiesCon Dev] "
 LOGIN_REDIRECT_URL = "/"
 ACCOUNT_LOGIN_METHODS = {"username"}
-ACCOUNT_SIGNUP_FIELDS = ["email*", "username*", "password1*", "password2*"]
-ACCOUNT_CHANGE_EMAIL = True
+ACCOUNT_SIGNUP_FIELDS = ["email*", "username*", "first_name*", "last_name*", "password1*", "password2*"]
+ACCOUNT_MAX_EMAIL_ADDRESSES = 3
 
+# Use custom signup form
+ACCOUNT_FORMS = {
+    'signup': 'portal.forms.CustomSignupForm'
+}
 
 # Default settings
 BOOTSTRAP5 = {
