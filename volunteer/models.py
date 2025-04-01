@@ -1,10 +1,12 @@
+from django.core.mail import EmailMultiAlternatives
+from django.template.loader import render_to_string
+from django.db import models, transaction
 from django.conf.global_settings import LANGUAGES
 from django.contrib.auth.models import User
-from django.db import models
 from django.urls import reverse
 
 from portal.models import BaseModel, ChoiceArrayField
-
+from portal.settings import ACCOUNT_EMAIL_SUBJECT_PREFIX, DEFAULT_FROM_EMAIL
 from .constants import ApplicationStatus
 
 TIMEZONE_CHOICES = [
@@ -101,3 +103,26 @@ class VolunteerProfile(BaseModel):
 
     def get_absolute_url(self):
         return reverse("volunteer:volunteer_profile_edit", kwargs={"pk": self.pk})
+
+    def save(self):
+        def send_volunteer_email():
+            text_content = render_to_string("volunteer/email/email_application_status_message.txt",
+                                            context={"status": self.application_status, "site_name": "PyLadiesCon"},
+                                            )
+            html_content = render_to_string("volunteer/email_application_status.html",
+                                            context={"status": self.application_status, "site_name": "PyLadiesCon"},
+                                            )
+
+            msg = EmailMultiAlternatives(
+                f"{ACCOUNT_EMAIL_SUBJECT_PREFIX} Volunteer Application Status",
+                text_content,
+                DEFAULT_FROM_EMAIL,
+                [self.user.email],
+            )
+            msg.attach_alternative(html_content, "text/html")
+            msg.send()
+
+        transaction.on_commit(send_volunteer_email)
+        return super().save()
+
+
