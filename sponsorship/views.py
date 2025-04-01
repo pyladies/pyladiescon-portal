@@ -14,7 +14,7 @@ def create_sponsorship_profile(request):
             sponsorship_profile.user = request.user  # Assuming the user is logged in
             sponsorship_profile.save()
             form.save_m2m()  # Save many-to-many relationships
-            return redirect('sponsorship:profile_success')  # Redirect to a success page or profile page
+            return redirect('sponsorship:success')  # Redirect to a success page or profile page
     else:
         form = SponsorshipProfileForm()
     return render(request, 'portal/sponsorship/create_sponsorship_profile.html', {'form': form})
