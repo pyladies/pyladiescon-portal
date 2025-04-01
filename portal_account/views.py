@@ -34,8 +34,13 @@ class PortalProfileCreate(CreateView):
         kwargs.update({"user": self.request.user})
         return kwargs
 
-
 class PortalProfileUpdate(UpdateView):
     model = PortalProfile
-    fields = "__all__"
+    template_name = "portal_account/portalprofile_form.html"
     success_url = reverse_lazy("index")
+    form_class = PortalProfileForm
+
+    def get_form_kwargs(self):
+        kwargs = super(PortalProfileUpdate, self).get_form_kwargs()
+        kwargs.update({"user": self.request.user})
+        return kwargs

@@ -16,6 +16,9 @@ class VolunteerProfileForm(ModelForm):
         self.user = kwargs.pop("user", None)
         super().__init__(*args, **kwargs)
 
+        if self.instance and self.instance.pk:
+            pass
+
     def save(self, commit=True):
         """ """
         user = self.user
