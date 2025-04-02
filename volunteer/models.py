@@ -99,7 +99,6 @@ class VolunteerProfile(BaseModel):
 
     def clean(self):
         super().clean()
-        # Run validation for all social media fields
         self._validate_github_username()
         self._validate_discord_username()
         self._validate_instagram_username()
