@@ -26,10 +26,16 @@
                     </div>
                     <h3 class="fs-2 text-body-emphasis">Sponsor Us</h3>
                     <p>Want to become a sponsor? Fill out your sponsorship profile and we'll follow up with details!</p>
-                    <a href="{% url 'sponsorship:create' %}" class="icon-link">
-                        Become a sponsor!
-                        <i class="fa-solid fa-chevron-right"></i>
-                        </a>
+                    {% if email_verified %}
+                        <a href="{% url 'sponsorship:create' %}" class="icon-link">
+                            Become a sponsor!
+                            <i class="fa-solid fa-chevron-right"></i>
+                            </a>
+                    {% else %}
+                        <p class="text-muted">
+                            Please verify your email address to access the sponsorship form.
+                        </p>
+                    {% endif %}
                 </div>
                 <div class="feature col">
                     <div class="d-inline-flex align-items-center justify-content-center fa-3x mb-3">

@@ -1,3 +1,4 @@
+from allauth.account.models import EmailAddress
 from django.shortcuts import render, redirect
 
 
@@ -12,6 +13,9 @@ def index(request):
         and not PortalProfile.objects.filter(user=request.user).exists()
     ):
         return redirect("portal_account:portal_profile_new")
+    if request.user.is_authenticated:
+        context["email_verified"] = EmailAddress.objects.filter(user=request.user, verified=True).exists()
+        
     return render(request, "portal/index.html", context)
 
 def sponsorship_success(request):

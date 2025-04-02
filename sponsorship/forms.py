@@ -4,6 +4,7 @@ from .models import SponsorshipProfile
 class SponsorshipProfileForm(forms.ModelForm):
     class Meta:
         model = SponsorshipProfile
+        exclude = ['user', 'application_status']
         fields = [
             'main_contact',
             'additional_contacts',
