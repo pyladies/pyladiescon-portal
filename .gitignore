@@ -10,3 +10,5 @@ env
 .coverage
 .state
 staticroot
+
+__pycache__/
