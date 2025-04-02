@@ -41,8 +41,14 @@ class VolunteerProfileCreate(CreateView):
 
 class VolunteerProfileUpdate(UpdateView):
     model = VolunteerProfile
-    fields = "__all__"
+    template_name = "volunteer/volunteerprofile_form.html"
     success_url = reverse_lazy("volunteer:index")
+    form_class = VolunteerProfileForm
+    
+    def get_form_kwargs(self):
+        kwargs = super(VolunteerProfileUpdate, self).get_form_kwargs()
+        kwargs.update({"user": self.request.user})
+        return kwargs
 
 
 class VolunteerProfileDelete(DeleteView):
