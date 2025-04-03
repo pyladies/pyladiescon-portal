@@ -3,6 +3,11 @@
 {% load django_bootstrap5 %}
 
 {% block body %}
+<svg xmlns="http://www.w3.org/2000/svg" style="display: none;">
+    <symbol id="arrow-right-short" viewBox="0 0 16 16">
+        <path fill-rule="evenodd" d="M4 8a.5.5 0 0 1 .5-.5h5.793L8.146 5.354a.5.5 0 1 1 .708-.708l3 3a.5.5 0 0 1 0 .708l-3 3a.5.5 0 0 1-.708-.708L10.293 8.5H4.5A.5.5 0 0 1 4 8z"/>
+    </symbol>
+</svg> 
 {% endblock %}
 {% block content %}
     {% if user.is_authenticated %}
@@ -58,7 +63,7 @@
 
                 <a class="d-inline-flex align-items-center btn btn-primary btn-lg px-4 rounded-pill" href="{% url 'account_signup' %}" role="button">
                     Sign up
-                    <svg class="bi ms-2" width="24" height="24"><use xlink:href="#arrow-right-short"></use></svg>
+                    <svg class="bi ms-2" width="24" height="24" fill="white"><use xlink:href="#arrow-right-short"></use></svg>
                 </a>
                 <a class="btn btn-outline-secondary btn-lg px-4 rounded-pill" href="{% url 'account_login' %}" role="button">
                     Login
