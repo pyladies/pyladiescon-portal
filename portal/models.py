@@ -6,6 +6,12 @@ from django.contrib.postgres.fields import ArrayField
 
 
 class ChoiceArrayField(ArrayField):
+    def __init__(self, *args, **kwargs):
+        # Set default to empty list if it's not provided
+        if 'default' not in kwargs:
+            kwargs['default'] = []
+        super().__init__(*args, **kwargs)
+        
     def formfield(self, **kwargs):
         defaults = {
             "form_class": forms.TypedMultipleChoiceField,
