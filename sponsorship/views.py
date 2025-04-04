@@ -2,8 +2,8 @@ from django.shortcuts import render, get_object_or_404, redirect
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth.decorators import login_required
-from .models import SponsorshipTier, SponsorshipApplication, SponsorshipAsset
-from .forms import SponsorshipTierForm, SponsorshipStatusForm, SponsorshipAssetForm
+from .models import SponsorshipApplication, SponsorshipAsset
+#from .forms import SponsorshipTierForm, SponsorshipStatusForm, SponsorshipAssetForm
 
 
 """from the above this is a sample code i am contributing of starting the sponsorship
