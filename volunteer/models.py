@@ -100,3 +100,11 @@ class VolunteerProfile(BaseModel):
 
     def get_absolute_url(self):
         return reverse("volunteer_profile_edit", kwargs={"pk": self.pk})
+
+
+
+
+
+
+
+

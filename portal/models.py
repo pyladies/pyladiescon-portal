@@ -26,3 +26,8 @@ class BaseModel(models.Model):
         if "update_fields" in kwargs and "modified_date" not in kwargs["update_fields"]:
             kwargs["update_fields"].append("modified_date")
         super().save(*args, **kwargs)
+
+
+
+
+

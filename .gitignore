@@ -10,3 +10,10 @@ env
 .coverage
 .state
 staticroot
+.vs/
+db.sqlite3
+__pycache__/
+*.pyc
+*.pyo
+*.swp
+pyladiescon-portal/
