@@ -1,6 +1,7 @@
 {% extends "account/base_entrance.html" %}
 {% load allauth i18n %}
 {% load django_bootstrap5 %}
+{% load widget_tweaks %}
 {% block head_title %}
     {% trans "Signup" %}
 {% endblock head_title %}
@@ -19,11 +20,23 @@
     {% endelement %}
     {% if not SOCIALACCOUNT_ONLY %}
         {% url 'account_signup' as action_url %}
+
         {% element form form=form method="post" action=action_url tags="entrance,signup" %}
             {% slot body %}
                 {% csrf_token %}
-                {% element fields form=form unlabeled=True %}
-                {% endelement %}
+                {% for field in form %}
+                <div class="mb-3">
+                    {{ field.label_tag }}
+                    {% if field.errors %}
+                    {{ field|add_class:"form-control is-invalid" }}
+                    {% for error in field.errors %}
+                        <div class="invalid-feedback">{{ error }}</div>
+                    {% endfor %}
+                    {% else %}
+                    {{ field|add_class:"form-control" }}
+                    {% endif %}
+                </div>
+                {% endfor %}
                 {{ redirect_field }}
             {% endslot %}
             {% slot actions %}
@@ -32,6 +45,7 @@
                 {% endelement %}
             {% endslot %}
         {% endelement %}
+
     {% endif %}
     {% if PASSKEY_SIGNUP_ENABLED %}
         {% element hr %}
