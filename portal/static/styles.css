@@ -46,3 +46,8 @@
 .navbar .form-control {
   padding: .75rem 1rem;
 }
+
+.custom-container {
+  background-color: #fbeef8 !important;
+  color: #CD5C5C !important;
+}
