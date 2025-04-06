@@ -12,6 +12,15 @@
         </title>
         {% block extra_head %}
             <script src="https://kit.fontawesome.com/8774ceef9d.js" crossorigin="anonymous"></script>
+            <!-- SVG Sprite for Bootstrap Icons -->
+            <svg style="display: none;">
+                <symbol id="bootstrap" viewBox="0 0 118 94">
+                    <path fill-rule="evenodd" clip-rule="evenodd" d="M24.5 0h69c13.3 0 24 10.7 24 24v46c0 13.3-10.7 24-24 24h-69C11.2 94 0 83.3 0 70V24C0 10.7 11.2 0 24.5 0zM61 74.5c17.7 0 32-14.3 32-32S78.7 10.5 61 10.5c-17.7 0-32 14.3-32 32s14.3 32 32 32zm0-8c13.3 0 24-10.7 24-24S74.3 18.5 61 18.5c-13.3 0-24 10.7-24 24s10.7 24 24 24z"/>
+                </symbol>
+                <symbol id="arrow-right-short" viewBox="0 0 16 16">
+                    <path fill-rule="evenodd" d="M4 8a.5.5 0 0 1 .5-.5h5.793L8.146 5.354a.5.5 0 1 1 .708-.708l3 3a.5.5 0 0 1 0 .708l-3 3a.5.5 0 0 1-.708-.708L10.293 8.5H4.5A.5.5 0 0 1 4 8z"/>
+                </symbol>
+            </svg>
         {% endblock extra_head %}
         {% bootstrap_css %}
         {% bootstrap_javascript %}
