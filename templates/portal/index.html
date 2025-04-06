@@ -25,12 +25,13 @@
                         <i class="fa-solid fa-hand-holding-dollar"></i>
                     </div>
                     <h3 class="fs-2 text-body-emphasis">Sponsor Us</h3>
-                    <p>Sponsorship package is coming soon!</p>
-{#                        <a href="#" class="icon-link">#}
-{#                          Call to action#}
-{#                          <svg class="bi"><use xlink:href="#chevron-right"></use></svg>#}
-{#                        </a>#}
+                    <p>Want to sponsor PyLadiesCon? Fill out our sponsorship form to get started!</p>
+                    <a href="{% url 'sponsorship:create' %}" class="icon-link">
+                        Sponsor Now
+                        <i class="fa-solid fa-chevron-right"></i>
+                    </a>
                 </div>
+                
                 <div class="feature col">
                     <div class="d-inline-flex align-items-center justify-content-center fa-3x mb-3">
                         <i class="fa-solid fa-microphone"></i>

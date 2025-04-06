@@ -1,7 +1,7 @@
-from enum import StrEnum
+from enum import Enum
 
 
-class RoleTypes(StrEnum):
+class RoleTypes(Enum):
     """Role types for the volunteer."""
 
     ADMIN = "Admin"
@@ -10,7 +10,7 @@ class RoleTypes(StrEnum):
     VOLUNTEER = "Volunteer"
 
 
-class ApplicationStatus(StrEnum):
+class ApplicationStatus(Enum):
     """Application status for the volunteer."""
 
     PENDING = "Pending Review"
