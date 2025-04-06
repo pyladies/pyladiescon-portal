@@ -1,5 +1,4 @@
 {% load i18n %}
-{% load django_bootstrap5 %}
 
 <!DOCTYPE html>
 <html>
@@ -10,87 +9,193 @@
             {% block head_title %}
             {% endblock head_title %}
         </title>
+        
+        <!-- OpenGraph Meta Tags -->
+        <meta property="og:title" content="PyLadiesCon Web Portal" />
+        <meta property="og:type" content="website" />
+        <meta property="og:url" content="{{ request.build_absolute_uri }}" />
+        <meta property="og:image" content="https://conference.pyladies.com/img/icon.png" />
+        <meta property="og:description" content="Welcome to PyLadiesCon Conference Management Portal. Sign up to volunteer with us!" />
+        <meta property="og:site_name" content="PyLadiesCon" />
+        
+        <!-- Twitter Card Meta Tags -->
+        <meta name="twitter:card" content="summary" />
+        <meta name="twitter:title" content="PyLadiesCon Web Portal" />
+        <meta name="twitter:description" content="Welcome to PyLadiesCon Conference Management Portal. Sign up to volunteer with us!" />
+        <meta name="twitter:image" content="https://conference.pyladies.com/img/icon.png" />
+        
+        <!-- Custom Fonts -->
+        <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+        <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
+        
         {% block extra_head %}
             <script src="https://kit.fontawesome.com/8774ceef9d.js" crossorigin="anonymous"></script>
         {% endblock extra_head %}
-        {% bootstrap_css %}
-        {% bootstrap_javascript %}
-        {# Display django.contrib.messages as Bootstrap alerts #}
-        {% bootstrap_messages %}
+        <script src="https://cdn.tailwindcss.com"></script>
+        <script>
+            tailwind.config = {
+                theme: {
+                    extend: {
+                        colors: {
+                            pyladies: {
+                                purple: '#2D1B2D',
+                                pink: '#FF3366',
+                                'pink-light': '#FF6B93'
+                            }
+                        },
+                        fontFamily: {
+                            'retro': ['"Press Start 2P"', 'cursive'],
+                            'tech': ['"Share Tech Mono"', 'monospace']
+                        }
+                    }
+                }
+            }
+        </script>
+        <style>
+            body {
+                background: linear-gradient(135deg, #2D1B2D 0%, #1a0f1a 100%);
+                color: white;
+                font-family: 'Share Tech Mono', monospace;
+            }
+            
+            h1, h2, h3 {
+                font-family: 'Press Start 2P', cursive;
+                letter-spacing: 0.1em;
+            }
+            
+            .bg-pyladies-purple {
+                background: linear-gradient(135deg, #2D1B2D 0%, #1a0f1a 100%);
+            }
+            
+            .text-pyladies-pink {
+                color: #FF3366;
+                text-shadow: 0 0 10px rgba(255, 51, 102, 0.3);
+            }
+            
+            .hover\:text-pyladies-pink:hover {
+                color: #FF3366;
+                text-shadow: 0 0 15px rgba(255, 51, 102, 0.5);
+            }
+            
+            .bg-pyladies-pink {
+                background-color: #FF3366;
+                box-shadow: 0 0 15px rgba(255, 51, 102, 0.3);
+            }
+            
+            .hover\:bg-pyladies-pink:hover {
+                background-color: #FF3366;
+                box-shadow: 0 0 20px rgba(255, 51, 102, 0.5);
+            }
+            
+            .border-pyladies-pink {
+                border-color: #FF3366;
+            }
+            
+            .hover\:bg-pyladies-pink-light:hover {
+                background-color: #FF6B93;
+            }
+            
+            .retro-shadow {
+                text-shadow: 2px 2px 0px rgba(255, 51, 102, 0.5);
+            }
+            
+            .menu-logo {
+                filter: drop-shadow(0 0 10px rgba(255, 51, 102, 0.3));
+            }
+        </style>
     </head>
-    <body>
+    <body class="bg-pyladies-purple text-white">
         {% block body %}
         {% endblock %}
-        <nav class="navbar navbar-expand-md navbar-dark bg-dark" aria-label="Fourth navbar example">
-            <div class="container-fluid">
-                <a class="navbar-brand" href="/">PyLadiesCon Portal</a>
-                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarsExample04" aria-controls="navbarsExample04" aria-expanded="false" aria-label="Toggle navigation">
-                    <span class="navbar-toggler-icon"></span>
-                </button>
+        <nav class="bg-pyladies-purple text-white border-b border-gray-800">
+            <div class="container mx-auto px-4 py-3 flex items-center justify-between">
+                <a class="flex items-center" href="/" aria-label="PyLadiesCon">
+                    <img class="menu-logo" src="https://conference.pyladies.com/img/icon.png" height="48" width="48">
+                </a>
+                
+                <div class="flex items-center">
+                    <a class="hidden md:block py-2 px-4 text-white hover:text-pyladies-pink font-tech" href="/">Home</a>
+                    
+                    <button class="md:hidden px-2 py-1 border rounded text-white" type="button" id="menuButton" aria-expanded="false" onclick="toggleMenu()">
+                        <span class="sr-only">Toggle navigation</span>
+                        <i class="fa-solid fa-bars"></i>
+                    </button>
+                </div>
 
-                <div class="collapse navbar-collapse" id="navbarsExample04">
-                    <ul class="navbar-nav me-auto mb-2 mb-md-0">
-                        <li class="nav-item">
-                            <a class="nav-link active" aria-current="page" href="/">Home</a>
-                        </li>
+                <div class="hidden md:flex flex-col md:flex-row w-full md:w-auto" id="navbarMenu">
+                    <ul class="flex flex-col md:flex-row md:space-x-4 mb-2 md:mb-0">
                         {% if user.is_authenticated %}
-
-                            <li class="nav-item">
-                                <a class="nav-link" href="{% url 'volunteer:index' %}">Volunteer</a>
+                            <li>
+                                <a class="block py-2 text-white hover:text-pyladies-pink font-tech" href="{% url 'volunteer:index' %}">Volunteer</a>
                             </li>
                         {% endif %}
-
                     </ul>
                     {% if user.is_authenticated %}
-                        <div class="dropdown text-end navbar-nav">
-                            <a href="#" class="nav-link d-block link-body-emphasis text-decoration-none dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="true">
+                        <div class="relative ml-auto">
+                            <button class="flex items-center text-white hover:text-pyladies-pink font-tech" type="button" id="userDropdown" onclick="toggleDropdown()">
                                 Welcome, {{ user.username }}
-{#                                <img src="https://github.com/mdo.png" alt="mdo" width="32" height="32" class="rounded-circle">#}
-                            </a>
-                            <ul class="dropdown-menu text-small" style="position: absolute; inset: 0px 0px auto auto; margin: 0px; transform: translate(0px, 34px);" data-popper-placement="bottom-end">
+                                <i class="fa-solid fa-angle-down ml-1"></i>
+                            </button>
+                            <ul class="hidden absolute right-0 mt-2 py-2 w-48 bg-gray-900 rounded-md shadow-lg z-10 font-tech" id="dropdownMenu">
                                 {% if user.is_superuser %}
                                     <li>
-                                        <a class="dropdown-item" href="{% url 'admin:index' %}">{% trans "Admin Area" %}</a>
+                                        <a class="block px-4 py-2 text-sm text-gray-300 hover:bg-gray-800" href="{% url 'admin:index' %}">{% trans "Admin Area" %}</a>
                                     </li>
-                                    <li><hr class="dropdown-divider"></li>
+                                    <li class="border-t border-gray-700"></li>
                                 {% endif %}
                                 <li>
-                                    <a class="dropdown-item" href="{% url 'portal_account:index' %}">{% trans "Manage Profile" %}</a>
+                                    <a class="block px-4 py-2 text-sm text-gray-300 hover:bg-gray-800" href="{% url 'portal_account:index' %}">{% trans "Manage Profile" %}</a>
                                 </li>
                                 {% url 'account_email' as email_url_ %}
                                 {% if email_url_ %}
                                     <li>
-                                        <a class="dropdown-item" href="{{ email_url_ }}">{% trans "Manage Emails" %}</a>
+                                        <a class="block px-4 py-2 text-sm text-gray-300 hover:bg-gray-800" href="{{ email_url_ }}">{% trans "Manage Emails" %}</a>
                                     </li>
                                 {% endif %}
                                 {% url 'account_change_password' as change_password_url_ %}
                                 {% if change_password_url_ %}
                                     <li>
-                                        <a class="dropdown-item" href="{{ change_password_url_ }}">{% trans "Change Password" %}</a>
+                                        <a class="block px-4 py-2 text-sm text-gray-300 hover:bg-gray-800" href="{{ change_password_url_ }}">{% trans "Change Password" %}</a>
                                     </li>
                                 {% endif %}
-                                <li><hr class="dropdown-divider"></li>
+                                <li class="border-t border-gray-700"></li>
                                 {% url 'account_logout' as logout_url_ %}
                                 {% if logout_url_ %}
                                     <li>
-                                        <a class="dropdown-item" href="{{ logout_url_ }}">{% trans "Sign Out" %}</a>
+                                        <a class="block px-4 py-2 text-sm text-gray-300 hover:bg-gray-800" href="{{ logout_url_ }}">{% trans "Sign Out" %}</a>
                                     </li>
                                 {% endif %}
                             </ul>
                         </div>
                     {% endif %}
-{#                    <form role="search">#}
-{#                        <input class="form-control" type="search" placeholder="Search" aria-label="Search">#}
-{#                    </form>#}
-              </div>
+                </div>
             </div>
         </nav>
-        <div class="alert alert-info" role="alert">
-            <strong>Development Notice:</strong> The codebase is real, but the database is not. Any signups, accounts, or data entered on this site may be deleted without notice. For now, feel free to play around.
+        <div class="bg-gray-800 bg-opacity-50 text-gray-200 px-4 py-3 font-tech" role="alert">
+            <strong class="font-bold">Development Notice:</strong> The codebase is real, but the database is not. Any signups, accounts, or data entered on this site may be deleted without notice. For now, feel free to play around.
         </div>
-        <div class="container my-5">
+        <div class="container mx-auto px-4 my-5">
             {% block content %}
             {% endblock %}
         </div>
+
+        <script>
+            function toggleMenu() {
+                const menu = document.getElementById('navbarMenu');
+                menu.classList.toggle('hidden');
+            }
+
+            function toggleDropdown() {
+                const dropdown = document.getElementById('dropdownMenu');
+                dropdown.classList.toggle('hidden');
+            }
+
+            // Close the dropdown when clicking outside
+            window.addEventListener('click', function(e) {
+                if (!document.getElementById('userDropdown')?.contains(e.target)) {
+                    document.getElementById('dropdownMenu')?.classList.add('hidden');
+                }
+            });
+        </script>
     </body>
 </html>

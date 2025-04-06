@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+{% load static %}
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block head_title %}{% endblock %} | PyLadiesCon</title>
+    <!-- Tailwind CSS via CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'pyladies-pink': '#e91e63',
+                        'pyladies-pink-light': '#f06292',
+                        'pyladies-purple': '#2D1B2D'
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Custom Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <style>
+        .retro-title {
+            font-family: 'Press Start 2P', cursive;
+        }
+        .tech-font {
+            font-family: 'Share Tech Mono', monospace;
+        }
+        body {
+            background-color: #2D1B2D;
+        }
+    </style>
+    {% block extra_head %}{% endblock %}
+</head>
+<body class="min-h-screen bg-pyladies-purple text-white">
+    {% if messages %}
+        <div class="fixed top-4 right-4 z-50">
+            {% for message in messages %}
+                <div class="bg-gray-800 bg-opacity-90 text-white px-6 py-4 rounded-lg shadow-lg mb-4 tech-font">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+
+    <main class="container mx-auto px-4">
+        {% block content %}{% endblock %}
+    </main>
+
+    {% block extra_body %}{% endblock %}
+</body>
+</html> 
