@@ -1,70 +1,79 @@
 {% extends "portal/base.html" %}
-{% load allauth i18n %}
-{% load django_bootstrap5 %}
+{% load i18n %}
 
 {% block body %}
+<style>
+    body {
+        background: linear-gradient(135deg, #2D1B2D 0%, #1a0f1a 100%);
+        min-height: 100vh;
+    }
+    .code-icon {
+        color: #FF3366;
+        font-size: 3.5rem;
+        margin-bottom: 1.5rem;
+    }
+    .retro-title {
+        font-family: 'Press Start 2P', cursive;
+        letter-spacing: 0.1em;
+        line-height: 1.5;
+        text-shadow: 2px 2px 0px rgba(255, 51, 102, 0.5);
+    }
+    .tech-font {
+        font-family: 'Share Tech Mono', monospace;
+    }
+</style>
 {% endblock %}
 {% block content %}
     {% if user.is_authenticated %}
-        <div class="container px-4 py-5" id="featured-3">
-            <h2 class="pb-2 border-bottom">PyLadiesCon Portal</h2>
-            <div class="row g-4 py-5 row-cols-1 row-cols-lg-3">
-                <div class="feature col">
-                    <div class="d-inline-flex align-items-center justify-content-center fa-3x mb-3">
+        <div class="px-4 py-8">
+            <h1 class="text-4xl font-bold text-pyladies-pink mb-8 retro-title">PyLadiesCon</h1>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                <div class="bg-white bg-opacity-10 backdrop-blur-sm rounded-lg shadow-lg p-6 border border-gray-700">
+                    <div class="flex justify-center text-pyladies-pink text-4xl mb-4">
                         <i class="fa-solid fa-user-group"></i>
                     </div>
-                    <h3 class="fs-2 text-body-emphasis">Volunteer</h3>
-                    <p>Sign up to volunteer with us! Fill in your Volunteer profile and we'll get you set up.</p>
-                    <a href="{% url 'volunteer:index' %}" class="icon-link">
+                    <h3 class="text-xl font-semibold text-pyladies-pink mb-2 retro-title">Volunteer</h3>
+                    <p class="text-gray-300 mb-4 tech-font">Sign up to volunteer with us! Fill in your Volunteer profile and we'll get you set up.</p>
+                    <a href="{% url 'volunteer:index' %}" class="inline-flex items-center text-pyladies-pink hover:text-pyladies-pink-light tech-font">
                       Volunteer Now
-                      <i class="fa-solid fa-chevron-right"></i>
+                      <i class="fa-solid fa-chevron-right ml-2"></i>
                     </a>
                 </div>
-                <div class="feature col">
-                    <div class="d-inline-flex align-items-center justify-content-center fa-3x mb-3">
+                <div class="bg-white bg-opacity-10 backdrop-blur-sm rounded-lg shadow-lg p-6 border border-gray-700">
+                    <div class="flex justify-center text-pyladies-pink text-4xl mb-4">
                         <i class="fa-solid fa-hand-holding-dollar"></i>
                     </div>
-                    <h3 class="fs-2 text-body-emphasis">Sponsor Us</h3>
-                    <p>Sponsorship package is coming soon!</p>
-{#                        <a href="#" class="icon-link">#}
-{#                          Call to action#}
-{#                          <svg class="bi"><use xlink:href="#chevron-right"></use></svg>#}
-{#                        </a>#}
+                    <h3 class="text-xl font-semibold text-pyladies-pink mb-2 retro-title">Sponsor Us</h3>
+                    <p class="text-gray-300 mb-4 tech-font">Sponsorship package is coming soon!</p>
                 </div>
-                <div class="feature col">
-                    <div class="d-inline-flex align-items-center justify-content-center fa-3x mb-3">
+                <div class="bg-white bg-opacity-10 backdrop-blur-sm rounded-lg shadow-lg p-6 border border-gray-700">
+                    <div class="flex justify-center text-pyladies-pink text-4xl mb-4">
                         <i class="fa-solid fa-microphone"></i>
                     </div>
-                    <h3 class="fs-2 text-body-emphasis">Speaker Portal</h3>
-                    <p>Are you one of our speakers? Soon, you'll have access to this page. </p>
-{#                        <a href="#" class="icon-link">#}
-{#                          Call to action#}
-{#                          <svg class="bi"><use xlink:href="#chevron-right"></use></svg>#}
-{#                        </a>#}
+                    <h3 class="text-xl font-semibold text-pyladies-pink mb-2 retro-title">Speaker Portal</h3>
+                    <p class="text-gray-300 mb-4 tech-font">Are you one of our speakers? Soon, you'll have access to this page.</p>
                 </div>
             </div>
-
         </div>
-
     {% else %}
-        <div class="p-5 text-center bg-body-tertiary rounded-3">
-            <svg class="bi mt-4 mb-3" style="color: var(--bs-indigo);" width="100" height="100"><use xlink:href="#bootstrap"></use></svg>
-            <h1 class="text-body-emphasis">PyLadiesCon Web Portal</h1>
-            <p class="col-lg-8 mx-auto fs-5 text-muted">
+        <div class="p-8 text-center text-white">
+            <div class="flex justify-center items-center mb-8">
+                <img src="https://conference.pyladies.com/img/icon.png" alt="PyLadies Logo" class="w-32 h-32">
+            </div>
+            <h1 class="text-4xl font-bold mb-6 retro-title">PyLadiesCon Web Portal</h1>
+            <p class="max-w-2xl mx-auto text-lg mb-8 text-gray-200 tech-font">
                 Welcome to our PyLadiesCon Conference Management Portal.
                 <br> Sign up to volunteer with us.
             </p>
-            <div class="d-inline-flex gap-2 mb-5">
-
-                <a class="d-inline-flex align-items-center btn btn-primary btn-lg px-4 rounded-pill" href="{% url 'account_signup' %}" role="button">
+            <div class="flex flex-wrap justify-center gap-4 mb-6">
+                <a class="inline-flex items-center px-6 py-3 bg-pyladies-pink hover:bg-pyladies-pink-light text-white font-medium rounded-full transition-colors shadow-md tech-font" href="{% url 'account_signup' %}">
                     Sign up
-                    <svg class="bi ms-2" width="24" height="24"><use xlink:href="#arrow-right-short"></use></svg>
+                    <i class="fa-solid fa-arrow-right ml-2"></i>
                 </a>
-                <a class="btn btn-outline-secondary btn-lg px-4 rounded-pill" href="{% url 'account_login' %}" role="button">
+                <a class="px-6 py-3 border border-pyladies-pink text-pyladies-pink hover:bg-pyladies-pink hover:text-white font-medium rounded-full transition-colors shadow-md tech-font" href="{% url 'account_login' %}">
                     Login
                 </a>
             </div>
         </div>
     {% endif %}
-
 {% endblock %}

@@ -1,58 +1,100 @@
 {% extends "account/base_entrance.html" %}
 {% load i18n %}
 {% load allauth account %}
+
 {% block head_title %}
     {% trans "Sign In" %}
 {% endblock head_title %}
+
 {% block content %}
-    {% element h1 %}
-        {% trans "Sign In" %}
-    {% endelement %}
-    {% if not SOCIALACCOUNT_ONLY %}
-        {% setvar link %}
-            <a href="{{ signup_url }}">
-            {% endsetvar %}
-            {% setvar end_link %}
-            </a>
-        {% endsetvar %}
-        {% element p %}
-            {% blocktranslate %}If you have not created an account yet, then please {{ link }}sign up{{ end_link }} first.{% endblocktranslate %}
-        {% endelement %}
-        {% url 'account_login' as login_url %}
-        {% element form form=form method="post" action=login_url tags="entrance,login" %}
-            {% slot body %}
+<div class="container mx-auto px-4 py-8">
+    <div class="max-w-md mx-auto bg-white bg-opacity-10 backdrop-blur-sm p-8 rounded-lg shadow-lg border border-gray-700">
+        <h1 class="text-3xl font-bold mb-6 text-pyladies-pink retro-title">{% trans "Sign In" %}</h1>
+
+        {% if not SOCIALACCOUNT_ONLY %}
+            <p class="mb-6 text-gray-300 tech-font">
+                {% blocktranslate %}If you have not created an account yet, then please <a href="{{ signup_url }}" class="text-pyladies-pink hover:text-pyladies-pink-light">sign up</a> first.{% endblocktranslate %}
+            </p>
+
+            {% url 'account_login' as login_url %}
+            <form class="space-y-4" method="post" action="{{ login_url }}">
                 {% csrf_token %}
-                {% element fields form=form unlabeled=True %}
-                {% endelement %}
+                
+                <div class="space-y-4">
+                    {% for field in form %}
+                        <div class="form-group">
+                            <label class="block text-gray-300 mb-2 tech-font" for="{{ field.id_for_label }}">
+                                {{ field.label }}
+                            </label>
+                            <input type="{{ field.field.widget.input_type }}" 
+                                   name="{{ field.html_name }}"
+                                   id="{{ field.id_for_label }}"
+                                   class="w-full px-4 py-2 bg-gray-800 border border-gray-600 rounded-md text-white tech-font focus:border-pyladies-pink focus:ring focus:ring-pyladies-pink focus:ring-opacity-50"
+                                   {% if field.field.required %}required{% endif %}
+                                   {% if field.value %}value="{{ field.value }}"{% endif %}>
+                            {% if field.help_text %}
+                                <p class="mt-1 text-sm text-gray-400 tech-font">{{ field.help_text }}</p>
+                            {% endif %}
+                            {% if field.errors %}
+                                <div class="mt-1 text-pyladies-pink text-sm tech-font">
+                                    {{ field.errors }}
+                                </div>
+                            {% endif %}
+                        </div>
+                    {% endfor %}
+                </div>
+
                 {{ redirect_field }}
-            {% endslot %}
-            {% slot actions %}
-                {% element button type="submit" tags="prominent,login" %}
+
+                <button type="submit" class="w-full mt-6 px-6 py-3 bg-pyladies-pink hover:bg-pyladies-pink-light text-white font-medium rounded-md transition-colors shadow-md tech-font">
                     {% trans "Sign In" %}
-                {% endelement %}
-            {% endslot %}
-        {% endelement %}
-    {% endif %}
-    {% if LOGIN_BY_CODE_ENABLED or PASSKEY_LOGIN_ENABLED %}
-        {% element hr %}
-        {% endelement %}
-        {% element button_group vertical=True %}
-            {% if PASSKEY_LOGIN_ENABLED %}
-                {% element button type="submit" form="mfa_login" id="passkey_login" tags="prominent,login,outline,primary" %}
-                    {% trans "Sign in with a passkey" %}
-                {% endelement %}
-            {% endif %}
-            {% if LOGIN_BY_CODE_ENABLED %}
-                {% element button href=request_login_code_url tags="prominent,login,outline,primary" %}
-                    {% trans "Send me a sign-in code" %}
-                {% endelement %}
-            {% endif %}
-        {% endelement %}
-    {% endif %}
-    {% if SOCIALACCOUNT_ENABLED %}
-        {% include "socialaccount/snippets/login.html" with page_layout="entrance" %}
-    {% endif %}
-{% endblock content %}
+                </button>
+            </form>
+        {% endif %}
+
+        {% if LOGIN_BY_CODE_ENABLED or PASSKEY_LOGIN_ENABLED %}
+            <div class="mt-6 pt-6 border-t border-gray-700 space-y-3">
+                {% if PASSKEY_LOGIN_ENABLED %}
+                    <button type="submit" form="mfa_login" id="passkey_login" class="w-full px-6 py-3 border border-pyladies-pink text-pyladies-pink hover:bg-pyladies-pink hover:text-white font-medium rounded-md text-center transition-colors shadow-md tech-font">
+                        {% trans "Sign in with a passkey" %}
+                    </button>
+                {% endif %}
+                {% if LOGIN_BY_CODE_ENABLED %}
+                    <a href="{{ request_login_code_url }}" class="block w-full px-6 py-3 border border-pyladies-pink text-pyladies-pink hover:bg-pyladies-pink hover:text-white font-medium rounded-md text-center transition-colors shadow-md tech-font">
+                        {% trans "Send me a sign-in code" %}
+                    </a>
+                {% endif %}
+            </div>
+        {% endif %}
+
+        {% if SOCIALACCOUNT_ENABLED %}
+            {% include "socialaccount/snippets/login.html" with page_layout="entrance" %}
+        {% endif %}
+    </div>
+</div>
+
+<style>
+    /* Override any conflicting styles */
+    input:-webkit-autofill,
+    input:-webkit-autofill:hover,
+    input:-webkit-autofill:focus {
+        -webkit-text-fill-color: white;
+        -webkit-box-shadow: 0 0 0px 1000px #1a1a1a inset;
+        transition: background-color 5000s ease-in-out 0s;
+    }
+    
+    input::placeholder {
+        color: #6b7280;
+    }
+    
+    .errorlist {
+        list-style-type: none;
+        padding: 0;
+        margin: 0;
+    }
+</style>
+{% endblock %}
+
 {% block extra_body %}
     {{ block.super }}
     {% if PASSKEY_LOGIN_ENABLED %}
