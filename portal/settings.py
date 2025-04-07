@@ -171,6 +171,7 @@ LOGIN_REDIRECT_URL = "/"
 ACCOUNT_LOGIN_METHODS = {"username"}
 ACCOUNT_SIGNUP_FIELDS = ["email*", "username*", "first_name*", "last_name*", "password1*", "password2*"]
 ACCOUNT_MAX_EMAIL_ADDRESSES = 3
+ACCOUNT_LOGOUT_ON_GET = True
 
 # Use custom signup form
 ACCOUNT_FORMS = {
