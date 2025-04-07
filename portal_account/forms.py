@@ -12,7 +12,7 @@ class PortalProfileForm(ModelForm):
 
     class Meta:
         model = PortalProfile
-        fields = ["pronouns", "coc_agreement"]
+        fields = ["pronouns", "coc_agreement", "tos_agreement"]
 
     def clean(self):
         cleaned_data = super().clean()
