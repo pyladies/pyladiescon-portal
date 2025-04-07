@@ -27,7 +27,7 @@ jobs:
       
     - name: Run Django tests
       run: |
-        docker compose run --rm web python manage.py test
+        make test
       
     - name: Clean up
       if: always()
