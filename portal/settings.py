@@ -15,6 +15,10 @@ from pathlib import Path
 
 import dj_database_url
 
+from dotenv import load_dotenv
+load_dotenv()
+
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -28,9 +32,9 @@ SECRET_KEY = os.environ.get("SECRET_KEY")
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = bool(os.environ.get("DEBUG", default=0))
 
-ALLOWED_HOSTS = os.environ.get("DJANGO_ALLOWED_HOSTS")
-if ALLOWED_HOSTS:
-    ALLOWED_HOSTS = ALLOWED_HOSTS.split(",")
+ALLOWED_HOSTS = os.environ.get("DJANGO_ALLOWED_HOSTS", "127.0.0.1,localhost")
+ALLOWED_HOSTS = ALLOWED_HOSTS.split(",")
+
 
 # Application definition
 
@@ -244,3 +248,5 @@ if "DJANGO_EMAIL_HOST" in os.environ:
 else:
     # Otherwise, send emails to the console
     EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+
+DEBUG = True
