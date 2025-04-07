@@ -120,7 +120,7 @@ user.save()
 
 ## Setup pre-commit
 
-Pyladiescon-portal uses a tool called [pre-commit](https://pre-commit.com/) to identify simple issues and standardize code formatting. It does this by installing a git hook that automatically runs a series of code linters prior to finalizing any git commit. To enable pre-commit, run:
+PyLadiescon-portal uses a tool called [pre-commit](https://pre-commit.com/) to enforce coding standard and styles. To enable pre-commit, run:
 
 ```
 pre-commit install
