@@ -12,7 +12,7 @@ class PortalProfileForm(ModelForm):
 
     class Meta:
         model = PortalProfile
-        fields = ["pronouns", "coc_agreement"]
+        fields = ["pronouns", "profile_picture", "coc_agreement"]
 
     def clean(self):
         cleaned_data = super().clean()
@@ -28,6 +28,9 @@ class PortalProfileForm(ModelForm):
             self.fields["email"].initial = self.user.email
             self.fields["first_name"].initial = self.user.first_name
             self.fields["last_name"].initial = self.user.last_name
+
+        # fix field order
+        self.order_fields(["username", "first_name", "last_name", "email", "pronouns", "profile_picture", "coc_agreement"])
 
     def save(self, commit=True):
         """ """
