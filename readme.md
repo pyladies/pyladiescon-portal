@@ -118,7 +118,7 @@ user.save()
 
 8. You can now access the /admin page.
 
-## Setup pre-commit for identify simple issues and standardize code formatting
+## Setup pre-commit
 
 Pyladiescon-portal uses a tool called [pre-commit](https://pre-commit.com/) to identify simple issues and standardize code formatting. It does this by installing a git hook that automatically runs a series of code linters prior to finalizing any git commit. To enable pre-commit, run:
 
