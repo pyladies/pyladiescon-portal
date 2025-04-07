@@ -128,6 +128,6 @@ pre-commit install
 
 ### Pre-commit automatically runs during the commit
 
-With pre-commit installed as a git hook for verifying commits, the pre-commit hooks configured in `.pre-commit-config.yaml` for Pyladiescon-portal must all pass before the commit is successful. If there are any issues found with the commit, this will cause your commit to fail. Where possible, pre-commit will make the changes needed to correct the problems it has found. 
+With pre-commit installed as a git hook for verifying commits, the pre-commit hooks configured in `.pre-commit-config.yaml` for PyLadiescon-portal must all pass before the commit is successful. If there are any issues found with the commit, this will cause your commit to fail. Where possible, pre-commit will make the changes needed to correct the problems it has found. 
 
 You can then re-add any files that were modified as a result of the pre-commit checks, and re-commit the change.
