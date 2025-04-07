@@ -6,7 +6,6 @@ class SponsorshipProfileForm(forms.ModelForm):
         model = SponsorshipProfile
         fields = [
             'main_contact',
-            'additional_contacts',
             'sponsor_organization_name',
             'sponsorship_type',
             'sponsorship_tier',
@@ -15,7 +14,6 @@ class SponsorshipProfileForm(forms.ModelForm):
             'application_status',
         ]
         widgets = {
-            'additional_contacts': forms.CheckboxSelectMultiple(attrs={'class': 'form-control'}),
             'company_description': forms.Textarea(attrs={'rows': 4,}),
         }
     
