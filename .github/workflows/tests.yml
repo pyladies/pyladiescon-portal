@@ -23,7 +23,7 @@ jobs:
       
     - name: Run migrations
       run: |
-        docker compose run --rm web python manage.py migrate
+        make migrate
       
     - name: Run Django tests
       run: |
