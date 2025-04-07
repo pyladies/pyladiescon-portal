@@ -9,10 +9,12 @@ class PortalProfileForm(ModelForm):
     first_name = forms.CharField()
     last_name = forms.CharField()
     email = forms.CharField(disabled=True)
+    coc_agreement = forms.BooleanField(disabled=True, required=False)
+    tos_agreement = forms.BooleanField(disabled=True, required=False)
 
     class Meta:
         model = PortalProfile
-        fields = ["pronouns", "coc_agreement"]
+        fields = ["pronouns", "coc_agreement", "tos_agreement"]
 
     def clean(self):
         cleaned_data = super().clean()
