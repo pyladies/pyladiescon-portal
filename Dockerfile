@@ -19,8 +19,7 @@ FROM base AS dev
 ARG USER_ID
 ARG GROUP_ID
 
-# RUN groupadd -o -g $GROUP_ID -r usergrp   # original
-RUN groupadd -g $GROUP_ID usergrp
+RUN groupadd -o -g $GROUP_ID -r usergrp
 RUN useradd -o -m -u $USER_ID -g $GROUP_ID user
 RUN chown user /code
 

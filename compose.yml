@@ -12,7 +12,7 @@ services:
       POSTGRES_FSYNC: null
     healthcheck:
       test: ["CMD", "pg_isready", "-U", "pyladiescon", "-d", "pyladiescon"]
-      interval: 5s
+      interval: 1s
     volumes:
       - ./docker-compose/postgres/docker-entrypoint-initdb.d:/docker-entrypoint-initdb.d
 
@@ -27,9 +27,6 @@ services:
   web:
     build:
       target: dev
-      args:
-        USER_ID: 1000
-        GROUP_ID: 1000
     image: pyladiescon-portal-web:docker-compose
     command: python manage.py runserver 0.0.0.0:8000
     volumes:
