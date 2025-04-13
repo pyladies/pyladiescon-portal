@@ -1,5 +1,6 @@
 {% load i18n %}
 {% load django_bootstrap5 %}
+{% load static %}
 
 <!DOCTYPE html>
 <html>
@@ -13,26 +14,42 @@
         {% block extra_head %}
             <script src="https://kit.fontawesome.com/8774ceef9d.js" crossorigin="anonymous"></script>
         {% endblock extra_head %}
+
+        <!-- Add google font (Orbitron, Start 2P, Inter) <link> tags to the <head> section -->
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400..900&display=swap" rel="stylesheet">
+
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap" rel="stylesheet">
+
         {% bootstrap_css %}
         {% bootstrap_javascript %}
         {# Display django.contrib.messages as Bootstrap alerts #}
         {% bootstrap_messages %}
+
+        <link rel="stylesheet" href="{% static 'main.css' %}">
     </head>
     <body>
         {% block body %}
         {% endblock %}
-        <!-- <nav class="navbar navbar-expand-md navbar-dark bg-dark" aria-label="Fourth navbar example"> -->
-        <nav class="navbar navbar-expand-md navbar-light" style="background-color: #f6d9ef;" aria-label="Fourth navbar example">
-            <div class="container-fluid">
-                <a class="navbar-brand" href="/">PyLadiesCon Portal</a>
+        <!-- navbar-dark bg-dark -->
+        <nav class="navbar navbar-expand-md custom_navbar_grid" aria-label="Fourth navbar example">
+            <div class="container-fluid custom_navbar_brand">
+                <a class="navbar-brand custom_navbar_brand" href="/">PyLadiesCon</a>
                 <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarsExample04" aria-controls="navbarsExample04" aria-expanded="false" aria-label="Toggle navigation">
                     <span class="navbar-toggler-icon"></span>
                 </button>
 
-                <div class="collapse navbar-collapse" id="navbarsExample04">
+                <div class="collapse navbar-collapse custom_navbar_grid" id="navbarsExample04">
                     <ul class="navbar-nav me-auto mb-2 mb-md-0">
                         <li class="nav-item">
-                            <a class="nav-link active" aria-current="page" href="/">Home</a>
+                            <a class="nav-link active custom_navbar_link" aria-current="page" href="/">Home</a>
                         </li>
                         {% if user.is_authenticated %}
 

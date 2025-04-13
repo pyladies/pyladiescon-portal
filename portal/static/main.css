@@ -1,0 +1,27 @@
+.custom_navbar_grid {
+  background-color: #520916;
+}
+
+.custom_navbar_brand {
+  background-color: #520916;
+  font-family: "Orbitron", sans-serif;
+  color: #EE264D;
+  font-weight: bold;
+}
+
+.custom_navbar_link {
+  background-color: #520916;
+  font-family: "Press Start 2P", sans-serif;
+  color: #FAF4F0 !important;
+  font-weight: lighter !important;
+}
+
+.custom_body_head {
+  font-family: "Orbitron", sans-serif;
+  color: #EE264D;
+}
+
+.custom_body_paragraph {
+  font-family: "Inter", sans-serif;
+  color: #212529;
+}
