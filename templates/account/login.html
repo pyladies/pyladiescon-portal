@@ -1,103 +1,109 @@
-{% extends "account/base_auth.html" %}
+{% extends "portal/base.html" %}
 {% load i18n %}
-{% load allauth account %}
+{% load static %}
 
-{% block head_title %}
-    {% trans "Sign In" %}
-{% endblock head_title %}
+{% block head_title %}{% trans "Sign In" %}{% endblock %}
 
 {% block content %}
-<div class="container mx-auto px-4 py-8">
-    <div class="max-w-md mx-auto bg-white bg-opacity-10 backdrop-blur-sm p-8 rounded-lg shadow-lg border border-gray-700">
-        <h1 class="text-3xl font-bold mb-6 text-pyladies-pink retro-title">{% trans "Sign In" %}</h1>
+<div class="min-h-screen flex flex-col items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+    <div class="auth-container w-full">
+        <h1 class="text-pyladies-pink text-4xl font-retro text-center mb-8" style="text-shadow: 0 0 10px rgba(255, 51, 102, 0.5);">{% trans "Sign In" %}</h1>
 
-        {% if not SOCIALACCOUNT_ONLY %}
-            <p class="mb-6 text-gray-300 tech-font">
-                {% blocktranslate %}If you have not created an account yet, then please <a href="{{ signup_url }}" class="text-pyladies-pink hover:text-pyladies-pink-light">sign up</a> first.{% endblocktranslate %}
+        {% if not user.is_authenticated %}
+            <p class="font-tech text-center mb-8 text-gray-300">
+                {% trans "If you have not created an account yet, then please" %}
+                <a href="{{ signup_url }}" class="text-pyladies-pink hover:text-pyladies-pink-light">{% trans "sign up" %}</a>
+                {% trans "first." %}
             </p>
+        {% endif %}
 
-            {% url 'account_login' as login_url %}
-            <form class="space-y-4" method="post" action="{{ login_url }}">
-                {% csrf_token %}
-                
-                <div class="space-y-4">
-                    {% for field in form %}
-                        <div class="form-group">
-                            <label class="block text-gray-300 mb-2 tech-font" for="{{ field.id_for_label }}">
-                                {{ field.label }}
-                            </label>
-                            <input type="{{ field.field.widget.input_type }}" 
-                                   name="{{ field.html_name }}"
-                                   id="{{ field.id_for_label }}"
-                                   class="w-full px-4 py-2 bg-gray-800 border border-gray-600 rounded-md text-white tech-font focus:border-pyladies-pink focus:ring focus:ring-pyladies-pink focus:ring-opacity-50"
-                                   {% if field.field.required %}required{% endif %}
-                                   {% if field.value %}value="{{ field.value }}"{% endif %}>
-                            {% if field.help_text %}
-                                <p class="mt-1 text-sm text-gray-400 tech-font">{{ field.help_text }}</p>
-                            {% endif %}
-                            {% if field.errors %}
-                                <div class="mt-1 text-pyladies-pink text-sm tech-font">
-                                    {{ field.errors }}
-                                </div>
-                            {% endif %}
-                        </div>
+        <form class="mt-8 space-y-6" method="post" action="{% url 'account_login' %}">
+            {% csrf_token %}
+
+            {% if form.errors %}
+                <div class="text-pyladies-pink mb-4">
+                    {% for error in form.non_field_errors %}
+                        <p>{{ error }}</p>
                     {% endfor %}
                 </div>
+            {% endif %}
 
-                {{ redirect_field }}
-
-                <button type="submit" class="w-full mt-6 px-6 py-3 bg-pyladies-pink hover:bg-pyladies-pink-light text-white font-medium rounded-md transition-colors shadow-md tech-font">
-                    {% trans "Sign In" %}
-                </button>
-            </form>
-        {% endif %}
-
-        {% if LOGIN_BY_CODE_ENABLED or PASSKEY_LOGIN_ENABLED %}
-            <div class="mt-6 pt-6 border-t border-gray-700 space-y-3">
-                {% if PASSKEY_LOGIN_ENABLED %}
-                    <button type="submit" form="mfa_login" id="passkey_login" class="w-full px-6 py-3 border border-pyladies-pink text-pyladies-pink hover:bg-pyladies-pink hover:text-white font-medium rounded-md text-center transition-colors shadow-md tech-font">
-                        {% trans "Sign in with a passkey" %}
-                    </button>
-                {% endif %}
-                {% if LOGIN_BY_CODE_ENABLED %}
-                    <a href="{{ request_login_code_url }}" class="block w-full px-6 py-3 border border-pyladies-pink text-pyladies-pink hover:bg-pyladies-pink hover:text-white font-medium rounded-md text-center transition-colors shadow-md tech-font">
-                        {% trans "Send me a sign-in code" %}
-                    </a>
+            <div class="mb-6">
+                <label class="block font-tech mb-2" for="id_login">{% trans "Username" %}</label>
+                <input id="id_login" name="login" type="text" class="w-full bg-black bg-opacity-40 border-2 border-pyladies-pink border-opacity-30 rounded-lg p-3 font-tech text-white placeholder-gray-400 focus:outline-none focus:border-pyladies-pink focus:ring-2 focus:ring-pyladies-pink focus:ring-opacity-30" placeholder="Username" required>
+                {% if form.login.errors %}
+                    <div class="text-pyladies-pink mt-2">
+                        {% for error in form.login.errors %}
+                            <p>{{ error }}</p>
+                        {% endfor %}
+                    </div>
                 {% endif %}
             </div>
-        {% endif %}
 
-        {% if SOCIALACCOUNT_ENABLED %}
-            {% include "socialaccount/snippets/login.html" with page_layout="entrance" %}
-        {% endif %}
+            <div class="mb-6">
+                <label class="block font-tech mb-2" for="id_password">{% trans "Password" %}</label>
+                <div class="relative">
+                    <input id="id_password" name="password" type="password" 
+                        class="w-full bg-black bg-opacity-40 border-2 border-pyladies-pink border-opacity-30 rounded-lg p-3 font-tech text-white placeholder-gray-400 focus:outline-none focus:border-pyladies-pink focus:ring-2 focus:ring-pyladies-pink focus:ring-opacity-30" 
+                        placeholder="••••" required>
+                    <button type="button" onclick="togglePassword('id_password', this)"
+                        class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-pyladies-pink focus:outline-none">
+                        <i class="fa-solid fa-eye"></i>
+                    </button>
+                </div>
+                {% if form.password.errors %}
+                    <div class="text-pyladies-pink mt-2">
+                        {% for error in form.password.errors %}
+                            <p>{{ error }}</p>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            </div>
+
+            <div class="mb-6">
+                <label class="inline-flex items-center">
+                    <input type="checkbox" name="remember" class="border-2 border-pyladies-pink border-opacity-30 rounded bg-black bg-opacity-40 text-pyladies-pink focus:ring-pyladies-pink focus:ring-opacity-30">
+                    <span class="ml-2 font-tech text-gray-300">{% trans "Remember Me" %}</span>
+                </label>
+            </div>
+
+            <button type="submit" class="w-full bg-pyladies-pink hover:bg-pyladies-pink-light text-white font-retro py-3 px-4 rounded-lg transition-all duration-300 transform hover:-translate-y-1 hover:shadow-lg">
+                {% trans "Sign In" %}
+            </button>
+
+            <div class="text-center mt-6 space-y-2">
+                <p class="font-tech text-gray-300">
+                    <a href="{% url 'account_reset_password' %}" class="text-pyladies-pink hover:text-pyladies-pink-light">
+                        {% trans "Forgot Password?" %}
+                    </a>
+                </p>
+                <p class="font-tech text-gray-300">
+                    {% trans "Don't have an account?" %}
+                    <a href="{{ signup_url }}" class="text-pyladies-pink hover:text-pyladies-pink-light">{% trans "Sign up" %}</a>
+                </p>
+            </div>
+        </form>
     </div>
 </div>
-
-<style>
-    /* Override any conflicting styles */
-    input:-webkit-autofill,
-    input:-webkit-autofill:hover,
-    input:-webkit-autofill:focus {
-        -webkit-text-fill-color: white;
-        -webkit-box-shadow: 0 0 0px 1000px #1a1a1a inset;
-        transition: background-color 5000s ease-in-out 0s;
-    }
-    
-    input::placeholder {
-        color: #6b7280;
-    }
-    
-    .errorlist {
-        list-style-type: none;
-        padding: 0;
-        margin: 0;
-    }
-</style>
 {% endblock %}
 
-{% block extra_body %}
-    {{ block.super }}
-    {% if PASSKEY_LOGIN_ENABLED %}
-        {% include "mfa/webauthn/snippets/login_script.html" with button_id="passkey_login" %}
-    {% endif %}
+{% block extra_head %}
+<script>
+function togglePassword(inputId, button) {
+    const input = document.getElementById(inputId);
+    const icon = button.querySelector('i');
+    
+    if (input.type === 'password') {
+        input.type = 'text';
+        icon.classList.remove('fa-eye');
+        icon.classList.add('fa-eye-slash');
+        button.classList.add('text-pyladies-pink');
+    } else {
+        input.type = 'password';
+        icon.classList.remove('fa-eye-slash');
+        icon.classList.add('fa-eye');
+        button.classList.remove('text-pyladies-pink');
+    }
+}
+</script>
 {% endblock %}

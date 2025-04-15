@@ -1,0 +1,285 @@
+/* Custom Fonts */
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap');
+
+:root {
+    --pyladies-purple: #2D1B2D;
+    --pyladies-pink: #FF3366;
+    --pyladies-pink-light: #FF6B93;
+    --dark-text: #1a0f1a;
+    --light-bg: #fff5f7;
+    --light-bg-gradient: linear-gradient(135deg, #fff5f7 0%, #ffe0e9 100%);
+}
+
+/* Common Styles */
+.retro-title {
+    font-family: 'Press Start 2P', cursive !important;
+    text-align: center;
+    font-size: 2.5rem !important;
+    margin-bottom: 2rem;
+    color: var(--pyladies-pink) !important;
+    text-shadow: 0 0 15px rgba(255, 51, 102, 0.6) !important;
+    letter-spacing: 2px;
+    line-height: 1.4 !important;
+}
+
+.tech-font {
+    font-family: 'Share Tech Mono', monospace !important;
+    font-size: 1rem !important;
+    letter-spacing: 0.5px;
+}
+
+/* Auth Container */
+.auth-container {
+    max-width: 400px;
+    margin: 2rem auto;
+    padding: 2.5rem !important;
+    border-radius: 12px !important;
+    transition: all 0.3s ease;
+}
+
+/* Dark mode styles */
+.dark-mode .auth-container {
+    background: rgba(0, 0, 0, 0.5) !important;
+    backdrop-filter: blur(15px) !important;
+    border: 2px solid rgba(255, 51, 102, 0.3) !important;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3) !important;
+}
+
+.dark-mode .tech-font {
+    color: rgba(255, 255, 255, 0.8) !important;
+}
+
+.dark-mode .form-label {
+    color: rgba(255, 255, 255, 0.9) !important;
+}
+
+.dark-mode .form-input {
+    background: rgba(0, 0, 0, 0.4) !important;
+    border: 2px solid rgba(255, 51, 102, 0.3) !important;
+    color: white !important;
+}
+
+.dark-mode .form-input::placeholder {
+    color: rgba(255, 255, 255, 0.4) !important;
+}
+
+/* Light mode styles */
+.light-mode .auth-container {
+    background: rgba(255, 255, 255, 0.95) !important;
+    backdrop-filter: blur(15px) !important;
+    border: 2px solid rgba(255, 51, 102, 0.2) !important;
+    box-shadow: 0 8px 32px rgba(255, 51, 102, 0.15) !important;
+}
+
+.light-mode .tech-font {
+    color: var(--dark-text) !important;
+}
+
+.light-mode .form-label {
+    color: var(--dark-text) !important;
+}
+
+.light-mode .form-input {
+    background: rgba(255, 255, 255, 0.95) !important;
+    border: 2px solid rgba(255, 51, 102, 0.3) !important;
+    color: var(--dark-text) !important;
+}
+
+.light-mode .form-input::placeholder {
+    color: rgba(45, 27, 45, 0.5) !important;
+}
+
+/* Form Styles */
+.form-group {
+    margin-bottom: 1.5rem !important;
+    text-align: left;
+}
+
+.form-label {
+    display: block;
+    margin-bottom: 0.75rem !important;
+    font-family: 'Share Tech Mono', monospace !important;
+    font-size: 1rem !important;
+    letter-spacing: 0.5px;
+    font-weight: 500 !important;
+}
+
+.form-input {
+    width: 100%;
+    padding: 1rem !important;
+    border-radius: 8px !important;
+    font-family: 'Share Tech Mono', monospace !important;
+    font-size: 1rem !important;
+    letter-spacing: 1px;
+    transition: all 0.3s ease;
+}
+
+.form-input:focus {
+    outline: none !important;
+    border-color: var(--pyladies-pink) !important;
+    box-shadow: 0 0 15px rgba(255, 51, 102, 0.3) !important;
+}
+
+/* Button Styles */
+.auth-button {
+    width: 100%;
+    padding: 1rem !important;
+    background: var(--pyladies-pink) !important;
+    color: white !important;
+    border: none;
+    border-radius: 8px !important;
+    font-family: 'Press Start 2P', cursive !important;
+    font-size: 1rem !important;
+    cursor: pointer;
+    margin-top: 1.5rem !important;
+    transition: all 0.3s ease;
+    text-transform: uppercase;
+    letter-spacing: 2px !important;
+    box-shadow: 0 4px 15px rgba(255, 51, 102, 0.3) !important;
+}
+
+.auth-button:hover {
+    background: var(--pyladies-pink-light) !important;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(255, 51, 102, 0.4) !important;
+}
+
+/* Links */
+.auth-link {
+    color: var(--pyladies-pink) !important;
+    text-decoration: none !important;
+    font-family: 'Share Tech Mono', monospace !important;
+    transition: all 0.3s ease;
+    font-weight: 600 !important;
+}
+
+.auth-link:hover {
+    color: var(--pyladies-pink-light) !important;
+    text-decoration: none !important;
+    text-shadow: 0 0 10px rgba(255, 51, 102, 0.5);
+}
+
+/* Remember Checkbox */
+.remember-checkbox {
+    margin-right: 0.75rem !important;
+    transform: scale(1.2);
+}
+
+/* Error List */
+.errorlist {
+    color: var(--pyladies-pink) !important;
+    margin: 0.5rem 0 !important;
+    padding: 0;
+    list-style: none;
+    font-size: 0.9rem !important;
+    font-family: 'Share Tech Mono', monospace !important;
+}
+
+/* Password Requirements */
+.password-requirements {
+    font-family: 'Share Tech Mono', monospace !important;
+    font-size: 0.85rem !important;
+    margin-top: 0.5rem !important;
+    color: inherit !important;
+    opacity: 0.8;
+}
+
+/* Text Utilities */
+.text-center { text-align: center !important; }
+.mt-4 { margin-top: 1rem !important; }
+.mt-2 { margin-top: 0.5rem !important; }
+.mb-4 { margin-bottom: 1rem !important; }
+.mb-8 { margin-bottom: 2rem !important; }
+.space-y-2 > * + * { margin-top: 0.5rem !important; }
+.space-y-6 > * + * { margin-top: 1.5rem !important; }
+
+/* Social account section */
+.socialaccount_ballot {
+    margin: 1.5rem 0;
+    padding: 1rem;
+    border: 1px solid var(--pyladies-pink);
+    border-radius: 6px;
+    background: rgba(255, 51, 102, 0.1);
+}
+
+.socialaccount_providers {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.login-or {
+    text-align: center;
+    margin: 1rem 0;
+    color: rgba(255, 255, 255, 0.7);
+    position: relative;
+}
+
+.login-or::before,
+.login-or::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    width: 45%;
+    height: 1px;
+    background: var(--pyladies-pink);
+}
+
+.login-or::before {
+    left: 0;
+}
+
+.login-or::after {
+    right: 0;
+}
+
+/* Theme Toggle */
+.theme-toggle {
+    position: fixed;
+    top: 1rem;
+    right: 1rem;
+    padding: 0.7rem 1.2rem;
+    border-radius: 8px;
+    background-color: var(--pyladies-pink);
+    color: white;
+    border: none;
+    cursor: pointer;
+    font-family: 'Share Tech Mono', monospace;
+    z-index: 1000;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+    transition: all 0.2s ease;
+    text-transform: uppercase;
+    font-weight: bold;
+    font-size: 0.85rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.theme-toggle:hover {
+    background-color: var(--pyladies-pink-light);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 15px rgba(0, 0, 0, 0.2);
+}
+
+.theme-toggle i {
+    font-size: 1rem;
+}
+
+/* Autofill styling */
+input:-webkit-autofill,
+input:-webkit-autofill:hover, 
+input:-webkit-autofill:focus {
+    -webkit-text-fill-color: white !important;
+    -webkit-box-shadow: 0 0 0 30px rgba(26, 15, 26, 0.8) inset !important;
+    transition: background-color 5000s ease-in-out 0s;
+}
+
+/* Development Notice */
+.dev-notice {
+    font-family: 'Share Tech Mono', monospace;
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 0.9rem;
+    margin-bottom: 2rem;
+}

@@ -1,4 +1,5 @@
 {% load i18n %}
+{% load static %}
 
 <!DOCTYPE html>
 <html>
@@ -28,9 +29,7 @@
         <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
         <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
         
-        {% block extra_head %}
-            <script src="https://kit.fontawesome.com/8774ceef9d.js" crossorigin="anonymous"></script>
-        {% endblock extra_head %}
+        <!-- Tailwind -->
         <script src="https://cdn.tailwindcss.com"></script>
         <script>
             tailwind.config = {
@@ -51,18 +50,17 @@
                 }
             }
         </script>
+        
+        <!-- Font Awesome -->
+        <script src="https://kit.fontawesome.com/8774ceef9d.js" crossorigin="anonymous"></script>
+        
+        <!-- Custom CSS (loaded last to override other styles) -->
+        <link rel="stylesheet" href="{% static 'css/auth.css' %}">
+        
+        {% block extra_head %}
+        {% endblock extra_head %}
+
         <style>
-            body {
-                background: linear-gradient(135deg, #2D1B2D 0%, #1a0f1a 100%);
-                color: white;
-                font-family: 'Share Tech Mono', monospace;
-            }
-            
-            h1, h2, h3 {
-                font-family: 'Press Start 2P', cursive;
-                letter-spacing: 0.1em;
-            }
-            
             .bg-pyladies-purple {
                 background: linear-gradient(135deg, #2D1B2D 0%, #1a0f1a 100%);
             }
@@ -102,9 +100,106 @@
             .menu-logo {
                 filter: drop-shadow(0 0 10px rgba(255, 51, 102, 0.3));
             }
+
+            /* Theme specific styles */
+            .light-mode {
+                background: linear-gradient(135deg, #fff5f7 0%, #ffe0e9 100%);
+                color: #1a0f1a;
+            }
+
+            .dark-mode {
+                background: linear-gradient(135deg, #2D1B2D 0%, #1a0f1a 100%);
+                color: white;
+            }
+
+            .light-mode .bg-pyladies-purple {
+                background: rgba(255, 255, 255, 0.9);
+                backdrop-filter: blur(10px);
+                border: 1px solid rgba(255, 51, 102, 0.2);
+            }
+
+            .dark-mode .bg-pyladies-purple {
+                background: rgba(45, 27, 45, 0.9);
+                backdrop-filter: blur(10px);
+            }
+
+            /* Light mode text color overrides for better contrast */
+            .light-mode .text-pyladies-purple,
+            .light-mode .text-white {
+                color: #1a0f1a;
+            }
+
+            .light-mode .font-tech {
+                color: #2D1B2D;
+            }
+
+            .light-mode input::placeholder {
+                color: #4a2d4a;
+            }
+
+            .light-mode .text-gray-600 {
+                color: #2D1B2D;
+            }
+
+            .light-mode .border-gray-800 {
+                border-color: rgba(255, 51, 102, 0.2);
+            }
+
+            .light-mode .bg-gray-800 {
+                background-color: rgba(255, 51, 102, 0.1);
+            }
+
+            .light-mode .text-gray-200 {
+                color: #2D1B2D;
+            }
         </style>
+        <script>
+            function toggleTheme() {
+                const body = document.body;
+                const themeToggle = document.querySelector('.theme-toggle');
+                const themeText = themeToggle.querySelector('.theme-text');
+                const themeIcon = themeToggle.querySelector('i');
+                
+                if (body.classList.contains('dark-mode')) {
+                    body.classList.remove('dark-mode');
+                    body.classList.add('light-mode');
+                    themeText.textContent = 'Dark Mode';
+                    themeIcon.classList.remove('fa-moon');
+                    themeIcon.classList.add('fa-sun');
+                    localStorage.setItem('theme', 'light');
+                } else {
+                    body.classList.remove('light-mode');
+                    body.classList.add('dark-mode');
+                    themeText.textContent = 'Light Mode';
+                    themeIcon.classList.remove('fa-sun');
+                    themeIcon.classList.add('fa-moon');
+                    localStorage.setItem('theme', 'dark');
+                }
+            }
+
+            // Set initial theme based on user preference
+            document.addEventListener('DOMContentLoaded', () => {
+                const savedTheme = localStorage.getItem('theme') || 'dark';
+                const body = document.body;
+                const themeToggle = document.querySelector('.theme-toggle');
+                const themeText = themeToggle.querySelector('.theme-text');
+                const themeIcon = themeToggle.querySelector('i');
+
+                if (savedTheme === 'light') {
+                    body.classList.remove('dark-mode');
+                    body.classList.add('light-mode');
+                    themeText.textContent = 'Dark Mode';
+                    themeIcon.classList.remove('fa-moon');
+                    themeIcon.classList.add('fa-sun');
+                }
+            });
+        </script>
     </head>
-    <body class="bg-pyladies-purple text-white">
+    <body class="dark-mode min-h-screen">
+        <button onclick="toggleTheme()" class="theme-toggle">
+            <i class="fa-solid fa-moon"></i>
+            <span class="theme-text">Light Mode</span>
+        </button>
         {% block body %}
         {% endblock %}
         <nav class="bg-pyladies-purple text-white border-b border-gray-800">
