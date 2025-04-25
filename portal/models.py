@@ -1,8 +1,8 @@
 from django import forms
-from django.db import models
-from django.utils.timezone import now
 from django.contrib.admin.widgets import FilteredSelectMultiple
 from django.contrib.postgres.fields import ArrayField
+from django.db import models
+from django.utils.timezone import now
 
 
 class ChoiceArrayField(ArrayField):

@@ -1,9 +1,10 @@
+from django.contrib.auth.models import User
 from django.db import models
-from portal.models import BaseModel
 
 # Create your models here.
 from django.urls import reverse
-from django.contrib.auth.models import User
+
+from portal.models import BaseModel
 
 
 class PortalProfile(BaseModel):

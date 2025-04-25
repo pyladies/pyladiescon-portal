@@ -1,11 +1,11 @@
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import render
-
+from django.urls import reverse_lazy
 from django.views.generic import DetailView
 from django.views.generic.edit import CreateView, UpdateView
-from django.urls import reverse_lazy
-from .models import PortalProfile
+
 from .forms import PortalProfileForm
+from .models import PortalProfile
 
 
 @login_required
@@ -33,6 +33,7 @@ class PortalProfileCreate(CreateView):
         kwargs = super(PortalProfileCreate, self).get_form_kwargs()
         kwargs.update({"user": self.request.user})
         return kwargs
+
 
 class PortalProfileUpdate(UpdateView):
     model = PortalProfile

@@ -1,43 +1,71 @@
 {% extends "portal/base.html" %}
 {% load allauth i18n %}
 {% load django_bootstrap5 %}
-
 {% block body %}
-{% endblock %}
+{% endblock body %}
 {% block content %}
-    <h1 class="display-5 mb-4">Your Volunteer Profile</h1>
-    
+    <h1 class="display-5 mb-4">
+        Your Volunteer Profile
+    </h1>
     <div class="card mb-4">
         <div class="card-header">
-            <h5 class="card-title mb-0">Basic Information</h5>
+            <h5 class="card-title mb-0">
+                Basic Information
+            </h5>
         </div>
         <div class="card-body">
             <div class="row mb-3">
-                <div class="col-md-3 fw-bold">Username:</div>
-                <div class="col-md-9">{{ object.user.username }}</div>
+                <div class="col-md-3 fw-bold">
+                    Username:
+                </div>
+                <div class="col-md-9">
+                    {{ object.user.username }}
+                </div>
             </div>
             <div class="row mb-3">
-                <div class="col-md-3 fw-bold">Name:</div>
-                <div class="col-md-9">{{ object.user.first_name }} {{ object.user.last_name }}</div>
+                <div class="col-md-3 fw-bold">
+                    Name:
+                </div>
+                <div class="col-md-9">
+                    {{ object.user.first_name }} {{ object.user.last_name }}
+                </div>
             </div>
             <div class="row mb-3">
-                <div class="col-md-3 fw-bold">Email:</div>
-                <div class="col-md-9">{{ object.user.email }}</div>
+                <div class="col-md-3 fw-bold">
+                    Email:
+                </div>
+                <div class="col-md-9">
+                    {{ object.user.email }}
+                </div>
             </div>
             <div class="row mb-3">
-                <div class="col-md-3 fw-bold">Timezone:</div>
-                <div class="col-md-9">{{ object.timezone }}</div>
+                <div class="col-md-3 fw-bold">
+                    Timezone:
+                </div>
+                <div class="col-md-9">
+                    {{ object.timezone }}
+                </div>
             </div>
             <div class="row mb-3">
-                <div class="col-md-3 fw-bold">PyLadies Chapter:</div>
-                <div class="col-md-9">{{ object.pyladies_chapter|default:"Not specified" }}</div>
+                <div class="col-md-3 fw-bold">
+                    PyLadies Chapter:
+                </div>
+                <div class="col-md-9">
+                    {{ object.pyladies_chapter|default:"Not specified" }}
+                </div>
             </div>
             <div class="row mb-3">
-                <div class="col-md-3 fw-bold">Application Status:</div>
-                <div class="col-md-9">{{ object.application_status }}</div>
+                <div class="col-md-3 fw-bold">
+                    Application Status:
+                </div>
+                <div class="col-md-9">
+                    {{ object.application_status }}
+                </div>
             </div>
             <div class="row mb-3">
-                <div class="col-md-3 fw-bold">Languages:</div>
+                <div class="col-md-3 fw-bold">
+                    Languages:
+                </div>
                 <div class="col-md-9">
                     {% for language in object.languages_spoken %}
                         <span class="badge bg-info text-dark me-1">{{ language }}</span>
@@ -46,14 +74,17 @@
             </div>
         </div>
     </div>
-    
     <div class="card mb-4">
         <div class="card-header">
-            <h5 class="card-title mb-0">Teams & Roles</h5>
+            <h5 class="card-title mb-0">
+                Teams & Roles
+            </h5>
         </div>
         <div class="card-body">
             <div class="row mb-3">
-                <div class="col-md-3 fw-bold">Teams:</div>
+                <div class="col-md-3 fw-bold">
+                    Teams:
+                </div>
                 <div class="col-md-9">
                     {% if object.teams.all %}
                         {% for team in object.teams.all %}
@@ -65,7 +96,9 @@
                 </div>
             </div>
             <div class="row mb-3">
-                <div class="col-md-3 fw-bold">Roles:</div>
+                <div class="col-md-3 fw-bold">
+                    Roles:
+                </div>
                 <div class="col-md-9">
                     {% if object.roles.all %}
                         {% for role in object.roles.all %}
@@ -78,69 +111,94 @@
             </div>
         </div>
     </div>
-    
     <div class="card mb-4">
         <div class="card-header">
-            <h5 class="card-title mb-0">Social Media</h5>
+            <h5 class="card-title mb-0">
+                Social Media
+            </h5>
         </div>
         <div class="card-body">
             {% if object.github_username or object.discord_username or object.instagram_username or object.bluesky_username or object.mastodon_url or object.x_username or object.linkedin_url %}
                 {% if object.github_username %}
-                <div class="row mb-2">
-                    <div class="col-md-3 fw-bold">GitHub:</div>
-                    <div class="col-md-9">{{ object.github_username }}</div>
-                </div>
+                    <div class="row mb-2">
+                        <div class="col-md-3 fw-bold">
+                            GitHub:
+                        </div>
+                        <div class="col-md-9">
+                            {{ object.github_username }}
+                        </div>
+                    </div>
                 {% endif %}
-                
                 {% if object.discord_username %}
-                <div class="row mb-2">
-                    <div class="col-md-3 fw-bold">Discord:</div>
-                    <div class="col-md-9">{{ object.discord_username }}</div>
-                </div>
+                    <div class="row mb-2">
+                        <div class="col-md-3 fw-bold">
+                            Discord:
+                        </div>
+                        <div class="col-md-9">
+                            {{ object.discord_username }}
+                        </div>
+                    </div>
                 {% endif %}
-                
                 {% if object.instagram_username %}
-                <div class="row mb-2">
-                    <div class="col-md-3 fw-bold">Instagram:</div>
-                    <div class="col-md-9">{{ object.instagram_username }}</div>
-                </div>
+                    <div class="row mb-2">
+                        <div class="col-md-3 fw-bold">
+                            Instagram:
+                        </div>
+                        <div class="col-md-9">
+                            {{ object.instagram_username }}
+                        </div>
+                    </div>
                 {% endif %}
-                
                 {% if object.bluesky_username %}
-                <div class="row mb-2">
-                    <div class="col-md-3 fw-bold">Bluesky:</div>
-                    <div class="col-md-9">{{ object.bluesky_username }}</div>
-                </div>
+                    <div class="row mb-2">
+                        <div class="col-md-3 fw-bold">
+                            Bluesky:
+                        </div>
+                        <div class="col-md-9">
+                            {{ object.bluesky_username }}
+                        </div>
+                    </div>
                 {% endif %}
-                
                 {% if object.mastodon_url %}
-                <div class="row mb-2">
-                    <div class="col-md-3 fw-bold">Mastodon:</div>
-                    <div class="col-md-9">{{ object.mastodon_url }}</div>
-                </div>
+                    <div class="row mb-2">
+                        <div class="col-md-3 fw-bold">
+                            Mastodon:
+                        </div>
+                        <div class="col-md-9">
+                            {{ object.mastodon_url }}
+                        </div>
+                    </div>
                 {% endif %}
-                
                 {% if object.x_username %}
-                <div class="row mb-2">
-                    <div class="col-md-3 fw-bold">X/Twitter:</div>
-                    <div class="col-md-9">{{ object.x_username }}</div>
-                </div>
+                    <div class="row mb-2">
+                        <div class="col-md-3 fw-bold">
+                            X/Twitter:
+                        </div>
+                        <div class="col-md-9">
+                            {{ object.x_username }}
+                        </div>
+                    </div>
                 {% endif %}
-                
                 {% if object.linkedin_url %}
-                <div class="row mb-2">
-                    <div class="col-md-3 fw-bold">LinkedIn:</div>
-                    <div class="col-md-9">{{ object.linkedin_url }}</div>
-                </div>
+                    <div class="row mb-2">
+                        <div class="col-md-3 fw-bold">
+                            LinkedIn:
+                        </div>
+                        <div class="col-md-9">
+                            {{ object.linkedin_url }}
+                        </div>
+                    </div>
                 {% endif %}
             {% else %}
-                <p>No social media profiles added</p>
+                <p>
+                    No social media profiles added
+                </p>
             {% endif %}
         </div>
     </div>
-    
     <div class="mt-4">
-        <a class="btn btn-primary" href="{% url 'volunteer:volunteer_profile_edit' object.pk %}">Edit Profile</a>
+        <a class="btn btn-primary"
+           href="{% url 'volunteer:volunteer_profile_edit' object.pk %}">Edit Profile</a>
         <a class="btn btn-secondary" href="{% url 'volunteer:index' %}">Back to Volunteer Dashboard</a>
     </div>
-{% endblock %}
+{% endblock content %}

@@ -1,11 +1,11 @@
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import render
-from django.views.generic import ListView, DetailView
-from django.views.generic.edit import CreateView, UpdateView, DeleteView
 from django.urls import reverse_lazy
+from django.views.generic import DetailView, ListView
+from django.views.generic.edit import CreateView, DeleteView, UpdateView
 
-from .models import VolunteerProfile
 from .forms import VolunteerProfileForm
+from .models import VolunteerProfile
 
 
 @login_required
@@ -44,7 +44,7 @@ class VolunteerProfileUpdate(UpdateView):
     template_name = "volunteer/volunteerprofile_form.html"
     success_url = reverse_lazy("volunteer:index")
     form_class = VolunteerProfileForm
-    
+
     def get_form_kwargs(self):
         kwargs = super(VolunteerProfileUpdate, self).get_form_kwargs()
         kwargs.update({"user": self.request.user})

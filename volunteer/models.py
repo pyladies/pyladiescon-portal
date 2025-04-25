@@ -1,10 +1,11 @@
-from django.db import models
 from django.conf.global_settings import LANGUAGES
 from django.contrib.auth.models import User
+from django.db import models
+from django.urls import reverse
 
 from portal.models import BaseModel, ChoiceArrayField
+
 from .constants import ApplicationStatus
-from django.urls import reverse
 
 TIMEZONE_CHOICES = [
     ("UTC+14", "UTC+14"),
