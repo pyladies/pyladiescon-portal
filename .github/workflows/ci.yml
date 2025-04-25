@@ -9,24 +9,24 @@ on:
 jobs:
   pre-commit:
     runs-on: ubuntu-latest
-  strategy:
-    matrix:
-      python-version: ["3.13", "3.14"]
-    fail-fastt: false
-  steps:
-    - uses: actions/checkout@v4
-    - uses: actions/setup-python@v5
-      with:
-        python-version: "${{ matrix.python-version }}"
-        cache: pip
-        cache-dependency-path: requirements/*.txt
-        check-latest: true
-        allow-prereleases: true
-    - name: Install dependencies
-      run: |
-        pip install -U pip -r requirements-dev.txt
-    - name: Run pre-commit
-      run: pre-commit run --show-diff-on-failure --color=always --all-files
+    strategy:
+      matrix:
+        python-version: ["3.13", "3.14"]
+      fail-fast: false
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "${{ matrix.python-version }}"
+          cache: pip
+          cache-dependency-path: requirements/*.txt
+          check-latest: true
+          allow-prereleases: true
+      - name: Install dependencies
+        run: |
+          pip install -U pip -r requirements-dev.txt
+      - name: Run pre-commit
+        run: pre-commit run --show-diff-on-failure --color=always --all-files
   test:
     runs-on: ubuntu-latest
     steps:
