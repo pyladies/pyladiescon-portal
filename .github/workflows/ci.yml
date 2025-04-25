@@ -15,11 +15,12 @@ jobs:
       fail-fast: false
     steps:
       - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
       - uses: actions/setup-python@v5
         with:
           python-version: "${{ matrix.python-version }}"
           cache: pip
-          cache-dependency-path: requirements/*.txt
+          cache-dependency-path: requirements*.txt
           check-latest: true
           allow-prereleases: true
       - name: Install dependencies
@@ -41,7 +42,7 @@ jobs:
         with:
           python-version: "${{ matrix.python-version }}"
           cache: pip
-          cache-dependency-path: requirements/*.txt
+          cache-dependency-path: requirements*.txt
           check-latest: true
           allow-prereleases: true
       - name: Tests
