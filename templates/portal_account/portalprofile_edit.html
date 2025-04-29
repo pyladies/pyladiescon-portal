@@ -1,0 +1,34 @@
+{% extends "portal/base.html" %}
+{% load allauth i18n %}
+{% load django_bootstrap5 %}
+{% block body %}
+{% endblock body %}
+{% block content %}
+    <main>
+        <h1 class="display-5">
+            Edit your Portal Profile
+        </h1>
+        <p class="lead">
+            Update your portal profile information below.
+        </p>
+        <div class="row g-5">
+            {% bootstrap_form_errors form %}
+            <form action="{% url 'portal_account:portal_profile_edit' object.pk %}"
+                  method="post"
+                  class="form">
+                {% csrf_token %}
+                {% bootstrap_field form.username %}
+                {% bootstrap_field form.first_name %}
+                {% bootstrap_field form.last_name %}
+                {% bootstrap_field form.email %}
+                {% bootstrap_field form.pronouns %}
+                {% bootstrap_field form.coc_agreement %}
+                <div class="mt-4">
+                    <input type="submit" value="Update Profile" class="btn btn-primary" />
+                    <a href="{% url 'portal_account:portal_profile_detail' object.pk %}"
+                       class="btn btn-secondary">Cancel</a>
+                </div>
+            </form>
+        </div>
+    </main>
+{% endblock content %}

@@ -1,4 +1,5 @@
 from django.forms import ModelForm
+
 from .models import VolunteerProfile
 
 
@@ -15,6 +16,9 @@ class VolunteerProfileForm(ModelForm):
     def __init__(self, *args, **kwargs):
         self.user = kwargs.pop("user", None)
         super().__init__(*args, **kwargs)
+
+        if self.instance and self.instance.pk:
+            pass
 
     def save(self, commit=True):
         """ """

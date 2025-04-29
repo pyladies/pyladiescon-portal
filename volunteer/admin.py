@@ -1,5 +1,6 @@
 from django.contrib import admin
-from .models import VolunteerProfile, Role, Team
+
+from .models import Role, Team, VolunteerProfile
 
 
 class VolunteerProfileAdmin(admin.ModelAdmin):

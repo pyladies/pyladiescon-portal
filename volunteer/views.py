@@ -1,11 +1,11 @@
 from django.contrib.auth.decorators import login_required
-from django.shortcuts import render
-from django.views.generic import ListView, DetailView
-from django.views.generic.edit import CreateView, UpdateView, DeleteView
+from django.shortcuts import redirect, render
 from django.urls import reverse_lazy
+from django.views.generic import DetailView, ListView
+from django.views.generic.edit import CreateView, DeleteView, UpdateView
 
-from .models import VolunteerProfile
 from .forms import VolunteerProfileForm
+from .models import VolunteerProfile
 
 
 @login_required
@@ -26,12 +26,23 @@ class VolunteerProfileList(ListView):
 class VolunteerProfileView(DetailView):
     model = VolunteerProfile
 
+    def get(self, request, *args, **kwargs):
+        self.object = self.get_object()
+        if not self.object or self.object.user != request.user:
+            return redirect("volunteer:index")
+        return super(VolunteerProfileView, self).get(request, *args, **kwargs)
+
 
 class VolunteerProfileCreate(CreateView):
     model = VolunteerProfile
     template_name = "volunteer/volunteerprofile_form.html"
     success_url = reverse_lazy("volunteer:index")
     form_class = VolunteerProfileForm
+
+    def get(self, request, *args, **kwargs):
+        if VolunteerProfile.objects.filter(user__id=request.user.id).exists():
+            return redirect("volunteer:index")
+        return super(VolunteerProfileCreate, self).get(request, *args, **kwargs)
 
     def get_form_kwargs(self):
         kwargs = super(VolunteerProfileCreate, self).get_form_kwargs()
@@ -41,8 +52,20 @@ class VolunteerProfileCreate(CreateView):
 
 class VolunteerProfileUpdate(UpdateView):
     model = VolunteerProfile
-    fields = "__all__"
+    template_name = "volunteer/volunteerprofile_form.html"
     success_url = reverse_lazy("volunteer:index")
+    form_class = VolunteerProfileForm
+
+    def get(self, request, *args, **kwargs):
+        self.object = self.get_object()
+        if not self.object or self.object.user != request.user:
+            return redirect("volunteer:index")
+        return super(VolunteerProfileUpdate, self).get(request, *args, **kwargs)
+
+    def get_form_kwargs(self):
+        kwargs = super(VolunteerProfileUpdate, self).get_form_kwargs()
+        kwargs.update({"user": self.request.user})
+        return kwargs
 
 
 class VolunteerProfileDelete(DeleteView):

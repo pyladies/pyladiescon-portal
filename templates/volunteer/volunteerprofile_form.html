@@ -1,18 +1,27 @@
 {% extends "portal/base.html" %}
 {% load allauth i18n %}
 {% load django_bootstrap5 %}
-
 {% block body %}
-{% endblock %}
+{% endblock body %}
 {% block content %}
     <main>
-        <h1 class="display-5">Create your Volunteer Profile</h1>
+        <h1 class="display-5">
+            Create your Volunteer Profile
+        </h1>
         <p class="lead">
+            {% if object.pk %}
+                Update your information below.
+            {% else %}
+                Fill in the profile below.
+            {% endif %}
             Fill in the profile below.
         </p>
         <div class="row g-5">
             {% bootstrap_form_errors form %}
-            <form action="{% url 'volunteer:volunteer_profile_new' %}" method="post" class="form">{% csrf_token %}
+            <form action="{% if object.pk %}{% url 'volunteer:volunteer_profile_edit' object.pk %}{% else %}{% url 'volunteer:volunteer_profile_new' %}{% endif %}"
+                  method="post"
+                  class="form">
+                {% csrf_token %}
                 {% bootstrap_field form.languages_spoken %}
                 {% bootstrap_field form.teams %}
                 {% bootstrap_field form.pyladies_chapter %}
@@ -24,8 +33,10 @@
                 {% bootstrap_field form.mastodon_url %}
                 {% bootstrap_field form.x_username %}
                 {% bootstrap_field form.linkedin_url %}
-                <input type="submit" value="Submit" />
+                <input type="submit"
+                       value="{% if object.pk %}Update Profile{% else %}Create Profile{% endif %}"
+                       class="btn btn-primary" />
             </form>
         </div>
     </main>
-{% endblock %}
+{% endblock content %}
