@@ -93,7 +93,7 @@ if os.environ.get("DATABASE_URL", None) is not None:
             conn_health_checks=True,
         )
     }
-else:
+else:  # pragma: no cover
     DATABASES = {
         "default": {
             "ENGINE": os.environ.get("SQL_ENGINE", "django.db.backends.sqlite3"),
@@ -163,13 +163,19 @@ ACCOUNT_EMAIL_VERIFICATION_BY_CODE_ENABLED = True
 ACCOUNT_EMAIL_SUBJECT_PREFIX = "[PyLadiesCon Dev] "
 LOGIN_REDIRECT_URL = "/"
 ACCOUNT_LOGIN_METHODS = {"username"}
-ACCOUNT_SIGNUP_FIELDS = ["email*", "username*", "first_name*", "last_name*", "password1*", "password2*"]
+ACCOUNT_SIGNUP_FIELDS = [
+    "email*",
+    "username*",
+    "first_name*",
+    "last_name*",
+    "password1*",
+    "password2*",
+]
 ACCOUNT_MAX_EMAIL_ADDRESSES = 3
+ACCOUNT_LOGOUT_ON_GET = True
 
 # Use custom signup form
-ACCOUNT_FORMS = {
-    'signup': 'portal.forms.CustomSignupForm'
-}
+ACCOUNT_FORMS = {"signup": "portal.forms.CustomSignupForm"}
 
 # Default settings
 BOOTSTRAP5 = {
@@ -230,7 +236,7 @@ BOOTSTRAP5 = {
     },
 }
 
-## Email settings
+# Email settings
 if "DJANGO_EMAIL_HOST" in os.environ:
     # If the env vars are set, use them
     EMAIL_HOST = os.getenv("DJANGO_EMAIL_HOST")
@@ -239,6 +245,6 @@ if "DJANGO_EMAIL_HOST" in os.environ:
     EMAIL_HOST_PASSWORD = os.getenv("DJANOG_EMAIL_HOST_PASSWORD")
     EMAIL_USE_TLS = os.getenv("DJANGO_EMAIL_USE_TLS")
     DEFAULT_FROM_EMAIL = os.getenv("DJANGO_DEFAULT_FROM_EMAIL")
-else:
+else:  # pragma: no cover
     # Otherwise, send emails to the console
     EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"

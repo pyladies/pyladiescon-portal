@@ -1,17 +1,32 @@
 {% load i18n %}
 {% load django_bootstrap5 %}
-
 <!DOCTYPE html>
-<html>
+<html lang="en">
     <head>
         <meta http-equiv="X-UA-Compatible" content="IE=edge">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <meta charset="UTF-8" />
         <title>
             {% block head_title %}
             {% endblock head_title %}
         </title>
+        <meta property="og:title"
+              content="{% block og_title %}PyLadiesCon Portal{% endblock og_title %}" />
+        <meta property="og:description"
+              content="{% block og_description %}PyLadiesCon volunteer portal and conference management system{% endblock og_description %}" />
+        <meta property="og:type"
+              content="{% block og_type %}website{% endblock og_type %}" />
+        <meta property="og:url"
+              content="{% block og_url %}{{ request.build_absolute_uri }}{% endblock og_url %}" />
+        <meta property="og:image"
+              content="{% block og_image %}https://conference.pyladies.com/img/banner.png{% endblock og_image %}" />
+        <meta property="og:image:alt"
+              content="{% block og_image_alt %}PyLadiesCon logo{% endblock og_image_alt %}">
+        <meta property="og:site_name" content="PyLadiesCon Portal" />
+        <meta property="og:locale" content="en_US">
         {% block extra_head %}
-            <script src="https://kit.fontawesome.com/8774ceef9d.js" crossorigin="anonymous"></script>
+            <script src="https://kit.fontawesome.com/8774ceef9d.js"
+                    crossorigin="anonymous"></script>
         {% endblock extra_head %}
         {% bootstrap_css %}
         {% bootstrap_javascript %}
@@ -20,74 +35,99 @@
     </head>
     <body>
         {% block body %}
-        {% endblock %}
-        <nav class="navbar navbar-expand-md navbar-dark bg-dark" aria-label="Fourth navbar example">
+        {% endblock body %}
+        <nav class="navbar navbar-expand-md navbar-dark bg-dark"
+             aria-label="Fourth navbar example">
             <div class="container-fluid">
-                <a class="navbar-brand" href="/">PyLadiesCon Portal</a>
-                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarsExample04" aria-controls="navbarsExample04" aria-expanded="false" aria-label="Toggle navigation">
+                <a class="navbar-brand" href="{% url "index" %}">PyLadiesCon Portal</a>
+                <button class="navbar-toggler"
+                        type="button"
+                        data-bs-toggle="collapse"
+                        data-bs-target="#navbarsExample04"
+                        aria-controls="navbarsExample04"
+                        aria-expanded="false"
+                        aria-label="Toggle navigation">
                     <span class="navbar-toggler-icon"></span>
                 </button>
-
                 <div class="collapse navbar-collapse" id="navbarsExample04">
                     <ul class="navbar-nav me-auto mb-2 mb-md-0">
                         <li class="nav-item">
-                            <a class="nav-link active" aria-current="page" href="/">Home</a>
+                            <a class="nav-link active" aria-current="page" href="{% url "index" %}">Home</a>
                         </li>
                         {% if user.is_authenticated %}
-
                             <li class="nav-item">
                                 <a class="nav-link" href="{% url 'volunteer:index' %}">Volunteer</a>
                             </li>
                         {% endif %}
-
                     </ul>
                     {% if user.is_authenticated %}
                         <div class="dropdown text-end navbar-nav">
-                            <a href="#" class="nav-link d-block link-body-emphasis text-decoration-none dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="true">
+                            <a href="#"
+                               class="nav-link d-block link-body-emphasis text-decoration-none dropdown-toggle"
+                               data-bs-toggle="dropdown"
+                               aria-expanded="true">
                                 Welcome, {{ user.username }}
+                                {# djlint:off #}
 {#                                <img src="https://github.com/mdo.png" alt="mdo" width="32" height="32" class="rounded-circle">#}
+                                {# djlint:on #}
                             </a>
-                            <ul class="dropdown-menu text-small" style="position: absolute; inset: 0px 0px auto auto; margin: 0px; transform: translate(0px, 34px);" data-popper-placement="bottom-end">
-                                {% if user.is_superuser %}
-                                    <li>
-                                        <a class="dropdown-item" href="{% url 'admin:index' %}">{% trans "Admin Area" %}</a>
-                                    </li>
-                                    <li><hr class="dropdown-divider"></li>
-                                {% endif %}
+                            {# djlint:off #}
+                            <ul class="dropdown-menu text-small"
+                                style="position: absolute;
+                                       inset: 0px 0px auto auto;
+                                       margin: 0px;
+                                       transform: translate(0px, 34px)"
+                                data-popper-placement="bottom-end">
+                            {# djlint:on #}
+                            {% if user.is_superuser %}
                                 <li>
-                                    <a class="dropdown-item" href="{% url 'portal_account:index' %}">{% trans "Manage Profile" %}</a>
+                                    <a class="dropdown-item" href="{% url 'admin:index' %}">{% trans "Admin Area" %}</a>
                                 </li>
-                                {% url 'account_email' as email_url_ %}
-                                {% if email_url_ %}
-                                    <li>
-                                        <a class="dropdown-item" href="{{ email_url_ }}">{% trans "Manage Emails" %}</a>
-                                    </li>
-                                {% endif %}
-                                {% url 'account_change_password' as change_password_url_ %}
-                                {% if change_password_url_ %}
-                                    <li>
-                                        <a class="dropdown-item" href="{{ change_password_url_ }}">{% trans "Change Password" %}</a>
-                                    </li>
-                                {% endif %}
-                                <li><hr class="dropdown-divider"></li>
-                                {% url 'account_logout' as logout_url_ %}
-                                {% if logout_url_ %}
-                                    <li>
-                                        <a class="dropdown-item" href="{{ logout_url_ }}">{% trans "Sign Out" %}</a>
-                                    </li>
-                                {% endif %}
-                            </ul>
-                        </div>
-                    {% endif %}
+                                <li>
+                                    <hr class="dropdown-divider">
+                                </li>
+                            {% endif %}
+                            <li>
+                                <a class="dropdown-item" href="{% url 'portal_account:index' %}">{% trans "Manage Profile" %}</a>
+                            </li>
+                            {% url 'account_email' as email_url_ %}
+                            {% if email_url_ %}
+                                <li>
+                                    <a class="dropdown-item" href="{{ email_url_ }}">{% trans "Manage Emails" %}</a>
+                                </li>
+                            {% endif %}
+                            {% url 'account_change_password' as change_password_url_ %}
+                            {% if change_password_url_ %}
+                                <li>
+                                    <a class="dropdown-item" href="{{ change_password_url_ }}">{% trans "Change Password" %}</a>
+                                </li>
+                            {% endif %}
+                            <li>
+                                <hr class="dropdown-divider">
+                            </li>
+                            {% url 'account_logout' as logout_url_ %}
+                            {% if logout_url_ %}
+                                <li>
+                                    <a class="dropdown-item" href="{{ logout_url_ }}">{% trans "Sign Out" %}</a>
+                                </li>
+                            {% endif %}
+                        </ul>
+                    </div>
+                {% endif %}
+                {# djlint:off #}
 {#                    <form role="search">#}
 {#                        <input class="form-control" type="search" placeholder="Search" aria-label="Search">#}
 {#                    </form>#}
-              </div>
+                {# djlint:on #}
             </div>
-        </nav>
-        <div class="container my-5">
-            {% block content %}
-            {% endblock %}
         </div>
-    </body>
+    </nav>
+    <div class="alert alert-info" role="alert">
+        <strong>Development Notice:</strong> The codebase is real, but the database is not. Any signups, accounts, or data entered on this site may be deleted without notice. For now, feel free to play around.
+    </div>
+    <div class="container my-5">
+        {% block content %}
+        {% endblock content %}
+    </div>
+</body>
 </html>
