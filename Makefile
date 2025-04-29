@@ -63,7 +63,8 @@ reformat: .state/docker-build-web
 	docker compose run --rm web black .
 
 test: .state/docker-build-web
-	docker compose run --rm web pytest --cov --reuse-db --no-migrations
+	docker compose run --rm web pytest --cov --reuse-db --no-migrations --cov-fail-under=100
+	docker compose run --rm web python -m coverage html --show-contexts
 	docker compose run --rm web python -m coverage report -m
 
 check: test lint

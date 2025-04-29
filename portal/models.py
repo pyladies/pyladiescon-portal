@@ -23,6 +23,8 @@ class BaseModel(models.Model):
 
     def save(self, *args, **kwargs):
         self.modified_date = now()
-        if "update_fields" in kwargs and "modified_date" not in kwargs["update_fields"]:
+        if (
+            "update_fields" in kwargs and "modified_date" not in kwargs["update_fields"]
+        ):  # pragma: no cover
             kwargs["update_fields"].append("modified_date")
         super().save(*args, **kwargs)

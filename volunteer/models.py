@@ -100,4 +100,4 @@ class VolunteerProfile(BaseModel):
         return self.user.username
 
     def get_absolute_url(self):
-        return reverse("volunteer_profile_edit", kwargs={"pk": self.pk})
+        return reverse("volunteer:volunteer_profile_edit", kwargs={"pk": self.pk})

@@ -93,7 +93,7 @@ if os.environ.get("DATABASE_URL", None) is not None:
             conn_health_checks=True,
         )
     }
-else:
+else:  # pragma: no cover
     DATABASES = {
         "default": {
             "ENGINE": os.environ.get("SQL_ENGINE", "django.db.backends.sqlite3"),
@@ -245,6 +245,6 @@ if "DJANGO_EMAIL_HOST" in os.environ:
     EMAIL_HOST_PASSWORD = os.getenv("DJANOG_EMAIL_HOST_PASSWORD")
     EMAIL_USE_TLS = os.getenv("DJANGO_EMAIL_USE_TLS")
     DEFAULT_FROM_EMAIL = os.getenv("DJANGO_DEFAULT_FROM_EMAIL")
-else:
+else:  # pragma: no cover
     # Otherwise, send emails to the console
     EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
