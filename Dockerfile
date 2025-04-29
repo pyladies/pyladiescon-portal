@@ -43,7 +43,7 @@ RUN  chown -R nobody /usr/local/lib/python3.13/site-packages
 COPY . /code/
 
 RUN \
-    DJANGO_ALLOWED_HOSTS=localhost \
+    DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1,[::1] \
     DJANGO_SECRET_KEY=deadbeefcafe \
     DATABASE_URL=postgres://localhost:5432/db \
     DJANGO_SETTINGS_MODULE=portal.settings \
