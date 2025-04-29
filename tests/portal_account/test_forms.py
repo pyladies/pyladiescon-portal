@@ -2,7 +2,6 @@ import pytest
 
 from portal_account.forms import PortalProfileForm
 from portal_account.models import PortalProfile
-from tests.test_fixtures import portal_user
 
 
 @pytest.mark.django_db

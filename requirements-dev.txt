@@ -3,6 +3,7 @@ black==25.1.0
 coverage==7.7.0
 django-debug-toolbar==5.0.1
 flake8==7.2.0
+flake8-pytest-style==2.1.0
 isort==6.0.1
 pip-audit==2.8.0
 pytest-django==4.8.0

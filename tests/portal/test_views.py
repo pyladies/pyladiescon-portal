@@ -1,9 +1,9 @@
 import pytest
+
 from django.urls import reverse
 from pytest_django.asserts import assertRedirects
 
 from portal_account.models import PortalProfile
-from tests.test_fixtures import portal_user
 
 
 @pytest.mark.django_db
