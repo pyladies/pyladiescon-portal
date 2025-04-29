@@ -1,6 +1,6 @@
 import pytest
 from django.conf.global_settings import LANGUAGES
-from django.urls import reverse, reverse_lazy
+from django.urls import reverse
 from pytest_django.asserts import assertRedirects
 
 from volunteer.models import VolunteerProfile
