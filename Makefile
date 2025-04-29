@@ -75,3 +75,5 @@ clean:
 	rm -f .state/docker-build-web
 	rm -f .state/db-initialized
 	rm -f .state/db-migrated
+
+.PHONY: default serve shell dbshell manage migrations migrate lint reformat test check clean
