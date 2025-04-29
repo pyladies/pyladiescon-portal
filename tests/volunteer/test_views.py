@@ -102,3 +102,5 @@ class TestVolunteer:
             reverse("volunteer:volunteer_profile_detail", kwargs={"pk": profile.id})
         )
         assert response.status_code == 200
+        profile_result = response.context["volunteerprofile"]
+        assert profile_result == profile
