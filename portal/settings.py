@@ -141,6 +141,12 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.1/howto/static-files/
 
+STATIC_URL = "static/"
+STATIC_ROOT = BASE_DIR / "staticroot"
+STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
+MEDIA_ROOT = os.path.join(BASE_DIR, "media")
+MEDIAFILES_DIRS = [os.path.join(BASE_DIR, "media")]
+MEDIA_URL = "/media/"
 
 USE_SPACES = os.getenv("USE_SPACES")
 
@@ -150,11 +156,10 @@ if USE_SPACES:
             "BACKEND": "storage_backend.custom_storage.MediaStorage",
         },
         "staticfiles": {
-            "BACKEND": "storage_backend.custom_storage.StaticStorage",
+            "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
         },
     }
-    MEDIA_ROOT = os.path.join(BASE_DIR, "media")
-    MEDIAFILES_DIRS = [os.path.join(BASE_DIR, "media")]
+
     AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
     AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
     AWS_STORAGE_BUCKET_NAME = os.getenv("AWS_STORAGE_BUCKET_NAME")
@@ -162,18 +167,9 @@ if USE_SPACES:
     AWS_S3_ENDPOINT_URL = os.getenv("AWS_S3_ENDPOINT_URL")
     AWS_S3_OBJECT_PARAMETERS = {"CacheControl": "max-age=86400"}
     AWS_QUERYSTRING_AUTH = False
-    AWS_LOCATION = "static"
-    AWS_STATIC_LOCATION = "static"
-    STATIC_ROOT = BASE_DIR / "staticroot"
-    STATIC_URL = f"{AWS_S3_ENDPOINT_URL}/{AWS_LOCATION}/"
     MEDIA_URL = f"{AWS_S3_ENDPOINT_URL}/media/"
-else:
-    STATIC_URL = "static/"
-    STATIC_ROOT = BASE_DIR / "staticroot"
-    STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
-    MEDIA_ROOT = os.path.join(BASE_DIR, "media")
-    MEDIA_URL = "/media/"
-    MEDIAFILES_DIRS = [os.path.join(BASE_DIR, "media")]
+
+
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
