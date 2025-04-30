@@ -101,19 +101,11 @@ It is accessible at <http://localhost:1080> and will show all emails sent by the
 3. Fill in the email address, username, and password.
 4. Upon signing up, the confirmation email will be available at <http://localhost:1080/>. Enter this code on the sign up form.
 5. Your account is now verified.
-6. On the terminal, go to Django shell:
+6. On the terminal, run the management command to make the user you just created as a superuser.
 
 ```
-make manage shell
+make manage makesuperuser $USERID
 ```
-7. Set your account as a staff and superuser:
+   Replace `$USERID` with the username you created earlier.
 
-```
-from django.contrib.auth.models import User
-user = User.objects.get(username='your_username') #use the username you created above
-user.is_staff = True
-user.is_superuser = True
-user.save()
-```
-
-8. You can now access the /admin page.
+7. You can now access the /admin page.
