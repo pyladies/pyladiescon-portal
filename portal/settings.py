@@ -94,7 +94,7 @@ if os.environ.get("DATABASE_URL", None) is not None:
             conn_health_checks=True,
         )
     }
-else:  # pragma: no cover
+else:
     DATABASES = {
         "default": {
             "ENGINE": os.environ.get("SQL_ENGINE", "django.db.backends.sqlite3"),
@@ -167,7 +167,7 @@ if USE_SPACES:
     STATIC_ROOT = BASE_DIR / "staticroot"
     STATIC_URL = f"{AWS_S3_ENDPOINT_URL}/{AWS_LOCATION}/"
     MEDIA_URL = f"{AWS_S3_ENDPOINT_URL}/media/"
-else:  # pragma: no cover
+else:
     STATIC_URL = "static/"
     STATIC_ROOT = BASE_DIR / "staticroot"
     STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
@@ -276,6 +276,6 @@ if "DJANGO_EMAIL_HOST" in os.environ:
     EMAIL_HOST_PASSWORD = os.getenv("DJANOG_EMAIL_HOST_PASSWORD")
     EMAIL_USE_TLS = os.getenv("DJANGO_EMAIL_USE_TLS")
     DEFAULT_FROM_EMAIL = os.getenv("DJANGO_DEFAULT_FROM_EMAIL")
-else:  # pragma: no cover
+else:
     # Otherwise, send emails to the console
     EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
