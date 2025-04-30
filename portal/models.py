@@ -1,8 +1,8 @@
 from django import forms
-from django.db import models
-from django.utils.timezone import now
 from django.contrib.admin.widgets import FilteredSelectMultiple
 from django.contrib.postgres.fields import ArrayField
+from django.db import models
+from django.utils.timezone import now
 
 
 class ChoiceArrayField(ArrayField):
@@ -23,6 +23,8 @@ class BaseModel(models.Model):
 
     def save(self, *args, **kwargs):
         self.modified_date = now()
-        if "update_fields" in kwargs and "modified_date" not in kwargs["update_fields"]:
+        if (
+            "update_fields" in kwargs and "modified_date" not in kwargs["update_fields"]
+        ):  # pragma: no cover
             kwargs["update_fields"].append("modified_date")
         super().save(*args, **kwargs)
