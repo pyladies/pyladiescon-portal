@@ -6,7 +6,7 @@ from django.contrib.auth.models import User
 from django.urls import reverse
 
 from portal.models import BaseModel, ChoiceArrayField
-from portal.settings import ACCOUNT_EMAIL_SUBJECT_PREFIX, DEFAULT_FROM_EMAIL, ALLOWED_HOSTS
+from portal.settings import ACCOUNT_EMAIL_SUBJECT_PREFIX, DEFAULT_FROM_EMAIL
 from .constants import ApplicationStatus
 
 TIMEZONE_CHOICES = [
