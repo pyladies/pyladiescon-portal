@@ -167,7 +167,7 @@ if USE_SPACES == "true":
     AWS_S3_ENDPOINT_URL = os.getenv("AWS_S3_ENDPOINT_URL")
     AWS_S3_OBJECT_PARAMETERS = {"CacheControl": "max-age=86400"}
     AWS_QUERYSTRING_AUTH = False
-    MEDIA_URL = f"{AWS_S3_ENDPOINT_URL}/media/"
+    AWS_S3_CUSTOM_DOMAIN = os.getenv("AWS_S3_CUSTOM_DOMAIN")
 
 
 # Default primary key field type
