@@ -17,23 +17,23 @@ Requirements: Have these installed first before continuing further.
 
 1. Clone the repo. If using GitHub CLI, run:
 
-```
-gh repo clone pyladies/pyladiescon-portal
-```
+    ```
+    gh repo clone pyladies/pyladiescon-portal
+    ```
 
 2. Start the local environment:
 
-```
-make serve
-```
+    ```
+    make serve
+    ```
 
 3. Open the browser and go to <http://localhost:8000/> to see the app running.
 
 4. Run the tests:
 
-```
-make test
-```
+    ```
+    make test
+    ```
 
 ## Documentation Setup
 
@@ -43,22 +43,22 @@ The documentation is built using [MKDocs](https://www.mkdocs.org/) and markdown.
 
 1. Create and activate a virtual environment:
 
-```
-python3 -m venv venv
-source venv/bin/activate
-```
+    ```
+    python3 -m venv venv
+    source venv/bin/activate
+    ```
 
 2. Install docs requirements:
 
-```
-pip install -r requirements-docs.txt
-```
+    ```
+    pip install -r requirements-docs.txt
+    ```
 
 3. Run the docs server:
 
-```
-mkdocs serve
-```
+    ```
+    mkdocs serve
+    ```
 
 4. Open the browser and go to <http://localhost:8888/> to see the docs running.
 
