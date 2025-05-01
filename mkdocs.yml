@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://squidfunk.github.io/mkdocs-material/schema.json
 site_name: PyLadiesCon Portal
-site_url: https://conference.pyladies.com/
+site_url: https://pyladiescon-portal-docs.netlify.app
 theme:
   name: material
   logo: assets/logo.png
@@ -52,7 +52,7 @@ repo_url: https://github.com/pyladies/pyladiescon-portal
 repo_name: pyladies/pyladiescon-portal
 edit_uri: edit/main/docs/
 extra:
-  homepage: http://localhost:8888
+  homepage: https://conference.pyladies.com
   social:
     - icon: fontawesome/brands/mastodon
       link: https://fosstodon.org/@pyladies
