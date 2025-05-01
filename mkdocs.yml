@@ -84,4 +84,3 @@ plugins:
   - git-committers:
       repository: pyladies/pyladiescon-portal
       branch: main
-dev_addr: '0.0.0.0:8888'
