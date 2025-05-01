@@ -13,7 +13,7 @@ Requirements: Have these installed first before continuing further.
 - GitHub CLI (optional, but recommended) https://cli.github.com/
 
 
-## Starting the local env
+### Starting the local env
 
 1. Clone the repo. If using GitHub CLI, run:
 
@@ -34,3 +34,37 @@ make serve
 ```
 make test
 ```
+
+## Documentation Setup
+
+The documentation is built using [MKDocs](https://www.mkdocs.org/) and markdown.
+
+### Local docs setup
+
+1. Create and activate a virtual environment:
+
+```
+python3 -m venv venv
+source venv/bin/activate
+```
+
+2. Install docs requirements:
+
+```
+pip install -r requirements-docs.txt
+```
+
+3. Run the docs server:
+
+```
+mkdocs serve
+```
+
+4. Open the browser and go to <http://localhost:8888/> to see the docs running.
+
+### Docs Troubleshooting
+
+### Cairo library was not found
+
+If you see the error `Cairo library was not found`, follow the instructions on [how to resolve it](https://squidfunk.github.io/mkdocs-material/plugins/requirements/image-processing/?h=cairo#troubleshooting).
+

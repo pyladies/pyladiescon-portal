@@ -4,9 +4,6 @@ Documentation for PyLadiesCon Web Portal.
 
 PyLadiesCon online conference management tool.
 
-💰 Support the development of this project by [donating to PyLadiesCon](https://psfmember.org/civicrm/contribute/transact/?reset=1&id=53)
-or by sponsoring the [conference](https://conference.pyladies.com).
-
 ## About PyLadiesCon
 
 ✨ [PyLadiesCon](https://conference.pyladies.com) is an online conference for the global [PyLadies](https://pyladies.com) community.
@@ -27,3 +24,6 @@ Check the Local Dev Setup section below to learn how to set this up on your loca
 - Project: <https://github.com/orgs/pyladies/projects/11>
 - Milestone with due dates and goals: <https://github.com/pyladies/pyladiescon-portal/milestones>
 
+<a href="https://www.netlify.com">
+  <img src="https://www.netlify.com/assets/badges/netlify-badge-color-bg.svg" alt="Deploys by Netlify" />
+</a>

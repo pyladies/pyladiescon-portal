@@ -4,6 +4,10 @@ site_url: https://conference.pyladies.com/
 theme:
   name: material
   logo: assets/logo.png
+  icon:
+    repo: fontawesome/brands/github
+    edit: material/pencil
+    view: material/eye
   favicon: assets/favicon.ico
   palette:
     primary: "pink"
@@ -17,7 +21,14 @@ theme:
     - search.share
     - search.suggest
     - toc.follow
-
+    - content.code.copy
+    - content.code.select
+    - content.tabs.link
+    - content.action.edit
+  markdown_extensions:
+    - pymdownx.superfences
+    - pymdownx.tabbed:
+        alternate_style: true
 nav:
   - Home: index.md
   - About:
@@ -27,6 +38,7 @@ nav:
     - Setup Guide: developer/setup.md
     - Contributing: developer/contributing.md
     - How Tos: developer/howto.md
+    - Deployment: developer/deployment.md
   - User Guide:
     - Get started: user/get_started.md
     - Core Team: user/core_team.md
@@ -36,9 +48,40 @@ nav:
     - Terms of Service: policies/terms_of_use.md
     - Acceptable Use Policy: policies/acceptable_use_policy.md
     - Code of Conduct: https://global-conference-2025.netlify.app/en/coc/
-
+repo_url: https://github.com/pyladies/pyladiescon-portal
+repo_name: pyladies/pyladiescon-portal
+edit_uri: edit/main/docs/
 extra:
   homepage: http://localhost:8888
+  social:
+    - icon: fontawesome/brands/mastodon
+      link: https://fosstodon.org/@pyladies
+      name: Follow us on Mastodon
+    - icon: fontawesome/brands/bluesky
+      link: https://bsky.app/profile/pyladiescon.bsky.social
+      name: Follow us on BlueSky
+    - icon: fontawesome/brands/linkedin
+      link: https://linkedin.com/company/pyladiescon
+      name: Connect with us on LinkedIn
+    - icon: fontawesome/brands/instagram
+      link: https://instagram.com/pyladiescon
+      name: Follow us on Instagram
+    - icon: fontawesome/brands/youtube
+      link: https://youtube.com/@pyladiesglobal
+      name: Subscribe to our YouTube Channel
+    - icon: material/hand-coin
+      link: https://psfmember.org/civicrm/contribute/transact/?reset=1&id=53
+      name: Donate to PyLadiesCon
+    - icon: fontawesome/brands/github
+      link: https://github.com/pyladies/pyladiescon-portal
+      name: Contribute to our repository
 plugins:
   - social
   - tags
+  - rss
+  - git-revision-date-localized:
+      enable_creation_date: true
+  - git-committers:
+      repository: pyladies/pyladiescon-portal
+      branch: main
+dev_addr: '0.0.0.0:8888'

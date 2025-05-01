@@ -26,5 +26,13 @@ We aim for 100% test coverage. The coverage report is generated after running th
 
 ## Code style and linting
 
-Run ``make reformat`` prior to committing. There is a CI that checks for code style and linting issues.
+Run ``make reformat`` and ``make check`` prior to committing your code.
+There is a CI that checks for code style and linting issues.
+
+PRs will not be merged if there is any CI failures.
+
+## Documentation Preview on Pull Requests
+
+A documentation preview is generated for each pull request using Netlify. This allows us to preview
+the docs changes before merging the PR.
 
