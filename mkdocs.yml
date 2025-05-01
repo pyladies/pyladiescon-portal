@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=https://squidfunk.github.io/mkdocs-material/schema.json
+site_name: PyLadiesCon Portal
+site_url: https://conference.pyladies.com/
+theme:
+  name: material
+  logo: assets/logo.png
+  favicon: assets/favicon.ico
+  palette:
+    primary: "pink"
+  features:
+    - navigation.footer
+    - navigation.sections
+    - navigation.tabs
+    - navigation.top
+    - navigation.tracking
+    - search.highlight
+    - search.share
+    - search.suggest
+    - toc.follow
+
+nav:
+  - Home: index.md
+  - About:
+    - PyLadiesCon Portal: about/index.md
+    - Team: about/team.md
+  - Developer Guide:
+    - Setup Guide: developer/setup.md
+    - Contributing: developer/contributing.md
+    - How Tos: developer/howto.md
+  - User Guide:
+    - Get started: user/get_started.md
+    - Core Team: user/core_team.md
+    - Volunteers: user/volunteer.md
+    - Sponsors: user/sponsor.md
+  - Policies:
+    - Terms of Service: policies/terms_of_use.md
+    - Acceptable Use Policy: policies/acceptable_use_policy.md
+    - Code of Conduct: https://global-conference-2025.netlify.app/en/coc/
+
+extra:
+  homepage: http://localhost:8888
+plugins:
+  - social
+  - tags

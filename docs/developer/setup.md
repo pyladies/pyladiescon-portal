@@ -1,0 +1,36 @@
+---
+title: Local Dev Environment Setup
+description: Setting up the local development environment for PyLadiesCon Portal
+---
+
+# Local Dev setup
+
+Requirements: Have these installed first before continuing further.
+
+- Docker
+- Docker compose
+- GNU Make
+- GitHub CLI (optional, but recommended) https://cli.github.com/
+
+
+## Starting the local env
+
+1. Clone the repo. If using GitHub CLI, run:
+
+```
+gh repo clone pyladies/pyladiescon-portal
+```
+
+2. Start the local environment:
+
+```
+make serve
+```
+
+3. Open the browser and go to <http://localhost:8000/> to see the app running.
+
+4. Run the tests:
+
+```
+make test
+```
