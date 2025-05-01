@@ -8,6 +8,7 @@ WORKDIR /code
 RUN pip --no-cache-dir --disable-pip-version-check install --upgrade pip setuptools wheel
 
 COPY requirements.txt /code/
+COPY requirements-docs.txt /code/
 RUN --mount=type=cache,target=/root/.cache/pip \
     pip install -r requirements.txt
 
