@@ -1,8 +1,5 @@
 # netlify.toml
 [build]
-  command = """
-  python -m pip install -U pip -r requirements-docs.txt
-  mkdocs build
-  """
-  publish = "site/"
+  command = "mkdocs build"
+  publish = "site"
   environment = { PYTHON_VERSION = "3.13"}
