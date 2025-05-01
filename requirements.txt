@@ -1,3 +1,4 @@
+-r requirements-docs.txt
 asgiref==3.8.1
 Django==5.1.7
 django-allauth==65.5.0
