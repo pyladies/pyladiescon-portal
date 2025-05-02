@@ -11,9 +11,7 @@ class PortalProfile(BaseModel):
     pronouns = models.CharField(max_length=100, blank=True, null=True)
     coc_agreement = models.BooleanField(default=False)
     profile_picture = models.ImageField(
-        upload_to="profile_pictures",
-        blank=True,
-        null=True
+        upload_to="profile_pictures", blank=True, null=True
     )
 
     def get_absolute_url(self):

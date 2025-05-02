@@ -31,7 +31,17 @@ class PortalProfileForm(ModelForm):
             self.fields["last_name"].initial = self.user.last_name
 
         # fix field order
-        self.order_fields(["username", "first_name", "last_name", "email", "pronouns", "profile_picture", "coc_agreement"])
+        self.order_fields(
+            [
+                "username",
+                "first_name",
+                "last_name",
+                "email",
+                "pronouns",
+                "profile_picture",
+                "coc_agreement",
+            ]
+        )
 
     def save(self, commit=True):
         """ """

@@ -6,13 +6,15 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('portal_account', '0001_initial'),
+        ("portal_account", "0001_initial"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='portalprofile',
-            name='profile_picture',
-            field=models.ImageField(blank=True, null=True, upload_to='profile_pictures'),
+            model_name="portalprofile",
+            name="profile_picture",
+            field=models.ImageField(
+                blank=True, null=True, upload_to="profile_pictures"
+            ),
         ),
     ]
