@@ -9,7 +9,7 @@ default:
 	@echo
 	@exit 1
 
-.state/docker-build-web: Dockerfile requirements.txt requirements-dev.txt
+.state/docker-build-web: Dockerfile requirements-app.txt requirements-dev.txt
 	# Build our web container for this project.
 	docker compose build --build-arg  USER_ID=$(shell id -u)  --build-arg GROUP_ID=$(shell id -g) --force-rm web
 
@@ -63,9 +63,7 @@ reformat: .state/docker-build-web
 	docker compose run --rm web black .
 
 test: .state/docker-build-web
-	docker compose run --rm web pytest --cov --reuse-db --no-migrations --cov-fail-under=100
-	docker compose run --rm web python -m coverage html --show-contexts
-	docker compose run --rm web python -m coverage report -m
+	docker compose run --rm web pytest --cov --reuse-db --no-migrations --cov-fail-under=100 --cov-report html --cov-report term
 
 check: test lint
 

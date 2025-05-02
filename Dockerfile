@@ -7,9 +7,9 @@ WORKDIR /code
 
 RUN pip --no-cache-dir --disable-pip-version-check install --upgrade pip setuptools wheel
 
-COPY requirements.txt /code/
+COPY requirements-app.txt /code/
 RUN --mount=type=cache,target=/root/.cache/pip \
-    pip install -r requirements.txt
+    pip install -r requirements-app.txt
 
 ###############################################################################
 #  Build our development container

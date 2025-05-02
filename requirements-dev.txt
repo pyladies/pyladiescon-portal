@@ -1,4 +1,4 @@
--r requirements.txt
+-r requirements-app.txt
 black==25.1.0
 coverage==7.7.0
 django-debug-toolbar==5.0.1
