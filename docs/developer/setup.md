@@ -57,7 +57,7 @@ The documentation is built using [MKDocs](https://www.mkdocs.org/) and markdown.
 3. Run the docs server:
 
     ```
-    mkdocs serve
+    mkdocs serve -a localhost:8888
     ```
 
 4. Open the browser and go to <http://localhost:8888/> to see the docs running.

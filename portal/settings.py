@@ -45,6 +45,7 @@ INSTALLED_APPS = [
     "django_bootstrap5",
     "allauth",
     "allauth.account",
+    "storages",
     "portal",
     "volunteer",
     "portal_account",
@@ -93,7 +94,7 @@ if os.environ.get("DATABASE_URL", None) is not None:
             conn_health_checks=True,
         )
     }
-else:  # pragma: no cover
+else:
     DATABASES = {
         "default": {
             "ENGINE": os.environ.get("SQL_ENGINE", "django.db.backends.sqlite3"),
@@ -143,6 +144,29 @@ USE_TZ = True
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticroot"
 STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
+MEDIA_ROOT = os.path.join(BASE_DIR, "media")
+MEDIA_URL = "/media/"
+
+USE_SPACES = os.getenv("USE_SPACES")
+
+if USE_SPACES == "true":
+    STORAGES = {
+        "default": {
+            "BACKEND": "storage_backend.custom_storage.MediaStorage",
+        },
+        "staticfiles": {
+            "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+        },
+    }
+
+    AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
+    AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
+    AWS_STORAGE_BUCKET_NAME = os.getenv("AWS_STORAGE_BUCKET_NAME")
+    AWS_DEFAULT_ACL = "public-read"
+    AWS_S3_ENDPOINT_URL = os.getenv("AWS_S3_ENDPOINT_URL")
+    AWS_S3_OBJECT_PARAMETERS = {"CacheControl": "max-age=86400"}
+    AWS_QUERYSTRING_AUTH = False
+
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
@@ -245,6 +269,6 @@ if "DJANGO_EMAIL_HOST" in os.environ:
     EMAIL_HOST_PASSWORD = os.getenv("DJANOG_EMAIL_HOST_PASSWORD")
     EMAIL_USE_TLS = os.getenv("DJANGO_EMAIL_USE_TLS")
     DEFAULT_FROM_EMAIL = os.getenv("DJANGO_DEFAULT_FROM_EMAIL")
-else:  # pragma: no cover
+else:
     # Otherwise, send emails to the console
     EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
