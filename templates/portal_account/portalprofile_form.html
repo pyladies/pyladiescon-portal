@@ -1,29 +1,52 @@
 {% extends "portal/base.html" %}
 {% load allauth i18n %}
 {% load django_bootstrap5 %}
-
 {% block body %}
-{% endblock %}
+{% endblock body %}
 {% block content %}
     <main>
-        <h1 class="display-5">{% if object.pk %}Edit{% else %}Create{% endif %} your Portal Profile</h1>
+        <h1 class="display-5">
+            {% if object.pk %}
+                Edit
+            {% else %}
+                Create
+            {% endif %}
+            your Portal Profile
+        </h1>
         <p class="lead">
-            {% if object.pk %}Update your portal profile information below.{% else %}Please complete your portal profile before proceeding.{% endif %}
+            {% if object.pk %}
+                Update your portal profile information below.
+            {% else %}
+                Please complete your portal profile before proceeding.
+            {% endif %}
         </p>
         <div class="row g-5">
             {% bootstrap_form_errors form %}
-            <form action="{% url 'portal_account:portal_profile_new' %}" method="post" class="form" enctype="multipart/form-data">
+
+            <form action="{% if object.pk %}{% url 'portal_account:portal_profile_edit' object.pk %}{% else %}{% url 'portal_account:portal_profile_new' %}{% endif %}"
+                  method="post"
+                  class="form">
                 {% csrf_token %}
-                {% bootstrap_form form %}
+                {% bootstrap_field form.username %}
+                {% bootstrap_field form.first_name %}
+                {% bootstrap_field form.last_name %}
+                {% bootstrap_field form.email %}
+                {% bootstrap_field form.pronouns %}
+                {% bootstrap_field form.coc_agreement %}
+              
                 <div class="mt-4">
-                    <input type="submit" value="{% if object.pk %}Update Profile{% else %}Create Profile{% endif %}" class="btn btn-primary" />
+                    <input type="submit"
+                           value="{% if object.pk %}Update Profile{% else %}Create Profile{% endif %}"
+                           class="btn btn-primary" />
                     {% if object.pk %}
-                    <a href="{% url 'portal_account:portal_profile_detail' object.pk %}" class="btn btn-secondary">Cancel</a>
+                        <a href="{% url 'portal_account:portal_profile_detail' object.pk %}"
+                           class="btn btn-secondary">Cancel</a>
                     {% else %}
-                    <a href="{% url 'portal_account:index' %}" class="btn btn-secondary">Cancel</a>
+                        <a href="{% url 'portal_account:index' %}" class="btn btn-secondary">Cancel</a>
                     {% endif %}
                 </div>
             </form>
+            {# djlint:off #}
 {#                <form class="needs-validation" novalidate="">#}
 {#                  <div class="row g-3">#}
 {#                    <div class="col-sm-6">#}
@@ -175,6 +198,8 @@
 {##}
 {#                  <button class="w-100 btn btn-primary btn-lg" type="submit">Continue to checkout</button>#}
 {#                </form>#}
+            {# djlint:on #}
         </div>
     </main>
-{% endblock %}
+
+{% endblock content %}

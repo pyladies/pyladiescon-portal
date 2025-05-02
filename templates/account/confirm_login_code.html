@@ -6,15 +6,17 @@
 {% endblock head_title %}
 {% block title %}
     {% translate "Enter Sign-In Code" %}
-{% endblock %}
+{% endblock title %}
 {% block recipient %}
     {% if email %}
         <a href="mailto:{{ email }}">{{ email }}</a>
     {% else %}
         <a href="tel:{{ phone }}">{{ phone }}</a>
     {% endif %}
-{% endblock %}
+{% endblock recipient %}
 {% block action_url %}
-    {% url 'account_confirm_login_code' %}
-{% endblock %}
-{% block extra_tags %}login{% endblock %}
+    {% url "account_confirm_login_code" %}
+{% endblock action_url %}
+{% block extra_tags %}
+    login
+{% endblock extra_tags %}

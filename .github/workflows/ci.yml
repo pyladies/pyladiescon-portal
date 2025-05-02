@@ -9,6 +9,20 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [ "3.13", "3.14" ]
+      fail-fast:
+        false
     steps:
-    - name: Dummy CI
-      run: echo "OK"
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "${{ matrix.python-version }}"
+          check-latest: true
+          allow-prereleases: true
+      - name: Lint
+        run: make lint
+      - name: Tests
+        run: make test
