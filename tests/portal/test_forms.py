@@ -1,8 +1,8 @@
 import pytest
-from django.urls import reverse
+from allauth.account.forms import SignupForm
 from django.contrib.auth import get_user_model
 from django.contrib.sessions.middleware import SessionMiddleware
-from allauth.account.forms import SignupForm
+from django.urls import reverse
 
 from portal.forms import CustomSignupForm
 
