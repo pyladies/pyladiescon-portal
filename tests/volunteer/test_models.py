@@ -1,5 +1,6 @@
 import pytest
 from django.conf.global_settings import LANGUAGES
+from django.core import mail
 from django.urls import reverse
 
 from volunteer.models import Role, Team, VolunteerProfile
@@ -33,3 +34,14 @@ class TestVolunteerModel:
         role = Role(short_name="Test Role")
         role.save()
         assert str(role) == "Test Role"
+
+    def test_send_volunteer_email(self, portal_user):
+        profile = VolunteerProfile(user=portal_user)
+        profile.languages_spoken = [LANGUAGES[0]]
+
+        profile.application_status = "Approved"
+        profile.save()
+
+        profile.send_volunteer_email()
+
+        assert str(mail.outbox[0].subject) == "[PyLadiesCon Dev]  Volunteer Application Status"
