@@ -45,6 +45,7 @@ INSTALLED_APPS = [
     "django_bootstrap5",
     "allauth",
     "allauth.account",
+    "storages",
     "portal",
     "volunteer",
     "portal_account",
@@ -143,6 +144,29 @@ USE_TZ = True
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticroot"
 STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
+MEDIA_ROOT = os.path.join(BASE_DIR, "media")
+MEDIA_URL = "/media/"
+
+USE_SPACES = os.getenv("USE_SPACES")
+
+if USE_SPACES == "true":
+    STORAGES = {
+        "default": {
+            "BACKEND": "storage_backend.custom_storage.MediaStorage",
+        },
+        "staticfiles": {
+            "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+        },
+    }
+
+    AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
+    AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
+    AWS_STORAGE_BUCKET_NAME = os.getenv("AWS_STORAGE_BUCKET_NAME")
+    AWS_DEFAULT_ACL = "public-read"
+    AWS_S3_ENDPOINT_URL = os.getenv("AWS_S3_ENDPOINT_URL")
+    AWS_S3_OBJECT_PARAMETERS = {"CacheControl": "max-age=86400"}
+    AWS_QUERYSTRING_AUTH = False
+
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
@@ -163,13 +187,19 @@ ACCOUNT_EMAIL_VERIFICATION_BY_CODE_ENABLED = True
 ACCOUNT_EMAIL_SUBJECT_PREFIX = "[PyLadiesCon Dev] "
 LOGIN_REDIRECT_URL = "/"
 ACCOUNT_LOGIN_METHODS = {"username"}
-ACCOUNT_SIGNUP_FIELDS = ["email*", "username*", "first_name*", "last_name*", "password1*", "password2*"]
+ACCOUNT_SIGNUP_FIELDS = [
+    "email*",
+    "username*",
+    "first_name*",
+    "last_name*",
+    "password1*",
+    "password2*",
+]
 ACCOUNT_MAX_EMAIL_ADDRESSES = 3
+ACCOUNT_LOGOUT_ON_GET = True
 
 # Use custom signup form
-ACCOUNT_FORMS = {
-    'signup': 'portal.forms.CustomSignupForm'
-}
+ACCOUNT_FORMS = {"signup": "portal.forms.CustomSignupForm"}
 
 # Default settings
 BOOTSTRAP5 = {
@@ -230,7 +260,7 @@ BOOTSTRAP5 = {
     },
 }
 
-## Email settings
+# Email settings
 if "DJANGO_EMAIL_HOST" in os.environ:
     # If the env vars are set, use them
     EMAIL_HOST = os.getenv("DJANGO_EMAIL_HOST")
@@ -242,3 +272,7 @@ if "DJANGO_EMAIL_HOST" in os.environ:
 else:
     # Otherwise, send emails to the console
     EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+
+
+MEDIA_URL = "/media/"  # URL to serve media files
+MEDIA_ROOT = os.path.join(BASE_DIR, "media")  # Local filesystem path

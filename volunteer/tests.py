@@ -1,7 +1,6 @@
 from django.test import TestCase
 from django.core.exceptions import ValidationError
 from django.contrib.auth.models import User
-
 from volunteer.models import VolunteerProfile
 
 # Create your tests here.
