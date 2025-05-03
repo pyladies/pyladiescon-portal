@@ -49,6 +49,7 @@ INSTALLED_APPS = [
     "portal",
     "volunteer",
     "portal_account",
+    "widget_tweaks",
 ]
 
 MIDDLEWARE = [
