@@ -105,35 +105,35 @@ class VolunteerProfile(BaseModel):
     def get_absolute_url(self):
         return reverse("volunteer:volunteer_profile_edit", kwargs={"pk": self.pk})
 
+    def send_volunteer_email(self):
+        text_content = render_to_string(
+            "volunteer/email/email_application_status_message.txt",
+            context={
+                "status": self.application_status,
+                "team_names": self.teams,
+                "edit_url": self.get_absolute_url(),
+                "site_name": "PyLadiesCon",
+            },
+        )
+        html_content = render_to_string(
+            "volunteer/email_application_status.html",
+            context={
+                "status": self.application_status,
+                "team_names": self.teams,
+                "edit_url": self.get_absolute_url(),
+                "site_name": "PyLadiesCon",
+            },
+        )
+
+        msg = EmailMultiAlternatives(
+            f"{ACCOUNT_EMAIL_SUBJECT_PREFIX} Volunteer Application Status",
+            text_content,
+            DEFAULT_FROM_EMAIL,
+            [self.user.email],
+        )
+        msg.attach_alternative(html_content, "text/html")
+        msg.send()
+
     def save(self):
-        def send_volunteer_email():
-            text_content = render_to_string(
-                "volunteer/email/email_application_status_message.txt",
-                context={
-                    "status": self.application_status,
-                    "team_names": self.teams,
-                    "edit_url": self.get_absolute_url(),
-                    "site_name": "PyLadiesCon",
-                },
-            )
-            html_content = render_to_string(
-                "volunteer/email_application_status.html",
-                context={
-                    "status": self.application_status,
-                    "team_names": self.teams,
-                    "edit_url": self.get_absolute_url(),
-                    "site_name": "PyLadiesCon",
-                },
-            )
-
-            msg = EmailMultiAlternatives(
-                f"{ACCOUNT_EMAIL_SUBJECT_PREFIX} Volunteer Application Status",
-                text_content,
-                DEFAULT_FROM_EMAIL,
-                [self.user.email],
-            )
-            msg.attach_alternative(html_content, "text/html")
-            msg.send()
-
-        transaction.on_commit(send_volunteer_email)
+        transaction.on_commit(self.send_volunteer_email)
         return super().save()
