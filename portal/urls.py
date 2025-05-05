@@ -31,7 +31,4 @@ urlpatterns = [
         "portal_account/",
         include("portal_account.urls", namespace="portal_account"),
     ),
-]
-
-if settings.DEBUG:  # pragma: no cover
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
