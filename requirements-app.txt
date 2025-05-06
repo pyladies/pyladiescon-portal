@@ -11,3 +11,5 @@ dj-database-url==2.3.0
 boto3==1.38.5
 django-storages==1.14.6
 pillow==11.2.1
+google-auth>=1.0.0
+google-api-python-client>=2.0.0

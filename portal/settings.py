@@ -276,3 +276,9 @@ else:
 
 MEDIA_URL = "/media/"  # URL to serve media files
 MEDIA_ROOT = os.path.join(BASE_DIR, "media")  # Local filesystem path
+
+# Google Drive Settings
+GOOGLE_SERVICE_ACCOUNT_FILE = os.path.join(
+    BASE_DIR, "krishnapachauri-208910-574aa1e639b3.json"
+)
+GOOGLE_DRIVE_FOLDER_ID = "18P_t0wpEXuMQyQkZJxccsacOh-eelLDk"
