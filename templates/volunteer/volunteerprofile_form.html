@@ -5,37 +5,70 @@
 {% endblock body %}
 {% block content %}
     <main>
-        <h1 class="display-5">
-            Create your Volunteer Profile
-        </h1>
+        <h1 class="display-5">{% if object.pk %}Edit{% else %}Create{% endif %} your Volunteer Profile</h1>
         <p class="lead">
-            {% if object.pk %}
-                Update your information below.
-            {% else %}
-                Fill in the profile below.
-            {% endif %}
-            Fill in the profile below.
+            {% if object.pk %}Update your information below.{% else %}Fill in the profile below.{% endif %}
         </p>
         <div class="row g-5">
             {% bootstrap_form_errors form %}
-            <form action="{% if object.pk %}{% url 'volunteer:volunteer_profile_edit' object.pk %}{% else %}{% url 'volunteer:volunteer_profile_new' %}{% endif %}"
-                  method="post"
-                  class="form">
-                {% csrf_token %}
-                {% bootstrap_field form.languages_spoken %}
-                {% bootstrap_field form.teams %}
-                {% bootstrap_field form.pyladies_chapter %}
-                {% bootstrap_field form.timezone %}
-                {% bootstrap_field form.github_username %}
-                {% bootstrap_field form.discord_username %}
-                {% bootstrap_field form.instagram_username %}
-                {% bootstrap_field form.bluesky_username %}
-                {% bootstrap_field form.mastodon_url %}
-                {% bootstrap_field form.x_username %}
-                {% bootstrap_field form.linkedin_url %}
-                <input type="submit"
-                       value="{% if object.pk %}Update Profile{% else %}Create Profile{% endif %}"
-                       class="btn btn-primary" />
+            <form action="{% if object.pk %}{% url 'volunteer:volunteer_profile_edit' object.pk %}{% else %}{% url 'volunteer:volunteer_profile_new' %}{% endif %}" method="post" class="form">{% csrf_token %}
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">Basic Information</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label class="form-label">Languages Spoken*</label>
+                            <div class="form-text mb-2">Select all languages you're comfortable communicating in</div>
+                            <div class="language-checkboxes row">
+                                {% for code, name in form.fields.languages_spoken.choices %}
+                                <div class="col-md-4 col-sm-6">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" name="languages_spoken" 
+                                               id="lang_{{ code }}" value="{{ code }}"
+                                               {% if code in form.languages_spoken.value %}checked{% endif %}>
+                                        <label class="form-check-label" for="lang_{{ code }}">{{ name }}</label>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% bootstrap_field form.teams %}
+                        {% bootstrap_field form.pyladies_chapter %}
+                        {% bootstrap_field form.timezone %}
+                    </div>
+                </div>
+                
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">Social Media Profiles</h5>
+                        <p class="text-muted small mt-2 mb-0">Please enter your usernames without the '@' symbol unless specified otherwise.</p>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                {% bootstrap_field form.github_username %}
+                                {% bootstrap_field form.discord_username %}
+                                {% bootstrap_field form.instagram_username %}
+                                {% bootstrap_field form.bluesky_username %}
+                            </div>
+                            <div class="col-md-6">
+                                {% bootstrap_field form.mastodon_url %}
+                                {% bootstrap_field form.x_username %}
+                                {% bootstrap_field form.linkedin_url %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="mt-4">
+                    <button type="submit" class="btn btn-primary">{% if object.pk %}Update Profile{% else %}Create Profile{% endif %}</button>
+                    {% if object.pk %}
+                        <a href="{% url 'volunteer:volunteer_profile_detail' object.pk %}" class="btn btn-secondary">Cancel</a>
+                    {% else %}
+                        <a href="{% url 'volunteer:index' %}" class="btn btn-secondary">Cancel</a>
+                    {% endif %}
+                </div>
             </form>
         </div>
     </main>
