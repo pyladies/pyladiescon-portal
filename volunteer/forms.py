@@ -54,9 +54,6 @@ class VolunteerProfileForm(ModelForm):
     def clean_instagram_username(self):
         instagram_username = self.cleaned_data.get("instagram_username")
         if instagram_username:
-            if instagram_username.startswith("@"):
-                instagram_username = instagram_username[1:]
-
             if not re.match(r"^[a-zA-Z0-9._]{1,30}$", instagram_username):
                 raise ValidationError(
                     "Instagram username can only contain alphanumeric characters, "
@@ -67,9 +64,6 @@ class VolunteerProfileForm(ModelForm):
     def clean_bluesky_username(self):
         bluesky_username = self.cleaned_data.get("bluesky_username")
         if bluesky_username:
-            if bluesky_username.startswith("@"):
-                bluesky_username = bluesky_username[1:]
-
             if not re.match(
                 r"^[a-zA-Z0-9][a-zA-Z0-9.-]{0,28}[a-zA-Z0-9](\.[a-zA-Z0-9][\w.-]*\.[a-zA-Z]{2,})?$",
                 bluesky_username,
@@ -99,9 +93,6 @@ class VolunteerProfileForm(ModelForm):
     def clean_x_username(self):
         x_username = self.cleaned_data.get("x_username")
         if x_username:
-            if x_username.startswith("@"):
-                x_username = x_username[1:]
-
             if not re.match(r"^[a-zA-Z0-9_]{1,15}$", x_username):
                 raise ValidationError(
                     "X/Twitter username can only contain alphanumeric characters and underscores, "
