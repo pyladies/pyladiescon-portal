@@ -44,8 +44,8 @@ class TestVolunteerProfileForm:
             ("user-name", True),
             ("user123", True),
             ("User123-Name", True),
-            ("a" * 39, True),  # Max length
-            ("", True),  # Optional field
+            ("a" * 39, True),
+            ("", True),
             ("-username", False),
             ("username-", False),
             ("user--name", False),
@@ -95,19 +95,78 @@ class TestVolunteerProfileForm:
             assert "discord_username" in form.errors
 
     @pytest.mark.parametrize(
-        "username,valid,cleaned",
+        "username,valid",
         [
-            ("username", True, "username"),
-            ("user.name", True, "user.name"),
-            ("user_name", True, "user_name"),
-            ("a" * 30, True, "a" * 30),
-            ("@username", True, "username"),
-            ("", True, None),
-            ("user-name", False, None),
-            ("a" * 31, False, None),
-            ("user@name", False, None),
+            ("username", True),
+            ("user.name", True),
+            ("user_name", True),
+            ("a" * 30, True),
+            ("", True),
+            ("user-name", False),
+            ("a" * 31, False),
+            ("user@name", False),
         ],
     )
+    def test_instagram_username_validation(self, portal_user, username, valid):
+        """Test Instagram username validation with various cases."""
+        form_data = {**self.BASE_VALID_DATA, "instagram_username": username}
+        form = VolunteerProfileForm(user=portal_user, data=form_data)
+
+        assert form.is_valid() == valid
+        if not valid:
+            assert "instagram_username" in form.errors
+
+    @pytest.mark.parametrize(
+        "username,valid",
+        [
+            ("username", True),
+            ("user-name", True),
+            ("username.bsky.social", True),
+            ("user.name.bsky.social", True),
+            ("a1", True),
+            ("a" * 30, True),
+            ("", True),
+            ("_username", False),
+            ("username_", False),
+            ("user_name", False),
+            ("a", False),
+            ("a" * 31, False),
+            ("user@name", False),
+            (".username", False),
+            ("username.", False),
+        ],
+    )
+    def test_bluesky_username_validation(self, portal_user, username, valid):
+        """Test Bluesky username validation with various cases."""
+        form_data = {**self.BASE_VALID_DATA, "bluesky_username": username}
+        form = VolunteerProfileForm(user=portal_user, data=form_data)
+
+        assert form.is_valid() == valid
+        if not valid:
+            assert "bluesky_username" in form.errors
+
+    @pytest.mark.parametrize(
+        "username,valid",
+        [
+            ("username", True),
+            ("user_name", True),
+            ("a" * 15, True),
+            ("", True),
+            ("user.name", False),
+            ("user-name", False),
+            ("a" * 16, False),
+            ("user@name", False),
+        ],
+    )
+    def test_x_username_validation(self, portal_user, username, valid):
+        """Test X/Twitter username validation with various cases."""
+        form_data = {**self.BASE_VALID_DATA, "x_username": username}
+        form = VolunteerProfileForm(user=portal_user, data=form_data)
+
+        assert form.is_valid() == valid
+        if not valid:
+            assert "x_username" in form.errors
+
     @pytest.mark.parametrize(
         "url,valid",
         [
@@ -136,7 +195,8 @@ class TestVolunteerProfileForm:
             ("linkedin.com/in/username", True, "https://"),
             ("www.linkedin.com/in/username", True, "https://"),
             ("https://linkedin.com/in/username", True, "https://"),
-            ("", True, ""),  # Optional field
+            ("http://linkedin.com/in/username", True, "http://"),
+            ("", True, ""),
             ("linkedin.com", False, None),
             ("linkedin.com/username", False, None),
             ("https://othersite.com/in/username", False, None),
@@ -212,6 +272,11 @@ class TestVolunteerProfileForm:
         assert form.instance == profile
         assert form.initial["github_username"] == "testuser"
 
+    def test_form_init_without_user(self):
+        """Test form initialization without user."""
+        form = VolunteerProfileForm()
+        assert form.user is None
+
     def test_save_method_with_commit_false(self, portal_user):
         """Test save method with commit=False."""
         form_data = {**self.BASE_VALID_DATA, "github_username": "testuser"}
@@ -253,15 +318,6 @@ class TestVolunteerProfileForm:
                 data={**self.BASE_VALID_DATA, "bluesky_username": username},
             )
             assert form.is_valid(), f"Expected '{username}' to be valid"
-
-    def test_bluesky_username_with_underscores(self, portal_user):
-        """Test that underscores are not allowed in Bluesky usernames."""
-        form = VolunteerProfileForm(
-            user=portal_user,
-            data={**self.BASE_VALID_DATA, "bluesky_username": "user_name"},
-        )
-        assert not form.is_valid()
-        assert "bluesky_username" in form.errors
 
     def test_mastodon_url_with_subdomains(self, portal_user):
         """Test Mastodon URLs with subdomains."""
@@ -312,3 +368,42 @@ class TestVolunteerProfileForm:
                 continue
             assert field in form.errors
             assert len(form.errors[field]) > 0
+
+    def test_discord_username_length_error(self, portal_user):
+        """Test Discord username length error message."""
+        form = VolunteerProfileForm(
+            user=portal_user, data={**self.BASE_VALID_DATA, "discord_username": "a"}
+        )
+        assert not form.is_valid()
+        assert "must be between 2 and 32 characters" in str(
+            form.errors["discord_username"]
+        )
+
+        form = VolunteerProfileForm(
+            user=portal_user,
+            data={**self.BASE_VALID_DATA, "discord_username": "a" * 33},
+        )
+        assert not form.is_valid()
+        assert "must be between 2 and 32 characters" in str(
+            form.errors["discord_username"]
+        )
+
+    def test_discord_username_special_chars_error(self, portal_user):
+        """Test Discord username special characters error message."""
+        form = VolunteerProfileForm(
+            user=portal_user,
+            data={**self.BASE_VALID_DATA, "discord_username": "user@name"},
+        )
+        assert not form.is_valid()
+        assert "must consist of alphanumeric characters" in str(
+            form.errors["discord_username"]
+        )
+
+    def test_linkedin_url_no_protocol(self, portal_user):
+        """Test LinkedIn URL with no protocol is properly handled."""
+        form = VolunteerProfileForm(
+            user=portal_user,
+            data={**self.BASE_VALID_DATA, "linkedin_url": "linkedin.com/in/username"},
+        )
+        assert form.is_valid()
+        assert form.cleaned_data["linkedin_url"] == "https://linkedin.com/in/username"
