@@ -35,7 +35,6 @@
                     <div class="card-body">
                         <div class="row">
                             <div class="col-md-6">
-                                <!-- GitHub -->
                                 <div class="mb-3">
                                     <label class="form-label" for="{{ form.github_username.id_for_label }}">
                                         {{ form.github_username.label }}
@@ -53,8 +52,6 @@
                                         <div class="invalid-feedback d-block">{{ error }}</div>
                                     {% endfor %}
                                 </div>
-
-                                <!-- Discord -->
                                 <div class="mb-3">
                                     <label class="form-label" for="{{ form.discord_username.id_for_label }}">
                                         {{ form.discord_username.label }}
@@ -72,8 +69,6 @@
                                         <div class="invalid-feedback d-block">{{ error }}</div>
                                     {% endfor %}
                                 </div>
-
-                                <!-- Instagram -->
                                 <div class="mb-3">
                                     <label class="form-label" for="{{ form.instagram_username.id_for_label }}">
                                         {{ form.instagram_username.label }}
@@ -91,8 +86,6 @@
                                         <div class="invalid-feedback d-block">{{ error }}</div>
                                     {% endfor %}
                                 </div>
-
-                                <!-- Bluesky -->
                                 <div class="mb-3">
                                     <label class="form-label" for="{{ form.bluesky_username.id_for_label }}">
                                         {{ form.bluesky_username.label }}
@@ -113,10 +106,7 @@
                             </div>
 
                             <div class="col-md-6">
-                                <!-- Mastodon -->
                                 {% bootstrap_field form.mastodon_url %}
-
-                                <!-- X (Twitter) -->
                                 <div class="mb-3">
                                     <label class="form-label" for="{{ form.x_username.id_for_label }}">
                                         {{ form.x_username.label }}
@@ -135,13 +125,11 @@
                                     {% endfor %}
                                 </div>
 
-                                <!-- LinkedIn -->
                                 {% bootstrap_field form.linkedin_url %}
                             </div>
                         </div>
                     </div>
                 </div>
-
                 <div class="mt-4">
                     <button type="submit" class="btn btn-primary">{% if object.pk %}Update Profile{% else %}Create Profile{% endif %}</button>
                     {% if object.pk %}
