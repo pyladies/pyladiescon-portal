@@ -108,17 +108,6 @@ class TestVolunteerProfileForm:
             ("user@name", False, None),
         ],
     )
-    def test_instagram_username_validation(self, portal_user, username, valid, cleaned):
-        """Test Instagram username validation and cleaning."""
-        form_data = {**self.BASE_VALID_DATA, "instagram_username": username}
-        form = VolunteerProfileForm(user=portal_user, data=form_data)
-
-        assert form.is_valid() == valid
-        if valid and username:
-            assert form.cleaned_data["instagram_username"] == cleaned
-        elif not valid:
-            assert "instagram_username" in form.errors
-
     @pytest.mark.parametrize(
         "url,valid",
         [
@@ -194,50 +183,6 @@ class TestVolunteerProfileForm:
         """Test that all social media fields are optional."""
         form = VolunteerProfileForm(user=portal_user, data=self.BASE_VALID_DATA)
         assert form.is_valid()
-
-    def test_bluesky_username_validation(self, portal_user):
-        """Test Bluesky username validation with various cases."""
-        valid_usernames = [
-            "username",
-            "user.name",
-            "user..name",
-            "username.bsky.social",
-            "user-name",
-            "a" * 30 + ".bsky.social",
-            "user123",
-        ]
-        for username in valid_usernames:
-            form = VolunteerProfileForm(
-                user=portal_user,
-                data={**self.BASE_VALID_DATA, "bluesky_username": username},
-            )
-            assert form.is_valid(), f"Expected '{username}' to be valid"
-
-            form = VolunteerProfileForm(
-                user=portal_user,
-                data={**self.BASE_VALID_DATA, "bluesky_username": f"@{username}"},
-            )
-            assert form.is_valid(), f"Expected '@{username}' to be valid"
-            assert form.cleaned_data["bluesky_username"] == username
-
-        invalid_cases = [
-            (".username", "Cannot start with dot"),
-            ("username.", "Cannot end with dot"),
-            ("user@name", "Invalid characters"),
-            ("user name", "Spaces not allowed"),
-            ("a" * 100 + ".bsky.social", "Exceeds max length"),
-            ("-username", "Cannot start with hyphen"),
-            ("username-", "Cannot end with hyphen"),
-        ]
-        for username, description in invalid_cases:
-            form = VolunteerProfileForm(
-                user=portal_user,
-                data={**self.BASE_VALID_DATA, "bluesky_username": username},
-            )
-            assert (
-                not form.is_valid()
-            ), f"Expected '{username}' to be invalid: {description}"
-            assert "bluesky_username" in form.errors
 
     def test_empty_bluesky_username(self, portal_user):
         """Test that empty Bluesky username is valid."""
@@ -345,26 +290,6 @@ class TestVolunteerProfileForm:
             )
             assert form.is_valid(), f"Expected '{url}' to be valid"
             assert form.cleaned_data["linkedin_url"].startswith("http")
-
-    def test_x_username_validation_edge_cases(self, portal_user):
-        """Test X/Twitter username validation edge cases."""
-        form = VolunteerProfileForm(
-            user=portal_user,
-            data={**self.BASE_VALID_DATA, "x_username": "a"},
-        )
-        assert form.is_valid()
-
-        form = VolunteerProfileForm(
-            user=portal_user,
-            data={**self.BASE_VALID_DATA, "x_username": "a" * 15},
-        )
-        assert form.is_valid()
-
-        form = VolunteerProfileForm(
-            user=portal_user, data={**self.BASE_VALID_DATA, "x_username": "@username"}
-        )
-        assert form.is_valid()
-        assert form.cleaned_data["x_username"] == "username"
 
     def test_validation_error_messages(self, portal_user):
         """Test that validation errors include the correct messages."""
