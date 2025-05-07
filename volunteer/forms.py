@@ -1,4 +1,4 @@
-from django.conf import global_settings  # Import global_settings
+from django.conf import global_settings
 from django.forms import ModelForm
 
 from .models import VolunteerProfile
