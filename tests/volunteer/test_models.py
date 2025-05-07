@@ -35,16 +35,57 @@ class TestVolunteerModel:
         role.save()
         assert str(role) == "Test Role"
 
-    def test_send_volunteer_email(self, portal_user):
+    def test_email_is_sent_after_saved(self, portal_user):
         profile = VolunteerProfile(user=portal_user)
         profile.languages_spoken = [LANGUAGES[0]]
-
-        profile.application_status = "Approved"
+        profile.timezone = "UTC"
         profile.save()
+        assert (
+            str(mail.outbox[0].subject)
+            == "[PyLadiesCon Dev]  Volunteer Application Received"
+        )
 
-        profile.send_volunteer_email()
+    def test_email_is_sent_after_updated(self, portal_user):
+        profile = VolunteerProfile(user=portal_user)
+        profile.languages_spoken = [LANGUAGES[0]]
+        profile.timezone = "UTC"
+        profile.save()
+        mail.outbox.clear()
+
+        profile.timezone = "UTC+1"
+        profile.save()
 
         assert (
             str(mail.outbox[0].subject)
-            == "[PyLadiesCon Dev]  Volunteer Application Status"
+            == "[PyLadiesCon Dev]  Volunteer Application Updated"
         )
+
+    def test_volunteer_notification_email_contains_info(self, portal_user):
+        profile = VolunteerProfile(user=portal_user)
+        profile.languages_spoken = [LANGUAGES[0], LANGUAGES[1]]
+        profile.timezone = "UTC"
+        profile.bluesky_username = "mybsky"
+        profile.discord_username = "mydiscord"
+        profile.github_username = "mygithub"
+        profile.instagram_username = "myinstagram"
+        profile.mastodon_url = "mymastodon"
+        profile.x_username = "myxusername"
+        profile.linkedin_url = "mylinkedin"
+        profile.pyladies_chapter = "mychapter"
+
+        profile.save()
+
+        body = str(mail.outbox[0].body)
+        assert profile.bluesky_username in body
+        assert profile.discord_username in body
+        assert profile.github_username in body
+        assert profile.instagram_username in body
+        assert profile.mastodon_url in body
+        assert profile.x_username in body
+        assert profile.linkedin_url in body
+        assert profile.timezone in body
+        assert profile.languages_spoken[0][0] in body
+        assert profile.user.first_name in body
+        assert profile.pyladies_chapter in body
+
+        assert reverse("volunteer:index") in body

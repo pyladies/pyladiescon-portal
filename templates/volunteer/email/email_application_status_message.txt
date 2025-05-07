@@ -1,8 +1,0 @@
-{% extends "volunteer/email/base_message.txt" %}
-{% load i18n %}
-
-{% block content %}
-Thank you for applying for the {{ team_names }}.
-Your current volunteer application status: {{ status }}.
-If you would like to review or update your application at any time, go to {{ edit_url }}
-{% endblock content %}

@@ -1,7 +1,9 @@
 from django.conf.global_settings import LANGUAGES
 from django.contrib.auth.models import User
 from django.core.mail import EmailMultiAlternatives
-from django.db import models, transaction
+from django.db import models
+from django.db.models.signals import post_save
+from django.dispatch import receiver
 from django.template.loader import render_to_string
 from django.urls import reverse
 
@@ -105,35 +107,42 @@ class VolunteerProfile(BaseModel):
     def get_absolute_url(self):
         return reverse("volunteer:volunteer_profile_edit", kwargs={"pk": self.pk})
 
-    def send_volunteer_email(self):
-        text_content = render_to_string(
-            "volunteer/email/email_application_status_message.txt",
-            context={
-                "status": self.application_status,
-                "team_names": self.teams,
-                "edit_url": self.get_absolute_url(),
-                "site_name": "PyLadiesCon",
-            },
-        )
-        html_content = render_to_string(
-            "volunteer/email_application_status.html",
-            context={
-                "status": self.application_status,
-                "team_names": self.teams,
-                "edit_url": self.get_absolute_url(),
-                "site_name": "PyLadiesCon",
-            },
-        )
 
-        msg = EmailMultiAlternatives(
-            f"{ACCOUNT_EMAIL_SUBJECT_PREFIX} Volunteer Application Status",
-            text_content,
-            DEFAULT_FROM_EMAIL,
-            [self.user.email],
-        )
-        msg.attach_alternative(html_content, "text/html")
-        msg.send()
+def send_volunteer_notification_email(instance, updated=False):
+    """Send email to the user whenever their volunteer profile was updated/created."""
+    context = {"profile": instance}
+    subject = f"{ACCOUNT_EMAIL_SUBJECT_PREFIX} Volunteer Application"
+    if updated:
+        context["updated"] = True
+        subject += " Updated"
+    else:
+        subject += " Received"
+    text_content = render_to_string(
+        "volunteer/email/volunteer_profile_email_notification.txt",
+        context=context,
+    )
+    html_content = render_to_string(
+        "volunteer/email/volunteer_profile_email_notification.html",
+        context=context,
+    )
 
-    def save(self):
-        transaction.on_commit(self.send_volunteer_email)
-        return super().save()
+    msg = EmailMultiAlternatives(
+        subject,
+        text_content,
+        DEFAULT_FROM_EMAIL,
+        [instance.user.email],
+    )
+    msg.attach_alternative(html_content, "text/html")
+    msg.send()
+
+
+@receiver(post_save, sender=VolunteerProfile)
+def volunteer_profile_signal(sender, instance, created, **kwargs):
+    """Things to do whenever a volunteer profile is created or updated.
+
+    Send a notification email to the user to confirm their volunteer application status.
+    """
+    if created:
+        send_volunteer_notification_email(instance)
+    else:
+        send_volunteer_notification_email(instance, updated=True)
