@@ -17,7 +17,7 @@ class VolunteerProfileForm(ModelForm):
     def __init__(self, *args, **kwargs):
         self.user = kwargs.pop("user", None)
         super().__init__(*args, **kwargs)
-        # Sort languages alphabetically by name
+
         sorted_languages = sorted(global_settings.LANGUAGES, key=lambda x: x[1])
         self.fields["languages_spoken"].choices = sorted_languages
 
