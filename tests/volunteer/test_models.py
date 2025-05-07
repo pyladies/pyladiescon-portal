@@ -44,4 +44,7 @@ class TestVolunteerModel:
 
         profile.send_volunteer_email()
 
-        assert str(mail.outbox[0].subject) == "[PyLadiesCon Dev]  Volunteer Application Status"
+        assert (
+            str(mail.outbox[0].subject)
+            == "[PyLadiesCon Dev]  Volunteer Application Status"
+        )
