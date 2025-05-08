@@ -1,7 +1,7 @@
 import pytest
 from django.conf.global_settings import LANGUAGES
-from django.core.exceptions import ValidationError
 from django.core import mail
+from django.core.exceptions import ValidationError
 from django.urls import reverse
 
 from volunteer.models import Role, Team, VolunteerProfile
@@ -277,6 +277,7 @@ class TestVolunteerModel:
         assert "Discord username must be between 2 and 32 characters" in str(
             excinfo.value
         )
+
     def test_email_is_sent_after_saved(self, portal_user):
         profile = VolunteerProfile(user=portal_user)
         profile.languages_spoken = [LANGUAGES[0]]
