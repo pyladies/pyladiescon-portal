@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.conf.global_settings import LANGUAGES
 from django.contrib.auth.models import User
 from django.contrib.sites.models import Site
@@ -9,7 +10,6 @@ from django.template.loader import render_to_string
 from django.urls import reverse
 
 from portal.models import BaseModel, ChoiceArrayField
-from portal.settings import ACCOUNT_EMAIL_SUBJECT_PREFIX, DEFAULT_FROM_EMAIL
 
 from .constants import ApplicationStatus
 
@@ -112,7 +112,7 @@ class VolunteerProfile(BaseModel):
 def send_volunteer_notification_email(instance, updated=False):
     """Send email to the user whenever their volunteer profile was updated/created."""
     context = {"profile": instance, "current_site": Site.objects.get_current()}
-    subject = f"{ACCOUNT_EMAIL_SUBJECT_PREFIX} Volunteer Application"
+    subject = f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} Volunteer Application"
     if updated:
         context["updated"] = True
         subject += " Updated"
@@ -130,7 +130,7 @@ def send_volunteer_notification_email(instance, updated=False):
     msg = EmailMultiAlternatives(
         subject,
         text_content,
-        DEFAULT_FROM_EMAIL,
+        settings.DEFAULT_FROM_EMAIL,
         [instance.user.email],
     )
     msg.attach_alternative(html_content, "text/html")
