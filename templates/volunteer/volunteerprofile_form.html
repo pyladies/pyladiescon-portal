@@ -1,13 +1,15 @@
 {% extends "portal/base.html" %}
 {% load allauth i18n %}
 {% load django_bootstrap5 %}
-{% block body %}
-{% endblock body %}
 {% block content %}
     <main>
         <h1 class="display-5">{% if object.pk %}Edit{% else %}Create{% endif %} your Volunteer Profile</h1>
         <p class="lead">
-            {% if object.pk %}Update your information below.{% else %}Fill in the profile below.{% endif %}
+            {% if object.pk %}
+                Update your information below.
+            {% else %}
+                Fill in the profile below.
+            {% endif %}
         </p>
         <div class="row g-5">
             {% bootstrap_form_errors form %}
@@ -17,6 +19,7 @@
                         <h5 class="card-title mb-0">Basic Information</h5>
                     </div>
                     <div class="card-body">
+                        <!-- Custom languages spoken checkboxes from original -->
                         <div class="mb-3">
                             <label class="form-label">Languages Spoken*</label>
                             <div class="form-text mb-2">Select all languages you're comfortable communicating in</div>
@@ -39,28 +42,122 @@
                     </div>
                 </div>
                 
+                <!-- Enhanced social media section from modified version -->
                 <div class="card mb-4">
                     <div class="card-header">
                         <h5 class="card-title mb-0">Social Media Profiles</h5>
-                        <p class="text-muted small mt-2 mb-0">Please enter your usernames without the '@' symbol unless specified otherwise.</p>
+                        <p class="text-muted small mt-2 mb-0">Please enter usernames without @ symbols or protocol prefixes</p>
                     </div>
                     <div class="card-body">
                         <div class="row">
                             <div class="col-md-6">
-                                {% bootstrap_field form.github_username %}
-                                {% bootstrap_field form.discord_username %}
-                                {% bootstrap_field form.instagram_username %}
-                                {% bootstrap_field form.bluesky_username %}
+                                <!-- GitHub -->
+                                <div class="mb-3">
+                                    <label class="form-label" for="{{ form.github_username.id_for_label }}">
+                                        {{ form.github_username.label }}
+                                    </label>
+                                    <div class="input-group">
+                                        <span class="input-group-text">@</span>
+                                        <input type="text" 
+                                            class="form-control {% if form.github_username.errors %}is-invalid{% endif %}"
+                                            name="{{ form.github_username.name }}"
+                                            id="{{ form.github_username.id_for_label }}"
+                                            value="{{ form.github_username.value|default:'' }}">
+                                    </div>
+                                    <div class="form-text">{{ form.github_username.help_text }}</div>
+                                    {% for error in form.github_username.errors %}
+                                        <div class="invalid-feedback d-block">{{ error }}</div>
+                                    {% endfor %}
+                                </div>
+
+                                <!-- Discord -->
+                                <div class="mb-3">
+                                    <label class="form-label" for="{{ form.discord_username.id_for_label }}">
+                                        {{ form.discord_username.label }}
+                                    </label>
+                                    <div class="input-group">
+                                        <span class="input-group-text">@</span>
+                                        <input type="text" 
+                                            class="form-control {% if form.discord_username.errors %}is-invalid{% endif %}"
+                                            name="{{ form.discord_username.name }}"
+                                            id="{{ form.discord_username.id_for_label }}"
+                                            value="{{ form.discord_username.value|default:'' }}">
+                                    </div>
+                                    <div class="form-text">{{ form.discord_username.help_text }}</div>
+                                    {% for error in form.discord_username.errors %}
+                                        <div class="invalid-feedback d-block">{{ error }}</div>
+                                    {% endfor %}
+                                </div>
+
+                                <!-- Instagram -->
+                                <div class="mb-3">
+                                    <label class="form-label" for="{{ form.instagram_username.id_for_label }}">
+                                        {{ form.instagram_username.label }}
+                                    </label>
+                                    <div class="input-group">
+                                        <span class="input-group-text">@</span>
+                                        <input type="text" 
+                                            class="form-control {% if form.instagram_username.errors %}is-invalid{% endif %}"
+                                            name="{{ form.instagram_username.name }}"
+                                            id="{{ form.instagram_username.id_for_label }}"
+                                            value="{{ form.instagram_username.value|default:'' }}">
+                                    </div>
+                                    <div class="form-text">{{ form.instagram_username.help_text }}</div>
+                                    {% for error in form.instagram_username.errors %}
+                                        <div class="invalid-feedback d-block">{{ error }}</div>
+                                    {% endfor %}
+                                </div>
+
+                                <!-- Bluesky -->
+                                <div class="mb-3">
+                                    <label class="form-label" for="{{ form.bluesky_username.id_for_label }}">
+                                        {{ form.bluesky_username.label }}
+                                    </label>
+                                    <div class="input-group">
+                                        <span class="input-group-text">@</span>
+                                        <input type="text" 
+                                            class="form-control {% if form.bluesky_username.errors %}is-invalid{% endif %}"
+                                            name="{{ form.bluesky_username.name }}"
+                                            id="{{ form.bluesky_username.id_for_label }}"
+                                            value="{{ form.bluesky_username.value|default:'' }}">
+                                    </div>
+                                    <div class="form-text">{{ form.bluesky_username.help_text }}</div>
+                                    {% for error in form.bluesky_username.errors %}
+                                        <div class="invalid-feedback d-block">{{ error }}</div>
+                                    {% endfor %}
+                                </div>
                             </div>
+
                             <div class="col-md-6">
+                                <!-- Mastodon -->
                                 {% bootstrap_field form.mastodon_url %}
-                                {% bootstrap_field form.x_username %}
+
+                                <!-- X (Twitter) -->
+                                <div class="mb-3">
+                                    <label class="form-label" for="{{ form.x_username.id_for_label }}">
+                                        {{ form.x_username.label }}
+                                    </label>
+                                    <div class="input-group">
+                                        <span class="input-group-text">https://x.com/</span>
+                                        <input type="text" 
+                                            class="form-control {% if form.x_username.errors %}is-invalid{% endif %}"
+                                            name="{{ form.x_username.name }}"
+                                            id="{{ form.x_username.id_for_label }}"
+                                            value="{{ form.x_username.value|default:'' }}">
+                                    </div>
+                                    <div class="form-text">{{ form.x_username.help_text }}</div>
+                                    {% for error in form.x_username.errors %}
+                                        <div class="invalid-feedback d-block">{{ error }}</div>
+                                    {% endfor %}
+                                </div>
+
+                                <!-- LinkedIn -->
                                 {% bootstrap_field form.linkedin_url %}
                             </div>
                         </div>
                     </div>
                 </div>
-                
+
                 <div class="mt-4">
                     <button type="submit" class="btn btn-primary">{% if object.pk %}Update Profile{% else %}Create Profile{% endif %}</button>
                     {% if object.pk %}

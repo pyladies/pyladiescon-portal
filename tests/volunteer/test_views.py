@@ -113,13 +113,13 @@ class TestVolunteer:
         data = {
             "languages_spoken": [LANGUAGES[0][0], LANGUAGES[1][0]],
             "timezone": "UTC",
-            "github_username": "test_github",
-            "discord_username": "test_discord",
+            "github_username": "test-github",
+            "discord_username": "testdiscord1234",
             "instagram_username": "test_instagram",
-            "bluesky_username": "test_bluesky",
-            "mastodon_url": "https://example.com",
+            "bluesky_username": "test.bsky.social",
+            "mastodon_url": "https://mastodon.social/@test",
             "x_username": "test_x",
-            "linkedin_url": "https://example.com",
+            "linkedin_url": "https://www.linkedin.com/in/test",
             "pyladies_chapter": "Test Chapter",
         }
         response = client.post(reverse("volunteer:volunteer_profile_new"), data=data)
@@ -147,13 +147,13 @@ class TestVolunteer:
         data = {
             "languages_spoken": [LANGUAGES[0][0], LANGUAGES[1][0]],
             "timezone": "UTC",
-            "github_username": "test_github",
-            "discord_username": "test_discord",
+            "github_username": "test-github",
+            "discord_username": "testdiscord1234",
             "instagram_username": "test_instagram",
-            "bluesky_username": "test_bluesky",
-            "mastodon_url": "https://example.com",
+            "bluesky_username": "test.bsky.social",
+            "mastodon_url": "https://mastodon.social/@test",
             "x_username": "test_x",
-            "linkedin_url": "https://example.com",
+            "linkedin_url": "https://www.linkedin.com/in/test",
             "pyladies_chapter": "Test Chapter",
         }
         response = client.post(
