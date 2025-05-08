@@ -10,4 +10,5 @@ whitenoise==6.9.0
 dj-database-url==2.3.0
 boto3==1.38.5
 django-storages==1.14.6
+django-widget-tweaks==1.5.0
 pillow==11.2.1

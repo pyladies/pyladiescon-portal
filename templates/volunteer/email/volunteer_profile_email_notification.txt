@@ -1,0 +1,26 @@
+{% extends "account/email/base_message.txt" %}
+{% load i18n %}
+{% load account %}
+{% block content %}
+{{ profile.user.first_name }}, thank you for applying to volunteer with us.
+{% if updated %}
+Your volunteer profile has recently been updated.
+{% endif %}
+
+Your current volunteer application status: {{ profile.application_status }}.
+
+Your information:
+- GitHub username: {{ profile.github_username }}
+- Discord username: {{ profile.discord_username }}
+- Instagram username: {{ profile.instagram_username }}
+- Bluesky username: {{ profile.bluesky_username }}
+- Mastodon URL: {{ profile.mastodon_url }}
+- X username: {{ profile.x_username }}
+- LinkedIn URL: {{ profile.linkedin_url }}
+- PyLadies Chapter: {{ profile.pyladies_chapter }}
+- Timezone: {{ profile.timezone }}
+- Languages spoken: {{ profile.languages_spoken|join:", " }}
+- PyLadies Chapter: {{ profile.pyladies_chapter }}
+
+If you would like to review or update your application at any time, go to your Volunteer Dashboard at https://{{ current_site.domain }}{% url 'volunteer:index' %}.
+{% endblock content %}
