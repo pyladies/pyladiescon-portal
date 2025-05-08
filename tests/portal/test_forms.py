@@ -20,6 +20,8 @@ class TestCustomSignupForm:
             "password2": "securepassword123",
             "first_name": "Test",
             "last_name": "User",
+            "coc_agreement": True,
+            "tos_agreement": True,
         }
 
     @pytest.fixture

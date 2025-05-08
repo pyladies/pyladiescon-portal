@@ -58,6 +58,18 @@
                     {% endif %}
                 </div>
             </div>
+            <div class="row mb-3">
+                <div class="col-md-3 fw-bold">
+                    Terms of Service Agreement:
+                </div>
+                <div class="col-md-9">
+                    {% if object.tos_agreement %}
+                        Agreed
+                    {% else %}
+                        Not agreed
+                    {% endif %}
+                </div>
+            </div>
         </div>
     </div>
     <div class="mt-4">
