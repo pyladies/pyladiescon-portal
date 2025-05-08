@@ -104,3 +104,72 @@ class TestVolunteer:
         assert response.status_code == 200
         profile_result = response.context["volunteerprofile"]
         assert profile_result == profile
+
+    def test_new_volunteer_profile_form_submit(self, client, portal_user):
+        client.force_login(portal_user)
+
+        assert VolunteerProfile.objects.filter(user=portal_user).count() == 0
+
+        data = {
+            "languages_spoken": [LANGUAGES[0][0], LANGUAGES[1][0]],
+            "timezone": "UTC",
+            "github_username": "test_github",
+            "discord_username": "test_discord",
+            "instagram_username": "test_instagram",
+            "bluesky_username": "test_bluesky",
+            "mastodon_url": "https://example.com",
+            "x_username": "test_x",
+            "linkedin_url": "https://example.com",
+            "pyladies_chapter": "Test Chapter",
+        }
+        response = client.post(reverse("volunteer:volunteer_profile_new"), data=data)
+        assert response.status_code == 302
+
+        profile = VolunteerProfile.objects.get(user=portal_user)
+        assert profile.languages_spoken == [LANGUAGES[0][0], LANGUAGES[1][0]]
+        assert profile.timezone == "UTC"
+        assert profile.pyladies_chapter == data["pyladies_chapter"]
+        assert profile.discord_username == data["discord_username"]
+        assert profile.github_username == data["github_username"]
+        assert profile.bluesky_username == data["bluesky_username"]
+        assert profile.mastodon_url == data["mastodon_url"]
+        assert profile.x_username == data["x_username"]
+        assert profile.linkedin_url == data["linkedin_url"]
+        assert profile.instagram_username == data["instagram_username"]
+
+    def test_edit_volunteer_profile_form_submit(self, client, portal_user):
+        client.force_login(portal_user)
+        profile = VolunteerProfile(user=portal_user)
+        profile.languages_spoken = [LANGUAGES[0]]
+        profile.timezone = "UTC+1"
+        profile.save()
+
+        data = {
+            "languages_spoken": [LANGUAGES[0][0], LANGUAGES[1][0]],
+            "timezone": "UTC",
+            "github_username": "test_github",
+            "discord_username": "test_discord",
+            "instagram_username": "test_instagram",
+            "bluesky_username": "test_bluesky",
+            "mastodon_url": "https://example.com",
+            "x_username": "test_x",
+            "linkedin_url": "https://example.com",
+            "pyladies_chapter": "Test Chapter",
+        }
+        response = client.post(
+            reverse("volunteer:volunteer_profile_edit", kwargs={"pk": profile.id}),
+            data=data,
+        )
+        assert response.status_code == 302
+
+        profile = VolunteerProfile.objects.get(user=portal_user)
+        assert profile.languages_spoken == [LANGUAGES[0][0], LANGUAGES[1][0]]
+        assert profile.timezone == "UTC"
+        assert profile.pyladies_chapter == data["pyladies_chapter"]
+        assert profile.discord_username == data["discord_username"]
+        assert profile.github_username == data["github_username"]
+        assert profile.bluesky_username == data["bluesky_username"]
+        assert profile.mastodon_url == data["mastodon_url"]
+        assert profile.x_username == data["x_username"]
+        assert profile.linkedin_url == data["linkedin_url"]
+        assert profile.instagram_username == data["instagram_username"]
