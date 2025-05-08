@@ -272,6 +272,7 @@ if "DJANGO_EMAIL_HOST" in os.environ:
 else:
     # Otherwise, send emails to the console
     EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+    DEFAULT_FROM_EMAIL = "noreply@localhost"
 
 
 MEDIA_URL = "/media/"  # URL to serve media files
