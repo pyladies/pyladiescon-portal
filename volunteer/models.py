@@ -1,9 +1,15 @@
 from django.conf.global_settings import LANGUAGES
 from django.contrib.auth.models import User
+from django.contrib.sites.models import Site
+from django.core.mail import EmailMultiAlternatives
 from django.db import models
+from django.db.models.signals import post_save
+from django.dispatch import receiver
+from django.template.loader import render_to_string
 from django.urls import reverse
 
 from portal.models import BaseModel, ChoiceArrayField
+from portal.settings import ACCOUNT_EMAIL_SUBJECT_PREFIX, DEFAULT_FROM_EMAIL
 
 from .constants import ApplicationStatus
 
@@ -101,3 +107,43 @@ class VolunteerProfile(BaseModel):
 
     def get_absolute_url(self):
         return reverse("volunteer:volunteer_profile_edit", kwargs={"pk": self.pk})
+
+
+def send_volunteer_notification_email(instance, updated=False):
+    """Send email to the user whenever their volunteer profile was updated/created."""
+    context = {"profile": instance, "current_site": Site.objects.get_current()}
+    subject = f"{ACCOUNT_EMAIL_SUBJECT_PREFIX} Volunteer Application"
+    if updated:
+        context["updated"] = True
+        subject += " Updated"
+    else:
+        subject += " Received"
+    text_content = render_to_string(
+        "volunteer/email/volunteer_profile_email_notification.txt",
+        context=context,
+    )
+    html_content = render_to_string(
+        "volunteer/email/volunteer_profile_email_notification.html",
+        context=context,
+    )
+
+    msg = EmailMultiAlternatives(
+        subject,
+        text_content,
+        DEFAULT_FROM_EMAIL,
+        [instance.user.email],
+    )
+    msg.attach_alternative(html_content, "text/html")
+    msg.send()
+
+
+@receiver(post_save, sender=VolunteerProfile)
+def volunteer_profile_signal(sender, instance, created, **kwargs):
+    """Things to do whenever a volunteer profile is created or updated.
+
+    Send a notification email to the user to confirm their volunteer application status.
+    """
+    if created:
+        send_volunteer_notification_email(instance)
+    else:
+        send_volunteer_notification_email(instance, updated=True)
