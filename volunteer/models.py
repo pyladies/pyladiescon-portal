@@ -1,5 +1,6 @@
 from django.conf.global_settings import LANGUAGES
 from django.contrib.auth.models import User
+from django.contrib.sites.models import Site
 from django.core.mail import EmailMultiAlternatives
 from django.db import models
 from django.db.models.signals import post_save
@@ -110,7 +111,7 @@ class VolunteerProfile(BaseModel):
 
 def send_volunteer_notification_email(instance, updated=False):
     """Send email to the user whenever their volunteer profile was updated/created."""
-    context = {"profile": instance}
+    context = {"profile": instance, "current_site": Site.objects.get_current()}
     subject = f"{ACCOUNT_EMAIL_SUBJECT_PREFIX} Volunteer Application"
     if updated:
         context["updated"] = True

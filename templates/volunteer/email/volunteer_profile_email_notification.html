@@ -1,4 +1,4 @@
-{% extends "volunteer/base_email.html" %}
+{% extends "volunteer/email/base_email.html" %}
 {% load i18n %}
 {% block content %}
     <p>{{ profile.user.first_name }}, thank you for applying to volunteer with us.</p>
@@ -25,6 +25,6 @@
     <li>PyLadies Chapter: {{ profile.pyladies_chapter }}</li>
     </ul>
     <p>
-    If you would like to review or update your application at any time, go to your <a href="{% url 'volunteer:index' %}">Volunteer Dashboard</a>
+    If you would like to review or update your application at any time, go to your <a href="https://{{ current_site.domain }}{% url 'volunteer:index' %}">Volunteer Dashboard</a>
     </p>
 {% endblock content %}

@@ -22,5 +22,5 @@ Your information:
 - Languages spoken: {{ profile.languages_spoken|join:", " }}
 - PyLadies Chapter: {{ profile.pyladies_chapter }}
 
-If you would like to review or update your application at any time, go to your Volunteer Dashboard at {% url 'volunteer:index' %}.
+If you would like to review or update your application at any time, go to your Volunteer Dashboard at https://{{ current_site.domain }}{% url 'volunteer:index' %}.
 {% endblock content %}
