@@ -1,6 +1,7 @@
 import re
 
 from django.core.exceptions import ValidationError
+from django.conf import global_settings
 from django.forms import ModelForm
 
 from .models import VolunteerProfile
@@ -140,6 +141,12 @@ class VolunteerProfileForm(ModelForm):
     def __init__(self, *args, **kwargs):
         self.user = kwargs.pop("user", None)
         super().__init__(*args, **kwargs)
+
+        sorted_languages = sorted(global_settings.LANGUAGES, key=lambda x: x[1])
+        self.fields["languages_spoken"].choices = sorted_languages
+
+        if self.instance and self.instance.pk:
+            pass
 
     def save(self, commit=True):
         if self.user:
