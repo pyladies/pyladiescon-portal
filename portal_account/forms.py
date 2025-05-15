@@ -10,8 +10,8 @@ class PortalProfileForm(ModelForm):
     first_name = forms.CharField()
     last_name = forms.CharField()
     email = forms.CharField(disabled=True)
-    coc_agreement = forms.BooleanField(disabled=True, required=False)
-    tos_agreement = forms.BooleanField(disabled=True, required=False)
+    coc_agreement = forms.BooleanField(required=False)
+    tos_agreement = forms.BooleanField(required=False)
 
     class Meta:
         model = PortalProfile
@@ -31,6 +31,11 @@ class PortalProfileForm(ModelForm):
             self.fields["email"].initial = self.user.email
             self.fields["first_name"].initial = self.user.first_name
             self.fields["last_name"].initial = self.user.last_name
+        
+        if self.instance.pk:
+            if self.instance.coc_agreement and self.instance.tos_agreement:
+                self.fields['coc_agreement'].disabled = True
+                self.fields['tos_agreement'].disabled = True
 
         # fix field order
         self.order_fields(
