@@ -1,5 +1,3 @@
-from unittest.mock import patch
-
 import pytest
 from django.test import RequestFactory
 from django.urls import reverse
