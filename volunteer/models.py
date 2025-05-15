@@ -89,7 +89,14 @@ class VolunteerProfile(BaseModel):
 
     # social media urls
     github_username = models.CharField(max_length=50, blank=True, null=True)
-    discord_username = models.CharField(max_length=50, blank=True, null=True)
+    discord_username = models.CharField(
+        max_length=50,
+        blank=False,
+        null=False,
+        verbose_name="Discord username (required)",
+        help_text="Required - Your Discord username for team communication",
+        default="",
+    )
     instagram_username = models.CharField(max_length=50, blank=True, null=True)
     bluesky_username = models.CharField(max_length=100, blank=True, null=True)
     mastodon_url = models.CharField(max_length=100, blank=True, null=True)
