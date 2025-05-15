@@ -11,6 +11,6 @@ class TestIndexView:
         Should return 200 status code and render the correct template.
         """
         response = client.get(reverse("index"))
-        
+
         assert response.status_code == 200
         assertTemplateUsed(response, "portal/index.html")

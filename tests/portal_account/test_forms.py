@@ -39,58 +39,56 @@ class TestPortalProfileForm:
         form = PortalProfileForm(user=portal_user, data=form_data)
         assert not form.is_valid()
 
+
 @pytest.mark.django_db
 class TestPortalProfileFormAgreements:
     def test_agreements_disabled_when_both_true(self, portal_user):
         portal_profile, _ = PortalProfile.objects.get_or_create(
-            user=portal_user,
-            defaults={
-                'coc_agreement': True,
-                'tos_agreement': True
-            }
+            user=portal_user, defaults={"coc_agreement": True, "tos_agreement": True}
         )
         portal_profile.coc_agreement = True
         portal_profile.tos_agreement = True
         portal_profile.save()
-        
+
         form = PortalProfileForm(user=portal_user, instance=portal_profile)
-        
-        assert form.fields['coc_agreement'].disabled is True
-        assert form.fields['tos_agreement'].disabled is True
+
+        assert form.fields["coc_agreement"].disabled is True
+        assert form.fields["tos_agreement"].disabled is True
 
     def test_agreements_not_disabled_when_not_both_true(self, portal_user):
         portal_profile, _ = PortalProfile.objects.get_or_create(user=portal_user)
-        
+
         portal_profile.coc_agreement = True
         portal_profile.tos_agreement = False
         portal_profile.save()
-        
+
         form = PortalProfileForm(user=portal_user, instance=portal_profile)
-        assert form.fields['coc_agreement'].disabled is False
-        assert form.fields['tos_agreement'].disabled is False
-        
+        assert form.fields["coc_agreement"].disabled is False
+        assert form.fields["tos_agreement"].disabled is False
+
         portal_profile.coc_agreement = False
         portal_profile.tos_agreement = True
         portal_profile.save()
-        
+
         form = PortalProfileForm(user=portal_user, instance=portal_profile)
-        assert form.fields['coc_agreement'].disabled is False
-        assert form.fields['tos_agreement'].disabled is False
-        
+        assert form.fields["coc_agreement"].disabled is False
+        assert form.fields["tos_agreement"].disabled is False
+
         portal_profile.coc_agreement = False
         portal_profile.tos_agreement = False
         portal_profile.save()
-        
+
         form = PortalProfileForm(user=portal_user, instance=portal_profile)
-        assert form.fields['coc_agreement'].disabled is False
-        assert form.fields['tos_agreement'].disabled is False
+        assert form.fields["coc_agreement"].disabled is False
+        assert form.fields["tos_agreement"].disabled is False
 
     def test_agreements_not_disabled_for_new_profile(self, portal_user):
         PortalProfile.objects.filter(user=portal_user).delete()
-        
+
         form = PortalProfileForm(user=portal_user)
-        assert form.fields['coc_agreement'].disabled is False
-        assert form.fields['tos_agreement'].disabled is False
+        assert form.fields["coc_agreement"].disabled is False
+        assert form.fields["tos_agreement"].disabled is False
+
 
 @pytest.mark.django_db
 class TestSignupView:
