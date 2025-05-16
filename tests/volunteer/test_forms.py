@@ -11,7 +11,7 @@ class TestVolunteerProfileForm:
         "languages_spoken": ["en"],
         "region": Region.NORTH_AMERICA,
         "discord_username": "validuser123",
-        "availability_hours_per_week": 5
+        "availability_hours_per_week": 5,
     }
 
     def test_form_saves_correctly(self, portal_user):
