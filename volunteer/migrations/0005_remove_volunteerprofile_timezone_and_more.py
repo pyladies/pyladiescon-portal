@@ -8,7 +8,7 @@ import volunteer.constants
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("volunteer", "0002_remove_volunteerprofile_coc_agreement_and_more"),
+        ("volunteer", "0004_alter_volunteerprofile_languages_spoken"),
     ]
 
     operations = [

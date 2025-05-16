@@ -3,8 +3,8 @@ from django.core import mail
 from django.core.exceptions import ValidationError
 from django.urls import reverse
 
-from volunteer.languages import LANGUAGES
 from volunteer.constants import Region
+from volunteer.languages import LANGUAGES
 from volunteer.models import Role, Team, VolunteerProfile
 
 

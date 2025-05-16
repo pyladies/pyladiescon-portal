@@ -6,7 +6,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("volunteer", "0003_remove_volunteerprofile_timezone_and_more"),
+        ("volunteer", "0002_remove_volunteerprofile_coc_agreement_and_more"),
     ]
 
     operations = [
