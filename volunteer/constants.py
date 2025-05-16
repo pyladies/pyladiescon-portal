@@ -18,8 +18,10 @@ class ApplicationStatus(StrEnum):
     REJECTED = "Rejected"
     CANCELLED = "Cancelled"
 
+
 class Region(StrEnum):
     """Region where the volunteer usually reside."""
+
     NO_REGION = ""
     ASIA = "Asia"
     EUROPE = "Europe"

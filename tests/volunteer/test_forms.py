@@ -1,8 +1,9 @@
 import pytest
 
+from volunteer.constants import Region
 from volunteer.forms import LanguageSelectMultiple, VolunteerProfileForm
 from volunteer.models import VolunteerProfile
-from volunteer.constants import Region
+
 
 @pytest.mark.django_db
 class TestVolunteerProfileForm:
@@ -35,7 +36,9 @@ class TestVolunteerProfileForm:
         assert "discord_username" in form.errors
         assert "availability_hours_per_week" in form.errors
 
-        form = VolunteerProfileForm(user=portal_user, data={"region": Region.NORTH_AMERICA})
+        form = VolunteerProfileForm(
+            user=portal_user, data={"region": Region.NORTH_AMERICA}
+        )
         assert not form.is_valid()
         assert "languages_spoken" in form.errors
         assert "discord_username" in form.errors
@@ -53,7 +56,9 @@ class TestVolunteerProfileForm:
         assert "languages_spoken" in form.errors
         assert "availability_hours_per_week" in form.errors
 
-        form = VolunteerProfileForm(user=portal_user, data={"availability_hours_per_week": [40]})
+        form = VolunteerProfileForm(
+            user=portal_user, data={"availability_hours_per_week": [40]}
+        )
         assert not form.is_valid()
         assert "region" in form.errors
         assert "languages_spoken" in form.errors

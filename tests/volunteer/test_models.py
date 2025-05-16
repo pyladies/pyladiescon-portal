@@ -4,8 +4,8 @@ from django.core.exceptions import ValidationError
 from django.urls import reverse
 
 from volunteer.languages import LANGUAGES
-from volunteer.models import Role, Team, VolunteerProfile
 from volunteer.constants import Region
+from volunteer.models import Role, Team, VolunteerProfile
 
 
 @pytest.mark.django_db
@@ -48,7 +48,10 @@ class TestVolunteerModel:
             short_name="Dev Team", description="Development Team"
         )
         profile = VolunteerProfile.objects.create(
-            user=portal_user, languages_spoken=["en"], region=Region.NORTH_AMERICA, discord_username="mydiscord"
+            user=portal_user,
+            languages_spoken=["en"],
+            region=Region.NORTH_AMERICA,
+            discord_username="mydiscord",
         )
         team.team_leads.add(profile)
         profile.teams.add(team)
@@ -106,7 +109,10 @@ class TestVolunteerModel:
     ):
         """Test validation of invalid social media fields."""
         profile = VolunteerProfile(
-            user=portal_user, languages_spoken=["en"], region=Region.NORTH_AMERICA, **{field: value}
+            user=portal_user,
+            languages_spoken=["en"],
+            region=Region.NORTH_AMERICA,
+            **{field: value}
         )
 
         with pytest.raises(ValidationError) as excinfo:
@@ -135,7 +141,9 @@ class TestVolunteerModel:
     def test_languages_spoken_validation(self, portal_user):
         """Test that languages_spoken must be from LANGUAGES."""
         profile = VolunteerProfile(
-            user=portal_user, languages_spoken=["invalid_language"], region=Region.NORTH_AMERICA
+            user=portal_user,
+            languages_spoken=["invalid_language"],
+            region=Region.NORTH_AMERICA,
         )
 
         with pytest.raises(ValidationError) as excinfo:
@@ -287,7 +295,7 @@ class TestVolunteerModel:
     def test_email_is_sent_after_saved(self, portal_user):
         profile = VolunteerProfile(user=portal_user)
         profile.languages_spoken = [LANGUAGES[0]]
-        profile.region=Region.NORTH_AMERICA
+        profile.region = Region.NORTH_AMERICA
         profile.save()
         assert (
             str(mail.outbox[0].subject)
@@ -297,11 +305,11 @@ class TestVolunteerModel:
     def test_email_is_sent_after_updated(self, portal_user):
         profile = VolunteerProfile(user=portal_user)
         profile.languages_spoken = [LANGUAGES[0]]
-        profile.region=Region.NORTH_AMERICA
+        profile.region = Region.NORTH_AMERICA
         profile.save()
         mail.outbox.clear()
 
-        profile.region=Region.ASIA
+        profile.region = Region.ASIA
         profile.save()
 
         assert (
@@ -312,7 +320,7 @@ class TestVolunteerModel:
     def test_volunteer_notification_email_contains_info(self, portal_user):
         profile = VolunteerProfile(user=portal_user)
         profile.languages_spoken = [LANGUAGES[0], LANGUAGES[1]]
-        profile.region=Region.NORTH_AMERICA
+        profile.region = Region.NORTH_AMERICA
         profile.bluesky_username = "mybsky"
         profile.discord_username = "mydiscord"
         profile.github_username = "mygithub"

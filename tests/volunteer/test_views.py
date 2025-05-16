@@ -1,6 +1,7 @@
 import pytest
 from django.urls import reverse
 from pytest_django.asserts import assertRedirects
+
 from volunteer.constants import Region
 
 from volunteer.languages import LANGUAGES
@@ -67,7 +68,7 @@ class TestVolunteer:
     def test_volunteer_profile_cannot_create_if_exists(self, client, portal_user):
         profile = VolunteerProfile(user=portal_user)
         profile.languages_spoken = [LANGUAGES[0]]
-        profile.region=Region.NORTH_AMERICA
+        profile.region = Region.NORTH_AMERICA
         profile.save()
 
         client.force_login(portal_user)
@@ -82,7 +83,7 @@ class TestVolunteer:
         )
         another_profile = VolunteerProfile(user=another_user)
         another_profile.languages_spoken = [LANGUAGES[0]]
-        another_profile.region=Region.NORTH_AMERICA
+        another_profile.region = Region.NORTH_AMERICA
         another_profile.save()
 
         client.force_login(portal_user)
@@ -96,7 +97,7 @@ class TestVolunteer:
     def test_volunteer_profile_view_own_profile(self, client, portal_user):
         profile = VolunteerProfile(user=portal_user)
         profile.languages_spoken = [LANGUAGES[0]]
-        profile.region=Region.NORTH_AMERICA
+        profile.region = Region.NORTH_AMERICA
         profile.save()
         client.force_login(portal_user)
         response = client.get(
@@ -131,7 +132,7 @@ class TestVolunteer:
 
         profile = VolunteerProfile.objects.get(user=portal_user)
         assert profile.languages_spoken == [LANGUAGES[0][0], LANGUAGES[1][0]]
-        assert profile.region==Region.NORTH_AMERICA
+        assert profile.region == Region.NORTH_AMERICA
         assert profile.pyladies_chapter == data["pyladies_chapter"]
         assert profile.discord_username == data["discord_username"]
         assert profile.github_username == data["github_username"]
@@ -141,13 +142,15 @@ class TestVolunteer:
         assert profile.linkedin_url == data["linkedin_url"]
         assert profile.instagram_username == data["instagram_username"]
         assert profile.additional_comments == data["additional_comments"]
-        assert profile.availability_hours_per_week == data["availability_hours_per_week"]
+        assert (
+            profile.availability_hours_per_week == data["availability_hours_per_week"]
+        )
 
     def test_edit_volunteer_profile_form_submit(self, client, portal_user):
         client.force_login(portal_user)
         profile = VolunteerProfile(user=portal_user)
         profile.languages_spoken = [LANGUAGES[0]]
-        profile.region=Region.NORTH_AMERICA
+        profile.region = Region.NORTH_AMERICA
         profile.discord_username = "blabla"
         profile.availability_hours_per_week = 20
         profile.save()
@@ -165,7 +168,7 @@ class TestVolunteer:
             "pyladies_chapter": "Test Chapter",
             "additional_comments": "Blablabla",
             "availability_hours_per_week": 40,
-            "region": Region.ASIA
+            "region": Region.ASIA,
         }
         response = client.post(
             reverse("volunteer:volunteer_profile_edit", kwargs={"pk": profile.id}),
@@ -175,7 +178,7 @@ class TestVolunteer:
 
         profile = VolunteerProfile.objects.get(user=portal_user)
         assert profile.languages_spoken == [LANGUAGES[0][0], LANGUAGES[1][0]]
-        assert profile.region==Region.ASIA
+        assert profile.region == Region.ASIA
         assert profile.pyladies_chapter == data["pyladies_chapter"]
         assert profile.discord_username == data["discord_username"]
         assert profile.github_username == data["github_username"]
@@ -185,4 +188,6 @@ class TestVolunteer:
         assert profile.linkedin_url == data["linkedin_url"]
         assert profile.instagram_username == data["instagram_username"]
         assert profile.additional_comments == data["additional_comments"]
-        assert profile.availability_hours_per_week == data["availability_hours_per_week"]
+        assert (
+            profile.availability_hours_per_week == data["availability_hours_per_week"]
+        )
