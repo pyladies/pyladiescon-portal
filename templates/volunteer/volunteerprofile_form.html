@@ -1,6 +1,33 @@
 {% extends "portal/base.html" %}
 {% load allauth i18n %}
 {% load django_bootstrap5 %}
+{% load static %}
+
+{% block extra_head %}
+    {{ block.super }}
+    <!-- jQuery -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <!-- Select2 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+    <!-- Select2 JS -->
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+    <style>
+        .select2-container {
+            width: 100% !important;
+        }
+        .select2-selection--multiple {
+            border: 1px solid #ced4da !important;
+            border-radius: 0.25rem !important;
+            min-height: 38px !important;
+        }
+        .select2-selection__placeholder {
+            font-size: 0.85em !important;
+            color: #adb5bd !important;
+            position: relative !important;
+            top: -3px !important;
+        }
+    </style>
+{% endblock extra_head %}
 {% block content %}
     <main>
         <h1 class="display-5">{% if object.pk %}Edit{% else %}Create{% endif %} your Volunteer Profile</h1>
@@ -19,29 +46,23 @@
                         <h5 class="card-title mb-0">Basic Information</h5>
                     </div>
                     <div class="card-body">
-                        <!-- Custom languages spoken checkboxes from original -->
+                        <!-- Languages spoken with autocomplete -->
                         <div class="mb-3">
-                            <label class="form-label">Languages Spoken*</label>
-                            <div class="form-text mb-2">Select all languages you're comfortable communicating in</div>
-                            <div class="language-checkboxes row">
-                                {% for code, name in form.fields.languages_spoken.choices %}
-                                <div class="col-md-4 col-sm-6">
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" name="languages_spoken" 
-                                               id="lang_{{ code }}" value="{{ code }}"
-                                               {% if code in form.languages_spoken.value %}checked{% endif %}>
-                                        <label class="form-check-label" for="lang_{{ code }}">{{ name }}</label>
-                                    </div>
-                                </div>
+                            <label class="form-label" for="{{ form.languages_spoken.id_for_label }}">Languages Spoken*</label>
+                            <div class="form-text mb-2">Start typing to select languages you're comfortable communicating in</div>
+                            {{ form.languages_spoken }}
+                            {% if form.languages_spoken.errors %}
+                                {% for error in form.languages_spoken.errors %}
+                                    <div class="invalid-feedback d-block">{{ error }}</div>
                                 {% endfor %}
-                            </div>
+                            {% endif %}
                         </div>
                         {% bootstrap_field form.teams %}
                         {% bootstrap_field form.pyladies_chapter %}
                         {% bootstrap_field form.timezone %}
                     </div>
                 </div>
-                
+
                 <!-- Enhanced social media section from modified version -->
                 <div class="card mb-4">
                     <div class="card-header">
@@ -170,4 +191,17 @@
             </form>
         </div>
     </main>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initialize Select2 for languages_spoken field
+            $('.select2-multiple').select2({
+                theme: 'classic',
+                placeholder: 'Start typing to select languages...',
+                allowClear: true,
+                width: '100%',
+                closeOnSelect: false
+            });
+        });
+    </script>
 {% endblock content %}

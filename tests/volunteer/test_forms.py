@@ -1,6 +1,6 @@
 import pytest
 
-from volunteer.forms import VolunteerProfileForm
+from volunteer.forms import LanguageSelectMultiple, VolunteerProfileForm
 from volunteer.models import VolunteerProfile
 
 
@@ -425,3 +425,19 @@ class TestVolunteerProfileForm:
         )
         assert form.is_valid()
         assert form.cleaned_data["linkedin_url"] == "https://linkedin.com/in/username"
+
+
+class TestLanguageSelectMultiple:
+    """Tests for the LanguageSelectMultiple widget."""
+
+    def test_init_with_attrs(self):
+        """Test initialization with custom attributes."""
+        custom_attrs = {"class": "custom-class", "data-test": "test-value"}
+        widget = LanguageSelectMultiple(attrs=custom_attrs)
+
+        # Verify that the custom attributes were merged with default attributes
+        assert "custom-class" in widget.attrs["class"]
+        assert widget.attrs["data-test"] == "test-value"
+        assert (
+            "data-placeholder" in widget.attrs
+        )  # Default attribute should still be present

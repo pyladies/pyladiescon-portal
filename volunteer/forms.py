@@ -1,10 +1,26 @@
 import re
 
-from django.conf import global_settings
 from django.core.exceptions import ValidationError
 from django.forms import ModelForm
+from django.forms.widgets import SelectMultiple
 
+from .languages import LANGUAGES
 from .models import VolunteerProfile
+
+
+class LanguageSelectMultiple(SelectMultiple):
+    """
+    A custom widget for selecting multiple languages with autocomplete.
+    """
+
+    def __init__(self, attrs=None, choices=()):
+        default_attrs = {
+            "class": "form-control select2-multiple",
+            "data-placeholder": "Start typing to select languages...",
+        }
+        if attrs:
+            default_attrs.update(attrs)
+        super().__init__(default_attrs, choices)
 
 
 class VolunteerProfileForm(ModelForm):
@@ -142,10 +158,13 @@ class VolunteerProfileForm(ModelForm):
         self.user = kwargs.pop("user", None)
         super().__init__(*args, **kwargs)
 
-        self.fields["discord_username"].required = True
+        sorted_languages = sorted(LANGUAGES, key=lambda x: x[1])
 
-        sorted_languages = sorted(global_settings.LANGUAGES, key=lambda x: x[1])
+        self.fields["discord_username"].required = True
         self.fields["languages_spoken"].choices = sorted_languages
+        self.fields["languages_spoken"].widget = LanguageSelectMultiple(
+            choices=sorted_languages
+        )
 
         if self.instance and self.instance.pk:
             pass

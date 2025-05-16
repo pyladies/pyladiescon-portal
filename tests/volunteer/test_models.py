@@ -1,9 +1,9 @@
 import pytest
-from django.conf.global_settings import LANGUAGES
 from django.core import mail
 from django.core.exceptions import ValidationError
 from django.urls import reverse
 
+from volunteer.languages import LANGUAGES
 from volunteer.models import Role, Team, VolunteerProfile
 
 

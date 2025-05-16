@@ -1,7 +1,6 @@
 import re
 
 from django.conf import settings
-from django.conf.global_settings import LANGUAGES
 from django.contrib.auth.models import User
 from django.contrib.sites.models import Site
 from django.core.exceptions import ValidationError
@@ -15,6 +14,7 @@ from django.urls import reverse
 from portal.models import BaseModel, ChoiceArrayField
 
 from .constants import ApplicationStatus
+from .languages import LANGUAGES
 
 TIMEZONE_CHOICES = [
     ("UTC+14", "UTC+14"),
