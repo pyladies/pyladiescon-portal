@@ -12,6 +12,7 @@
     </p>
     <p>Your information:</p>
     <ul>
+    <li>Your availability: {{ profile.availability_hours_per_week }} hours per week</li>
     <li>GitHub username: {{ profile.github_username }}</li>
     <li>Discord username: {{ profile.discord_username }}</li>
     <li>Instagram username: {{ profile.instagram_username }}</li>
@@ -20,9 +21,10 @@
     <li>X username: {{ profile.x_username }}</li>
     <li>LinkedIn URL: {{ profile.linkedin_url }}</li>
     <li>PyLadies Chapter: {{ profile.pyladies_chapter }}</li>
-    <li>Timezone: {{ profile.timezone }}</li>
+    <li>Region: {{ profile.region }}</li>
     <li>Languages spoken: {{ profile.languages_spoken|join:", " }}</li>
     <li>PyLadies Chapter: {{ profile.pyladies_chapter }}</li>
+    <li>Additional Comments: {{ profile.additional_comments }}</li>
     </ul>
     <p>
     If you would like to review or update your application at any time, go to your <a href="https://{{ current_site.domain }}{% url 'volunteer:index' %}">Volunteer Dashboard</a>

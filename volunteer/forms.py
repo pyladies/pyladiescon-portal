@@ -25,6 +25,8 @@ class LanguageSelectMultiple(SelectMultiple):
 
 class VolunteerProfileForm(ModelForm):
 
+    discord_username = forms.CharField(required=True)
+    additional_comments = forms.CharField(widget=forms.Textarea, required=False)
     class Meta:
         model = VolunteerProfile
         exclude = ["user", "application_status"]
@@ -36,6 +38,8 @@ class VolunteerProfileForm(ModelForm):
             "mastodon_url": "Mastodon handle (e.g., @username@instance.tld or https://instance.tld/@username)",
             "x_username": "X/Twitter username without @ (e.g., username)",
             "linkedin_url": "LinkedIn URL (e.g., linkedin.com/in/username)",
+            "region": "Region where you normally reside",
+
         }
 
     def clean_github_username(self):

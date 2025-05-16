@@ -10,6 +10,7 @@ Your volunteer profile has recently been updated.
 Your current volunteer application status: {{ profile.application_status }}.
 
 Your information:
+- Your availability: {{ profile.availability_hours_per_week }} hours per week
 - GitHub username: {{ profile.github_username }}
 - Discord username: {{ profile.discord_username }}
 - Instagram username: {{ profile.instagram_username }}
@@ -18,9 +19,10 @@ Your information:
 - X username: {{ profile.x_username }}
 - LinkedIn URL: {{ profile.linkedin_url }}
 - PyLadies Chapter: {{ profile.pyladies_chapter }}
-- Timezone: {{ profile.timezone }}
+- Region: {{ profile.region }}
 - Languages spoken: {{ profile.languages_spoken|join:", " }}
 - PyLadies Chapter: {{ profile.pyladies_chapter }}
+- Additional Comments: {{ profile.additional_comments }}
 
 If you would like to review or update your application at any time, go to your Volunteer Dashboard at https://{{ current_site.domain }}{% url 'volunteer:index' %}.
 {% endblock content %}

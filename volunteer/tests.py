@@ -14,7 +14,7 @@ class VolunteerProfileSocialMediaValidationTests(TestCase):
             username="testuser", email="test@example.com", password="testpassword"
         )
         self.profile = VolunteerProfile(
-            user=self.user, timezone="UTC", languages_spoken=["en"]
+            user=self.user, region=Region.NORTH_AMERICA, languages_spoken=["en"], discord_username="discorduser"
         )
 
     def test_valid_github_username(self):
