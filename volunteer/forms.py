@@ -1,10 +1,10 @@
 import re
 
-from django.conf import global_settings
 from django.core.exceptions import ValidationError
 from django.forms import ModelForm, TextInput
 from django.forms.widgets import SelectMultiple
 
+from .languages import LANGUAGES
 from .models import VolunteerProfile
 
 
@@ -157,7 +157,7 @@ class VolunteerProfileForm(ModelForm):
         self.user = kwargs.pop("user", None)
         super().__init__(*args, **kwargs)
 
-        sorted_languages = sorted(global_settings.LANGUAGES, key=lambda x: x[1])
+        sorted_languages = sorted(LANGUAGES, key=lambda x: x[1])
         self.fields["languages_spoken"].choices = sorted_languages
         self.fields["languages_spoken"].widget = LanguageSelectMultiple(choices=sorted_languages)
 
