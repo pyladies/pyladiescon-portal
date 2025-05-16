@@ -414,10 +414,12 @@ class TestLanguageSelectMultiple:
 
     def test_init_with_attrs(self):
         """Test initialization with custom attributes."""
-        custom_attrs = {'class': 'custom-class', 'data-test': 'test-value'}
+        custom_attrs = {"class": "custom-class", "data-test": "test-value"}
         widget = LanguageSelectMultiple(attrs=custom_attrs)
 
         # Verify that the custom attributes were merged with default attributes
-        assert 'custom-class' in widget.attrs['class']
-        assert widget.attrs['data-test'] == 'test-value'
-        assert 'data-placeholder' in widget.attrs  # Default attribute should still be present
+        assert "custom-class" in widget.attrs["class"]
+        assert widget.attrs["data-test"] == "test-value"
+        assert (
+            "data-placeholder" in widget.attrs
+        )  # Default attribute should still be present

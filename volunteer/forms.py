@@ -12,10 +12,11 @@ class LanguageSelectMultiple(SelectMultiple):
     """
     A custom widget for selecting multiple languages with autocomplete.
     """
+
     def __init__(self, attrs=None, choices=()):
         default_attrs = {
-            'class': 'form-control select2-multiple',
-            'data-placeholder': 'Start typing to select languages...',
+            "class": "form-control select2-multiple",
+            "data-placeholder": "Start typing to select languages...",
         }
         if attrs:
             default_attrs.update(attrs)
@@ -159,7 +160,9 @@ class VolunteerProfileForm(ModelForm):
 
         sorted_languages = sorted(LANGUAGES, key=lambda x: x[1])
         self.fields["languages_spoken"].choices = sorted_languages
-        self.fields["languages_spoken"].widget = LanguageSelectMultiple(choices=sorted_languages)
+        self.fields["languages_spoken"].widget = LanguageSelectMultiple(
+            choices=sorted_languages
+        )
 
         if self.instance and self.instance.pk:
             pass
