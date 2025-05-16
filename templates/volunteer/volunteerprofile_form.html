@@ -73,7 +73,7 @@
                                 <!-- Discord -->
                                 <div class="mb-3">
                                     <label class="form-label" for="{{ form.discord_username.id_for_label }}">
-                                        {{ form.discord_username.label }}
+                                        {{ form.discord_username.label }} <span class="text-danger">*</span>
                                     </label>
                                     <div class="input-group">
                                         <span class="input-group-text">@</span>
@@ -81,7 +81,8 @@
                                             class="form-control {% if form.discord_username.errors %}is-invalid{% endif %}"
                                             name="{{ form.discord_username.name }}"
                                             id="{{ form.discord_username.id_for_label }}"
-                                            value="{{ form.discord_username.value|default:'' }}">
+                                            value="{{ form.discord_username.value|default:'' }}"
+                                            required>
                                     </div>
                                     <div class="form-text">{{ form.discord_username.help_text }}</div>
                                     {% for error in form.discord_username.errors %}
