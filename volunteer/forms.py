@@ -1,7 +1,7 @@
 import re
 
 from django.core.exceptions import ValidationError
-from django.forms import ModelForm, TextInput
+from django.forms import ModelForm
 from django.forms.widgets import SelectMultiple
 
 from .languages import LANGUAGES
