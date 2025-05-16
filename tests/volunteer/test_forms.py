@@ -9,6 +9,7 @@ class TestVolunteerProfileForm:
     BASE_VALID_DATA = {
         "languages_spoken": ["en"],
         "timezone": "UTC-12",
+        "discord_username": "validuser123",
     }
 
     def test_form_saves_correctly(self, portal_user):
@@ -20,6 +21,7 @@ class TestVolunteerProfileForm:
         assert profile.user == portal_user
         assert profile.languages_spoken == ["en"]
         assert profile.timezone == "UTC-12"
+        assert profile.discord_username == "validuser123"
         assert profile.application_status == "Pending Review"
 
     def test_required_fields(self, portal_user):
@@ -28,14 +30,57 @@ class TestVolunteerProfileForm:
         assert not form.is_valid()
         assert "languages_spoken" in form.errors
         assert "timezone" in form.errors
+        assert "discord_username" in form.errors
 
         form = VolunteerProfileForm(user=portal_user, data={"timezone": "UTC-12"})
         assert not form.is_valid()
         assert "languages_spoken" in form.errors
+        assert "discord_username" in form.errors
 
         form = VolunteerProfileForm(user=portal_user, data={"languages_spoken": ["en"]})
         assert not form.is_valid()
         assert "timezone" in form.errors
+        assert "discord_username" in form.errors
+
+        form = VolunteerProfileForm(
+            user=portal_user, data={"languages_spoken": ["en"], "timezone": "UTC-12"}
+        )
+        assert not form.is_valid()
+        assert "discord_username" in form.errors
+
+    @pytest.mark.parametrize(
+        "username,valid",
+        [
+            ("username", True),
+            ("user.name", True),
+            ("user_name", True),
+            ("user-name", True),
+            ("a" * 32, True),
+            ("", False),
+            (".username", False),
+            ("_username", False),
+            ("-username", False),
+            ("username.", False),
+            ("username_", False),
+            ("username-", False),
+            ("user..name", False),
+            ("user__name", False),
+            ("user--name", False),
+            ("a" * 33, False),
+            ("a", False),
+            ("user@name", False),
+        ],
+    )
+    def test_discord_username_validation(self, portal_user, username, valid):
+        """Test Discord username validation with various cases."""
+        form_data = {**self.BASE_VALID_DATA, "discord_username": username}
+        if username == "":
+            form_data.pop("discord_username")
+
+        form = VolunteerProfileForm(user=portal_user, data=form_data)
+        assert form.is_valid() == valid
+        if not valid:
+            assert "discord_username" in form.errors
 
     @pytest.mark.parametrize(
         "username,valid",
@@ -57,42 +102,9 @@ class TestVolunteerProfileForm:
         """Test GitHub username validation with various cases."""
         form_data = {**self.BASE_VALID_DATA, "github_username": username}
         form = VolunteerProfileForm(user=portal_user, data=form_data)
-
         assert form.is_valid() == valid
         if not valid:
             assert "github_username" in form.errors
-
-    @pytest.mark.parametrize(
-        "username,valid",
-        [
-            ("username", True),
-            ("user.name", True),
-            ("user_name", True),
-            ("user-name", True),
-            ("a" * 32, True),
-            ("", True),
-            (".username", False),
-            ("_username", False),
-            ("-username", False),
-            ("username.", False),
-            ("username_", False),
-            ("username-", False),
-            ("user..name", False),
-            ("user__name", False),
-            ("user--name", False),
-            ("a" * 33, False),
-            ("a", False),
-            ("user@name", False),
-        ],
-    )
-    def test_discord_username_validation(self, portal_user, username, valid):
-        """Test Discord username validation with various cases."""
-        form_data = {**self.BASE_VALID_DATA, "discord_username": username}
-        form = VolunteerProfileForm(user=portal_user, data=form_data)
-
-        assert form.is_valid() == valid
-        if not valid:
-            assert "discord_username" in form.errors
 
     @pytest.mark.parametrize(
         "username,valid",
@@ -111,7 +123,6 @@ class TestVolunteerProfileForm:
         """Test Instagram username validation with various cases."""
         form_data = {**self.BASE_VALID_DATA, "instagram_username": username}
         form = VolunteerProfileForm(user=portal_user, data=form_data)
-
         assert form.is_valid() == valid
         if not valid:
             assert "instagram_username" in form.errors
@@ -140,7 +151,6 @@ class TestVolunteerProfileForm:
         """Test Bluesky username validation with various cases."""
         form_data = {**self.BASE_VALID_DATA, "bluesky_username": username}
         form = VolunteerProfileForm(user=portal_user, data=form_data)
-
         assert form.is_valid() == valid
         if not valid:
             assert "bluesky_username" in form.errors
@@ -162,7 +172,6 @@ class TestVolunteerProfileForm:
         """Test X/Twitter username validation with various cases."""
         form_data = {**self.BASE_VALID_DATA, "x_username": username}
         form = VolunteerProfileForm(user=portal_user, data=form_data)
-
         assert form.is_valid() == valid
         if not valid:
             assert "x_username" in form.errors
@@ -184,7 +193,6 @@ class TestVolunteerProfileForm:
         """Test Mastodon URL validation with various formats."""
         form_data = {**self.BASE_VALID_DATA, "mastodon_url": url}
         form = VolunteerProfileForm(user=portal_user, data=form_data)
-
         assert form.is_valid() == valid
         if not valid:
             assert "mastodon_url" in form.errors
@@ -206,7 +214,6 @@ class TestVolunteerProfileForm:
         """Test LinkedIn URL validation and protocol addition."""
         form_data = {**self.BASE_VALID_DATA, "linkedin_url": url}
         form = VolunteerProfileForm(user=portal_user, data=form_data)
-
         assert form.is_valid() == valid
         if valid and url:
             assert form.cleaned_data["linkedin_url"].startswith(cleaned_prefix)
@@ -220,12 +227,14 @@ class TestVolunteerProfileForm:
             languages_spoken=["en"],
             timezone="UTC-12",
             github_username="olduser",
+            discord_username="olddiscord",
         )
 
         update_data = {
             "languages_spoken": ["en", "es"],
             "timezone": "UTC-10",
             "github_username": "newuser",
+            "discord_username": "newdiscord",
         }
         form = VolunteerProfileForm(
             user=portal_user, data=update_data, instance=profile
@@ -236,20 +245,38 @@ class TestVolunteerProfileForm:
 
         assert updated_profile.pk == profile.pk
         assert updated_profile.github_username == "newuser"
+        assert updated_profile.discord_username == "newdiscord"
         assert updated_profile.timezone == "UTC-10"
         assert set(updated_profile.languages_spoken) == {"en", "es"}
 
-    def test_social_fields_optional(self, portal_user):
-        """Test that all social media fields are optional."""
-        form = VolunteerProfileForm(user=portal_user, data=self.BASE_VALID_DATA)
+    def test_optional_social_fields(self, portal_user):
+        """Test that all social media fields except Discord are optional."""
+        form_data = {
+            **self.BASE_VALID_DATA,
+            "github_username": "",
+            "instagram_username": "",
+            "bluesky_username": "",
+            "mastodon_url": "",
+            "x_username": "",
+            "linkedin_url": "",
+        }
+        form = VolunteerProfileForm(user=portal_user, data=form_data)
         assert form.is_valid()
 
-    def test_empty_bluesky_username(self, portal_user):
-        """Test that empty Bluesky username is valid."""
-        form = VolunteerProfileForm(
-            user=portal_user, data={**self.BASE_VALID_DATA, "bluesky_username": ""}
-        )
+    def test_empty_optional_fields(self, portal_user):
+        """Test that optional fields can be empty (Discord is required)."""
+        form_data = {
+            **self.BASE_VALID_DATA,
+            "github_username": "",
+            "instagram_username": "",
+            "bluesky_username": "",
+            "mastodon_url": "",
+            "x_username": "",
+            "linkedin_url": "",
+        }
+        form = VolunteerProfileForm(user=portal_user, data=form_data)
         assert form.is_valid()
+        assert form.cleaned_data["github_username"] is None
         assert form.cleaned_data["bluesky_username"] is None
 
     def test_form_clean_method(self, portal_user):
@@ -266,11 +293,13 @@ class TestVolunteerProfileForm:
             languages_spoken=["en"],
             timezone="UTC-12",
             github_username="testuser",
+            discord_username="testdiscord",
         )
 
         form = VolunteerProfileForm(user=portal_user, instance=profile)
         assert form.instance == profile
         assert form.initial["github_username"] == "testuser"
+        assert form.initial["discord_username"] == "testdiscord"
 
     def test_form_init_without_user(self):
         """Test form initialization without user."""
@@ -279,32 +308,21 @@ class TestVolunteerProfileForm:
 
     def test_save_method_with_commit_false(self, portal_user):
         """Test save method with commit=False."""
-        form_data = {**self.BASE_VALID_DATA, "github_username": "testuser"}
+        form_data = {
+            **self.BASE_VALID_DATA,
+            "github_username": "testuser",
+        }
         form = VolunteerProfileForm(user=portal_user, data=form_data)
         assert form.is_valid()
 
         profile = form.save(commit=False)
         assert profile.user == portal_user
         assert profile.github_username == "testuser"
+        assert profile.discord_username == "validuser123"
         assert profile.pk is None
 
         profile.save()
         assert profile.pk is not None
-
-    def test_all_optional_fields_empty(self, portal_user):
-        """Test that all optional fields can be empty."""
-        form_data = {
-            **self.BASE_VALID_DATA,
-            "github_username": "",
-            "discord_username": "",
-            "instagram_username": "",
-            "bluesky_username": "",
-            "mastodon_url": "",
-            "x_username": "",
-            "linkedin_url": "",
-        }
-        form = VolunteerProfileForm(user=portal_user, data=form_data)
-        assert form.is_valid()
 
     def test_bluesky_username_with_multiple_domains(self, portal_user):
         """Test Bluesky username with multiple domain levels."""

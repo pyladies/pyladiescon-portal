@@ -30,7 +30,7 @@ class VolunteerProfileForm(ModelForm):
         exclude = ["user", "application_status"]
         help_texts = {
             "github_username": "GitHub username (e.g., username)",
-            "discord_username": "Discord username (e.g., username)",
+            "discord_username": "Required - Your Discord username for team communication (e.g., username#1234)",
             "instagram_username": "Instagram username without @ (e.g., username)",
             "bluesky_username": "Bluesky username (e.g., username or username.bsky.social)",
             "mastodon_url": "Mastodon handle (e.g., @username@instance.tld or https://instance.tld/@username)",
@@ -159,6 +159,8 @@ class VolunteerProfileForm(ModelForm):
         super().__init__(*args, **kwargs)
 
         sorted_languages = sorted(LANGUAGES, key=lambda x: x[1])
+
+        self.fields["discord_username"].required = True
         self.fields["languages_spoken"].choices = sorted_languages
         self.fields["languages_spoken"].widget = LanguageSelectMultiple(
             choices=sorted_languages

@@ -146,6 +146,7 @@ class TestVolunteerModel:
             user=portal_user,
             languages_spoken=["en"],
             timezone="UTC",
+            discord_username="validuser123",
             linkedin_url="linkedin.com/in/username",
         )
         profile.full_clean()
@@ -165,6 +166,7 @@ class TestVolunteerModel:
                 user=portal_user,
                 languages_spoken=["en"],
                 timezone="UTC",
+                discord_username="validuser123",
                 linkedin_url=url,
             )
             profile.full_clean()
@@ -175,6 +177,7 @@ class TestVolunteerModel:
             user=portal_user,
             languages_spoken=["en"],
             timezone="UTC",
+            discord_username="validuser123",
             linkedin_url="https://linkedin.com/in/username/",
         )
         profile.full_clean()
@@ -186,6 +189,7 @@ class TestVolunteerModel:
             user=portal_user,
             languages_spoken=["en"],
             timezone="UTC",
+            discord_username="validuser123",
             linkedin_url="invalid-url",
         )
 
@@ -246,14 +250,14 @@ class TestVolunteerModel:
             user=portal_user,
             languages_spoken=["en"],
             timezone="UTC",
+            discord_username="validuser123",
             linkedin_url="https://linkedin.com/in/UserName",
         )
-        profile.full_clean()  # Should pass validation
+        profile.full_clean()
         assert profile.linkedin_url == "https://linkedin.com/in/UserName"
 
     def test_discord_username_length_validation(self, portal_user):
         """Test Discord username validation for length constraints."""
-        # Test too short username
         profile = VolunteerProfile(
             user=portal_user,
             languages_spoken=["en"],
@@ -268,7 +272,6 @@ class TestVolunteerModel:
             excinfo.value
         )
 
-        # Test too long username
         profile.discord_username = "a" * 33
 
         with pytest.raises(ValidationError) as excinfo:
