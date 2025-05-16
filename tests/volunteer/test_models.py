@@ -3,6 +3,7 @@ from django.core import mail
 from django.core.exceptions import ValidationError
 from django.urls import reverse
 
+from volunteer.constants import Region
 from volunteer.languages import LANGUAGES
 from volunteer.models import Role, Team, VolunteerProfile
 
@@ -13,7 +14,8 @@ class TestVolunteerModel:
         """Test basic volunteer profile creation and URL generation."""
         profile = VolunteerProfile(user=portal_user)
         profile.languages_spoken = [LANGUAGES[0][0]]
-        profile.timezone = "UTC"
+        profile.region = Region.NORTH_AMERICA
+        profile.discord_username = "mydiscord"
         profile.save()
 
         assert profile.get_absolute_url() == reverse(
@@ -24,7 +26,8 @@ class TestVolunteerModel:
         """Test string representation of VolunteerProfile."""
         profile = VolunteerProfile(user=portal_user)
         profile.languages_spoken = [LANGUAGES[0][0]]
-        profile.timezone = "UTC"
+        profile.region = Region.NORTH_AMERICA
+        profile.discord_username = "mydiscord"
         assert str(profile) == portal_user.username
 
     def test_team_str_representation(self):
@@ -45,7 +48,10 @@ class TestVolunteerModel:
             short_name="Dev Team", description="Development Team"
         )
         profile = VolunteerProfile.objects.create(
-            user=portal_user, languages_spoken=["en"], timezone="UTC"
+            user=portal_user,
+            languages_spoken=["en"],
+            region=Region.NORTH_AMERICA,
+            discord_username="mydiscord",
         )
         team.team_leads.add(profile)
         profile.teams.add(team)
@@ -59,7 +65,7 @@ class TestVolunteerModel:
             short_name="Developer", description="Software Developer"
         )
         profile = VolunteerProfile.objects.create(
-            user=portal_user, languages_spoken=["en"], timezone="UTC"
+            user=portal_user, languages_spoken=["en"], region=Region.NORTH_AMERICA
         )
         profile.roles.add(role)
 
@@ -71,7 +77,7 @@ class TestVolunteerModel:
         profile = VolunteerProfile(
             user=portal_user,
             languages_spoken=["en"],
-            timezone="UTC",
+            region=Region.NORTH_AMERICA,
             github_username="valid-username",
             discord_username="valid.username",
             instagram_username="valid.username",
@@ -103,7 +109,10 @@ class TestVolunteerModel:
     ):
         """Test validation of invalid social media fields."""
         profile = VolunteerProfile(
-            user=portal_user, languages_spoken=["en"], timezone="UTC", **{field: value}
+            user=portal_user,
+            languages_spoken=["en"],
+            region=Region.NORTH_AMERICA,
+            **{field: value}
         )
 
         with pytest.raises(ValidationError) as excinfo:
@@ -114,25 +123,27 @@ class TestVolunteerModel:
     def test_application_status_default(self, portal_user):
         """Test that application_status defaults to PENDING."""
         profile = VolunteerProfile.objects.create(
-            user=portal_user, languages_spoken=["en"], timezone="UTC"
+            user=portal_user, languages_spoken=["en"], region=Region.NORTH_AMERICA
         )
         assert profile.application_status == "Pending Review"
 
-    def test_timezone_choices(self, portal_user):
-        """Test that timezone must be from the predefined choices."""
+    def test_region_choices(self, portal_user):
+        """Test that region must be from the predefined choices."""
         profile = VolunteerProfile(
-            user=portal_user, languages_spoken=["en"], timezone="INVALID"
+            user=portal_user, languages_spoken=["en"], region="INVALID"
         )
 
         with pytest.raises(ValidationError) as excinfo:
             profile.full_clean()
 
-        assert "timezone" in str(excinfo.value)
+        assert "region" in str(excinfo.value)
 
     def test_languages_spoken_validation(self, portal_user):
         """Test that languages_spoken must be from LANGUAGES."""
         profile = VolunteerProfile(
-            user=portal_user, languages_spoken=["invalid_language"], timezone="UTC"
+            user=portal_user,
+            languages_spoken=["invalid_language"],
+            region=Region.NORTH_AMERICA,
         )
 
         with pytest.raises(ValidationError) as excinfo:
@@ -145,7 +156,7 @@ class TestVolunteerModel:
         profile = VolunteerProfile(
             user=portal_user,
             languages_spoken=["en"],
-            timezone="UTC",
+            region=Region.NORTH_AMERICA,
             discord_username="validuser123",
             linkedin_url="linkedin.com/in/username",
         )
@@ -165,7 +176,7 @@ class TestVolunteerModel:
             profile = VolunteerProfile(
                 user=portal_user,
                 languages_spoken=["en"],
-                timezone="UTC",
+                region=Region.NORTH_AMERICA,
                 discord_username="validuser123",
                 linkedin_url=url,
             )
@@ -176,7 +187,7 @@ class TestVolunteerModel:
         profile = VolunteerProfile(
             user=portal_user,
             languages_spoken=["en"],
-            timezone="UTC",
+            region=Region.NORTH_AMERICA,
             discord_username="validuser123",
             linkedin_url="https://linkedin.com/in/username/",
         )
@@ -188,7 +199,7 @@ class TestVolunteerModel:
         profile = VolunteerProfile(
             user=portal_user,
             languages_spoken=["en"],
-            timezone="UTC",
+            region=Region.NORTH_AMERICA,
             discord_username="validuser123",
             linkedin_url="invalid-url",
         )
@@ -204,7 +215,7 @@ class TestVolunteerModel:
         profile = VolunteerProfile(
             user=portal_user,
             languages_spoken=["en"],
-            timezone="UTC",
+            region=Region.NORTH_AMERICA,
             linkedin_url="linkedin.com/in/user@name",
         )
 
@@ -219,7 +230,7 @@ class TestVolunteerModel:
         profile = VolunteerProfile(
             user=portal_user,
             languages_spoken=["en"],
-            timezone="UTC",
+            region=Region.NORTH_AMERICA,
             linkedin_url="https://invalid-domain.com/in/username",
         )
 
@@ -234,7 +245,7 @@ class TestVolunteerModel:
         profile = VolunteerProfile(
             user=portal_user,
             languages_spoken=["en"],
-            timezone="UTC",
+            region=Region.NORTH_AMERICA,
             linkedin_url="https://linkedin.com/username",
         )
 
@@ -249,7 +260,7 @@ class TestVolunteerModel:
         profile = VolunteerProfile(
             user=portal_user,
             languages_spoken=["en"],
-            timezone="UTC",
+            region=Region.NORTH_AMERICA,
             discord_username="validuser123",
             linkedin_url="https://linkedin.com/in/UserName",
         )
@@ -261,7 +272,7 @@ class TestVolunteerModel:
         profile = VolunteerProfile(
             user=portal_user,
             languages_spoken=["en"],
-            timezone="UTC",
+            region=Region.NORTH_AMERICA,
             discord_username="a",
         )
 
@@ -284,7 +295,7 @@ class TestVolunteerModel:
     def test_email_is_sent_after_saved(self, portal_user):
         profile = VolunteerProfile(user=portal_user)
         profile.languages_spoken = [LANGUAGES[0]]
-        profile.timezone = "UTC"
+        profile.region = Region.NORTH_AMERICA
         profile.save()
         assert (
             str(mail.outbox[0].subject)
@@ -294,11 +305,11 @@ class TestVolunteerModel:
     def test_email_is_sent_after_updated(self, portal_user):
         profile = VolunteerProfile(user=portal_user)
         profile.languages_spoken = [LANGUAGES[0]]
-        profile.timezone = "UTC"
+        profile.region = Region.NORTH_AMERICA
         profile.save()
         mail.outbox.clear()
 
-        profile.timezone = "UTC+1"
+        profile.region = Region.ASIA
         profile.save()
 
         assert (
@@ -309,7 +320,7 @@ class TestVolunteerModel:
     def test_volunteer_notification_email_contains_info(self, portal_user):
         profile = VolunteerProfile(user=portal_user)
         profile.languages_spoken = [LANGUAGES[0], LANGUAGES[1]]
-        profile.timezone = "UTC"
+        profile.region = Region.NORTH_AMERICA
         profile.bluesky_username = "mybsky"
         profile.discord_username = "mydiscord"
         profile.github_username = "mygithub"
@@ -318,6 +329,8 @@ class TestVolunteerModel:
         profile.x_username = "myxusername"
         profile.linkedin_url = "mylinkedin"
         profile.pyladies_chapter = "mychapter"
+        profile.additional_comments = "mycomments"
+        profile.availability_hours_per_week = 30
 
         profile.save()
 
@@ -329,9 +342,11 @@ class TestVolunteerModel:
         assert profile.mastodon_url in body
         assert profile.x_username in body
         assert profile.linkedin_url in body
-        assert profile.timezone in body
+        assert profile.region in body
         assert profile.languages_spoken[0][0] in body
         assert profile.user.first_name in body
         assert profile.pyladies_chapter in body
+        assert profile.additional_comments in body
+        assert str(profile.availability_hours_per_week) in body
 
         assert reverse("volunteer:index") in body

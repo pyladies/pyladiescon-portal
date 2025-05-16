@@ -1,5 +1,6 @@
 import pytest
 
+from volunteer.constants import Region
 from volunteer.forms import LanguageSelectMultiple, VolunteerProfileForm
 from volunteer.models import VolunteerProfile
 
@@ -8,8 +9,9 @@ from volunteer.models import VolunteerProfile
 class TestVolunteerProfileForm:
     BASE_VALID_DATA = {
         "languages_spoken": ["en"],
-        "timezone": "UTC-12",
+        "region": Region.NORTH_AMERICA,
         "discord_username": "validuser123",
+        "availability_hours_per_week": 5,
     }
 
     def test_form_saves_correctly(self, portal_user):
@@ -20,8 +22,9 @@ class TestVolunteerProfileForm:
 
         assert profile.user == portal_user
         assert profile.languages_spoken == ["en"]
-        assert profile.timezone == "UTC-12"
+        assert profile.region == Region.NORTH_AMERICA
         assert profile.discord_username == "validuser123"
+        assert profile.availability_hours_per_week == 5
         assert profile.application_status == "Pending Review"
 
     def test_required_fields(self, portal_user):
@@ -29,17 +32,36 @@ class TestVolunteerProfileForm:
         form = VolunteerProfileForm(user=portal_user, data={})
         assert not form.is_valid()
         assert "languages_spoken" in form.errors
-        assert "timezone" in form.errors
+        assert "region" in form.errors
         assert "discord_username" in form.errors
+        assert "availability_hours_per_week" in form.errors
 
-        form = VolunteerProfileForm(user=portal_user, data={"timezone": "UTC-12"})
+        form = VolunteerProfileForm(
+            user=portal_user, data={"region": Region.NORTH_AMERICA}
+        )
         assert not form.is_valid()
         assert "languages_spoken" in form.errors
         assert "discord_username" in form.errors
+        assert "availability_hours_per_week" in form.errors
 
         form = VolunteerProfileForm(user=portal_user, data={"languages_spoken": ["en"]})
         assert not form.is_valid()
-        assert "timezone" in form.errors
+        assert "region" in form.errors
+        assert "discord_username" in form.errors
+        assert "availability_hours_per_week" in form.errors
+
+        form = VolunteerProfileForm(user=portal_user, data={"discord_username": ["en"]})
+        assert not form.is_valid()
+        assert "region" in form.errors
+        assert "languages_spoken" in form.errors
+        assert "availability_hours_per_week" in form.errors
+
+        form = VolunteerProfileForm(
+            user=portal_user, data={"availability_hours_per_week": [40]}
+        )
+        assert not form.is_valid()
+        assert "region" in form.errors
+        assert "languages_spoken" in form.errors
         assert "discord_username" in form.errors
 
         form = VolunteerProfileForm(
@@ -225,16 +247,18 @@ class TestVolunteerProfileForm:
         profile = VolunteerProfile.objects.create(
             user=portal_user,
             languages_spoken=["en"],
-            timezone="UTC-12",
-            github_username="olduser",
             discord_username="olddiscord",
+            github_username="olduser",
+            availability_hours_per_week=40,
+            region=Region.NORTH_AMERICA,
         )
 
         update_data = {
             "languages_spoken": ["en", "es"],
-            "timezone": "UTC-10",
-            "github_username": "newuser",
             "discord_username": "newdiscord",
+            "github_username": "newuser",
+            "availability_hours_per_week": 20,
+            "region": Region.ASIA,
         }
         form = VolunteerProfileForm(
             user=portal_user, data=update_data, instance=profile
@@ -245,9 +269,10 @@ class TestVolunteerProfileForm:
 
         assert updated_profile.pk == profile.pk
         assert updated_profile.github_username == "newuser"
-        assert updated_profile.discord_username == "newdiscord"
-        assert updated_profile.timezone == "UTC-10"
+        assert updated_profile.region == Region.ASIA
         assert set(updated_profile.languages_spoken) == {"en", "es"}
+        assert updated_profile.discord_username == "newdiscord"
+        assert updated_profile.availability_hours_per_week == 20
 
     def test_optional_social_fields(self, portal_user):
         """Test that all social media fields except Discord are optional."""
@@ -291,7 +316,7 @@ class TestVolunteerProfileForm:
         profile = VolunteerProfile.objects.create(
             user=portal_user,
             languages_spoken=["en"],
-            timezone="UTC-12",
+            region=Region.NORTH_AMERICA,
             github_username="testuser",
             discord_username="testdiscord",
         )
@@ -323,6 +348,20 @@ class TestVolunteerProfileForm:
 
         profile.save()
         assert profile.pk is not None
+
+    def test_all_optional_fields_empty(self, portal_user):
+        """Test that all optional fields can be empty."""
+        form_data = {
+            **self.BASE_VALID_DATA,
+            "github_username": "",
+            "instagram_username": "",
+            "bluesky_username": "",
+            "mastodon_url": "",
+            "x_username": "",
+            "linkedin_url": "",
+        }
+        form = VolunteerProfileForm(user=portal_user, data=form_data)
+        assert form.is_valid()
 
     def test_bluesky_username_with_multiple_domains(self, portal_user):
         """Test Bluesky username with multiple domain levels."""

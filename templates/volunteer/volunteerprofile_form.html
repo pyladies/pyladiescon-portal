@@ -48,6 +48,27 @@
                     <div class="card-body">
                         <!-- Languages spoken with autocomplete -->
                         <div class="mb-3">
+                            <label class="form-label">Your Availability</label>
+                            <div class="form-text mb-2">
+                                <label class="form-label" for="{{ form.availability_hours_per_week.id_for_label }}">
+                                        {{ form.availability_hours_per_week.label }}
+                                    </label>
+                                    <div class="input-group">
+                                        <input type="text"
+                                            class="form-control {% if form.availability_hours_per_week.errors %}is-invalid{% endif %}"
+                                            name="{{ form.availability_hours_per_week.name }}"
+                                            id="{{ form.availability_hours_per_week.id_for_label }}"
+                                            value="{{ form.availability_hours_per_week.value|default:'' }}">
+                                        <span class="input-group-text">hours/week</span>
+                                    </div>
+                                    <div class="form-text">{{ form.discord_username.help_text }}</div>
+                                    {% for error in form.discord_username.errors %}
+                                        <div class="invalid-feedback d-block">{{ error }}</div>
+                                    {% endfor %}
+                            </div>
+                        </div>
+                        <!-- Languages spoken with autocomplete -->
+                        <div class="mb-3">
                             <label class="form-label" for="{{ form.languages_spoken.id_for_label }}">Languages Spoken*</label>
                             <div class="form-text mb-2">Start typing to select languages you're comfortable communicating in</div>
                             {{ form.languages_spoken }}
@@ -59,7 +80,7 @@
                         </div>
                         {% bootstrap_field form.teams %}
                         {% bootstrap_field form.pyladies_chapter %}
-                        {% bootstrap_field form.timezone %}
+                        {% bootstrap_field form.region %}
                     </div>
                 </div>
 
@@ -179,7 +200,15 @@
                         </div>
                     </div>
                 </div>
-
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">Additional Comments</h5>
+                        <p class="text-muted small mt-2 mb-0">If you have additional information or comments you'd like to share with us.</p>
+                    </div>
+                    <div class="card-body">
+                        {% bootstrap_field form.additional_comments %}
+                    </div>
+                </div>
                 <div class="mt-4">
                     <button type="submit" class="btn btn-primary">{% if object.pk %}Update Profile{% else %}Create Profile{% endif %}</button>
                     {% if object.pk %}

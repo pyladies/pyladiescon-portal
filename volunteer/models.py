@@ -13,45 +13,24 @@ from django.urls import reverse
 
 from portal.models import BaseModel, ChoiceArrayField
 
-from .constants import ApplicationStatus
+from .constants import ApplicationStatus, Region
 from .languages import LANGUAGES
-
-TIMEZONE_CHOICES = [
-    ("UTC+14", "UTC+14"),
-    ("UTC+13", "UTC+13"),
-    ("UTC+12", "UTC+12"),
-    ("UTC+11", "UTC+11"),
-    ("UTC+10", "UTC+10"),
-    ("UTC+9", "UTC+9"),
-    ("UTC+8", "UTC+8"),
-    ("UTC+7", "UTC+7"),
-    ("UTC+6", "UTC+6"),
-    ("UTC+5", "UTC+5"),
-    ("UTC+4", "UTC+4"),
-    ("UTC+3", "UTC+3"),
-    ("UTC+2", "UTC+2"),
-    ("UTC+1", "UTC+1"),
-    ("UTC", "UTC"),
-    ("UTC-1", "UTC-1"),
-    ("UTC-2", "UTC-2"),
-    ("UTC-3", "UTC-3"),
-    ("UTC-4", "UTC-4"),
-    ("UTC-5", "UTC-5"),
-    ("UTC-6", "UTC-6"),
-    ("UTC-7", "UTC-7"),
-    ("UTC-8", "UTC-8"),
-    ("UTC-9", "UTC-9"),
-    ("UTC-10", "UTC-10"),
-    ("UTC-11", "UTC-11"),
-    ("UTC-12", "UTC-12"),
-]
-
 
 APPLICATION_STATUS_CHOICES = [
     (ApplicationStatus.PENDING, ApplicationStatus.PENDING),
     (ApplicationStatus.APPROVED, ApplicationStatus.APPROVED),
     (ApplicationStatus.REJECTED, ApplicationStatus.REJECTED),
     (ApplicationStatus.CANCELLED, ApplicationStatus.CANCELLED),
+]
+
+REGION_CHOICES = [
+    (Region.NO_REGION, Region.NO_REGION),
+    (Region.NORTH_AMERICA, Region.NORTH_AMERICA),
+    (Region.SOUTH_AMERICA, Region.SOUTH_AMERICA),
+    (Region.EUROPE, Region.EUROPE),
+    (Region.AFRICA, Region.AFRICA),
+    (Region.ASIA, Region.ASIA),
+    (Region.OCEANIA, Region.OCEANIA),
 ]
 
 
@@ -109,8 +88,13 @@ class VolunteerProfile(BaseModel):
         "volunteer.Team", verbose_name="team", related_name="team", blank=True
     )
     pyladies_chapter = models.CharField(max_length=50, blank=True, null=True)
-
-    timezone = models.CharField(max_length=6, choices=TIMEZONE_CHOICES)
+    additional_comments = models.CharField(max_length=1000, blank=True, null=True)
+    availability_hours_per_week = models.PositiveIntegerField(default=1)
+    region = models.CharField(
+        max_length=50,
+        choices=REGION_CHOICES,
+        default=Region.NO_REGION,
+    )
 
     def clean(self):
         super().clean()
