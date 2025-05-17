@@ -15,14 +15,27 @@
             {% bootstrap_form_errors form %}
             <form action="{% url 'portal_account:portal_profile_edit' object.pk %}"
                   method="post"
-                  class="form">
+                  class="form"
+                  enctype="multipart/form-data">
                 {% csrf_token %}
                 {% bootstrap_field form.username %}
                 {% bootstrap_field form.first_name %}
                 {% bootstrap_field form.last_name %}
                 {% bootstrap_field form.email %}
                 {% bootstrap_field form.pronouns %}
-                {% bootstrap_field form.coc_agreement %}
+                {% if form.coc_agreement.value and form.tos_agreement.value %}
+                    <div class="alert alert-success">
+                        You've already agreed to the Code of Conduct and Terms of Service.
+                    </div>
+                    {% bootstrap_field form.coc_agreement %}
+                    {% bootstrap_field form.tos_agreement %}
+                {% else %}
+                    <div class="alert alert-warning">
+                        <strong>Important:</strong> You must agree to both the Code of Conduct and Terms of Service to complete your profile.
+                    </div>
+                    {% bootstrap_field form.coc_agreement %}
+                    {% bootstrap_field form.tos_agreement %}
+                {% endif %}
                 <div class="mt-4">
                     <input type="submit" value="Update Profile" class="btn btn-primary" />
                     <a href="{% url 'portal_account:portal_profile_detail' object.pk %}"

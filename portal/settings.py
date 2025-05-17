@@ -62,6 +62,7 @@ MIDDLEWARE = [
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "allauth.account.middleware.AccountMiddleware",
+    "portal_account.middleware.TOSRedirectMiddleware",
 ]
 
 ROOT_URLCONF = "portal.urls"
