@@ -8,11 +8,7 @@
     {% if user.is_authenticated %}
         <div class="container my-5">
             <h2 class="pb-2 border-bottom">Welcome, 
-                {% if volunteer_profile %}
-                    <a href="{% url 'volunteer:volunteer_profile_edit' volunteer_profile.pk %}">{{ user.first_name }} {{ user.last_name }}</a>
-                {% else %}
-                    <a href="{% url 'volunteer:volunteer_profile_new' %}">{{ user.first_name }} {{ user.last_name }}</a>
-                {% endif %}!
+                <a href="{% url 'volunteer:index' %}">{{ user.first_name }}!</a>
             </h2>
             <div class="row mb-4">
                 <div class="col-md-6">
@@ -38,36 +34,32 @@
                     {% endif %}
                 </div>
                 <div class="col-md-6">
-                    <h4>Sponsorship Status</h4>
-                    <div class="alert alert-secondary">{{ sponsorship_status }}</div>
-                </div>
-            </div>
-            <div class="row mb-4">
-                <div class="col-md-12">
                     <h4>Your Teams</h4>
-                    {% if teams and teams|length > 0 %}
-                        {% for team in teams %}
-                            <div class="card mb-3">
-                                <div class="card-header">
-                                    <strong>{{ team.name }}</strong>
+                    <div style="max-height: 350px; overflow-y: auto;">
+                        {% if teams and teams|length > 0 %}
+                            {% for team in teams %}
+                                <div class="card mb-3">
+                                    <div class="card-header">
+                                        <strong>{{ team.name }}</strong>
+                                    </div>
+                                    <div class="card-body">
+                                        <p><strong>Team Leads:</strong>
+                                            {% for lead in team.leads %}{{ lead.user.first_name }} {{ lead.user.last_name }}{% if not forloop.last %}, {% endif %}{% empty %}None{% endfor %}
+                                        </p>
+                                        <p><strong>Other Members:</strong>
+                                            {% for member in team.members %}{{ member.user.first_name }} {{ member.user.last_name }}{% if not forloop.last %}, {% endif %}{% empty %}None{% endfor %}
+                                        </p>
+                                    </div>
                                 </div>
-                                <div class="card-body">
-                                    <p><strong>Team Leads:</strong>
-                                        {% for lead in team.leads %}{{ lead.user.first_name }} {{ lead.user.last_name }}{% if not forloop.last %}, {% endif %}{% empty %}None{% endfor %}
-                                    </p>
-                                    <p><strong>Other Members:</strong>
-                                        {% for member in team.members %}{{ member.user.first_name }} {{ member.user.last_name }}{% if not forloop.last %}, {% endif %}{% empty %}None{% endfor %}
-                                    </p>
-                                </div>
-                            </div>
-                        {% endfor %}
-                    {% else %}
-                        <p>You are not assigned to any teams yet.</p>
-                    {% endif %}
+                            {% endfor %}
+                        {% else %}
+                            <p>You are not assigned to any teams yet.</p>
+                        {% endif %}
+                    </div>
                 </div>
             </div>
         </div>
-        <div class="container px-4 py-5" id="featured-3">
+        <div class="container px-4 py-3" id="featured-3">
             <h2 class="pb-2 border-bottom">
                 PyLadiesCon Portal
             </h2>
@@ -123,7 +115,7 @@
                 </div>
             </div>
         </div>
-    {% else %}
+        {% else %}
         <div class="p-5 text-center bg-body-tertiary rounded-3">
             <h1 class="text-body-emphasis">
                 PyLadiesCon Web Portal
