@@ -43,12 +43,16 @@
                                         <strong>{{ team.name }}</strong>
                                     </div>
                                     <div class="card-body">
-                                        <p><strong>Team Leads:</strong>
-                                            {% for lead in team.leads %}{{ lead.user.first_name }} {{ lead.user.last_name }}{% if not forloop.last %}, {% endif %}{% empty %}None{% endfor %}
-                                        </p>
-                                        <p><strong>Other Members:</strong>
-                                            {% for member in team.members %}{{ member.user.first_name }} {{ member.user.last_name }}{% if not forloop.last %}, {% endif %}{% empty %}None{% endfor %}
-                                        </p>
+                                        {% if team.leads and team.leads|length > 0 %}
+                                            <p><strong>Team Leads:</strong>
+                                                {% for lead in team.leads|slice:':5' %}{{ lead.user.first_name }} {{ lead.user.last_name }}{% if not forloop.last %}, {% endif %}{% endfor %}{% if team.leads|length > 5 %}, &hellip;{% endif %}
+                                            </p>
+                                        {% endif %}
+                                        {% if team.members and team.members|length > 0 %}
+                                            <p><strong>Other Members:</strong>
+                                                {% for member in team.members|slice:':5' %}{{ member.user.first_name }} {{ member.user.last_name }}{% if not forloop.last %}, {% endif %}{% endfor %}{% if team.members|length > 5 %}, &hellip;{% endif %}
+                                            </p>
+                                        {% endif %}
                                     </div>
                                 </div>
                             {% endfor %}
