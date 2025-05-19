@@ -80,7 +80,6 @@ class TestCustomSignupForm:
         assert form.fields["first_name"].widget.attrs["placeholder"] == "First Name"
         assert form.fields["last_name"].widget.attrs["placeholder"] == "Last Name"
 
-# Standalone function for template filter test
 
 def test_get_item_template_filter():
     from portal.templatetags.portal_extras import get_item
