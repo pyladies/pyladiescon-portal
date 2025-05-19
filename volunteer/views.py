@@ -3,9 +3,10 @@ from django.shortcuts import redirect, render
 from django.urls import reverse_lazy
 from django.views.generic import DetailView, ListView
 from django.views.generic.edit import CreateView, DeleteView, UpdateView
+from django.contrib.auth.mixins import LoginRequiredMixin
 
 from .forms import VolunteerProfileForm
-from .models import VolunteerProfile
+from .models import Team, VolunteerProfile
 
 
 @login_required
@@ -71,3 +72,21 @@ class VolunteerProfileUpdate(UpdateView):
 class VolunteerProfileDelete(DeleteView):
     model = VolunteerProfile
     success_url = reverse_lazy("volunteer:index")
+
+
+class TeamList(LoginRequiredMixin, ListView):
+    model = Team
+    template_name = "team/index.html"
+    context_object_name = "teams"
+
+
+class TeamView(LoginRequiredMixin, DetailView):
+    model = Team
+    template_name = "team/team_detail.html"
+    context_object_name = "team"
+
+    def get(self, request, *args, **kwargs):
+        self.object = self.get_object()
+        if not self.object:
+            return redirect("teams")
+        return super(TeamView, self).get(request, *args, **kwargs)
