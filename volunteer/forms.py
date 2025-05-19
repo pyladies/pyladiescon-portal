@@ -1,10 +1,10 @@
 import re
 
 from django import forms
-from django.utils.safestring import mark_safe
 from django.core.exceptions import ValidationError
 from django.forms import ModelForm
 from django.forms.widgets import SelectMultiple
+from django.utils.safestring import mark_safe
 
 from .languages import LANGUAGES
 from .models import VolunteerProfile
