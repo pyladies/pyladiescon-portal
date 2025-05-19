@@ -48,6 +48,7 @@ nav:
     - Terms of Service: policies/terms_of_use.md
     - Acceptable Use Policy: policies/acceptable_use_policy.md
     - Code of Conduct: https://global-conference-2025.netlify.app/en/coc/
+  - Portal: https://portal.pyladies.com/
 repo_url: https://github.com/pyladies/pyladiescon-portal
 repo_name: pyladies/pyladiescon-portal
 edit_uri: edit/main/docs/
