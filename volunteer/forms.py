@@ -27,7 +27,6 @@ class LanguageSelectMultiple(SelectMultiple):
 
 class VolunteerProfileForm(ModelForm):
 
-    discord_username = forms.CharField(required=True)
     additional_comments = forms.CharField(widget=forms.Textarea, required=False)
 
     class Meta:
@@ -35,7 +34,7 @@ class VolunteerProfileForm(ModelForm):
         exclude = ["user", "application_status"]
         help_texts = {
             "github_username": "GitHub username (e.g., username)",
-            "discord_username": "Required - Your Discord username for team communication (e.g., username#1234)",
+            "discord_username": "Required - Your Discord username for team communication (e.g., username or username#1234)",
             "instagram_username": "Instagram username without @ (e.g., username)",
             "bluesky_username": "Bluesky username (e.g., username or username.bsky.social)",
             "mastodon_url": "Mastodon handle (e.g., @username@instance.tld or https://instance.tld/@username)",
