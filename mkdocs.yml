@@ -1,5 +1,5 @@
 # yaml-language-server: $schema=https://squidfunk.github.io/mkdocs-material/schema.json
-site_name: PyLadiesCon Portal
+site_name: PyLadiesCon Portal Docs
 site_url: https://pyladiescon-portal-docs.netlify.app
 theme:
   name: material
