@@ -16,6 +16,7 @@ from portal.models import BaseModel, ChoiceArrayField
 from .constants import ApplicationStatus, Region, RoleTypes
 from .languages import LANGUAGES
 
+
 APPLICATION_STATUS_CHOICES = [
     (ApplicationStatus.PENDING, ApplicationStatus.PENDING),
     (ApplicationStatus.APPROVED, ApplicationStatus.APPROVED),
@@ -250,9 +251,11 @@ def send_internal_notification_email(instance):
         context=context,
     )
 
-    recipients = VolunteerProfile.objects.prefetch_related('roles').filter(
-        roles__short_name__in=[RoleTypes.ADMIN, RoleTypes.STAFF]
-    ).distinct()  # TODO Roles need to use django model choices not enum
+    recipients = (
+        VolunteerProfile.objects.prefetch_related("roles")
+        .filter(roles__short_name__in=[RoleTypes.ADMIN, RoleTypes.STAFF])
+        .distinct()
+    )  # TODO Roles need to use django model choices not enum
 
     if not recipients.exists():  # TODO users are never assigned roles though
         return

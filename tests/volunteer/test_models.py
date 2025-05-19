@@ -295,11 +295,11 @@ class TestVolunteerModel:
 
     def test_email_is_sent_after_saved(self, portal_user):
         # set up an admin account to receive internal notification email
-        admin_role = Role.objects.create(
-            short_name="Admin", description="Admin"
-        )
+        admin_role = Role.objects.create(short_name="Admin", description="Admin")
         admin_user_to_notify = User.objects.create_superuser(
-            username="testadmin", email="test-admin@example.com", password="pyladiesadmin123"
+            username="testadmin",
+            email="test-admin@example.com",
+            password="pyladiesadmin123",
         )
         admin_profile = VolunteerProfile(user=admin_user_to_notify)
         admin_profile.languages_spoken = [LANGUAGES[0]]
