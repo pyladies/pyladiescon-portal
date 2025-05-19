@@ -50,28 +50,26 @@
                         <div class="mb-3">
                             <label class="form-label">Your Availability</label>
                             <div class="form-text mb-2">
+                                                                    <div class="input-group">
+                                <input type="text"
+                                    class="form-control {% if form.availability_hours_per_week.errors %}is-invalid{% endif %}"
+                                    name="{{ form.availability_hours_per_week.name }}"
+                                    id="{{ form.availability_hours_per_week.id_for_label }}"
+                                    value="{{ form.availability_hours_per_week.value|default:'' }}">
+                                <span class="input-group-text">hours/week</span>
+                            </div>
                                 <label class="form-label" for="{{ form.availability_hours_per_week.id_for_label }}">
                                         {{ form.availability_hours_per_week.label }}
                                     </label>
-                                    <div class="input-group">
-                                        <input type="text"
-                                            class="form-control {% if form.availability_hours_per_week.errors %}is-invalid{% endif %}"
-                                            name="{{ form.availability_hours_per_week.name }}"
-                                            id="{{ form.availability_hours_per_week.id_for_label }}"
-                                            value="{{ form.availability_hours_per_week.value|default:'' }}">
-                                        <span class="input-group-text">hours/week</span>
-                                    </div>
-                                    <div class="form-text">{{ form.discord_username.help_text }}</div>
-                                    {% for error in form.discord_username.errors %}
-                                        <div class="invalid-feedback d-block">{{ error }}</div>
-                                    {% endfor %}
+
                             </div>
                         </div>
                         <!-- Languages spoken with autocomplete -->
                         <div class="mb-3">
                             <label class="form-label" for="{{ form.languages_spoken.id_for_label }}">Languages Spoken*</label>
-                            <div class="form-text mb-2">Start typing to select languages you're comfortable communicating in</div>
                             {{ form.languages_spoken }}
+                            <div class="form-text mb-2">Start typing to select languages you're comfortable communicating in</div>
+                            
                             {% if form.languages_spoken.errors %}
                                 {% for error in form.languages_spoken.errors %}
                                     <div class="invalid-feedback d-block">{{ error }}</div>
