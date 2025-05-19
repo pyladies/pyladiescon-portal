@@ -85,8 +85,9 @@ class TeamView(LoginRequiredMixin, DetailView):
     template_name = "team/team_detail.html"
     context_object_name = "team"
 
-    def get(self, request, *args, **kwargs):
-        self.object = self.get_object()
-        if not self.object:
+    def get(self, request, pk):
+        try:
+            self.object = Team.objects.get(pk=pk)
+        except Team.DoesNotExist:
             return redirect("teams")
-        return super(TeamView, self).get(request, *args, **kwargs)
+        return super(TeamView, self).get(request, pk)

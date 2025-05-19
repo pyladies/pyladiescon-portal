@@ -4,7 +4,7 @@ from pytest_django.asserts import assertRedirects
 
 from volunteer.constants import Region
 from volunteer.languages import LANGUAGES
-from volunteer.models import VolunteerProfile
+from volunteer.models import Team, VolunteerProfile
 
 
 @pytest.mark.django_db
@@ -190,3 +190,33 @@ class TestVolunteer:
         assert (
             profile.availability_hours_per_week == data["availability_hours_per_week"]
         )
+
+    def test_redirect_when_teams_exist(self, client, portal_user):
+        profile = VolunteerProfile(user=portal_user)
+        profile.languages_spoken = [LANGUAGES[0]]
+        profile.is_superuser = True
+        profile.save()
+
+        team = Team(short_name="Test Team", description="Test Description")
+        team.save()
+        team.team_leads.add(profile)
+
+        client.force_login(portal_user)
+        response = client.get(reverse("team_detail", kwargs={"pk": team.id}))
+
+        response_data = response.context["team"]
+        print(response_data)
+
+        assert response.status_code == 200
+        assert response_data.short_name == team.short_name
+
+    def test_redirect_when_teams_does_not_exist(self, client, portal_user):
+        profile = VolunteerProfile(user=portal_user)
+        profile.languages_spoken = [LANGUAGES[0]]
+        profile.is_superuser = True
+        profile.save()
+
+        client.force_login(portal_user)
+        response = client.get(reverse("team_detail", kwargs={"pk": 123}))
+
+        assertRedirects(response, reverse("teams"))
