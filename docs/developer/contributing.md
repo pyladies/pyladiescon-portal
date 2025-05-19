@@ -13,6 +13,8 @@ Find an issue in our [repo](https://github.com/pyladies/pyladiescon-portal) to g
 
 To start working with the code, refer to our [setup guide](https://pyladiescon-portal-docs.netlify.app/developer/setup/).
 
+Ask questions in the **[#portal_dev](https://discord.gg/X6fcufjb)** channel of our Discord comunity.
+
 ## Running Tests
 
 Tests are run using [pytest](https://docs.pytest.org/en/latest/).
