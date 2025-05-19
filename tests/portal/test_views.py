@@ -55,14 +55,9 @@ class TestPortalIndex:
     def test_index_authenticated_with_volunteer_profile_no_teams(
         self, client, portal_user
     ):
-        from volunteer.models import VolunteerProfile
-
         portal_profile = PortalProfile(user=portal_user)
         portal_profile.save()
-        volunteer_profile = VolunteerProfile.objects.create(
-            user=portal_user, languages_spoken=["en"]
-        )
-        # No teams added
+        VolunteerProfile.objects.create(user=portal_user, languages_spoken=["en"])
         client.force_login(portal_user)
         response = client.get(reverse("index"))
         assert response.status_code == 200
