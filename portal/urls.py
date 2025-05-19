@@ -31,5 +31,5 @@ urlpatterns = [
         "portal_account/",
         include("portal_account.urls", namespace="portal_account"),
     ),
-    path("i18n/", include("django.conf.urls.i18n"))
+    path("i18n/", include("django.conf.urls.i18n")),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

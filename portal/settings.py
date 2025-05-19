@@ -140,9 +140,7 @@ LANGUAGES = (
 
 TIME_ZONE = "UTC"
 
-LOCALE_PATHS = (
-    os.path.join(BASE_DIR, "locale/"),
-)
+LOCALE_PATHS = (os.path.join(BASE_DIR, "locale/"),)
 
 USE_I18N = True
 
