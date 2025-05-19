@@ -10,6 +10,8 @@ description: Contributing to PyLadiesCon Portal
 Open an issue in our [repo](https://github.com/pyladies/pyladiescon-portal),
 or [start a discussion item](https://github.com/pyladies/pyladiescon-portal/discussions) on GitHub.
 
+Ask questions in the **[#portal_dev](https://discord.gg/X6fcufjb)** channel of our Discord comunity.
+
 ## Running Tests
 
 Tests are run using [pytest](https://docs.pytest.org/en/latest/).
