@@ -1,6 +1,7 @@
 import re
 
 from django import forms
+from django.utils.safestring import mark_safe
 from django.core.exceptions import ValidationError
 from django.forms import ModelForm
 from django.forms.widgets import SelectMultiple
@@ -40,7 +41,13 @@ class VolunteerProfileForm(ModelForm):
             "mastodon_url": "Mastodon handle (e.g., @username@instance.tld or https://instance.tld/@username)",
             "x_username": "X/Twitter username without @ (e.g., username)",
             "linkedin_url": "LinkedIn URL (e.g., linkedin.com/in/username)",
-            "region": "Region where you normally reside",
+            "region": mark_safe(
+                'Which region do you normally reside in? '
+                'See PSF’s D&amp;I Workgroup Membership handbook under '
+                '“Which region should I be representing?” for guidance '
+                '(<a href="https://docs.google.com/document/d/1LTx1dhT0aUCk-_bWWKDaMx6c6bPkuFnZko39-rX_Utc/edit?tab=t.0#heading=h.whpl50rtq0dg" '
+                'target="_blank" rel="noopener">Link</a>)'
+            ),
         }
 
     def clean_github_username(self):
