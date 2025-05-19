@@ -1,7 +1,8 @@
 from django.shortcuts import redirect, render
-from volunteer.models import VolunteerProfile, Team
+
 from portal_account.models import PortalProfile
 from volunteer.languages import LANGUAGES
+from volunteer.models import Team, VolunteerProfile
 
 
 def index(request):
@@ -30,18 +31,19 @@ def index(request):
     if volunteer_profile:
         # Prefetch team_leads and team members (and their users) for all teams in one go
         teams_qs = volunteer_profile.teams.prefetch_related(
-            'team_leads__user',
-            'team__user'
+            "team_leads__user", "team__user"
         ).all()
 
         for team in teams_qs:
             leads = team.team_leads.all()
             members = team.team.all().exclude(pk=volunteer_profile.pk)
-            teams.append({
-                "name": team.short_name,
-                "leads": leads,
-                "members": members,
-            })
+            teams.append(
+                {
+                    "name": team.short_name,
+                    "leads": leads,
+                    "members": members,
+                }
+            )
     context["teams"] = teams
     context["roles"] = volunteer_profile.roles.all() if volunteer_profile else []
 
