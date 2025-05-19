@@ -4,7 +4,7 @@ Thank you for your interest in volunteering with PyLadiesCon. Please review prer
 
 ## Prerequisites
 
-Ensure you have created an account for PyLadies Con. Information on how to do that is on the [getting started page](https://pyladiescon-portal-docs.netlify.app/user/get_started/).
+Ensure you have created an account for PyLadiesCon. Information on how to do that is on the [getting started page](https://pyladiescon-portal-docs.netlify.app/user/get_started/).
 
 Communication for PyLadies Con is done via Discord. Go to [Discord](https://discord.com/register) to register for an account.
 
