@@ -28,9 +28,15 @@ def index(request):
 
     teams = []
     if volunteer_profile:
-        for team in volunteer_profile.teams.all():
+        # Prefetch team_leads and team members (and their users) for all teams in one go
+        teams_qs = volunteer_profile.teams.prefetch_related(
+            'team_leads__user',
+            'team__user'
+        ).all()
+
+        for team in teams_qs:
             leads = team.team_leads.all()
-            members = team.team.all().exclude(pk=volunteer_profile.pk)  # other members
+            members = team.team.all().exclude(pk=volunteer_profile.pk)
             teams.append({
                 "name": team.short_name,
                 "leads": leads,
