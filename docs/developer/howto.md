@@ -91,3 +91,94 @@ user.save()
 Then exit the console and re-run the server.
 
 8. You can now access the `/admin` page at <http://localhost:8000/admin>.
+
+## Add transalations and new languages
+
+To create translations/localization we use the Django itself.
+
+Note: for now you can only run localization [without Docker](https://pyladiescon-portal-docs.netlify.app/developer/setup/#without-docker).
+
+### Translating content
+
+Translation files live inside the `locale/` folder.
+
+For each language there's a subfolder for example `pt_BR` for Portuguese from Brazil.
+
+In each language folder there are two files:
+
+1. `.mo`: file with the compiled translation
+2. `.po`: file containing the strings to be translated - this is the file you'll edit to translate the words.
+
+To update the translation for your preferred language:
+
+1. Follow the [development setup guide without Docker](https://pyladiescon-portal-docs.netlify.app/developer/setup/#without-docker).
+1. Then open the `.po` file for the language you want to translate and find the phrase you want to translate.
+
+For example, in the file `locale/pt_BR/LC_MESSAGES/django.po` there's the following phrase:
+
+```
+#: templates/portal/index.html:21
+msgid ""
+"Sign up to volunteer with us! Fill in your Volunteer profile and we'll get "
+"you set up."
+msgstr ""
+```
+
+To show it in Portuguese you add the translation into the `msgstr` like this:
+
+```
+#: templates/portal/index.html:21
+msgid ""
+"Sign up to volunteer with us! Fill in your Volunteer profile and we'll get "
+"you set up."
+msgstr "Inscreva-se para ser voluntária conosco! Preencha seu perfil de Voluntária e nós vamos te cadastrar."
+```
+
+### Creating new languages translation files
+
+To create new translations files for different languages you must:
+
+1. Update the `LANGUAGE` variable in `portal/settings.py`
+
+```python
+# ...
+LANGUAGES = (
+    ("pt-br", "Português"),
+    ("en-us", "English"),
+)
+```
+
+2. Then you should run the `makemessages` command:
+```
+python manage.py makemessages -l <locale-code>
+```
+
+For example for Brazilian Portuguese:
+```
+python manage.py makemessages -l pt_BR
+```
+
+3. Translate a couple of messages in the generated `.po` file;
+
+4. Then complile the translations with:
+
+```
+python manage.py compilemessages
+```
+
+Run your server if it isn't running yet and you'll should see the language in the language selector.
+
+
+### Missing translatin strings
+
+**What if you don't see a phrase in to translate in the .po file?**
+
+You probaly need to find that phrase in the HTML files inside the `templates` folder and add a tag `translate` into it like so:
+
+```html
+<p>
+  {% translate "Sign up %}
+</p>
+```
+
+Then run the creation command again.
