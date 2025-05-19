@@ -73,6 +73,6 @@ The documentation is built using [MKDocs](https://www.mkdocs.org/) and markdown.
 
 If you see the error `Cairo library was not found`, try the following instructions:
 
-1. [How to resolve it](https://squidfunk.github.io/mkdocs-material/plugins/requirements/image-processing/?h=cairo#troubleshooting).
+1. [MKDocs material image processing Docs](https://squidfunk.github.io/mkdocs-material/plugins/requirements/image-processing/?h=cairo#troubleshooting).
 
 2. Check Cairo libraries in ```/opt/homebrew/lib``` folder, if you dont't have any [try this](https://github.com/squidfunk/mkdocs-material/issues/5121).
