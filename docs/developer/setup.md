@@ -66,7 +66,7 @@ The documentation is built using [MKDocs](https://www.mkdocs.org/) and markdown.
 
 ### Cairo library was not found
 
-If you see the error `Cairo library was not found`, trying the following instructions:
+If you see the error `Cairo library was not found`, try the following instructions:
 
 1. [How to resolve it](https://squidfunk.github.io/mkdocs-material/plugins/requirements/image-processing/?h=cairo#troubleshooting).
 
