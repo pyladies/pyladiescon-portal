@@ -1,4 +1,5 @@
 import pytest
+from django.contrib.auth.models import User
 from django.core import mail
 from django.core.exceptions import ValidationError
 from django.urls import reverse
@@ -293,12 +294,37 @@ class TestVolunteerModel:
         )
 
     def test_email_is_sent_after_saved(self, portal_user):
+        # set up an admin account to receive internal notification email
+        admin_role = Role.objects.create(
+            short_name="Admin", description="Admin"
+        )
+        admin_user_to_notify = User.objects.create_superuser(
+            username="testadmin", email="test-admin@example.com", password="pyladiesadmin123"
+        )
+        admin_profile = VolunteerProfile(user=admin_user_to_notify)
+        admin_profile.languages_spoken = [LANGUAGES[0]]
+        admin_profile.region = Region.NORTH_AMERICA
+        admin_profile.save()
+
+        admin_profile.roles.add(admin_role)
+        admin_profile.save()
+
+        mail.outbox.clear()
+
+        # the actual process to test
         profile = VolunteerProfile(user=portal_user)
         profile.languages_spoken = [LANGUAGES[0]]
         profile.region = Region.NORTH_AMERICA
         profile.save()
-        assert (
+
+        assert len(mail.outbox) == 2
+        assert (  # user creation, to internal staff
             str(mail.outbox[0].subject)
+            == "[PyLadiesCon Dev]  New Volunteer Application"
+        )
+
+        assert (  # user creation, to user
+            str(mail.outbox[1].subject)
             == "[PyLadiesCon Dev]  Volunteer Application Received"
         )
 

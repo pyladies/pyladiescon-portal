@@ -13,7 +13,7 @@ from django.urls import reverse
 
 from portal.models import BaseModel, ChoiceArrayField
 
-from .constants import ApplicationStatus, Region
+from .constants import ApplicationStatus, Region, RoleTypes
 from .languages import LANGUAGES
 
 APPLICATION_STATUS_CHOICES = [
@@ -237,6 +237,36 @@ def send_volunteer_notification_email(instance, updated=False):
     msg.send()
 
 
+def send_internal_notification_email(instance):
+    """Send email to the team whenever a new volunteer profile is created."""
+    context = {"profile": instance, "current_site": Site.objects.get_current()}
+    subject = f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} New Volunteer Application"
+    text_content = render_to_string(
+        "volunteer/email/internal_volunteer_profile_email_notification.txt",
+        context=context,
+    )
+    html_content = render_to_string(
+        "volunteer/email/internal_volunteer_profile_email_notification.html",
+        context=context,
+    )
+
+    recipients = VolunteerProfile.objects.prefetch_related('roles').filter(
+        roles__short_name__in=[RoleTypes.ADMIN, RoleTypes.STAFF]
+    ).distinct()  # TODO Roles need to use django model choices not enum
+
+    if not recipients.exists():  # TODO users are never assigned roles though
+        return
+
+    msg = EmailMultiAlternatives(
+        subject,
+        text_content,
+        settings.DEFAULT_FROM_EMAIL,
+        [recipient.user.email for recipient in recipients],
+    )
+    msg.attach_alternative(html_content, "text/html")
+    msg.send()
+
+
 @receiver(post_save, sender=VolunteerProfile)
 def volunteer_profile_signal(sender, instance, created, **kwargs):
     """Things to do whenever a volunteer profile is created or updated.
@@ -244,6 +274,8 @@ def volunteer_profile_signal(sender, instance, created, **kwargs):
     Send a notification email to the user to confirm their volunteer application status.
     """
     if created:
+        send_internal_notification_email(instance)
         send_volunteer_notification_email(instance)
     else:
+        # no need to send email to internal team for VolunteerProfile updates (e.g. changing username, etc)
         send_volunteer_notification_email(instance, updated=True)
