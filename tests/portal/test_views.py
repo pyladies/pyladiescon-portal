@@ -3,6 +3,7 @@ from django.urls import reverse
 from pytest_django.asserts import assertRedirects
 
 from portal_account.models import PortalProfile
+from volunteer.models import Team, VolunteerProfile
 
 
 @pytest.mark.django_db
@@ -38,11 +39,6 @@ class TestPortalIndex:
     def test_index_authenticated_with_volunteer_profile_and_teams(
         self, client, portal_user, django_assert_num_queries
     ):
-        from django.contrib.auth import get_user_model
-
-        from volunteer.models import Team, VolunteerProfile
-
-        # Create volunteer profile and team
         portal_profile = PortalProfile(user=portal_user)
         portal_profile.save()
         volunteer_profile = VolunteerProfile.objects.create(
