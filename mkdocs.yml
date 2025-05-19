@@ -55,6 +55,9 @@ edit_uri: edit/main/docs/
 extra:
   homepage: https://conference.pyladies.com
   social:
+    - icon: fontawesome/brands/discord
+      link: https://discord.com/invite/2fUN4ddVfP
+      name: Join our Discord
     - icon: fontawesome/brands/mastodon
       link: https://fosstodon.org/@pyladies
       name: Follow us on Mastodon
