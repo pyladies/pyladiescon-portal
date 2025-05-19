@@ -15,21 +15,23 @@ Requirements: Have these installed first before continuing further.
 
 ### Starting the local env
 
-1. Clone the repo. If using GitHub CLI, run:
+1. Fork the repo. See the GitHub docs for instructions on how to [Fork a repo](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/working-with-forks/fork-a-repo).
+
+2. Clone your fork. If using GitHub CLI, run:
 
 ```sh
-gh repo clone pyladies/pyladiescon-portal
+gh repo clone <personal-account>/pyladiescon-portal
 ```
 
-2. Start the local environment:
+3. Start the local environment:
 
 ```sh
 make serve
 ```
 
-3. Open the browser and go to <http://localhost:8000/> to see the app running.
+4. Open the browser and go to <http://localhost:8000/> to see the app running.
 
-4. Run the tests:
+5. Run the tests:
 
 ```sh
 make test
@@ -67,4 +69,3 @@ mkdocs serve -a localhost:8888
 ### Cairo library was not found
 
 If you see the error `Cairo library was not found`, follow the instructions on [how to resolve it](https://squidfunk.github.io/mkdocs-material/plugins/requirements/image-processing/?h=cairo#troubleshooting).
-
