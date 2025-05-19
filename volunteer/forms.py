@@ -54,7 +54,7 @@ class VolunteerProfileForm(ModelForm):
                 "target='_blank' rel='noopener'>the committee page</a> "
                 "for information on each one."
             ),
-            "pyladies_chapter": "What PyLadies chapter are you a part of? If you are not part of any chapter __________________." # TODO: fill in blank
+            "pyladies_chapter": "What PyLadies chapter are you a part of? If you are not part of any chapter leave this blank.",
         }
 
     def clean_github_username(self):
