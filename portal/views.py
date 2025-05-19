@@ -3,7 +3,7 @@ from django.shortcuts import redirect, render
 
 from portal_account.models import PortalProfile
 from volunteer.languages import LANGUAGES
-from volunteer.models import Team, VolunteerProfile
+from volunteer.models import VolunteerProfile
 
 
 def index(request):
