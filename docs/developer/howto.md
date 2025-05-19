@@ -62,7 +62,7 @@ Check your terminal, the email will be printed out for you.
 1. Go to <http://localhost:8000/accounts/login/>
 2. Go to the "Sign up" link
 3. Fill in the email address, username, and password.
-4. Upon signing up, the confirmation email will be available either at if you are running with Docker <http://localhost:1080/> or printed on the terminal if you are running without Docker. Enter this code on the sign up form.
+4. Upon signing up, the confirmation email will be available either at <http://localhost:1080/> (if you are running with Docker) or printed on the terminal (if you are running without Docker). Enter this code on the sign up form.
 5. Your account is now verified.
 6. On the terminal, go to Django shell:
 
