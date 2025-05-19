@@ -1,8 +1,9 @@
 import pytest
-from django.conf.global_settings import LANGUAGES
 from django.urls import reverse
 from pytest_django.asserts import assertRedirects
 
+from volunteer.constants import Region
+from volunteer.languages import LANGUAGES
 from volunteer.models import VolunteerProfile
 
 
@@ -66,7 +67,7 @@ class TestVolunteer:
     def test_volunteer_profile_cannot_create_if_exists(self, client, portal_user):
         profile = VolunteerProfile(user=portal_user)
         profile.languages_spoken = [LANGUAGES[0]]
-        profile.timezone = "UTC"
+        profile.region = Region.NORTH_AMERICA
         profile.save()
 
         client.force_login(portal_user)
@@ -81,7 +82,7 @@ class TestVolunteer:
         )
         another_profile = VolunteerProfile(user=another_user)
         another_profile.languages_spoken = [LANGUAGES[0]]
-        another_profile.timezone = "UTC"
+        another_profile.region = Region.NORTH_AMERICA
         another_profile.save()
 
         client.force_login(portal_user)
@@ -95,7 +96,7 @@ class TestVolunteer:
     def test_volunteer_profile_view_own_profile(self, client, portal_user):
         profile = VolunteerProfile(user=portal_user)
         profile.languages_spoken = [LANGUAGES[0]]
-        profile.timezone = "UTC"
+        profile.region = Region.NORTH_AMERICA
         profile.save()
         client.force_login(portal_user)
         response = client.get(
@@ -104,3 +105,88 @@ class TestVolunteer:
         assert response.status_code == 200
         profile_result = response.context["volunteerprofile"]
         assert profile_result == profile
+
+    def test_new_volunteer_profile_form_submit(self, client, portal_user):
+        client.force_login(portal_user)
+
+        assert VolunteerProfile.objects.filter(user=portal_user).count() == 0
+
+        data = {
+            "languages_spoken": [LANGUAGES[0][0], LANGUAGES[1][0]],
+            "timezone": "UTC",
+            "github_username": "test-github",
+            "discord_username": "testdiscord1234",
+            "instagram_username": "test_instagram",
+            "bluesky_username": "test.bsky.social",
+            "mastodon_url": "https://mastodon.social/@test",
+            "x_username": "test_x",
+            "linkedin_url": "https://www.linkedin.com/in/test",
+            "pyladies_chapter": "Test Chapter",
+            "additional_comments": "Blablabla",
+            "availability_hours_per_week": 10,
+            "region": Region.NORTH_AMERICA,
+        }
+        response = client.post(reverse("volunteer:volunteer_profile_new"), data=data)
+        assert response.status_code == 302
+
+        profile = VolunteerProfile.objects.get(user=portal_user)
+        assert profile.languages_spoken == [LANGUAGES[0][0], LANGUAGES[1][0]]
+        assert profile.region == Region.NORTH_AMERICA
+        assert profile.pyladies_chapter == data["pyladies_chapter"]
+        assert profile.discord_username == data["discord_username"]
+        assert profile.github_username == data["github_username"]
+        assert profile.bluesky_username == data["bluesky_username"]
+        assert profile.mastodon_url == data["mastodon_url"]
+        assert profile.x_username == data["x_username"]
+        assert profile.linkedin_url == data["linkedin_url"]
+        assert profile.instagram_username == data["instagram_username"]
+        assert profile.additional_comments == data["additional_comments"]
+        assert (
+            profile.availability_hours_per_week == data["availability_hours_per_week"]
+        )
+
+    def test_edit_volunteer_profile_form_submit(self, client, portal_user):
+        client.force_login(portal_user)
+        profile = VolunteerProfile(user=portal_user)
+        profile.languages_spoken = [LANGUAGES[0]]
+        profile.region = Region.NORTH_AMERICA
+        profile.discord_username = "blabla"
+        profile.availability_hours_per_week = 20
+        profile.save()
+
+        data = {
+            "languages_spoken": [LANGUAGES[0][0], LANGUAGES[1][0]],
+            "timezone": "UTC",
+            "github_username": "test-github",
+            "discord_username": "testdiscord1234",
+            "instagram_username": "test_instagram",
+            "bluesky_username": "test.bsky.social",
+            "mastodon_url": "https://mastodon.social/@test",
+            "x_username": "test_x",
+            "linkedin_url": "https://www.linkedin.com/in/test",
+            "pyladies_chapter": "Test Chapter",
+            "additional_comments": "Blablabla",
+            "availability_hours_per_week": 40,
+            "region": Region.ASIA,
+        }
+        response = client.post(
+            reverse("volunteer:volunteer_profile_edit", kwargs={"pk": profile.id}),
+            data=data,
+        )
+        assert response.status_code == 302
+
+        profile = VolunteerProfile.objects.get(user=portal_user)
+        assert profile.languages_spoken == [LANGUAGES[0][0], LANGUAGES[1][0]]
+        assert profile.region == Region.ASIA
+        assert profile.pyladies_chapter == data["pyladies_chapter"]
+        assert profile.discord_username == data["discord_username"]
+        assert profile.github_username == data["github_username"]
+        assert profile.bluesky_username == data["bluesky_username"]
+        assert profile.mastodon_url == data["mastodon_url"]
+        assert profile.x_username == data["x_username"]
+        assert profile.linkedin_url == data["linkedin_url"]
+        assert profile.instagram_username == data["instagram_username"]
+        assert profile.additional_comments == data["additional_comments"]
+        assert (
+            profile.availability_hours_per_week == data["availability_hours_per_week"]
+        )

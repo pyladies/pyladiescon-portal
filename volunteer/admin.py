@@ -5,9 +5,9 @@ from .models import Role, Team, VolunteerProfile
 
 
 class VolunteerProfileAdmin(admin.ModelAdmin):
-    list_display = ("user", "timezone", "application_status")
+    list_display = ("user", "region", "application_status")
     search_fields = ("user__email", "user__first_name", "user__last_name")
-    list_filter = ("timezone", "application_status")
+    list_filter = ("region", "application_status")
 
     def approve_volunteers(self, request, queryset):
         for profile in queryset:
