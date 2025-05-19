@@ -23,3 +23,6 @@ staticroot/
 
 # Editor files
 .vscode/
+
+# macOS file
+.DS_Store
