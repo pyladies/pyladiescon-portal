@@ -7,7 +7,7 @@ Volunteer application for {{ profile.user.first_name }}
 Your volunteer profile has recently been updated.
 {% endif %}
 
-Your current volunteer application status: {{ profile.application_status }}.
+Volunteer application status: {{ profile.application_status }}.
 
 Your information:
 - Your availability: {{ profile.availability_hours_per_week }} hours per week
