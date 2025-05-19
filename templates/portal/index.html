@@ -14,11 +14,6 @@
                     <a href="{% url 'volunteer:volunteer_profile_new' %}">{{ user.first_name }} {{ user.last_name }}</a>
                 {% endif %}!
             </h2>
-            {% if volunteer_profile %}
-                <div class="mb-3">
-                    <a href="{% url 'volunteer:volunteer_profile_edit' volunteer_profile.pk %}" class="btn btn-outline-primary">Edit Volunteer Profile</a>
-                </div>
-            {% endif %}
             <div class="row mb-4">
                 <div class="col-md-6">
                     <h4>Volunteer Profile Status</h4>
