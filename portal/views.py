@@ -1,4 +1,5 @@
 from django.shortcuts import redirect, render
+from django.contrib.auth import get_user
 
 from portal_account.models import PortalProfile
 from volunteer.languages import LANGUAGES
@@ -13,30 +14,30 @@ def index(request):
     """
     context = {}
 
-    if (
-        request.user
-        and request.user.is_authenticated
-        and not PortalProfile.objects.filter(user=request.user).exists()
-    ):
-        return redirect("portal_account:portal_profile_new")
-
-    user = request.user
-    volunteer_profile = VolunteerProfile.objects.filter(user=user).first()
-    context["volunteer_profile"] = volunteer_profile
+    user = get_user(request)
+    if user.is_authenticated:
+        if not PortalProfile.objects.filter(user=user).exists():
+            return redirect("portal_account:portal_profile_new")
+        volunteer_profile = VolunteerProfile.objects.filter(user=user).first()
+        context["volunteer_profile"] = volunteer_profile
+        context["roles"] = volunteer_profile.roles.all() if volunteer_profile else []
+    else:
+        context["volunteer_profile"] = None
+        context["roles"] = []
 
     lang_dict = dict(LANGUAGES)
     context["lang_dict"] = lang_dict
 
     teams = []
-    if volunteer_profile:
+    if user.is_authenticated and context["volunteer_profile"]:
         # Prefetch team_leads and team members (and their users) for all teams in one go
-        teams_qs = volunteer_profile.teams.prefetch_related(
+        teams_qs = context["volunteer_profile"].teams.prefetch_related(
             "team_leads__user", "team__user"
         ).all()
 
         for team in teams_qs:
             leads = team.team_leads.all()
-            members = team.team.all().exclude(pk=volunteer_profile.pk)
+            members = team.team.all().exclude(pk=context["volunteer_profile"].pk)
             teams.append(
                 {
                     "name": team.short_name,
@@ -45,6 +46,5 @@ def index(request):
                 }
             )
     context["teams"] = teams
-    context["roles"] = volunteer_profile.roles.all() if volunteer_profile else []
 
     return render(request, "portal/index.html", context)
