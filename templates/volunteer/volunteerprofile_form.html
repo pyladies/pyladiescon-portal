@@ -1,6 +1,33 @@
 {% extends "portal/base.html" %}
 {% load allauth i18n %}
 {% load django_bootstrap5 %}
+{% load static %}
+
+{% block extra_head %}
+    {{ block.super }}
+    <!-- jQuery -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <!-- Select2 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+    <!-- Select2 JS -->
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+    <style>
+        .select2-container {
+            width: 100% !important;
+        }
+        .select2-selection--multiple {
+            border: 1px solid #ced4da !important;
+            border-radius: 0.25rem !important;
+            min-height: 38px !important;
+        }
+        .select2-selection__placeholder {
+            font-size: 0.85em !important;
+            color: #adb5bd !important;
+            position: relative !important;
+            top: -3px !important;
+        }
+    </style>
+{% endblock extra_head %}
 {% block content %}
     <main>
         <h1 class="display-5">{% if object.pk %}Edit{% else %}Create{% endif %} your Volunteer Profile</h1>
@@ -19,29 +46,44 @@
                         <h5 class="card-title mb-0">Basic Information</h5>
                     </div>
                     <div class="card-body">
-                        <!-- Custom languages spoken checkboxes from original -->
+                        <!-- Languages spoken with autocomplete -->
                         <div class="mb-3">
-                            <label class="form-label">Languages Spoken*</label>
-                            <div class="form-text mb-2">Select all languages you're comfortable communicating in</div>
-                            <div class="language-checkboxes row">
-                                {% for code, name in form.fields.languages_spoken.choices %}
-                                <div class="col-md-4 col-sm-6">
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" name="languages_spoken" 
-                                               id="lang_{{ code }}" value="{{ code }}"
-                                               {% if code in form.languages_spoken.value %}checked{% endif %}>
-                                        <label class="form-check-label" for="lang_{{ code }}">{{ name }}</label>
+                            <label class="form-label">Your Availability</label>
+                            <div class="form-text mb-2">
+                                <label class="form-label" for="{{ form.availability_hours_per_week.id_for_label }}">
+                                        {{ form.availability_hours_per_week.label }}
+                                    </label>
+                                    <div class="input-group">
+                                        <input type="text"
+                                            class="form-control {% if form.availability_hours_per_week.errors %}is-invalid{% endif %}"
+                                            name="{{ form.availability_hours_per_week.name }}"
+                                            id="{{ form.availability_hours_per_week.id_for_label }}"
+                                            value="{{ form.availability_hours_per_week.value|default:'' }}">
+                                        <span class="input-group-text">hours/week</span>
                                     </div>
-                                </div>
-                                {% endfor %}
+                                    <div class="form-text">{{ form.discord_username.help_text }}</div>
+                                    {% for error in form.discord_username.errors %}
+                                        <div class="invalid-feedback d-block">{{ error }}</div>
+                                    {% endfor %}
                             </div>
+                        </div>
+                        <!-- Languages spoken with autocomplete -->
+                        <div class="mb-3">
+                            <label class="form-label" for="{{ form.languages_spoken.id_for_label }}">Languages Spoken*</label>
+                            <div class="form-text mb-2">Start typing to select languages you're comfortable communicating in</div>
+                            {{ form.languages_spoken }}
+                            {% if form.languages_spoken.errors %}
+                                {% for error in form.languages_spoken.errors %}
+                                    <div class="invalid-feedback d-block">{{ error }}</div>
+                                {% endfor %}
+                            {% endif %}
                         </div>
                         {% bootstrap_field form.teams %}
                         {% bootstrap_field form.pyladies_chapter %}
-                        {% bootstrap_field form.timezone %}
+                        {% bootstrap_field form.region %}
                     </div>
                 </div>
-                
+
                 <!-- Enhanced social media section from modified version -->
                 <div class="card mb-4">
                     <div class="card-header">
@@ -158,7 +200,15 @@
                         </div>
                     </div>
                 </div>
-
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">Additional Comments</h5>
+                        <p class="text-muted small mt-2 mb-0">If you have additional information or comments you'd like to share with us.</p>
+                    </div>
+                    <div class="card-body">
+                        {% bootstrap_field form.additional_comments %}
+                    </div>
+                </div>
                 <div class="mt-4">
                     <button type="submit" class="btn btn-primary">{% if object.pk %}Update Profile{% else %}Create Profile{% endif %}</button>
                     {% if object.pk %}
@@ -170,4 +220,17 @@
             </form>
         </div>
     </main>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initialize Select2 for languages_spoken field
+            $('.select2-multiple').select2({
+                theme: 'classic',
+                placeholder: 'Start typing to select languages...',
+                allowClear: true,
+                width: '100%',
+                closeOnSelect: false
+            });
+        });
+    </script>
 {% endblock content %}
