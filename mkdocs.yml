@@ -1,5 +1,5 @@
 # yaml-language-server: $schema=https://squidfunk.github.io/mkdocs-material/schema.json
-site_name: PyLadiesCon Portal
+site_name: PyLadiesCon Portal Docs
 site_url: https://pyladiescon-portal-docs.netlify.app
 theme:
   name: material
@@ -48,12 +48,16 @@ nav:
     - Terms of Service: policies/terms_of_use.md
     - Acceptable Use Policy: policies/acceptable_use_policy.md
     - Code of Conduct: https://global-conference-2025.netlify.app/en/coc/
+  - Portal: https://portal.pyladies.com/
 repo_url: https://github.com/pyladies/pyladiescon-portal
 repo_name: pyladies/pyladiescon-portal
 edit_uri: edit/main/docs/
 extra:
   homepage: https://conference.pyladies.com
   social:
+    - icon: fontawesome/brands/discord
+      link: https://discord.com/invite/2fUN4ddVfP
+      name: Join our Discord
     - icon: fontawesome/brands/mastodon
       link: https://fosstodon.org/@pyladies
       name: Follow us on Mastodon
