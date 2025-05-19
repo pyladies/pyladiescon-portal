@@ -73,6 +73,7 @@ class VolunteerProfile(BaseModel):
         blank=False,
         null=False,
         verbose_name="Discord username (required)",
+        help_text="Required - Your Discord username for team communication",
         default="",
     )
     instagram_username = models.CharField(max_length=50, blank=True, null=True)
