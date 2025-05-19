@@ -23,6 +23,7 @@ Check the Local Dev Setup section below to learn how to set this up on your loca
 - Issues: <https://github.com/pyladies/pyladiescon-portal/issues>
 - Project: <https://github.com/orgs/pyladies/projects/11>
 - Milestone with due dates and goals: <https://github.com/pyladies/pyladiescon-portal/milestones>
+- Discord: <https://discord.com/invite/2fUN4ddVfP>
 
 <a href="https://www.netlify.com">
   <img src="https://www.netlify.com/assets/badges/netlify-badge-color-bg.svg" alt="Deploys by Netlify" />
