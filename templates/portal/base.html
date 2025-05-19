@@ -59,14 +59,14 @@
                                 <a class="nav-link" href="{% url 'volunteer:index' %}">Volunteer</a>
                             </li>
                         {% endif %}
-                        <li class="nav-item">
-                            <a class="nav-link" href="https://pyladiescon-portal-docs.netlify.app/">Portal Docs</a>
-                        </li>
                         {% if user.is_superuser %}
                             <li class="nav-item">
                                 <a class="nav-link" href="{% url 'teams' %}">Teams</a>
                             </li>
                         {% endif %}
+                        <li class="nav-item">
+                            <a class="nav-link" href="https://pyladiescon-portal-docs.netlify.app/">Portal Docs</a>
+                        </li>
                     </ul>
                     {% if user.is_authenticated %}
                         <div class="dropdown text-end navbar-nav">
