@@ -10,7 +10,7 @@ Your volunteer profile has recently been updated.
 Volunteer application status: {{ profile.application_status }}.
 
 Your information:
-- Your availability: {{ profile.availability_hours_per_week }} hours per week
+- Availability: {{ profile.availability_hours_per_week }} hours per week
 - GitHub username: {{ profile.github_username }}
 - Discord username: {{ profile.discord_username }}
 - Instagram username: {{ profile.instagram_username }}
