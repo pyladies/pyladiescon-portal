@@ -45,6 +45,9 @@ The documentation is built using [MKDocs](https://www.mkdocs.org/) and markdown.
 
     ```
     python3 -m venv venv
+    ```
+    
+    ```
     source venv/bin/activate
     ```
 
