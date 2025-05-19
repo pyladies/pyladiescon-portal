@@ -1,5 +1,5 @@
-from django.shortcuts import redirect, render
 from django.contrib.auth import get_user
+from django.shortcuts import redirect, render
 
 from portal_account.models import PortalProfile
 from volunteer.languages import LANGUAGES
@@ -31,9 +31,11 @@ def index(request):
     teams = []
     if user.is_authenticated and context["volunteer_profile"]:
         # Prefetch team_leads and team members (and their users) for all teams in one go
-        teams_qs = context["volunteer_profile"].teams.prefetch_related(
-            "team_leads__user", "team__user"
-        ).all()
+        teams_qs = (
+            context["volunteer_profile"]
+            .teams.prefetch_related("team_leads__user", "team__user")
+            .all()
+        )
 
         for team in teams_qs:
             leads = team.team_leads.all()

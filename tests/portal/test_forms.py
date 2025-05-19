@@ -83,6 +83,7 @@ class TestCustomSignupForm:
 
 def test_get_item_template_filter():
     from portal.templatetags.portal_extras import get_item
+
     d = {"a": 1, "b": 2}
     assert get_item(d, "a") == 1
     assert get_item(d, "b") == 2
