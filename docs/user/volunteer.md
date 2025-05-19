@@ -1,14 +1,31 @@
 # Volunteers
 
-Thank you for your interest in volunteering with PyLadiesCon.
+Thank you for your interest in volunteering with PyLadiesCon. Please review prerequisites prior to signing up.
 
-First of all, please review all the available volunteer roles, as well as the responsibilities and required commitment
-for the roles in our [main conference site](https://conference.pyladies.com/docs/).
+## Prerequisites
 
-Once you're ready to volunteer, please create an account here, and ensure that you've verified the account.
+Ensure you have created an account for PyLadies Con. Information on how to do that is on the [getting started page](https://pyladiescon-portal-docs.netlify.app/user/get_started/).
 
-After you've created an account, you can the apply to volunteer for the roles that you're interested in.
-Our team leads will review your application and assign you to the appropriate roles and begin the onboarding process.
+Communication for PyLadies Con is done via Discord. Go to [Discord](https://discord.com/register) to register for an account.
+
+Review available volunteer roles, responsibilties, and required commitment for the roles in our [main conference site](https://conference.pyladies.com/docs/). Keep the teams in mind for your signup.
+
+## Signup
+
+Once you're ready to volunteer, please follow these steps:
+
+1. Go to the [portal website](portal.pyladies.com) and sign in
+2. Go to Volunteer
+3. Click create your volunteer profile
+4. Fill in required information (hours available, Discord username, language selection, team selection etc.). Feel free to fill in additional information about what skills you have so we can determine what team best fits your skillset or interests.
+
+You'll receive an email from `pyladiescon@pyladies.com` stating that your volunteer application was received.
+
+## Review 
+
+After you've filled out your volunteer profile, our team leads will review your application and assign you to the appropriate roles and begin the onboarding process.
+
+Accepted applications will be given access to necessary resources, e.g. Discord roles, GDrive permissions etc. All communications will be done via the email that you signed up with.
 
 
 
