@@ -61,10 +61,6 @@
                                             value="{{ form.availability_hours_per_week.value|default:'' }}">
                                         <span class="input-group-text">hours/week</span>
                                     </div>
-                                    <div class="form-text">{{ form.discord_username.help_text }}</div>
-                                    {% for error in form.discord_username.errors %}
-                                        <div class="invalid-feedback d-block">{{ error }}</div>
-                                    {% endfor %}
                             </div>
                         </div>
                         <!-- Languages spoken with autocomplete -->
