@@ -55,18 +55,49 @@ REGION_CHOICES = [
 #         return self.short_name
 
 
+# # Pretalx Data
+#   {
+#      "code": "WPSKUD",
+#      "name": "Maya Kerostasia",
+#      "biography": "blah blah blah",
+#      "submissions": [
+#        "DBZ7HS"
+#      ],
+#      "avatar_url": "",
+#      "answers": [],
+#      "email": "mayakerostasia@gmail.com",
+#      "timezone": "UTC",
+#      "locale": "en",
+#      "has_arrived": false
+#   }
+
+
 class SpeakerProfile(BaseModel):
-    # user = models.OneToOneField(User, on_delete=models.CASCADE)
-    # roles = models.ManyToManyField(
-    #     "Role", verbose_name="Roles", related_name="roles", blank=True
-    # )
     application_status = models.CharField(
         max_length=50,
         choices=APPLICATION_STATUS_CHOICES,
         default=ApplicationStatus.PENDING,
     )
 
-    # social media urls
+    # Pretalx Data
+    code = models.CharField(blank=True, null=False)
+    name = models.CharField(blank=True, null=True)
+    biography = models.CharField(blank=True, null=True)
+    avatar_url = models.CharField(blank=True, null=True)
+    email = models.CharField(blank=True, null=True) 
+    timezone = models.CharField(blank=True, null=True)
+    locale = models.CharField(blank=True, null=True)
+    has_arrived = models.BooleanField(blank=True, null=True)
+
+    submissions: []
+    answers: []
+
+    # user = models.OneToOneField(User, on_delete=models.CASCADE)
+    # roles = models.ManyToManyField(
+    #     "Role", verbose_name="Roles", related_name="roles", blank=True
+    # )
+
+    # # social media urls
     # github_username = models.CharField(max_length=50, blank=True, null=True)
     # discord_username = models.CharField(
     #     max_length=50,
@@ -81,20 +112,20 @@ class SpeakerProfile(BaseModel):
     # mastodon_url = models.CharField(max_length=100, blank=True, null=True)
     # x_username = models.CharField(max_length=100, blank=True, null=True)
     # linkedin_url = models.CharField(max_length=100, blank=True, null=True)
-    languages_spoken = ChoiceArrayField(
-        models.CharField(max_length=32, blank=True, choices=LANGUAGES)
-    )
+    # languages_spoken = ChoiceArrayField(
+    #     models.CharField(max_length=32, blank=True, choices=LANGUAGES)
+    # )
     # teams = models.ManyToManyField(
     #     "speaker.Team", verbose_name="team", related_name="team", blank=True
     # )
     # pyladies_chapter = models.CharField(max_length=50, blank=True, null=True)
     additional_comments = models.CharField(max_length=1000, blank=True, null=True)
     # availability_hours_per_week = models.PositiveIntegerField(default=1)
-    region = models.CharField(
-        max_length=50,
-        choices=REGION_CHOICES,
-        default=Region.NO_REGION,
-    )
+    # region = models.CharField(
+    #     max_length=50,
+    #     choices=REGION_CHOICES,
+    #     default=Region.NO_REGION,
+    # )
 
     def clean(self):
         super().clean()
@@ -247,3 +278,5 @@ def speaker_profile_signal(sender, instance, created, **kwargs):
         send_speaker_notification_email(instance)
     else:
         send_speaker_notification_email(instance, updated=True)
+
+
