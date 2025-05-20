@@ -128,7 +128,16 @@ Now is time to create the database to store all the information:
 python manage.py migrate
 ```
 
-To run the server:
+### Run the server
+
+Add the other enviroment variables:
+
+```sh
+export SECRET_KEY=deadbeefcafe  # or on Windows: set SECRET_KEY=deadbeefcafe
+export DJANGO_ALLOWED_HOSTS="localhost,127.0.0.1"  # or on Windows: set DJANGO_ALLOWED_HOSTS="localhost,127.0.0.1"
+```
+
+Then run the server:
 
 ```sh
 python manage.py runserver
