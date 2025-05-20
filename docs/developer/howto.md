@@ -154,9 +154,12 @@ python manage.py makemessages -l <locale-code>
 ```
 
 For example for Brazilian Portuguese:
+
 ```
 python manage.py makemessages -l pt_BR
 ```
+
+Note that for the makemessages command we uses ISO/IEC 15897 for formatting of the language tag.
 
 3. Translate a couple of messages in the generated `.po` file;
 
@@ -166,7 +169,7 @@ python manage.py makemessages -l pt_BR
 python manage.py compilemessages
 ```
 
-Run your server if it isn't running yet and you'll should see the language in the language selector.
+Run your server if it isn't running yet and you'll should see the new language in the language selector.
 
 
 ### Missing translatin strings
