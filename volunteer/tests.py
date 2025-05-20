@@ -1,7 +1,6 @@
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
 from django.test import TestCase
-from django.urls import reverse
 
 from volunteer.constants import Region
 from volunteer.models import VolunteerProfile

@@ -205,7 +205,6 @@ class TestVolunteer:
         response = client.get(reverse("team_detail", kwargs={"pk": team.id}))
 
         response_data = response.context["team"]
-        print(response_data)
 
         assert response.status_code == 200
         assert response_data.short_name == team.short_name
