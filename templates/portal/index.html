@@ -1,11 +1,66 @@
 {% extends "portal/base.html" %}
 {% load allauth i18n %}
 {% load django_bootstrap5 %}
+{% load portal_extras %}
 {% block body %}
 {% endblock body %}
 {% block content %}
+    {% if user.is_authenticated and volunteer_profile %}
+        <div class="container my-5">
+            <h2 class="pb-2 border-bottom">Welcome, 
+                <a href="{% url 'volunteer:index' %}">{{ user.first_name }}!</a>
+            </h2>
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <h4>Volunteer Profile Status</h4>
+                    <ul class="list-group mb-3">
+                        <li class="list-group-item"><strong>Status:</strong> {{ volunteer_profile.application_status }}</li>
+                        <li class="list-group-item"><strong>Languages:</strong>
+                            {% for lang in volunteer_profile.languages_spoken %}
+                                <span class="badge bg-info text-dark">{{ lang_dict|get_item:lang|default:lang }}</span>
+                            {% empty %}Not specified{% endfor %}
+                        </li>
+                        <li class="list-group-item"><strong>Region:</strong> {{ volunteer_profile.region|default:"Not specified" }}</li>
+                        <li class="list-group-item"><strong>Roles:</strong>
+                            {% for role in roles %}{{ role.short_name }}{% if not forloop.last %}, {% endif %}{% empty %}No roles assigned yet{% endfor %}
+                        </li>
+                        <li class="list-group-item"><strong>Availability:</strong> {{ volunteer_profile.availability_hours_per_week|default:0 }} hours/week</li>
+                        <li class="list-group-item"><strong>PyLadies Chapter:</strong> {{ volunteer_profile.pyladies_chapter|default:"Not specified" }}</li>
+                    </ul>
+                </div>
+                <div class="col-md-6">
+                    <h4>Your Teams</h4>
+                    <div style="max-height: 350px; overflow-y: auto;">
+                        {% if teams and teams|length > 0 %}
+                            {% for team in teams %}
+                                <div class="card mb-3">
+                                    <div class="card-header">
+                                        <strong>{{ team.name }}</strong>
+                                    </div>
+                                    <div class="card-body">
+                                        {% if team.leads and team.leads|length > 0 %}
+                                            <p><strong>Team Leads:</strong>
+                                                {% for lead in team.leads|slice:':5' %}{{ lead.user.first_name }} {{ lead.user.last_name }}{% if not forloop.last %}, {% endif %}{% endfor %}{% if team.leads|length > 5 %}, &hellip;{% endif %}
+                                            </p>
+                                        {% endif %}
+                                        {% if team.members and team.members|length > 0 %}
+                                            <p><strong>Other Members:</strong>
+                                                {% for member in team.members|slice:':5' %}{{ member.user.first_name }} {{ member.user.last_name }}{% if not forloop.last %}, {% endif %}{% endfor %}{% if team.members|length > 5 %}, &hellip;{% endif %}
+                                            </p>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        {% else %}
+                            <p>You are not assigned to any teams yet.</p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    {% endif %}
     {% if user.is_authenticated %}
-        <div class="container px-4 py-5" id="featured-3">
+        <div class="container px-4 py-3" id="featured-3">
             <h2 class="pb-2 border-bottom">
                 PyLadiesCon Portal
             </h2>
