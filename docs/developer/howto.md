@@ -172,7 +172,7 @@ python manage.py compilemessages
 Run your server if it isn't running yet and you'll should see the new language in the language selector.
 
 
-### Missing translatin strings
+### Missing translation strings
 
 **What if you don't see a phrase in to translate in the .po file?**
 
