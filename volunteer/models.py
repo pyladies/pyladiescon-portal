@@ -16,7 +16,6 @@ from portal.models import BaseModel, ChoiceArrayField
 from .constants import ApplicationStatus, Region, RoleTypes
 from .languages import LANGUAGES
 
-
 APPLICATION_STATUS_CHOICES = [
     (ApplicationStatus.PENDING, ApplicationStatus.PENDING),
     (ApplicationStatus.APPROVED, ApplicationStatus.APPROVED),
