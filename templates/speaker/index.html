@@ -7,21 +7,7 @@
     <h1 class="display-5">
         Speaker Profile
     </h1>
-    {% if profile_id %}
-        <a class="btn btn-primary btn-lg"
-           role="button"
-           href="{% url 'speaker:speaker_profile_detail' profile_id %}">View my Profile</a>
-        <a class="btn btn-secondary btn-lg"
-           role="button"
-           href="{% url 'speaker:speaker_profile_edit' profile_id %}">Edit Profile</a>
-    {% else %}
         <p class="col-md-8 fs-4">
-            You have not created your Speaker Profile yet. Once you created your profile, our team will review it.
-            We will then assign you to the appropriate team that needs help so you can get set up with the
-            necessary access.
+          Speaker Module!
         </p>
-        <a class="btn btn-primary btn-lg"
-           role="button"
-           href="{% url 'speaker:speaker_profile_new' %}">Create my Profile</a>
-    {% endif %}
 {% endblock content %}

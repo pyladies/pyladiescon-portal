@@ -29,7 +29,7 @@ class SpeakerProfileForm(ModelForm):
 
     class Meta:
         model = SpeakerProfile
-        exclude = ["user", "application_status"]
+        exclude = ["application_status"]
         help_texts = {
             # "github_username": "GitHub username (e.g., username)",
             # "discord_username": "Required - Your Discord username for team communication (e.g., username#1234)",
@@ -46,7 +46,7 @@ class SpeakerProfileForm(ModelForm):
         return cleaned_data
 
     def __init__(self, *args, **kwargs):
-        self.user = kwargs.pop("user", None)
+        # self.user = kwargs.pop("user", None)
         super().__init__(*args, **kwargs)
 
         sorted_languages = sorted(LANGUAGES, key=lambda x: x[1])
@@ -61,7 +61,7 @@ class SpeakerProfileForm(ModelForm):
             pass
 
     def save(self, commit=True):
-        if self.user:
-            self.instance.user = self.user
+        # if self.user:
+        #     self.instance.user = self.user
         volunteer_profile = super().save(commit)
         return volunteer_profile

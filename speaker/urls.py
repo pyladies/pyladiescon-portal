@@ -17,11 +17,11 @@ urlpatterns = [
         login_required(views.SpeakerProfileView.as_view()),
         name="speaker_profile_detail",
     ),
-    path(
-        "new",
-        login_required(views.SpeakerProfileCreate.as_view()),
-        name="speaker_profile_new",
-    ),
+    # path(
+    #     "new",
+    #     login_required(views.SpeakerProfileCreate.as_view()),
+    #     name="speaker_profile_new",
+    # ),
     path(
         "edit/<int:pk>",
         login_required(views.SpeakerProfileUpdate.as_view()),
