@@ -25,13 +25,17 @@ Have these installed first before continuing further.
 
 1. Fork the repo. See the GitHub docs for instructions on how to [Fork a repo](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/working-with-forks/fork-a-repo).
 
-2. Clone your fork. If using GitHub CLI, run:
+2. Clone your fork:
 
-```sh
-gh repo clone <personal-account>/pyladiescon-portal
-```
+=== "GitHub CLI"
 
+    ```sh
+    gh repo clone <personal-account>/pyladiescon-portal
     ```
+
+=== "Git"
+
+    ```sh
     git clone <personal-account>/pyladiescon-portal.git
     ```
 
@@ -61,14 +65,41 @@ Have these installed first before continuing further.
 - You can install [different versions of Python using pyenv](https://github.com/pyenv/pyenv).
 - You'll also need PostgreSQL (you can find the instructions here).
 
+### Starting the local env
+
+1. Fork the repo. See the GitHub docs for instructions on how to [Fork a repo](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/working-with-forks/fork-a-repo).
+
+2. Clone your fork:
+
+=== "GitHub CLI"
+
+    ```sh
+    gh repo clone <personal-account>/pyladiescon-portal
+    ```
+
+=== "Git"
+
+    ```sh
+    git clone <personal-account>/pyladiescon-portal.git
+    ```
+
 ### Install dependencies
 
 Create a python environment and activate it:
 
-```sh
-python3 -m venv .env
-source .env/bin/activate  # or in Windows: .env\Scripts\activate
-```
+=== "MacOS and Linux"
+
+    ```sh
+    python3 -m venv .env
+    source .env/bin/activate
+    ```
+
+=== "Windows"
+
+    ```
+    python3 -m venv .env
+    .env\Scripts\activate
+    ```
 
 Install dependencies for development:
 
@@ -110,15 +141,31 @@ brew services start postgresql
 
 Now export the environment variable below:
 
-```sh
-export SQL_USER=<your-user>  # or on Windows: set SQL_USER=<your-user>
-```
+=== "MacOS and Linux"
 
-For example, Jess username is "jesstemporal", so her command looks like this:
+    ```sh
+    export SQL_USER=<your-user>
+    ```
 
-```sh
-export SQL_USER=jesstemporal  # or on Windows: set SQL_USER=jesstemporal
-```
+=== "Windows"
+
+    ```sh
+    set SQL_USER=<your-user>
+    ```
+
+For example, Jess' username is "jesstemporal", so her command looks like this:
+
+=== "MacOS and Linux"
+
+    ```sh
+    export SQL_USER=jesstemporal
+    ```
+
+=== "Windows"
+
+    ```sh
+    set SQL_USER=jesstemporal
+    ```
 
 ### Applying Migrations
 
@@ -132,10 +179,19 @@ python manage.py migrate
 
 Add the other enviroment variables:
 
-```sh
-export SECRET_KEY=deadbeefcafe  # or on Windows: set SECRET_KEY=deadbeefcafe
-export DJANGO_ALLOWED_HOSTS="localhost,127.0.0.1"  # or on Windows: set DJANGO_ALLOWED_HOSTS="localhost,127.0.0.1"
-```
+=== "MacOS and Linux"
+
+    ```sh
+    export SECRET_KEY=deadbeefcafe
+    export DJANGO_ALLOWED_HOSTS="localhost,127.0.0.1"
+    ```
+
+=== "Windows"
+
+    ```sh
+    set SECRET_KEY=deadbeefcafe
+    set DJANGO_ALLOWED_HOSTS="localhost,127.0.0.1"
+    ```
 
 Then run the server:
 
@@ -151,10 +207,19 @@ The documentation is built using [MKDocs](https://www.mkdocs.org/) and markdown.
 
 1. Create and activate a virtual environment:
 
-```sh
-python3 -m venv venv
-source venv/bin/activate
-```
+=== "MacOS and Linux"
+
+    ```sh
+    python3 -m venv venv
+    source .env/bin/activate
+    ```
+
+=== "Windows"
+
+    ```
+    python3 -m venv venv
+    .env\Scripts\activate
+    ```
 
 2. Install docs requirements:
 
