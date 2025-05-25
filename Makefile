@@ -67,6 +67,12 @@ test: .state/docker-build-web
 
 check: test lint
 
+create_translations: .state/docker-build-web
+	docker compose run --rm web ./manage.py makemessages --locale $(LANG)
+
+compile_translations: .state/docker-build-web
+	docker compose run --rm web ./manage.py compilemessages
+
 clean:
 	docker compose down -v
 	rm -rf staticroot
@@ -74,4 +80,4 @@ clean:
 	rm -f .state/db-initialized
 	rm -f .state/db-migrated
 
-.PHONY: default serve shell dbshell manage migrations migrate lint reformat test check clean
+.PHONY: default serve shell dbshell manage migrations migrate lint reformat test check create_translations compile_translations clean
