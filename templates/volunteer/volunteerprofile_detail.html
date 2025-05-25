@@ -5,18 +5,18 @@
 {% endblock body %}
 {% block content %}
     <h1 class="display-5 mb-4">
-        Your Volunteer Profile
+        {% trans "Your Volunteer Profile" %}
     </h1>
     <div class="card mb-4">
         <div class="card-header">
             <h5 class="card-title mb-0">
-                Basic Information
+                {% trans "Basic Information" %}
             </h5>
         </div>
         <div class="card-body">
             <div class="row mb-3">
                 <div class="col-md-3 fw-bold">
-                    Username:
+                    {% trans "Username:" %}
                 </div>
                 <div class="col-md-9">
                     {{ object.user.username }}
@@ -24,7 +24,7 @@
             </div>
             <div class="row mb-3">
                 <div class="col-md-3 fw-bold">
-                    Name:
+                    {% trans "Name:" %}
                 </div>
                 <div class="col-md-9">
                     {{ object.user.first_name }} {{ object.user.last_name }}
@@ -32,7 +32,7 @@
             </div>
             <div class="row mb-3">
                 <div class="col-md-3 fw-bold">
-                    Email:
+                    {% trans "Email:" %}
                 </div>
                 <div class="col-md-9">
                     {{ object.user.email }}
@@ -40,7 +40,7 @@
             </div>
             <div class="row mb-3">
                 <div class="col-md-3 fw-bold">
-                    Availability:
+                    {% trans "Availability:" %}
                 </div>
                 <div class="col-md-9">
                     <p>{{ object.availability_hours_per_week|default:0 }} hours per week</p>
@@ -48,7 +48,7 @@
             </div>
             <div class="row mb-3">
                 <div class="col-md-3 fw-bold">
-                    Region:
+                    {% trans "Region:" %}
                 </div>
                 <div class="col-md-9">
                     {{ object.region|default:"Not specified" }}
@@ -56,7 +56,7 @@
             </div>
             <div class="row mb-3">
                 <div class="col-md-3 fw-bold">
-                    PyLadies Chapter:
+                    {% trans "PyLadies Chapter:" %}
                 </div>
                 <div class="col-md-9">
                     {{ object.pyladies_chapter|default:"Not specified" }}
@@ -64,7 +64,7 @@
             </div>
             <div class="row mb-3">
                 <div class="col-md-3 fw-bold">
-                    Application Status:
+                    {% trans "Application Status:" %}
                 </div>
                 <div class="col-md-9">
                     {{ object.application_status }}
@@ -72,7 +72,7 @@
             </div>
             <div class="row mb-3">
                 <div class="col-md-3 fw-bold">
-                    Languages:
+                    {% trans "Languages:" %}
                 </div>
                 <div class="col-md-9">
                     {% for language in object.languages_spoken %}
@@ -85,13 +85,13 @@
     <div class="card mb-4">
         <div class="card-header">
             <h5 class="card-title mb-0">
-                Teams & Roles
+                {% trans "Teams & Roles" %}
             </h5>
         </div>
         <div class="card-body">
             <div class="row mb-3">
                 <div class="col-md-3 fw-bold">
-                    Teams:
+                    {% trans "Teams:" %}
                 </div>
                 <div class="col-md-9">
                     {% if object.teams.all %}
@@ -99,7 +99,7 @@
                             <span class="badge bg-primary me-1">{{ team.short_name }}</span>
                         {% endfor %}
                     {% else %}
-                        Not assigned to any teams yet
+                        {% trans "Not assigned to any teams yet" %}
                     {% endif %}
                 </div>
             </div>
@@ -113,7 +113,7 @@
                             <span class="badge bg-secondary me-1">{{ role.short_name }}</span>
                         {% endfor %}
                     {% else %}
-                        No roles assigned yet
+                        {% trans "No roles assigned yet" %}
                     {% endif %}
                 </div>
             </div>
@@ -199,7 +199,7 @@
                 {% endif %}
             {% else %}
                 <p>
-                    No social media profiles added
+                    {% trans "No social media profiles added" %}
                 </p>
             {% endif %}
         </div>
@@ -207,7 +207,7 @@
     <div class="card mb-4">
         <div class="card-header">
             <h5 class="card-title mb-0">
-                Additional Comments
+                {% trans "Additional Comments" %}
             </h5>
         </div>
         <div class="card-body">
@@ -216,7 +216,7 @@
     </div>
     <div class="mt-4">
         <a class="btn btn-primary"
-           href="{% url 'volunteer:volunteer_profile_edit' object.pk %}">Edit Profile</a>
-        <a class="btn btn-secondary" href="{% url 'volunteer:index' %}">Back to Volunteer Dashboard</a>
+           href="{% url 'volunteer:volunteer_profile_edit' object.pk %}">{% trans "Edit Profile" %}</a>
+        <a class="btn btn-secondary" href="{% url 'volunteer:index' %}">{% trans "Back to Volunteer Dashboard" %}</a>
     </div>
 {% endblock content %}

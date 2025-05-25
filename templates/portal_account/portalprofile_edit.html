@@ -6,10 +6,10 @@
 {% block content %}
     <main>
         <h1 class="display-5">
-            Edit your Portal Profile
+            {% trans "Edit your Portal Profile" %}
         </h1>
         <p class="lead">
-            Update your portal profile information below.
+            {% trans "Update your portal profile information below." %}
         </p>
         <div class="row g-5">
             {% bootstrap_form_errors form %}
@@ -26,7 +26,7 @@
                 <div class="mt-4">
                     <input type="submit" value="Update Profile" class="btn btn-primary" />
                     <a href="{% url 'portal_account:portal_profile_detail' object.pk %}"
-                       class="btn btn-secondary">Cancel</a>
+                       class="btn btn-secondary">{% trans "Cancel" %}</a>
                 </div>
             </form>
         </div>
