@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-05-19 22:55+0000\n"
+"POT-Creation-Date: 2025-05-25 19:34+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -46,6 +46,11 @@ msgstr ""
 #: templates/account/password_reset_from_key.html:33
 #: templates/mfa/authenticate.html:28 templates/mfa/authenticate.html:44
 #: templates/mfa/webauthn/signup_form.html:26
+#: templates/portal_account/portalprofile_edit.html:29
+#: templates/portal_account/portalprofile_form.html:43
+#: templates/portal_account/portalprofile_form.html:45
+#: templates/volunteer/volunteerprofile_form.html:213
+#: templates/volunteer/volunteerprofile_form.html:215
 msgid "Cancel"
 msgstr ""
 
@@ -408,7 +413,7 @@ msgstr ""
 
 #: templates/account/logout.html:4 templates/account/logout.html:8
 #: templates/account/logout.html:21 templates/allauth/layouts/base.html:42
-#: templates/portal/base.html:130
+#: templates/portal/base.html:135
 msgid "Sign Out"
 msgstr ""
 
@@ -479,7 +484,8 @@ msgstr ""
 #: templates/account/password_reset_from_key.html:30
 #: templates/account/password_reset_from_key_done.html:5
 #: templates/account/password_reset_from_key_done.html:9
-#: templates/allauth/layouts/base.html:18 templates/portal/base.html:121
+#: templates/allauth/layouts/base.html:18 templates/portal/base.html:126
+#: templates/portal_account/index.html:15
 msgid "Change Password"
 msgstr ""
 
@@ -922,6 +928,7 @@ msgid "Last used %(last_used)s"
 msgstr ""
 
 #: templates/mfa/webauthn/authenticator_list.html:56
+#: templates/portal_account/portalprofile_form.html:10
 msgid "Edit"
 msgstr ""
 
@@ -945,6 +952,8 @@ msgid ""
 msgstr ""
 
 #: templates/mfa/webauthn/signup_form.html:21
+#: templates/portal_account/portalprofile_form.html:12
+#: templates/volunteer/volunteerprofile_form.html:211
 msgid "Create"
 msgstr ""
 
@@ -952,23 +961,203 @@ msgstr ""
 msgid "This functionality requires JavaScript."
 msgstr ""
 
-#: templates/portal/base.html:103
+#: templates/portal/base.html:93 templates/portal/index.html:10
+msgid "Welcome, "
+msgstr ""
+
+#: templates/portal/base.html:108
 msgid "Admin Area"
 msgstr ""
 
-#: templates/portal/base.html:110
+#: templates/portal/base.html:115
 msgid "Manage Profile"
 msgstr ""
 
-#: templates/portal/base.html:115
+#: templates/portal/base.html:120 templates/portal_account/index.html:12
 msgid "Manage Emails"
 msgstr ""
 
+#: templates/portal/index.html:15
+msgid "Volunteer Profile Status"
+msgstr ""
+
+#: templates/portal/index.html:17
+msgid "Status:"
+msgstr ""
+
+#: templates/portal/index.html:18
+#: templates/volunteer/volunteerprofile_detail.html:75
+msgid "Languages:"
+msgstr ""
+
 #: templates/portal/index.html:21
+msgid "Not specified"
+msgstr ""
+
+#: templates/portal/index.html:25
+#: templates/volunteer/volunteerprofile_detail.html:116
+msgid "No roles assigned yet"
+msgstr ""
+
+#: templates/portal/index.html:27
+#: templates/volunteer/volunteerprofile_form.html:59
+msgid "hours/week"
+msgstr ""
+
+#: templates/portal/index.html:32
+msgid "Your Teams"
+msgstr ""
+
+#: templates/portal/index.html:47
+msgid "Other Members:"
+msgstr ""
+
+#: templates/portal/index.html:55
+msgid "You are not assigned to any teams yet."
+msgstr ""
+
+#: templates/portal/index.html:73
+msgid "Volunteer"
+msgstr ""
+
+#: templates/portal/index.html:76
 msgid ""
 "Sign up to volunteer with us! Fill in your Volunteer profile and we'll get "
 "you set up."
-msgstr "Inscreva-se para ser voluntária conosco! Preencha seu perfil de Voluntária e nós vamos te cadastrar."
+msgstr ""
+"Inscreva-se para ser voluntária conosco! Preencha seu perfil de Voluntária e "
+"nós vamos te cadastrar."
+
+#: templates/portal/index.html:79
+msgid "Volunteer Now"
+msgstr ""
+
+#: templates/portal/index.html:88
+msgid "Sponsor Us"
+msgstr ""
+
+#: templates/portal/index.html:91
+msgid "Sponsorship package is coming soon!"
+msgstr ""
+
+#: templates/portal/index.html:105
+msgid "Speaker Portal"
+msgstr ""
+
+#: templates/portal/index.html:108
+msgid "Are you one of our speakers? Soon, you'll have access to this page."
+msgstr ""
+
+#: templates/portal/index.html:125
+msgid "Welcome to our PyLadiesCon Conference Management Portal."
+msgstr ""
+
+#: templates/portal/index.html:127
+msgid "Sign up to volunteer with us."
+msgstr ""
+
+#: templates/portal/index.html:132
+msgid "Sign up"
+msgstr ""
+
+#: templates/portal/index.html:137
+msgid "Login"
+msgstr ""
+
+#: templates/portal_account/index.html:8
+msgid "Account Management"
+msgstr ""
+
+#: templates/portal_account/index.html:18
+msgid "Sign out"
+msgstr ""
+
+#: templates/portal_account/index.html:21
+#: templates/portal_account/portalprofile_detail.html:8
+msgid "Your Portal Profile"
+msgstr ""
+
+#: templates/portal_account/index.html:26
+msgid "View my profile"
+msgstr ""
+
+#: templates/portal_account/index.html:32
+msgid ""
+"Your profile is not complete. Please complete your profile before "
+"proceeding. "
+msgstr ""
+
+#: templates/portal_account/index.html:36
+msgid "Create my profile"
+msgstr ""
+
+#: templates/portal_account/portalprofile_detail.html:13
+#: templates/volunteer/volunteerprofile_detail.html:13
+#: templates/volunteer/volunteerprofile_form.html:46
+msgid "Basic Information"
+msgstr ""
+
+#: templates/portal_account/portalprofile_detail.html:19
+#: templates/volunteer/volunteerprofile_detail.html:19
+msgid "Username:"
+msgstr ""
+
+#: templates/portal_account/portalprofile_detail.html:27
+#: templates/volunteer/volunteerprofile_detail.html:27
+msgid "Name:"
+msgstr ""
+
+#: templates/portal_account/portalprofile_detail.html:43
+msgid "Pronouns:"
+msgstr ""
+
+#: templates/portal_account/portalprofile_detail.html:51
+msgid "Code of Conduct Agreement:"
+msgstr ""
+
+#: templates/portal_account/portalprofile_detail.html:55
+#: templates/portal_account/portalprofile_detail.html:67
+msgid "Agreed"
+msgstr ""
+
+#: templates/portal_account/portalprofile_detail.html:57
+#: templates/portal_account/portalprofile_detail.html:69
+msgid "Not agreed"
+msgstr ""
+
+#: templates/portal_account/portalprofile_detail.html:63
+msgid "Terms of Service Agreement:"
+msgstr ""
+
+#: templates/portal_account/portalprofile_detail.html:77
+#: templates/volunteer/index.html:16
+#: templates/volunteer/volunteerprofile_detail.html:219
+msgid "Edit Profile"
+msgstr ""
+
+#: templates/portal_account/portalprofile_detail.html:78
+msgid "Back to Account Management"
+msgstr ""
+
+#: templates/portal_account/portalprofile_edit.html:9
+msgid "Edit your Portal Profile"
+msgstr ""
+
+#: templates/portal_account/portalprofile_edit.html:12
+msgid "Update your portal profile information below."
+msgstr ""
+
+#: templates/portal_account/portalprofile_form.html:14
+msgid "your Portal Profile"
+msgstr ""
+
+#: templates/portal_account/portalprofile_form.html:18
+msgid " Update your portal profile information below."
+msgstr ""
+
+#: templates/portal_account/portalprofile_form.html:20
+msgid " Please complete your portal profile before proceeding."
+msgstr ""
 
 #: templates/socialaccount/authentication_error.html:5
 #: templates/socialaccount/authentication_error.html:9
@@ -1076,6 +1265,14 @@ msgstr ""
 msgid "Or use a third-party"
 msgstr ""
 
+#: templates/team/index.html:9
+msgid "Teams"
+msgstr ""
+
+#: templates/team/index.html:18
+msgid "More Info"
+msgstr ""
+
 #: templates/volunteer/email/base_email.html:5
 #, python-format
 msgid ""
@@ -1090,4 +1287,115 @@ msgid ""
 "\n"
 "Thank you for using %(site_name)s!\n"
 "%(site_domain)s"
+msgstr ""
+
+#: templates/volunteer/index.html:8
+msgid "Volunteer Profile"
+msgstr ""
+
+#: templates/volunteer/index.html:13
+msgid "View my Profile"
+msgstr ""
+
+#: templates/volunteer/index.html:19
+msgid ""
+"You have not created your Volunteer Profile yet. Once you created your "
+"profile, our team will review it.\n"
+"            We will then assign you to the appropriate team that needs help "
+"so you can get set up with the\n"
+"            necessary access."
+msgstr ""
+
+#: templates/volunteer/index.html:25
+msgid "Create my Profile"
+msgstr ""
+
+#: templates/volunteer/volunteerprofile_detail.html:8
+msgid "Your Volunteer Profile"
+msgstr ""
+
+#: templates/volunteer/volunteerprofile_detail.html:35
+msgid "Email:"
+msgstr ""
+
+#: templates/volunteer/volunteerprofile_detail.html:43
+msgid "Availability:"
+msgstr ""
+
+#: templates/volunteer/volunteerprofile_detail.html:51
+msgid "Region:"
+msgstr ""
+
+#: templates/volunteer/volunteerprofile_detail.html:59
+msgid "PyLadies Chapter:"
+msgstr ""
+
+#: templates/volunteer/volunteerprofile_detail.html:67
+msgid "Application Status:"
+msgstr ""
+
+#: templates/volunteer/volunteerprofile_detail.html:88
+msgid "Teams & Roles"
+msgstr ""
+
+#: templates/volunteer/volunteerprofile_detail.html:94
+msgid "Teams:"
+msgstr ""
+
+#: templates/volunteer/volunteerprofile_detail.html:102
+msgid "Not assigned to any teams yet"
+msgstr ""
+
+#: templates/volunteer/volunteerprofile_detail.html:202
+msgid "No social media profiles added"
+msgstr ""
+
+#: templates/volunteer/volunteerprofile_detail.html:210
+#: templates/volunteer/volunteerprofile_form.html:203
+msgid "Additional Comments"
+msgstr ""
+
+#: templates/volunteer/volunteerprofile_detail.html:220
+msgid "Back to Volunteer Dashboard"
+msgstr ""
+
+#: templates/volunteer/volunteerprofile_form.html:36
+msgid "Update your information below."
+msgstr ""
+
+#: templates/volunteer/volunteerprofile_form.html:38
+msgid "Fill in the profile below."
+msgstr ""
+
+#: templates/volunteer/volunteerprofile_form.html:51
+msgid "Your Availability"
+msgstr ""
+
+#: templates/volunteer/volunteerprofile_form.html:69
+msgid "Languages Spoken"
+msgstr ""
+
+#: templates/volunteer/volunteerprofile_form.html:71
+msgid "Start typing to select languages you're comfortable communicating in"
+msgstr ""
+
+#: templates/volunteer/volunteerprofile_form.html:88
+msgid "Social Media Profiles"
+msgstr ""
+
+#: templates/volunteer/volunteerprofile_form.html:89
+msgid "Please enter usernames without @ symbols or protocol prefixes"
+msgstr ""
+
+#: templates/volunteer/volunteerprofile_form.html:204
+msgid ""
+"If you have additional information or comments you'd like to share with us."
+msgstr ""
+
+#: templates/volunteer/volunteerprofile_form.html:211
+msgid "Update"
+msgstr ""
+
+#: templates/volunteer/volunteerprofile_form.html:211
+msgid "Profile"
 msgstr ""
