@@ -6,7 +6,7 @@
 {% block content %}
     <div class="container px-4 py-5" id="featured-3">
         <h1 class="pb-2 border-bottom">
-            Teams
+            {% trans "Teams" %}
         </h1>
         <div class="row pt-2 row-cols-1 row-cols-md-3 g-4">
             {% for team in teams %}
@@ -15,7 +15,7 @@
                     <div class="card-body">
                         <h5 class="card-title">{{ team.short_name }}</h5>
                         <p class="card-text">{{ team.description | truncatechars:30 }}</p>
-                        <a href="{% url 'team_detail' team.id %}" class="btn btn-primary">More Info</a>
+                        <a href="{% url 'team_detail' team.id %}" class="btn btn-primary">{% trans "More Info" %}</a>
                     </div>
                 </div>
             </div>

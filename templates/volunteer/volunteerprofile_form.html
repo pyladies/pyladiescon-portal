@@ -33,9 +33,9 @@
         <h1 class="display-5">{% if object.pk %}Edit{% else %}Create{% endif %} your Volunteer Profile</h1>
         <p class="lead">
             {% if object.pk %}
-                Update your information below.
+                {% trans "Update your information below." %}
             {% else %}
-                Fill in the profile below.
+                {% trans "Fill in the profile below." %}
             {% endif %}
         </p>
         <div class="row g-5">
@@ -43,12 +43,12 @@
             <form action="{% if object.pk %}{% url 'volunteer:volunteer_profile_edit' object.pk %}{% else %}{% url 'volunteer:volunteer_profile_new' %}{% endif %}" method="post" class="form">{% csrf_token %}
                 <div class="card mb-4">
                     <div class="card-header">
-                        <h5 class="card-title mb-0">Basic Information</h5>
+                        <h5 class="card-title mb-0">{% trans "Basic Information" %}</h5>
                     </div>
                     <div class="card-body">
                         <!-- Languages spoken with autocomplete -->
                         <div class="mb-3">
-                            <label class="form-label">Your Availability</label>
+                            <label class="form-label">{% trans "Your Availability" %}</label>
                             <div class="form-text mb-2">
                                                                     <div class="input-group">
                                 <input type="text"
@@ -56,7 +56,7 @@
                                     name="{{ form.availability_hours_per_week.name }}"
                                     id="{{ form.availability_hours_per_week.id_for_label }}"
                                     value="{{ form.availability_hours_per_week.value|default:'' }}">
-                                <span class="input-group-text">hours/week</span>
+                                <span class="input-group-text">{% trans "hours/week" %}</span>
                             </div>
                                 <label class="form-label" for="{{ form.availability_hours_per_week.id_for_label }}">
                                         {{ form.availability_hours_per_week.label }}
@@ -66,9 +66,9 @@
                         </div>
                         <!-- Languages spoken with autocomplete -->
                         <div class="mb-3">
-                            <label class="form-label" for="{{ form.languages_spoken.id_for_label }}">Languages Spoken*</label>
+                            <label class="form-label" for="{{ form.languages_spoken.id_for_label }}">{% trans "Languages Spoken" %}*</label>
                             {{ form.languages_spoken }}
-                            <div class="form-text mb-2">Start typing to select languages you're comfortable communicating in</div>
+                            <div class="form-text mb-2">{% trans "Start typing to select languages you're comfortable communicating in" %}</div>
                             
                             {% if form.languages_spoken.errors %}
                                 {% for error in form.languages_spoken.errors %}
@@ -85,8 +85,8 @@
                 <!-- Enhanced social media section from modified version -->
                 <div class="card mb-4">
                     <div class="card-header">
-                        <h5 class="card-title mb-0">Social Media Profiles</h5>
-                        <p class="text-muted small mt-2 mb-0">Please enter usernames without @ symbols or protocol prefixes</p>
+                        <h5 class="card-title mb-0">{% trans "Social Media Profiles" %}</h5>
+                        <p class="text-muted small mt-2 mb-0">{% trans "Please enter usernames without @ symbols or protocol prefixes" %}</p>
                     </div>
                     <div class="card-body">
                         <div class="row">
@@ -200,19 +200,19 @@
                 </div>
                 <div class="card mb-4">
                     <div class="card-header">
-                        <h5 class="card-title mb-0">Additional Comments</h5>
-                        <p class="text-muted small mt-2 mb-0">If you have additional information or comments you'd like to share with us.</p>
+                        <h5 class="card-title mb-0">{% trans "Additional Comments" %}</h5>
+                        <p class="text-muted small mt-2 mb-0">{% trans "If you have additional information or comments you'd like to share with us." %}</p>
                     </div>
                     <div class="card-body">
                         {% bootstrap_field form.additional_comments %}
                     </div>
                 </div>
                 <div class="mt-4">
-                    <button type="submit" class="btn btn-primary">{% if object.pk %}Update Profile{% else %}Create Profile{% endif %}</button>
+                    <button type="submit" class="btn btn-primary">{% if object.pk %}{% trans "Update" %} {% trans "Profile" %}{% else %}{% trans "Create" %} {% trans "Profile" %}{% endif %}</button>
                     {% if object.pk %}
-                        <a href="{% url 'volunteer:volunteer_profile_detail' object.pk %}" class="btn btn-secondary">Cancel</a>
+                        <a href="{% url 'volunteer:volunteer_profile_detail' object.pk %}" class="btn btn-secondary">{% trans "Cancel" %}</a>
                     {% else %}
-                        <a href="{% url 'volunteer:index' %}" class="btn btn-secondary">Cancel</a>
+                        <a href="{% url 'volunteer:index' %}" class="btn btn-secondary">{% trans "Cancel" %}</a>
                     {% endif %}
                 </div>
             </form>
