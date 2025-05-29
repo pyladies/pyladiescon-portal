@@ -71,8 +71,8 @@ class SpeakerProfile(BaseModel):
     locale = models.CharField(blank=True, null=True)
     has_arrived = models.BooleanField(blank=True, null=True)
 
-    submissions: []
-    answers: []
+    submissions: list[str] 
+    answers:  list[str]
 
     additional_comments = models.CharField(max_length=1000, blank=True, null=True)
 
@@ -86,7 +86,7 @@ class SpeakerProfile(BaseModel):
         super().clean()
 
     def __str__(self):
-        return self.name
+        return str(self.name)
 
     def get_absolute_url(self):
         return reverse("speaker:speaker_profile_edit", kwargs={"pk": self.pk})
