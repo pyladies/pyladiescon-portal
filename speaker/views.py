@@ -2,29 +2,30 @@ from django.contrib.auth.decorators import login_required
 from django.shortcuts import redirect, render
 from django.urls import reverse_lazy
 from django.views.generic import DetailView, ListView
-from django.views.generic.edit import CreateView, DeleteView, UpdateView
+from django.views.generic.edit import DeleteView, UpdateView
 
 from .forms import SpeakerProfileForm
 from .models import SpeakerProfile
-from .api.pretalx import fetch_event_speakers
+# from .api.pretalx import fetch_event_speakers
 
-def pull_event_speakers(event_slug):
-    speaker_results = fetch_event_speakers()
-    print(speaker_results)
-    for speaker in speaker_results['results']:
-        print(speaker)
+# def pull_event_speakers(event_slug):
+#     speaker_results = fetch_event_speakers()
+#     print(speaker_results)
+#     for speaker in speaker_results['results']:
+#         print(speaker)
+#     return speaker_results['results']
 
 
 @login_required
 def index(request):
     context = {}
-    print(request)
     try:
         profile = SpeakerProfile.objects.first()
-        context["profile_id"] = profile.id
-        pull_event_speakers("mayatest1-2025")
+        if profile:
+            context["profile_id"] = profile.id
     except SpeakerProfile.DoesNotExist:
         context["profile_id"] = None
+
     return render(request, "speaker/index.html", context)
 
 class SpeakerProfileList(ListView):

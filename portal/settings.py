@@ -49,6 +49,7 @@ INSTALLED_APPS = [
     "portal",
     "volunteer",
     "speaker",
+    "event",
     "portal_account",
     "widget_tweaks",
 ]

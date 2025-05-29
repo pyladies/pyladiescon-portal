@@ -1,9 +1,7 @@
 import re
 
 from django.conf import settings
-from django.contrib.auth.models import User
 from django.contrib.sites.models import Site
-from django.core.exceptions import ValidationError
 from django.core.mail import EmailMultiAlternatives
 from django.db import models
 from django.db.models.signals import post_save
@@ -11,7 +9,7 @@ from django.dispatch import receiver
 from django.template.loader import render_to_string
 from django.urls import reverse
 
-from portal.models import BaseModel, ChoiceArrayField
+from portal.models import BaseModel
 
 from .constants import ApplicationStatus, Region
 from .languages import LANGUAGES
@@ -34,9 +32,6 @@ REGION_CHOICES = [
 ]
 
 
-class Event(BaseModel):
-    event_slug = models.CharField(blank=True, null=False)
-
 # # Pretalx Data
 #   {
 #      "code": "WPSKUD",
@@ -55,6 +50,8 @@ class Event(BaseModel):
 
 
 class SpeakerProfile(BaseModel):
+    # Identification
+    # id = models.AutoField()
     application_status = models.CharField(
         max_length=50,
         choices=APPLICATION_STATUS_CHOICES,
@@ -62,7 +59,7 @@ class SpeakerProfile(BaseModel):
     )
 
     # Pretalx Data
-    code = models.CharField(blank=True, null=False)
+    code = models.CharField(blank=True, null=False, unique=True)
     name = models.CharField(blank=True, null=True)
     biography = models.CharField(blank=True, null=True)
     avatar_url = models.CharField(blank=True, null=True)
@@ -70,9 +67,8 @@ class SpeakerProfile(BaseModel):
     timezone = models.CharField(blank=True, null=True)
     locale = models.CharField(blank=True, null=True)
     has_arrived = models.BooleanField(blank=True, null=True)
-
-    submissions: list[str] 
-    answers:  list[str]
+    submissions = models.JSONField(blank=True, null=True)
+    answers =  models.JSONField(blank=True, null=True)
 
     additional_comments = models.CharField(max_length=1000, blank=True, null=True)
 
