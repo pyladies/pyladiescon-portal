@@ -1,0 +1,14 @@
+{% extends "account/email/base_message.txt" %}
+{% load i18n %}
+{% load account %}
+{% block content %}
+{{ profile.name }}, thank you for applying to speaker with us.
+
+Your current speaker application status: {{ profile.application_status }}.
+
+Your information:
+- Code: {{ profile.code }}
+- Name: {{ profile.name }}
+- Email: {{ profile.email }}
+If you would like to review or update your application at any time, go to your speaker Dashboard at https://{{ current_site.domain }}{% url 'volunteer:index' %}.
+{% endblock content %}
