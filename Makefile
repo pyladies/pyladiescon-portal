@@ -63,7 +63,7 @@ lint: .state/docker-build-web
 reformat: .state/docker-build-web
 	docker compose run --rm web isort .
 	docker compose run --rm web black .
-	docker compose run --rm djlint . --format
+	docker compose run --rm web djlint . --reformat
 
 test: .state/docker-build-web
 	docker compose run --rm web pytest --cov --reuse-db --no-migrations --cov-fail-under=100 --cov-report html --cov-report term

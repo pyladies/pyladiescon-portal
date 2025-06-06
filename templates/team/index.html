@@ -10,15 +10,19 @@
         </h1>
         <div class="row pt-2 row-cols-1 row-cols-md-3 g-4">
             {% for team in teams %}
-            <div class="col">
-                <div class="card h-100">
-                    <div class="card-body">
-                        <h5 class="card-title">{{ team.short_name }}</h5>
-                        <p class="card-text">{{ team.description | truncatechars:30 }}</p>
-                        <a href="{% url 'team_detail' team.id %}" class="btn btn-primary">More Info</a>
+                <div class="col">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h5 class="card-title">
+                                {{ team.short_name }}
+                            </h5>
+                            <p class="card-text">
+                                {{ team.description | truncatechars:30 }}
+                            </p>
+                            <a href="{% url 'team_detail' team.id %}" class="btn btn-primary">More Info</a>
+                        </div>
                     </div>
                 </div>
-            </div>
             {% endfor %}
         </div>
     </div>
