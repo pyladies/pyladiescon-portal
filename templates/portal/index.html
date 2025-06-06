@@ -52,7 +52,7 @@
                     <h4>
                         Your Teams
                     </h4>
-                    <div style="max-height: 350px; overflow-y: auto;">
+                    {# djlint:off #}<div style="max-height: 350px; overflow-y: auto;">{# djlint:off #}
                         {% if teams and teams|length > 0 %}
                             {% for team in teams %}
                                 <div class="card mb-3">
@@ -70,7 +70,7 @@
                                                     {% endif %}
                                                 {% endfor %}
                                                 {% if team.leads|length > 5 %}
-                                                    , &hellip;
+                                                    , ...
                                                 {% endif %}
                                             </p>
                                         {% endif %}
@@ -84,7 +84,7 @@
                                                     {% endif %}
                                                 {% endfor %}
                                                 {% if team.members|length > 5 %}
-                                                    , &hellip;
+                                                    , ...
                                                 {% endif %}
                                             </p>
                                         {% endif %}
