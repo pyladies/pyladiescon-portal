@@ -137,47 +137,43 @@
                     {#                          Call to action#}
                     {#                          <svg class="bi"><use xlink:href="#chevron-right"></use></svg>#}
                     {#                        </a>#}
-                    {# djlint:on #}
-                </div>
-                <div class="feature col">
-                    <div class="d-inline-flex align-items-center justify-content-center fa-3x mb-3">
-                        <i class="fa-solid fa-microphone"></i>
-                    </div>
-                    <h3 class="fs-2 text-body-emphasis">
-                        Speaker Portal
-                    </h3>
-                    <p>
-                        Are you one of our speakers? Soon, you'll have access to this page.
-                    </p>
-                    {# djlint:off #}
+{# djlint:on #}
+</div>
+<div class="feature col">
+<div class="d-inline-flex align-items-center justify-content-center fa-3x mb-3">
+<i class="fa-solid fa-microphone"></i>
+</div>
+<h3 class="fs-2 text-body-emphasis">
+Speaker Portal
+</h3>
+<p>
+Are you one of our speakers? Soon, you'll have access to this page.
+</p>
+{# djlint:off #}
                     {#                        <a href="#" class="icon-link">#}
                     {#                          Call to action#}
                     {#                          <svg class="bi"><use xlink:href="#chevron-right"></use></svg>#}
                     {#                        </a>#}
-                    {# djlint:on #}
-                </div>
-            </div>
-        </div>
-    {% else %}
-        <div class="p-5 text-center bg-body-tertiary rounded-3">
-            <h1 class="text-body-emphasis">
-                PyLadiesCon Web Portal
-            </h1>
-            <p class="col-lg-8 mx-auto fs-5 text-muted">
-                Welcome to our PyLadiesCon Conference Management Portal.
-                <br>
-                Sign up to volunteer with us.
-            </p>
-            <div class="d-inline-flex gap-2 mb-5">
-                <a class="d-inline-flex align-items-center btn btn-primary btn-lg px-4 rounded-pill"
-                   href="{% url 'account_signup' %}"
-                   role="button">Sign up
-                    <i class="fa-solid fa-arrow-right ms-2"></i>
-                </a>
-                <a class="btn btn-outline-secondary btn-lg px-4 rounded-pill"
-                   href="{% url 'account_login' %}"
-                   role="button">Login</a>
-            </div>
-        </div>
-    {% endif %}
+{# djlint:on #}
+</div>
+</div>
+</div>
+{% else %}
+<div class="p-5 text-center bg-body-tertiary rounded-3">
+<h1 class="text-body-emphasis">
+PyLadiesCon Web Portal
+</h1>
+<p class="col-lg-8 mx-auto fs-5 text-muted">
+Welcome to our PyLadiesCon Conference Management Portal.
+<br>
+Sign up to volunteer with us.
+</p>
+<div class="d-inline-flex gap-2 mb-5">
+<a class="d-inline-flex align-items-center btn btn-primary btn-lg px-4 rounded-pill" href="{% url 'account_signup' %}" role="button">Sign up
+<i class="fa-solid fa-arrow-right ms-2"></i>
+</a>
+<a class="btn btn-outline-secondary btn-lg px-4 rounded-pill" href="{% url 'account_login' %}" role="button">Login</a>
+</div>
+</div>
+{% endif %}
 {% endblock content %}
