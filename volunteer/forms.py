@@ -4,6 +4,7 @@ from django import forms
 from django.core.exceptions import ValidationError
 from django.forms import ModelForm
 from django.forms.widgets import SelectMultiple
+from django.utils.safestring import mark_safe
 
 from .languages import LANGUAGES
 from .models import VolunteerProfile
@@ -26,7 +27,6 @@ class LanguageSelectMultiple(SelectMultiple):
 
 class VolunteerProfileForm(ModelForm):
 
-    discord_username = forms.CharField(required=True)
     additional_comments = forms.CharField(widget=forms.Textarea, required=False)
 
     class Meta:
@@ -34,13 +34,27 @@ class VolunteerProfileForm(ModelForm):
         exclude = ["user", "application_status"]
         help_texts = {
             "github_username": "GitHub username (e.g., username)",
-            "discord_username": "Required - Your Discord username for team communication (e.g., username#1234)",
+            "discord_username": "Required - Your Discord username for team communication (e.g., username or username#1234)",
             "instagram_username": "Instagram username without @ (e.g., username)",
             "bluesky_username": "Bluesky username (e.g., username or username.bsky.social)",
             "mastodon_url": "Mastodon handle (e.g., @username@instance.tld or https://instance.tld/@username)",
             "x_username": "X/Twitter username without @ (e.g., username)",
             "linkedin_url": "LinkedIn URL (e.g., linkedin.com/in/username)",
-            "region": "Region where you normally reside",
+            "region": mark_safe(
+                "Which region do you normally reside in? "
+                "See <a href='https://docs.google.com/document/"
+                "d/1LTx1dhT0aUCk-_bWWKDaMx6c6bPkuFnZko39-rX_Utc/"
+                "edit?tab=t.0#heading=h.whpl50rtq0dg' target='_blank' "
+                "rel='noopener'>PSF’s D&amp;I Workgroup Membership handbook</a> "
+                "under “Which region should I be representing?” for guidance."
+            ),
+            "teams": mark_safe(
+                "Which team are you interested in joining? "
+                "See <a href='https://conference.pyladies.com/docs/' "
+                "target='_blank' rel='noopener'>the committee page</a> "
+                "for information on each one."
+            ),
+            "pyladies_chapter": "What PyLadies chapter are you a part of? If you are not part of any chapter leave this blank.",
         }
 
     def clean_github_username(self):
