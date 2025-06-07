@@ -43,7 +43,9 @@
                     Availability:
                 </div>
                 <div class="col-md-9">
-                    <p>{{ object.availability_hours_per_week|default:0 }} hours per week</p>
+                    <p>
+                        {{ object.availability_hours_per_week|default:0 }} hours per week
+                    </p>
                 </div>
             </div>
             <div class="row mb-3">
@@ -211,7 +213,9 @@
             </h5>
         </div>
         <div class="card-body">
-            <p>{{ object.additional_comments }}</p>
+            <p>
+                {{ object.additional_comments }}
+            </p>
         </div>
     </div>
     <div class="mt-4">
