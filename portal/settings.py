@@ -50,6 +50,7 @@ INSTALLED_APPS = [
     "volunteer",
     "portal_account",
     "widget_tweaks",
+    "django_extensions",
 ]
 
 MIDDLEWARE = [
