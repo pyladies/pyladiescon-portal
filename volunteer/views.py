@@ -11,7 +11,7 @@ from django_filters import CharFilter, FilterSet
 from django_filters.views import FilterView
 from django_tables2.views import SingleTableMixin
 
-from .forms import VolunteerProfileForm
+from .forms import VolunteerProfileForm, VolunteerProfileReviewForm
 from .models import ApplicationStatus, Team, VolunteerProfile
 
 
@@ -24,6 +24,16 @@ def index(request):
     except VolunteerProfile.DoesNotExist:
         context["profile_id"] = None
     return render(request, "volunteer/index.html", context)
+
+
+class VolunteerAdminRequiredMixin(UserPassesTestMixin):
+    """Mixin for views that require administrative permission for the volunteers.
+    Currently it requires the user to be a superuser or staff member.
+    This can be extended to include more complex permission checks in the future.
+    """
+
+    def test_func(self):
+        return self.request.user.is_superuser or self.request.user.is_staff
 
 
 class VolunteerProfileFilter(FilterSet):
@@ -98,7 +108,7 @@ class VolunteerProfileTable(tables.Table):
         render_html = ""
         if record.application_status == ApplicationStatus.PENDING:
             review_url = reverse(
-                "volunteer:volunteer_profile_detail", kwargs={"pk": record.pk}
+                "volunteer:volunteer_profile_review", kwargs={"pk": record.pk}
             )
             render_html = format_html(
                 '<a href="{}" class="btn btn-sm btn-primary">Review</a> ', review_url
@@ -126,7 +136,9 @@ class VolunteerProfileTable(tables.Table):
         html_content = ""
         for team in record.teams.all():
             html_content = format_html(
-                '<span class="badge bg-secondary">{}</span> ', team.short_name
+                '{}<span class="badge bg-secondary">{}</span> ',
+                html_content,
+                team.short_name,
             )
         return html_content
 
@@ -142,14 +154,11 @@ class VolunteerProfileTable(tables.Table):
         return html_content
 
 
-class VolunteerProfileList(UserPassesTestMixin, SingleTableMixin, FilterView):
+class VolunteerProfileList(VolunteerAdminRequiredMixin, SingleTableMixin, FilterView):
     model = VolunteerProfile
     template_name = "volunteer/volunteerprofile_list.html"
     table_class = VolunteerProfileTable
     filterset_class = VolunteerProfileFilter
-
-    def test_func(self):
-        return self.request.user.is_staff or self.request.user.is_superuser
 
 
 class VolunteerProfileView(DetailView):
@@ -164,6 +173,18 @@ class VolunteerProfileView(DetailView):
         ):
             return redirect("volunteer:index")
         return super(VolunteerProfileView, self).get(request, *args, **kwargs)
+
+
+class ReviewVolunteerProfileView(VolunteerAdminRequiredMixin, UpdateView):
+    model = VolunteerProfile
+    template_name = "volunteer/volunteerprofile_review_form.html"
+    success_url = reverse_lazy("volunteer:volunteer_profile_list")
+    form_class = VolunteerProfileReviewForm
+
+    def get_form_kwargs(self):
+        kwargs = super(ReviewVolunteerProfileView, self).get_form_kwargs()
+        kwargs.update({"user": self.request.user})
+        return kwargs
 
 
 class VolunteerProfileCreate(CreateView):

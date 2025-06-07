@@ -18,6 +18,11 @@ urlpatterns = [
         name="volunteer_profile_detail",
     ),
     path(
+        "review/<int:pk>/",
+        login_required(views.ReviewVolunteerProfileView.as_view()),
+        name="volunteer_profile_review",
+    ),
+    path(
         "new",
         login_required(views.VolunteerProfileCreate.as_view()),
         name="volunteer_profile_new",

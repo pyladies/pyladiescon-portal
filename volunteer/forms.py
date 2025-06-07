@@ -8,6 +8,7 @@ from django.utils.safestring import mark_safe
 
 from portal.validators import validate_linked_in_pattern
 
+from .constants import ApplicationStatus
 from .languages import LANGUAGES
 from .models import VolunteerProfile
 
@@ -198,5 +199,28 @@ class VolunteerProfileForm(ModelForm):
     def save(self, commit=True):
         if self.user:
             self.instance.user = self.user
+        volunteer_profile = super().save(commit)
+        return volunteer_profile
+
+
+class VolunteerProfileReviewForm(ModelForm):
+
+    additional_comments = forms.CharField(widget=forms.Textarea, required=False)
+
+    class Meta:
+        model = VolunteerProfile
+        fields = ["teams", "roles"]
+
+    def __init__(self, *args, **kwargs):
+        self.user = kwargs.pop("user", None)
+        super().__init__(*args, **kwargs)
+
+    def clean(self):
+        cleaned_data = super().clean()
+        return cleaned_data
+
+    def save(self, commit=True):
+        if self.instance.application_status == ApplicationStatus.PENDING:
+            self.instance.application_status = ApplicationStatus.APPROVED
         volunteer_profile = super().save(commit)
         return volunteer_profile

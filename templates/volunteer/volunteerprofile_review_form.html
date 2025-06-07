@@ -1,0 +1,243 @@
+{% extends "portal/base.html" %}
+{% load allauth i18n %}
+{% load django_bootstrap5 %}
+{% load static %}
+{% block content %}
+    <main>
+        <h1 class="display-5">
+            Review Volunteer Profile for: {{ object.user.username }}
+        </h1>
+        <div class="row row-cols-1 row-cols-md-2 g-4">
+            <div class="col">
+                <div class="card">
+                    <h5 class="card-header">
+                        Basic info
+                    </h5>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col fw-bold">
+                                Username
+                            </div>
+                            <div class="col">
+                                {{ object.user.username }}
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col fw-bold">
+                                Name
+                            </div>
+                            <div class="col">
+                                {{ object.user.first_name }} {{ object.user.last_name }}
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col fw-bold">
+                                Email address
+                            </div>
+                            <div class="col">
+                                {{ object.user.email }}
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col fw-bold">
+                                Availability
+                            </div>
+                            <div class="col">
+                                {{ object.availability_hours_per_week|default:0 }} hours per week
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col fw-bold">
+                                Region
+                            </div>
+                            <div class="col">
+                                {{ object.region|default:"Not specified" }}
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col fw-bold">
+                                PyLadies Chapter
+                            </div>
+                            <div class="col">
+                                {{ object.pyladies_chapter|default:"Not specified" }}
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col fw-bold">
+                                Languages
+                            </div>
+                            <div class="col">
+                                {% for language in object.languages_spoken %}
+                                    <span class="badge bg-info text-dark me-1">{{ language }}</span>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col">
+                <div class="card">
+                    <h5 class="card-header">
+                        Social Media
+                    </h5>
+                    <div class="card-body">
+                        {% if object.github_username or object.discord_username or object.instagram_username or object.bluesky_username or object.mastodon_url or object.x_username or object.linkedin_url %}
+                            {% if object.github_username %}
+                                <div class="row">
+                                    <div class="col fw-bold">
+                                        GitHub
+                                    </div>
+                                    <div class="col">
+                                        <a href="https://github.com/{{ object.github_username }}">{{ object.github_username }}</a>
+                                    </div>
+                                </div>
+                            {% endif %}
+                            {% if object.discord_username %}
+                                <div class="row">
+                                    <div class="col fw-bold">
+                                        Discord
+                                    </div>
+                                    <div class="col">
+                                        {{ object.discord_username }}
+                                    </div>
+                                </div>
+                            {% endif %}
+                            {% if object.instagram_username %}
+                                <div class="row">
+                                    <div class="col fw-bold">
+                                        Instagram
+                                    </div>
+                                    <div class="col">
+                                        {{ object.instagram_username }}
+                                    </div>
+                                </div>
+                            {% endif %}
+                            {% if object.bluesky_username %}
+                                <div class="row">
+                                    <div class="col fw-bold">
+                                        BlueSky
+                                    </div>
+                                    <div class="col">
+                                        {{ object.bluesky_username }}
+                                    </div>
+                                </div>
+                            {% endif %}
+                            {% if object.mastodon_url %}
+                                <div class="row">
+                                    <div class="col fw-bold">
+                                        Mastodon
+                                    </div>
+                                    <div class="col">
+                                        {{ object.mastodon_url }}
+                                    </div>
+                                </div>
+                            {% endif %}
+                            {% if object.x_username %}
+                                <div class="row">
+                                    <div class="col fw-bold">
+                                        X
+                                    </div>
+                                    <div class="col">
+                                        {{ object.x_username }}
+                                    </div>
+                                </div>
+                            {% endif %}
+                            {% if object.linkedin_url %}
+                                <div class="row">
+                                    <div class="col fw-bold">
+                                        LinkedIn
+                                    </div>
+                                    <div class="col">
+                                        {{ object.linkedin_url }}
+                                    </div>
+                                </div>
+                            {% endif %}
+                        {% else %}
+                            <p>
+                                No social media profiles added
+                            </p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    Additional Comments
+                </h5>
+            </div>
+            <div class="card-body">
+                <p>
+                    {{ object.additional_comments }}
+                </p>
+            </div>
+        </div>
+        {% bootstrap_form_errors form %}
+        <form action="{% url 'volunteer:volunteer_profile_review' object.pk %}"
+              method="post"
+              class="form">
+            {% csrf_token %}
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        Team and Role Assignment
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-3">
+                        <div class="col-md-3 fw-bold">
+                            {% if object.application_status == "Pending Review" %}
+                                Teams applied for:
+                            {% else %}
+                                Current team assignment:
+                            {% endif %}
+                        </div>
+                        <div class="col-md-9">
+                            {% if object.teams.all %}
+                                {% for team in object.teams.all %}
+                                    <span class="badge bg-primary me-1">{{ team.short_name }}</span>
+                                {% endfor %}
+                            {% else %}
+                                Not assigned to any teams yet
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        {% bootstrap_label "Specify their new team assignments" label_for="id_teams" %}
+                        {% bootstrap_field form.teams show_label=False %}
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-3 fw-bold">
+                            Current Roles:
+                        </div>
+                        <div class="col-md-9">
+                            {% if object.roles.all %}
+                                {% for role in object.roles.all %}
+                                    <span class="badge bg-secondary me-1">{{ role.short_name }}</span>
+                                {% endfor %}
+                            {% else %}
+                                No roles assigned yet
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        {% bootstrap_label "Specify their new role assignments" label_for="id_roles" %}
+                        {% bootstrap_field form.roles show_label=False %}
+                    </div>
+                </div>
+                <div class="card-footer">
+                    <div class="alert alert-info" role="alert">
+                        By approving this volunteer and assigning them to teams and roles,
+                        you will be sending them an email confirmation inviting them to the team.
+                    </div>
+                    <button type="submit" class="btn btn-primary">
+                        Approve and Onboard
+                    </button>
+                    <a href="{% url 'volunteer:volunteer_profile_list' %}"
+                       class="btn btn-secondary">Back to Manage Volunteers</a>
+                </div>
+            </div>
+        </form>
+    </main>
+{% endblock content %}
