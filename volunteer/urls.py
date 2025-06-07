@@ -32,4 +32,9 @@ urlpatterns = [
         views.VolunteerProfileDelete.as_view(),
         name="volunteer_profile_delete",
     ),
+    path(
+        "list",
+        login_required(views.VolunteerProfileList.as_view()),
+        name="volunteers_list",
+    ),
 ]
