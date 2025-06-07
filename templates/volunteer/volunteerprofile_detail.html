@@ -5,7 +5,11 @@
 {% endblock body %}
 {% block content %}
     <h1 class="display-5 mb-4">
-        Your Volunteer Profile
+        {% if user.is_superuser and user.username != object.user.username %}
+            Volunteer Profile for:  {{ object.user.username }}
+        {% else %}
+            Your Volunteer Profile
+        {% endif %}
     </h1>
     <div class="card mb-4">
         <div class="card-header">
@@ -219,8 +223,13 @@
         </div>
     </div>
     <div class="mt-4">
-        <a class="btn btn-primary"
-           href="{% url 'volunteer:volunteer_profile_edit' object.pk %}">Edit Profile</a>
-        <a class="btn btn-secondary" href="{% url 'volunteer:index' %}">Back to Volunteer Dashboard</a>
+        {% if user.is_superuser and user.username != object.user.username %}
+            <a class="btn btn-secondary"
+               href="{% url 'volunteer:volunteers_list' %}">Back to Manage Volunteers</a>
+        {% else %}
+            <a class="btn btn-primary"
+               href="{% url 'volunteer:volunteer_profile_edit' object.pk %}">Edit Profile</a>
+            <a class="btn btn-secondary" href="{% url 'volunteer:index' %}">Back to Volunteer Dashboard</a>
+        {% endif %}
     </div>
 {% endblock content %}
