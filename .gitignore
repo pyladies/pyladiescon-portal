@@ -27,3 +27,7 @@ staticroot/
 
 # macOS file
 .DS_Store
+
+site/
+htmlcov/
+
