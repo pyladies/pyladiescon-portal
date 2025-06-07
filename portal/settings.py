@@ -62,6 +62,7 @@ MIDDLEWARE = [
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "allauth.account.middleware.AccountMiddleware",
+    "django.middleware.locale.LocaleMiddleware",
 ]
 
 ROOT_URLCONF = "portal.urls"
@@ -132,7 +133,14 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = "en-us"
 
+LANGUAGES = (
+    ("pt-br", "Português"),
+    ("en-us", "English"),
+)
+
 TIME_ZONE = "UTC"
+
+LOCALE_PATHS = (os.path.join(BASE_DIR, "locale/"),)
 
 USE_I18N = True
 
