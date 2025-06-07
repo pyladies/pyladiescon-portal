@@ -125,33 +125,33 @@
                         {% if user.is_authenticated and volunteer_profile %}
                             <li>
                                 <a href="{% url 'volunteer:index' %}" class="icon-link">
-                                        Manage your volunteer profile
+                                        {% translate "Manage your volunteer profile" %}
                                         <i class="fa-solid fa-chevron-right"></i>
                                     </a>
                             </li>
                         {% else %}
                             <li>
                                 <a href="{% url 'volunteer:volunteer_profile_new' %}" class="icon-link">
-                                    Volunteer Now
+                                    {% translate "Volunteer Now" %}
                                     <i class="fa-solid fa-chevron-right"></i>
                                 </a>
                             </li>
                         {% endif %}
                         <li>
                             <a href="https://conference.pyladies.com/docs/" class="icon-link">
-                                Team Descriptions
+                                {% translate "Team Descriptions" %}
                                 <i class="fa-solid fa-chevron-right"></i>
                             </a>
                         </li>
                         <li>
                             <a href="https://conference.pyladies.com/docs/roles_and_responsibilities/" class="icon-link">
-                                Volunteer Responsibilities
+                                {% translate "Volunteer Responsibilities" %}
                                 <i class="fa-solid fa-chevron-right"></i>
                             </a>
                         </li>
                         <li>
                             <a href="https://discord.com/invite/2fUN4ddVfP" class="icon-link">
-                                Join our Discord
+                                {% translate "Join our Discord" %}
                                 <i class="fa-brands fa-discord"></i>
                             </a>
                         </li>
