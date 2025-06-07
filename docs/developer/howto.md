@@ -94,9 +94,7 @@ Then exit the console and re-run the server.
 
 ## Add transalations and new languages
 
-To create translations/localization we use the Django itself.
-
-Note: for now you can only run localization [without Docker](https://pyladiescon-portal-docs.netlify.app/developer/setup/#without-docker).
+To create translations/localization we use the Django itself. You can create translations both with Docker and without Docker.
 
 ### Translating content
 
@@ -111,7 +109,7 @@ In each language folder there are two files:
 
 To update the translation for your preferred language:
 
-1. Follow the [development setup guide without Docker](https://pyladiescon-portal-docs.netlify.app/developer/setup/#without-docker).
+1. Follow the [development setup guide](https://pyladiescon-portal-docs.netlify.app/developer/setup).
 1. Then open the `.po` file for the language you want to translate and find the phrase you want to translate.
 
 For example, in the file `locale/pt_BR/LC_MESSAGES/django.po` there's the following phrase:
@@ -149,32 +147,50 @@ LANGUAGES = (
 ```
 
 2. Then you should run the `makemessages` command:
-```
-python manage.py makemessages -l <locale-code>
-```
+    1. With Docker:
+        ```
+        make create_translations LANG=<locale-code>
+        ```
 
-For example for Brazilian Portuguese:
+        For example for Brazilian Portuguese:
 
-```
-python manage.py makemessages -l pt_BR
-```
+        ```
+        make create_translations LANG=pt_BR
+        ```
 
-Note that for the makemessages command we uses ISO/IEC 15897 for formatting of the language tag.
+    2. Without Docker:
+        ```
+        python manage.py makemessages -l <locale-code>
+        ```
+
+        For example for Brazilian Portuguese:
+
+        ```
+        python manage.py makemessages -l pt_BR
+        ```
+
+Note that for the creation of new languages we use ISO/IEC 15897 for formatting the language tag.
 
 3. Translate a couple of messages in the generated `.po` file;
 
-4. Then complile the translations with:
+4. Then complile the translations:
+    1. With Docker:
+    ```
+    make compile_translations
+    ```
 
-```
-python manage.py compilemessages
-```
+    2. Without Docker:
+    ```
+    python manage.py compilemessages
+    ```
+
 
 Run your server if it isn't running yet and you'll should see the new language in the language selector.
 
 
 ### Missing translation strings
 
-**What if you don't see a phrase in to translate in the .po file?**
+**What if you don't see a phrase to translate in the .po file?**
 
 You probaly need to find that phrase in the HTML files inside the `templates` folder and add a tag `translate` into it like so:
 
