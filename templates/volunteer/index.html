@@ -24,4 +24,45 @@
            role="button"
            href="{% url 'volunteer:volunteer_profile_new' %}">Create my Profile</a>
     {% endif %}
+    <p>
+        <h2>
+            Links and Resources
+        </h2>
+        <ul class="list-unstyled ps-8">
+            {% if profile_id %}
+                <li>
+                    <a href="{% url 'volunteer:index' %}" class="icon-link">
+                        Manage your volunteer profile
+                        <i class="fa-solid fa-chevron-right"></i>
+                    </a>
+                </li>
+            {% else %}
+                <li>
+                    <a href="{% url 'volunteer:volunteer_profile_new' %}" class="icon-link">
+                        Volunteer Now
+                        <i class="fa-solid fa-chevron-right"></i>
+                    </a>
+                </li>
+            {% endif %}
+            <li>
+                <a href="https://conference.pyladies.com/docs/" class="icon-link">
+                    Team Descriptions
+                    <i class="fa-solid fa-chevron-right"></i>
+                </a> Learn about the different teams and their roles.
+            </li>
+            <li>
+                <a href="https://conference.pyladies.com/docs/roles_and_responsibilities/"
+                   class="icon-link">
+                    Volunteer Responsibilities
+                    <i class="fa-solid fa-chevron-right"></i>
+                </a> Understand the expectations and responsibilities of a volunteer.
+            </li>
+            <li>
+                <a href="https://discord.com/invite/2fUN4ddVfP" class="icon-link">
+                    Join our Discord
+                    <i class="fa-brands fa-discord"></i>
+                </a> All of our volunteers are required to be in our Discord server.
+            </li>
+        </ul>
+    </p>
 {% endblock content %}

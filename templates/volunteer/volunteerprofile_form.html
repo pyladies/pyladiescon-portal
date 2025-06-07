@@ -44,6 +44,13 @@
             {% else %}
                 Fill in the profile below.
             {% endif %}
+            <div class="alert alert-info" role="alert">
+                <h4 class="alert-heading">
+                    Be sure to join our Discord server!
+                </h4>
+                Volunteers are required to <a href="https://discord.com/invite/2fUN4ddVfP">join the server</a> to collaborate
+                and communicate with the rest of the team.
+            </div>
         </p>
         <div class="row g-5">
             {% bootstrap_form_errors form %}
@@ -61,7 +68,7 @@
                         <!-- Languages spoken with autocomplete -->
                         <div class="mb-3">
                             <label class="form-label">
-                                Your Availability
+                                {{ form.availability_hours_per_week.label }}
                             </label>
                             <div class="form-text mb-2">
                                 <div class="input-group">
@@ -74,7 +81,7 @@
                                 </div>
                                 <label class="form-label"
                                        for="{{ form.availability_hours_per_week.id_for_label }}">
-                                    {{ form.availability_hours_per_week.label }}
+                                    {{ form.availability_hours_per_week.help_text }}
                                 </label>
                             </div>
                         </div>
