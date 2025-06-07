@@ -4,7 +4,11 @@ from pytest_django.asserts import assertRedirects
 
 from volunteer.constants import Region
 from volunteer.languages import LANGUAGES
-from volunteer.models import Team, VolunteerProfile
+from volunteer.models import ApplicationStatus, Role, Team, VolunteerProfile
+from volunteer.views import (
+    VolunteerProfileFilter,
+    VolunteerProfileTable,
+)
 
 
 @pytest.mark.django_db
@@ -194,8 +198,9 @@ class TestVolunteer:
     def test_redirect_when_teams_exist(self, client, portal_user):
         profile = VolunteerProfile(user=portal_user)
         profile.languages_spoken = [LANGUAGES[0]]
-        profile.is_superuser = True
         profile.save()
+        portal_user.is_superuser = True
+        portal_user.save()
 
         team = Team(short_name="Test Team", description="Test Description")
         team.save()
@@ -212,10 +217,164 @@ class TestVolunteer:
     def test_redirect_when_teams_does_not_exist(self, client, portal_user):
         profile = VolunteerProfile(user=portal_user)
         profile.languages_spoken = [LANGUAGES[0]]
-        profile.is_superuser = True
         profile.save()
+        portal_user.is_superuser = True
+        portal_user.save()
 
         client.force_login(portal_user)
         response = client.get(reverse("team_detail", kwargs={"pk": 123}))
 
         assertRedirects(response, reverse("teams"))
+
+
+@pytest.mark.django_db
+class TestManageVolunteers:
+
+    def test_manage_volunteers_view_forbidden_if_not_superuser(
+        self, client, portal_user
+    ):
+
+        client.force_login(portal_user)
+        response = client.get(reverse("volunteer:volunteer_profile_list"))
+        assert response.status_code == 403
+
+    def test_manage_volunteers_view_is_superuser(
+        self, client, portal_user, django_user_model
+    ):
+        another_user = django_user_model.objects.create_user(
+            username="other",
+        )
+        another_profile = VolunteerProfile(user=another_user)
+        another_profile.languages_spoken = [LANGUAGES[0]]
+        another_profile.save()
+
+        portal_user.is_superuser = True
+        portal_user.save()
+
+        client.force_login(portal_user)
+        url = reverse("volunteer:volunteer_profile_list")
+        response = client.get(url)
+        assert response.status_code == 200
+
+    def test_manage_volunteers_view_is_staff(
+        self, client, portal_user, django_user_model
+    ):
+        another_user = django_user_model.objects.create_user(
+            username="other",
+        )
+        another_profile = VolunteerProfile(user=another_user)
+        another_profile.languages_spoken = [LANGUAGES[0]]
+        another_profile.save()
+
+        portal_user.is_staff = True
+        portal_user.save()
+
+        client.force_login(portal_user)
+        url = reverse("volunteer:volunteer_profile_list")
+        response = client.get(url)
+        assert response.status_code == 200
+
+    def test_manage_volunteers_table(self, client, portal_user, django_user_model):
+        profile = VolunteerProfile(user=portal_user)
+        profile.languages_spoken = [LANGUAGES[0]]
+        profile.save()
+
+        another_user = django_user_model.objects.create_user(
+            username="other",
+        )
+        another_profile = VolunteerProfile(user=another_user)
+        another_profile.languages_spoken = [LANGUAGES[0]]
+        another_profile.save()
+
+        team = Team(short_name="Test Team", description="Test Team Description")
+        team.save()
+        team.team_leads.add(another_profile)
+
+        another_profile.teams.add(team)
+        another_profile.save()
+
+        role = Role(short_name="Test Role", description="Test Role Description")
+        role.save()
+        another_profile.roles.add(role)
+
+        portal_user.is_superuser = True
+        portal_user.save()
+
+        client.force_login(portal_user)
+        url = reverse("volunteer:volunteer_profile_list")
+        response = client.get(url)
+
+        assert response.status_code == 200
+        assert isinstance(response.context["table"], VolunteerProfileTable)
+
+        volunteer_table = response.context["table"]
+        team_render = volunteer_table.render_teams(team, another_profile)
+        assert (
+            team_render == f'<span class="badge bg-secondary">{team.short_name}</span> '
+        )
+
+        role_render = volunteer_table.render_roles(role, another_profile)
+        assert (
+            role_render == f'<span class="badge bg-secondary">{role.short_name}</span> '
+        )
+
+        render_username_for_superuser = volunteer_table.render_username(
+            portal_user, profile
+        )
+        assert "fa-user-secret" in render_username_for_superuser
+
+        render_username_not_superuser = volunteer_table.render_username(
+            another_user, another_profile
+        )
+        assert "fa-user-secret" not in render_username_not_superuser
+
+        render_application_status = volunteer_table.render_application_status(
+            ApplicationStatus.APPROVED
+        )
+        assert ApplicationStatus.APPROVED in render_application_status
+        assert "bg-success" in render_application_status
+
+        render_application_status = volunteer_table.render_application_status(
+            ApplicationStatus.REJECTED
+        )
+        assert ApplicationStatus.REJECTED in render_application_status
+        assert "bg-danger" in render_application_status
+
+        render_application_status = volunteer_table.render_application_status(
+            ApplicationStatus.CANCELLED
+        )
+        assert ApplicationStatus.CANCELLED in render_application_status
+        assert "bg-secondary" in render_application_status
+
+        render_application_status = volunteer_table.render_application_status(
+            ApplicationStatus.PENDING
+        )
+        assert ApplicationStatus.PENDING in render_application_status
+        assert "bg-warning" in render_application_status
+
+    def test_filter_volunteers_table(self, client, portal_user, django_user_model):
+        profile = VolunteerProfile(user=portal_user)
+        profile.languages_spoken = [LANGUAGES[0]]
+        profile.save()
+
+        another_user = django_user_model.objects.create_user(
+            username="other",
+        )
+        another_profile = VolunteerProfile(user=another_user)
+        another_profile.languages_spoken = [LANGUAGES[0]]
+        another_profile.save()
+
+        portal_user.is_superuser = True
+        portal_user.save()
+
+        client.force_login(portal_user)
+        url = reverse("volunteer:volunteer_profile_list")
+        response = client.get(url)
+
+        assert response.status_code == 200
+        assert isinstance(response.context["filter"], VolunteerProfileFilter)
+
+        filter = response.context["filter"]
+        filter_queryset = filter.qs
+        search_by_name = filter.search_fulltext(filter_queryset, "", "")
+        assert search_by_name.count() == 2

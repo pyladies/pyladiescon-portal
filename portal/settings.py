@@ -43,6 +43,8 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "django.contrib.sites",
     "django_bootstrap5",
+    "django_filters",
+    "django_tables2",
     "allauth",
     "allauth.account",
     "storages",
@@ -51,6 +53,7 @@ INSTALLED_APPS = [
     "portal_account",
     "widget_tweaks",
 ]
+DJANGO_TABLES2_TEMPLATE = "portal/base-tables-responsive.html"
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
