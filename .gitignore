@@ -24,3 +24,6 @@ staticroot/
 
 # Editor files
 .vscode/
+
+site/
+htmlcov/
