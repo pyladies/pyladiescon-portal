@@ -65,7 +65,7 @@
                             </li>
                         {% endif %}
                         <li class="nav-item">
-                            <a class="nav-link" href="https://pyladiescon-portal-docs.netlify.app/">Portal Docs</a>
+                            <a class="nav-link" href="https://pyladiescon-portal-docs.netlify.app/">Documentation</a>
                         </li>
                         <li class="nav-item">
                             <form action="{% url 'set_language' %}" method="post">
@@ -138,6 +138,12 @@
                                 </li>
                             {% endif %}
                         </ul>
+                    </div>
+                {% else %}
+                    <div>
+                        <a type="button"
+                           class="btn btn-outline-light"
+                           href="{% url 'account_login' %}">Login</a>
                     </div>
                 {% endif %}
                 {# djlint:off #}
