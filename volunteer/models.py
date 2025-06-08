@@ -6,6 +6,7 @@ from django.contrib.sites.models import Site
 from django.core.exceptions import ValidationError
 from django.core.mail import EmailMultiAlternatives
 from django.db import models
+from django.db.models import Q
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.template.loader import render_to_string
@@ -13,7 +14,7 @@ from django.urls import reverse
 
 from portal.models import BaseModel, ChoiceArrayField
 
-from .constants import ApplicationStatus, Region
+from .constants import ApplicationStatus, Region, RoleTypes
 from .languages import LANGUAGES
 
 APPLICATION_STATUS_CHOICES = [
@@ -237,6 +238,52 @@ def send_volunteer_notification_email(instance, updated=False):
     msg.send()
 
 
+def send_internal_notification_email(instance):
+    """Send email to the team whenever a new volunteer profile is created.
+
+    Emails will be sent to team members with the role type Staff or Admin.
+    Emails will also be sent to users with is_superuser or is_staff set to True.
+
+    """
+    context = {"profile": instance, "current_site": Site.objects.get_current()}
+    subject = f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} New Volunteer Application"
+
+    recipients = User.objects.filter(
+        Q(
+            id__in=VolunteerProfile.objects.prefetch_related("roles")
+            .filter(roles__short_name__in=[RoleTypes.ADMIN, RoleTypes.STAFF])
+            .values_list("id", flat=True)
+        )
+        | Q(is_superuser=True)
+        | Q(is_staff=True)
+    ).distinct()
+    # TODO Roles need to use django model choices not enum
+
+    if not recipients.exists():
+        return
+
+    # send each email individually to each recipient, for privacy reasons
+    for recipient in recipients:
+        context["recipient_name"] = recipient.get_full_name() or recipient.username
+        text_content = render_to_string(
+            "volunteer/email/internal_volunteer_profile_email_notification.txt",
+            context=context,
+        )
+        html_content = render_to_string(
+            "volunteer/email/internal_volunteer_profile_email_notification.html",
+            context=context,
+        )
+
+        msg = EmailMultiAlternatives(
+            subject,
+            text_content,
+            settings.DEFAULT_FROM_EMAIL,
+            [recipient.email],
+        )
+        msg.attach_alternative(html_content, "text/html")
+        msg.send()
+
+
 @receiver(post_save, sender=VolunteerProfile)
 def volunteer_profile_signal(sender, instance, created, **kwargs):
     """Things to do whenever a volunteer profile is created or updated.
@@ -244,6 +291,8 @@ def volunteer_profile_signal(sender, instance, created, **kwargs):
     Send a notification email to the user to confirm their volunteer application status.
     """
     if created:
+        send_internal_notification_email(instance)
         send_volunteer_notification_email(instance)
     else:
+        # no need to send email to internal team for VolunteerProfile updates (e.g. changing username, etc)
         send_volunteer_notification_email(instance, updated=True)
