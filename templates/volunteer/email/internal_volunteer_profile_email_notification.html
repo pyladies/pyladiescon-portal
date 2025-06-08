@@ -2,13 +2,11 @@
 {% load i18n %}
 {% block content %}
     <p>
-        Volunteer application for {{ profile.user.first_name }}
+        Hello, {{ recipient_name }}.
     </p>
-    {% if updated %}
-        <p>
-            Volunteer {{ profile.user.first_name }}'s profile has recently been updated.
-        </p>
-    {% endif %}
+    <p>
+        We're writing to let you know that a new volunteer has just signed up.
+    </p>
     <p>
         Volunteer application status: <strong>{{ profile.application_status }}</strong>.
     </p>
@@ -16,6 +14,9 @@
         Volunteer Information:
     </p>
     <ul>
+        <li>
+            Name: {{ profile.user.first_name }} {{ profile.user.last_name }}
+        </li>
         <li>
             Availability: {{ profile.availability_hours_per_week }} hours per week
         </li>

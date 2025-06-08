@@ -306,6 +306,12 @@ class TestVolunteerModel:
         admin_profile.region = Region.NORTH_AMERICA
         admin_profile.save()
 
+        User.objects.create_superuser(
+            username="testsuperuser",
+            email="superusertest@example.com",
+            password="supersuper123",
+        )
+
         admin_profile.roles.add(admin_role)
         admin_profile.save()
 
@@ -317,14 +323,22 @@ class TestVolunteerModel:
         profile.region = Region.NORTH_AMERICA
         profile.save()
 
-        assert len(mail.outbox) == 2
+        # 3 emails were sent:
+        # - #1 to the user with admin role
+        # - #2 to the super user
+        # - #3 to the applicant
+        assert len(mail.outbox) == 3
         assert (  # user creation, to internal staff
             str(mail.outbox[0].subject)
             == "[PyLadiesCon Dev]  New Volunteer Application"
         )
+        assert (  # user creation, to internal staff
+            str(mail.outbox[1].subject)
+            == "[PyLadiesCon Dev]  New Volunteer Application"
+        )
 
         assert (  # user creation, to user
-            str(mail.outbox[1].subject)
+            str(mail.outbox[2].subject)
             == "[PyLadiesCon Dev]  Volunteer Application Received"
         )
 

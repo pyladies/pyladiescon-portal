@@ -7,9 +7,14 @@ Volunteer application for {{ profile.user.first_name }}
 Your volunteer profile has recently been updated.
 {% endif %}
 
+Hello, {{recipient_name }}.
+
+We're writing to let you know that a new volunteer has just signed up.
+
 Volunteer application status: {{ profile.application_status }}.
 
 Volunteer information:
+- Name: {{ profile.user.first_name }} {{ profile.user.last_name }}
 - Availability: {{ profile.availability_hours_per_week }} hours per week
 - GitHub username: {{ profile.github_username }}
 - Discord username: {{ profile.discord_username }}
