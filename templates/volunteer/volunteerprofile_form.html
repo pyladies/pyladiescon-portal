@@ -102,9 +102,32 @@
                                 {% endfor %}
                             {% endif %}
                         </div>
-                        {% bootstrap_field form.teams %}
                         {% bootstrap_field form.pyladies_chapter %}
                         {% bootstrap_field form.region %}
+                    </div>
+                </div>
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">
+                            Team and Role Assignment
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-3 fw-bold">
+                                Current Team assignment:
+                            </div>
+                            <div class="col-md-9">
+                                {% if object.teams.all %}
+                                    {% for team in object.teams.all %}
+                                        <span class="badge bg-primary me-1">{{ team.short_name }}</span>
+                                    {% endfor %}
+                                {% else %}
+                                    Not assigned to any teams yet
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% bootstrap_field form.teams %}
                     </div>
                 </div>
                 <!-- Enhanced social media section from modified version -->
@@ -247,7 +270,9 @@
                             Additional Comments
                         </h5>
                         <p class="text-muted small mt-2 mb-0">
-                            If you have additional information or comments you'd like to share with us.
+                            Please tell us anything else you would like to share with the team, for example: your experience in volunteering,
+                            your skills that would be useful for the team, examples of your past work.
+                            This is not required, but it helps us understand how to best utilize your skills.
                         </p>
                     </div>
                     <div class="card-body">

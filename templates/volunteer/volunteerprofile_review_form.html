@@ -5,8 +5,18 @@
 {% block content %}
     <main>
         <h1 class="display-5">
-            Review Volunteer Profile for: {{ object.user.username }}
+            Volunteer Profile for: {{ object.user.username }}
         </h1>
+        {% if object.application_status.lower == "approved" %}
+            <form action="{% url 'volunteer:resend_onboarding_email' object.pk %}"
+                  method="post"
+                  class="form">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-primary">
+                    <i class="fa-solid fa-envelope"></i> Resend Onboarding Email
+                </button>
+            </form>
+        {% endif %}
         <div class="row row-cols-1 row-cols-md-2 g-4">
             <div class="col">
                 <div class="card">
@@ -174,7 +184,7 @@
             </div>
         </div>
         {% bootstrap_form_errors form %}
-        <form action="{% url 'volunteer:volunteer_profile_review' object.pk %}"
+        <form action="{% url 'volunteer:volunteer_profile_manage' object.pk %}"
               method="post"
               class="form">
             {% csrf_token %}
@@ -227,12 +237,18 @@
                     </div>
                 </div>
                 <div class="card-footer">
-                    <div class="alert alert-info" role="alert">
-                        By approving this volunteer and assigning them to teams and roles,
-                        you will be sending them an email confirmation inviting them to the team.
-                    </div>
+                    {% if object.application_status.lower == "pending review" %}
+                        <div class="alert alert-info" role="alert">
+                            By approving this volunteer and assigning them to teams and roles,
+                            you will be sending them an email confirmation inviting them to the team.
+                        </div>
+                    {% endif %}
                     <button type="submit" class="btn btn-primary">
-                        Approve and Onboard
+                        {% if object.application_status.lower == "approved" %}
+                            Update Team and Role Assignments
+                        {% else %}
+                            Approve and Onboard
+                        {% endif %}
                     </button>
                     <a href="{% url 'volunteer:volunteer_profile_list' %}"
                        class="btn btn-secondary">Back to Manage Volunteers</a>

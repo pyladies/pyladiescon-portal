@@ -207,43 +207,103 @@ class VolunteerProfile(BaseModel):
         return reverse("volunteer:volunteer_profile_edit", kwargs={"pk": self.pk})
 
 
+def _send_email(
+    subject, recipient_list, *, html_template=None, text_template=None, context=None
+):
+    """Helper function to send an email."""
+    context = context or {}
+    context["current_site"] = Site.objects.get_current()
+    text_content = render_to_string(
+        text_template,
+        context=context,
+    )
+    html_content = render_to_string(
+        html_template,
+        context=context,
+    )
+    msg = EmailMultiAlternatives(
+        subject,
+        text_content,
+        settings.DEFAULT_FROM_EMAIL,
+        recipient_list,
+    )
+    msg.attach_alternative(html_content, "text/html")
+    msg.send()
+
+
 def send_volunteer_notification_email(instance, updated=False):
     """Send email to the user whenever their volunteer profile was updated/created."""
-    context = {"profile": instance, "current_site": Site.objects.get_current()}
+    context = {"profile": instance}
     subject = f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} Volunteer Application"
     if updated:
         context["updated"] = True
         subject += " Updated"
     else:
         subject += " Received"
-    text_content = render_to_string(
-        "volunteer/email/volunteer_profile_email_notification.txt",
-        context=context,
-    )
-    html_content = render_to_string(
-        "volunteer/email/volunteer_profile_email_notification.html",
-        context=context,
-    )
 
-    msg = EmailMultiAlternatives(
+    html_template = "volunteer/email/volunteer_profile_email_notification.html"
+    text_template = "volunteer/email/volunteer_profile_email_notification.txt"
+
+    _send_email(
         subject,
-        text_content,
-        settings.DEFAULT_FROM_EMAIL,
         [instance.user.email],
+        html_template=html_template,
+        text_template=text_template,
+        context=context,
     )
-    msg.attach_alternative(html_content, "text/html")
-    msg.send()
 
 
-def send_internal_notification_email(instance):
-    """Send email to the team whenever a new volunteer profile is created.
-
-    Emails will be sent to team members with the role type Staff or Admin.
-    Emails will also be sent to users with is_superuser or is_staff set to True.
-
+def send_volunteer_onboarding_email(instance):
+    """Send the volunteer onboarding email when their volunteer profile has been updated.
+    This should only be sent when the volunteer profile is approved.
     """
-    context = {"profile": instance, "current_site": Site.objects.get_current()}
-    subject = f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} New Volunteer Application"
+    if instance.application_status == ApplicationStatus.APPROVED:
+        context = {"profile": instance, "GDRIVE_FOLDER_ID": settings.GDRIVE_FOLDER_ID}
+        subject = f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} Welcome to the PyLadiesCon Volunteer Team"
+
+        for role in instance.roles.all():
+            if role.short_name in [RoleTypes.ADMIN, RoleTypes.STAFF]:
+                context["admin_onboarding"] = True
+        html_template = "volunteer/email/new_volunteer_onboarding.html"
+        text_template = "volunteer/email/new_volunteer_onboarding.txt"
+        _send_email(
+            subject,
+            [instance.user.email],
+            html_template=html_template,
+            text_template=text_template,
+            context=context,
+        )
+
+
+def send_internal_volunteer_onboarding_email(instance):
+    """Notify internal team about a new volunteer onboarding.
+    This should only be sent when the volunteer profile is approved.
+    """
+    if instance.application_status == ApplicationStatus.APPROVED:
+        context = {"profile": instance, "GDRIVE_FOLDER_ID": settings.GDRIVE_FOLDER_ID}
+        subject = f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} Complete the Volunteer Onboarding for: {instance.user.first_name} {instance.user.last_name}"
+
+        for role in instance.roles.all():
+            if role.short_name in [RoleTypes.ADMIN, RoleTypes.STAFF]:
+                context["admin_onboarding"] = True
+        html_template = "volunteer/email/internal_volunteer_onboarding.html"
+        text_template = "volunteer/email/internal_volunteer_onboarding.txt"
+        _send_email(
+            subject,
+            [instance.user.email],
+            html_template=html_template,
+            text_template=text_template,
+            context=context,
+        )
+
+
+def _send_internal_email(
+    subject, *, html_template=None, text_template=None, context=None
+):
+    """Helper function to send an internal email.
+
+    Lookup who the internal team members who should receive the email and then send the emails individually.
+    """
 
     recipients = User.objects.filter(
         Q(
@@ -262,23 +322,36 @@ def send_internal_notification_email(instance):
     # send each email individually to each recipient, for privacy reasons
     for recipient in recipients:
         context["recipient_name"] = recipient.get_full_name() or recipient.username
-        text_content = render_to_string(
-            "volunteer/email/internal_volunteer_profile_email_notification.txt",
-            context=context,
-        )
-        html_content = render_to_string(
-            "volunteer/email/internal_volunteer_profile_email_notification.html",
+
+        _send_email(
+            subject,
+            [recipient.email],
+            html_template=html_template,
+            text_template=text_template,
             context=context,
         )
 
-        msg = EmailMultiAlternatives(
-            subject,
-            text_content,
-            settings.DEFAULT_FROM_EMAIL,
-            [recipient.email],
-        )
-        msg.attach_alternative(html_content, "text/html")
-        msg.send()
+
+def send_internal_notification_email(instance):
+    """Send email to the team whenever a new volunteer profile is created.
+
+    Emails will be sent to team members with the role type Staff or Admin.
+    Emails will also be sent to users with is_superuser or is_staff set to True.
+
+    """
+    context = {"profile": instance}
+    subject = f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} New Volunteer Application"
+
+    text_template = "volunteer/email/internal_volunteer_profile_email_notification.txt"
+
+    html_template = "volunteer/email/internal_volunteer_profile_email_notification.html"
+
+    _send_internal_email(
+        subject,
+        html_template=html_template,
+        text_template=text_template,
+        context=context,
+    )
 
 
 @receiver(post_save, sender=VolunteerProfile)

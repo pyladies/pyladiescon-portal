@@ -10,7 +10,13 @@ from portal.validators import validate_linked_in_pattern
 
 from .constants import ApplicationStatus
 from .languages import LANGUAGES
-from .models import VolunteerProfile
+from .models import (
+    Role,
+    Team,
+    VolunteerProfile,
+    send_internal_volunteer_onboarding_email,
+    send_volunteer_onboarding_email,
+)
 
 
 class LanguageSelectMultiple(SelectMultiple):
@@ -31,10 +37,21 @@ class LanguageSelectMultiple(SelectMultiple):
 class VolunteerProfileForm(ModelForm):
 
     additional_comments = forms.CharField(widget=forms.Textarea, required=False)
+    teams = forms.ModelMultipleChoiceField(
+        required=False,
+        queryset=Team.objects.all(),
+        widget=forms.CheckboxSelectMultiple,
+        help_text=mark_safe(
+            "See <a href='https://conference.pyladies.com/docs/' "
+            "target='_blank' rel='noopener'>the committee page</a> "
+            "for information on each one."
+        ),
+        label="Which teams are you interested in joining?",
+    )
 
     class Meta:
         model = VolunteerProfile
-        exclude = ["user", "application_status"]
+        exclude = ["user", "application_status", "roles"]
         help_texts = {
             "github_username": "GitHub username (e.g., username)",
             "discord_username": "Required - Your Discord username for team communication (e.g., username or username#1234)",
@@ -51,18 +68,12 @@ class VolunteerProfileForm(ModelForm):
                 "rel='noopener'>PSF’s D&amp;I Workgroup Membership handbook</a> "
                 "under “Which region should I be representing?” for guidance."
             ),
-            "teams": mark_safe(
-                "See <a href='https://conference.pyladies.com/docs/' "
-                "target='_blank' rel='noopener'>the committee page</a> "
-                "for information on each one."
-            ),
             "pyladies_chapter": "What PyLadies chapter are you a part of? If you are not part of any chapter leave this blank.",
             "availability_hours_per_week": "Our volunteers are expected to commit at least 1 hour per week until the conference day."
             "By sharing your availability, we can better match you with tasks and teams.",
         }
         labels = {
             "availability_hours_per_week": "What is your volunteering availability?",
-            "teams": "Which teams are you interested in joining?",
             "pyladies_chapter": "PyLadies Chapter",
         }
 
@@ -199,6 +210,7 @@ class VolunteerProfileForm(ModelForm):
     def save(self, commit=True):
         if self.user:
             self.instance.user = self.user
+
         volunteer_profile = super().save(commit)
         return volunteer_profile
 
@@ -206,6 +218,18 @@ class VolunteerProfileForm(ModelForm):
 class VolunteerProfileReviewForm(ModelForm):
 
     additional_comments = forms.CharField(widget=forms.Textarea, required=False)
+    teams = forms.ModelMultipleChoiceField(
+        required=True,
+        queryset=Team.objects.all(),
+        widget=forms.CheckboxSelectMultiple,
+        error_messages={"required": "Please assign at least one team."},
+    )
+    roles = forms.ModelMultipleChoiceField(
+        required=True,
+        queryset=Role.objects.all(),
+        widget=forms.CheckboxSelectMultiple,
+        error_messages={"required": "Please assign at least one role."},
+    )
 
     class Meta:
         model = VolunteerProfile
@@ -220,7 +244,13 @@ class VolunteerProfileReviewForm(ModelForm):
         return cleaned_data
 
     def save(self, commit=True):
+        newly_approved = False
         if self.instance.application_status == ApplicationStatus.PENDING:
             self.instance.application_status = ApplicationStatus.APPROVED
+            newly_approved = True
         volunteer_profile = super().save(commit)
+
+        if newly_approved:
+            send_volunteer_onboarding_email(volunteer_profile)
+            send_internal_volunteer_onboarding_email(volunteer_profile)
         return volunteer_profile

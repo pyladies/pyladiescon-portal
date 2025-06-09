@@ -3,6 +3,7 @@ from django.shortcuts import redirect, render
 
 from portal.common import get_stats_cached_values
 from portal_account.models import PortalProfile
+from volunteer.constants import ApplicationStatus
 from volunteer.languages import LANGUAGES
 from volunteer.models import VolunteerProfile
 
@@ -42,7 +43,11 @@ def index(request):
 
         for team in teams_qs:
             leads = team.team_leads.all()
-            members = team.team.all().exclude(pk=context["volunteer_profile"].pk)
+            members = (
+                team.team.all()
+                .exclude(pk=context["volunteer_profile"].pk)
+                .filter(application_status=ApplicationStatus.APPROVED)
+            )
             teams.append(
                 {
                     "name": team.short_name,

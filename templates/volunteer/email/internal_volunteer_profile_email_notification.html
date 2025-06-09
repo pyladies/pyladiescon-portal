@@ -5,7 +5,7 @@
         Hello, {{ recipient_name }}.
     </p>
     <p>
-        We're writing to let you know that a new volunteer has just signed up.
+        We're writing to let you know that a new volunteer has just signed up. Be sure to review their application in a timely manner.
     </p>
     <p>
         Volunteer application status: <strong>{{ profile.application_status }}</strong>.
@@ -57,4 +57,10 @@
             Additional Comments: {{ profile.additional_comments }}
         </li>
     </ul>
+    <p>
+        To approve this volunteer and assign them to your teams, click <a href="https://{{ current_site.domain }}{% url 'volunteer:volunteer_profile_manage' profile.id %}">here</a>.
+    </p>
+    <p>
+        To manage other volunteers, visit the <a href="https://{{ current_site.domain }}{% url 'volunteer:volunteer_profile_list' %}">Volunteer Management Portal</a>.
+    </p>
 {% endblock content %}

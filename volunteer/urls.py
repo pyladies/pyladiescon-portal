@@ -18,11 +18,6 @@ urlpatterns = [
         name="volunteer_profile_detail",
     ),
     path(
-        "review/<int:pk>/",
-        login_required(views.ReviewVolunteerProfileView.as_view()),
-        name="volunteer_profile_review",
-    ),
-    path(
         "new",
         login_required(views.VolunteerProfileCreate.as_view()),
         name="volunteer_profile_new",
@@ -41,5 +36,15 @@ urlpatterns = [
         "list",
         login_required(views.VolunteerProfileList.as_view()),
         name="volunteers_list",
+    ),
+    path(
+        "volunteer_profile_manage/<int:pk>/",
+        views.ManageVolunteerProfile.as_view(),
+        name="volunteer_profile_manage",
+    ),
+    path(
+        "resend_onboarding_email/<int:pk>/",
+        views.ResendOnboardingEmailView.as_view(),
+        name="resend_onboarding_email",
     ),
 ]

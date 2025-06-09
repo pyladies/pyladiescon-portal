@@ -3,13 +3,11 @@
 {% load account %}
 {% block content %}
 Volunteer application for {{ profile.user.first_name }}
-{% if updated %}
-Your volunteer profile has recently been updated.
-{% endif %}
 
 Hello, {{recipient_name }}.
 
 We're writing to let you know that a new volunteer has just signed up.
+Be sure to review their application in a timely manner.
 
 Volunteer application status: {{ profile.application_status }}.
 
@@ -28,4 +26,9 @@ Volunteer information:
 - Languages spoken: {{ profile.languages_spoken|join:", " }}
 - PyLadies Chapter: {{ profile.pyladies_chapter }}
 - Additional Comments: {{ profile.additional_comments }}
+
+To approve this volunteer and assign them to your teams https://{{ current_site.domain }}{% url 'volunteer:volunteer_profile_manage' profile.id %}.
+
+To manage other volunteers, visit the Volunteer Management Portal at https://{{ current_site.domain }}{% url 'volunteer:volunteer_profile_list' %}.
+
 {% endblock content %}
