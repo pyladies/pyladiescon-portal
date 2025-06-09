@@ -13,6 +13,7 @@ from django.template.loader import render_to_string
 from django.urls import reverse
 
 from portal.models import BaseModel, ChoiceArrayField
+from portal.validators import validate_linked_in_pattern
 
 from .constants import ApplicationStatus, Region, RoleTypes
 from .languages import LANGUAGES
@@ -191,15 +192,11 @@ class VolunteerProfile(BaseModel):
 
     def _validate_linkedin_url(self):
         if self.linkedin_url:
-            linkedin_pattern = (
-                r"^(https?://)?(www\.)?linkedin\.com/in/[a-zA-Z0-9_-]+/?$"
-            )
-
-            if not re.match(linkedin_pattern, self.linkedin_url):
+            if not validate_linked_in_pattern(self.linkedin_url):
                 raise ValidationError(
                     {
                         "linkedin_url": "Invalid LinkedIn URL format. "
-                        "Should be in the format: linkedin.com/in/username or https://www.linkedin.com/in/username."
+                        "Example: linkedin.com/in/username or https://www.linkedin.com/in/username."
                     }
                 )
 

@@ -230,6 +230,13 @@ class TestVolunteerProfileForm:
             ("linkedin.com", False, None),
             ("linkedin.com/username", False, None),
             ("https://othersite.com/in/username", False, None),
+            ("https://linkedin.com/company/pyladiescon", True, "https://"),
+            ("https://www.linkedin.com/school/some-school", True, "https://"),
+            (
+                "https://linkedin.com/in/rãé-gómez-Łukasz-Schröder-Jürgen-süß",
+                True,
+                "https://",
+            ),
         ],
     )
     def test_linkedin_url_validation(self, portal_user, url, valid, cleaned_prefix):
