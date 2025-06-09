@@ -6,6 +6,8 @@ from django.forms import ModelForm
 from django.forms.widgets import SelectMultiple
 from django.utils.safestring import mark_safe
 
+from portal.validators import validate_linked_in_pattern
+
 from .languages import LANGUAGES
 from .models import VolunteerProfile
 
@@ -168,11 +170,10 @@ class VolunteerProfileForm(ModelForm):
         return linkedin_url
 
     def validate_linkedin_url(self, value):
-        linkedin_pattern = r"^(https?://)?(www\.)?linkedin\.com/in/[a-zA-Z0-9_-]+/?$"
-        if not re.match(linkedin_pattern, value):
+        if not validate_linked_in_pattern(value):
             raise ValidationError(
                 "Invalid LinkedIn URL format. "
-                "Should be in the format: linkedin.com/in/username or https://www.linkedin.com/in/username."
+                "Example: linkedin.com/in/username or https://www.linkedin.com/in/username."
             )
 
     def clean(self):

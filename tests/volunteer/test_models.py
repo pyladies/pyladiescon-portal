@@ -171,6 +171,9 @@ class TestVolunteerModel:
             "http://linkedin.com/in/username",
             "https://www.linkedin.com/in/username",
             "linkedin.com/in/username",
+            "https://linkedin.com/company/pyladiescon",
+            "https://www.linkedin.com/school/some-school",
+            "https://linkedin.com/in/rãé-gómez-Łukasz-Schröder-Jürgen-süß",
         ]
 
         for url in valid_urls:
@@ -212,19 +215,19 @@ class TestVolunteerModel:
         assert "Invalid LinkedIn URL format" in str(excinfo.value)
 
     def test_linkedin_url_validation_with_invalid_chars(self, portal_user):
-        """Test LinkedIn URL validation with invalid characters."""
+        """Test LinkedIn URL validation with invalid characters.
+
+        For now as long as it starts with linkedin domain, we'll consider it valid.
+        """
         profile = VolunteerProfile(
             user=portal_user,
             languages_spoken=["en"],
             region=Region.NORTH_AMERICA,
+            discord_username="validuser123",
             linkedin_url="linkedin.com/in/user@name",
         )
 
-        with pytest.raises(ValidationError) as excinfo:
-            profile.full_clean()
-
-        assert "linkedin_url" in str(excinfo.value)
-        assert "Invalid LinkedIn URL format" in str(excinfo.value)
+        profile.full_clean()
 
     def test_linkedin_url_invalid_domain(self, portal_user):
         """Test LinkedIn URL validation with invalid domain format."""
@@ -232,6 +235,7 @@ class TestVolunteerModel:
             user=portal_user,
             languages_spoken=["en"],
             region=Region.NORTH_AMERICA,
+            discord_username="validuser123",
             linkedin_url="https://invalid-domain.com/in/username",
         )
 
@@ -247,6 +251,7 @@ class TestVolunteerModel:
             user=portal_user,
             languages_spoken=["en"],
             region=Region.NORTH_AMERICA,
+            discord_username="validuser123",
             linkedin_url="https://linkedin.com/username",
         )
 
