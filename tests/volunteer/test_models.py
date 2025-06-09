@@ -229,7 +229,6 @@ class TestVolunteerModel:
 
         profile.full_clean()
 
-
     def test_linkedin_url_invalid_domain(self, portal_user):
         """Test LinkedIn URL validation with invalid domain format."""
         profile = VolunteerProfile(

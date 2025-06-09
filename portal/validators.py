@@ -10,7 +10,5 @@ def validate_linked_in_pattern(value):
     For now, just check if it starts with the linkedin url.
     """
 
-    linkedin_pattern = (
-        r"^(https?://)?(www\.)?linkedin\.com/(in|company|school)/"
-    )
+    linkedin_pattern = r"^(https?://)?(www\.)?linkedin\.com/(in|company|school)/"
     return re.match(linkedin_pattern, value)
