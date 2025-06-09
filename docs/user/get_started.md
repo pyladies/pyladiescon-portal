@@ -14,7 +14,7 @@ If you're a conference attendee, you don't need to create an account. (TBD)
 
 In order to volunteer with PyLadiesCon, you'll first need to create an account.
 
-1. Go to the [Sign up page](http://localhost:8000/accounts/signup/)
+1. Go to the [Sign up page](/accounts/signup/)
 2. Choose a username, enter your email address, and your password.
 
 ## Verify your account

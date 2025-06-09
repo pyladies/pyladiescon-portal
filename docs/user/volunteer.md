@@ -14,7 +14,7 @@ Review available volunteer roles, responsibilties, and required commitment for t
 
 Once you're ready to volunteer, please follow these steps:
 
-1. Go to the [portal website](portal.pyladies.com) and sign in
+1. Go to the [portal website](https://portal.pyladies.com) and sign in
 2. Go to Volunteer
 3. Click create your volunteer profile
 4. Fill in required information (hours available, Discord username, language selection, team selection etc.). Feel free to fill in additional information about what skills you have so we can determine what team best fits your skillset or interests.
