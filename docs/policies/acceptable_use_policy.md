@@ -140,7 +140,7 @@ shared with the intent to harass or incite other abusive behavior, it may
 violate our prohibition against bullying and harassment.
 
 For more information, or to learn how to report a violation, see our [Code of
-Conduct](https://global-conference-2025.netlify.app/en/coc/).
+Conduct](https://2025.conference.pyladies.com/en/coc/).
 
 
 ## Hate Speech and Discrimination

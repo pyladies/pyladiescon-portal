@@ -109,7 +109,7 @@ In each language folder there are two files:
 
 To update the translation for your preferred language:
 
-1. Follow the [development setup guide](https://pyladiescon-portal-docs.netlify.app/developer/setup).
+1. Follow the [development setup guide](/developer/setup).
 1. Then open the `.po` file for the language you want to translate and find the phrase you want to translate.
 
 For example, in the file `locale/pt_BR/LC_MESSAGES/django.po` there's the following phrase:
