@@ -33,7 +33,7 @@
         {# Display django.contrib.messages as Bootstrap alerts #}
         {% bootstrap_messages %}
     </head>
-    <body>
+    <body class="d-flex flex-column min-vh-100">
         {% block body %}
         {% endblock body %}
         <nav class="navbar navbar-expand-md navbar-dark bg-dark"
@@ -158,5 +158,13 @@
         {% block content %}
         {% endblock content %}
     </div>
+    <footer class="footer mt-auto py-3 bg-dark text-white">
+        <div class="container">
+            <span>Problems with this site? File an issue in our <a href="https://github.com/pyladies/pyladiescon-portal">GitHub repository</a>, or open a pull request.
+            </span>
+            {% block footer_text %}
+            {% endblock footer_text %}
+        </div>
+    </footer>
 </body>
 </html>

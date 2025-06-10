@@ -51,3 +51,6 @@ RUN \
     DATABASE_URL=postgres://localhost:5432/db \
     DJANGO_SETTINGS_MODULE=portal.settings \
     python manage.py collectstatic --noinput
+
+RUN \
+   python manage.py createcachetable
