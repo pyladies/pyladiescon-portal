@@ -1,6 +1,7 @@
 from django.contrib.auth import get_user
 from django.shortcuts import redirect, render
 
+from portal.common import get_stats_cached_values
 from portal_account.models import PortalProfile
 from volunteer.languages import LANGUAGES
 from volunteer.models import VolunteerProfile
@@ -24,6 +25,8 @@ def index(request):
     else:
         context["volunteer_profile"] = None
         context["roles"] = []
+
+        context["stats"] = get_stats_cached_values()
 
     lang_dict = dict(LANGUAGES)
     context["lang_dict"] = lang_dict

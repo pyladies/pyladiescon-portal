@@ -286,3 +286,10 @@ else:
 
 MEDIA_URL = "/media/"  # URL to serve media files
 MEDIA_ROOT = os.path.join(BASE_DIR, "media")  # Local filesystem path
+
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.db.DatabaseCache",
+        "LOCATION": "stats_cache_table",
+    }
+}
