@@ -53,4 +53,8 @@ RUN \
     python manage.py collectstatic --noinput
 
 RUN \
-   python manage.py createcachetable
+    DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1,[::1] \
+    DJANGO_SECRET_KEY=deadbeefcafe \
+    DATABASE_URL=postgres://localhost:5432/db \
+    DJANGO_SETTINGS_MODULE=portal.settings \
+    python manage.py createcachetable
