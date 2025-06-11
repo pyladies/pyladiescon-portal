@@ -1,6 +1,6 @@
 asgiref==3.8.1
-Django==5.2.2
-django-allauth==65.5.0
+Django==5.2.3
+django-allauth==65.9.0
 django-filter==25.1
 django-tables2==2.7.5
 gunicorn==23.0.0
