@@ -235,7 +235,12 @@
                         Interested in volunteering with us? You're in the right place!
                         <a href="{% url 'account_signup' %}">Sign up</a> for an account to get started, and then fill in your Volunteer Profile.
                     </p>
-                    <a href="{% url 'account_signup' %}" class="btn btn-primary btn-lg">Sign up!</a>
+                    <p><a href="{% url 'account_signup' %}" class="btn btn-primary btn-lg">Sign up!</a>
+                        <a href="{% url 'account_login' %}" class="btn btn-outline-primary btn-lg">Sign in</a>
+                    </p>
+                    <p class="text-body-secondary">
+                    Join {{ stats.volunteer_signups_count }} volunteers who have signed up!
+                    </p>
                 </div>
                 <div class="col">
                     <div class="row row-cols-1 row-cols-sm-2 g-4">
