@@ -14,8 +14,7 @@ def get_stats_cached_values():
 
 
 def get_volunteer_signup_stat_cache():
-    """Returns the cached count of volunteer signups.
-    """
+    """Returns the cached count of volunteer signups."""
     volunteer_signups_count = cache.get(CACHE_KEY_VOLUNTEER_SIGNUPS_COUNT)
     if not volunteer_signups_count:
         volunteer_signups_count = VolunteerProfile.objects.count()

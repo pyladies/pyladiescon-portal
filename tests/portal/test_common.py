@@ -1,11 +1,10 @@
 import pytest
 from django.contrib.auth import get_user_model
+from django.core.cache import cache
 
 from portal.common import get_stats_cached_values, get_volunteer_signup_stat_cache
 from portal.constants import CACHE_KEY_VOLUNTEER_SIGNUPS_COUNT
 from volunteer.models import VolunteerProfile
-
-from django.core.cache import cache
 
 
 @pytest.mark.django_db
