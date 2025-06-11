@@ -19,15 +19,15 @@ from .models import (
 )
 
 
-class LanguageSelectMultiple(SelectMultiple):
+class SelectMultipleWidget(SelectMultiple):
     """
-    A custom widget for selecting multiple languages with autocomplete.
+    A custom widget for selecting multiple values with autocomplete.
     """
 
     def __init__(self, attrs=None, choices=()):
         default_attrs = {
             "class": "form-control select2-multiple",
-            "data-placeholder": "Start typing to select languages...",
+            "data-placeholder": "Start typing to select ...",
         }
         if attrs:
             default_attrs.update(attrs)
@@ -200,8 +200,11 @@ class VolunteerProfileForm(ModelForm):
 
         self.fields["discord_username"].required = True
         self.fields["languages_spoken"].choices = sorted_languages
-        self.fields["languages_spoken"].widget = LanguageSelectMultiple(
-            choices=sorted_languages
+        self.fields["languages_spoken"].widget = SelectMultipleWidget(
+            choices=sorted_languages,
+            attrs={
+                "data-placeholder": "Start typing to select languages...",
+            },
         )
 
         if self.instance and self.instance.pk:

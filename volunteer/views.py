@@ -28,9 +28,9 @@ def index(request):
     context = {}
     try:
         profile = VolunteerProfile.objects.get(user=request.user)
-        context["profile_id"] = profile.id
+        context["profile"] = profile
     except VolunteerProfile.DoesNotExist:
-        context["profile_id"] = None
+        context["profile"] = None
     return render(request, "volunteer/index.html", context)
 
 
@@ -256,13 +256,13 @@ class VolunteerProfileDelete(DeleteView):
     success_url = reverse_lazy("volunteer:index")
 
 
-class TeamList(LoginRequiredMixin, ListView):
+class TeamList(VolunteerAdminRequiredMixin, ListView):
     model = Team
     template_name = "team/index.html"
     context_object_name = "teams"
 
 
-class TeamView(LoginRequiredMixin, DetailView):
+class TeamView(VolunteerAdminRequiredMixin, DetailView):
     model = Team
     template_name = "team/team_detail.html"
     context_object_name = "team"
