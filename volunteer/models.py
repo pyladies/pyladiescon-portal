@@ -11,6 +11,7 @@ from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.template.loader import render_to_string
 from django.urls import reverse
+from django.utils.functional import cached_property
 
 from portal.models import BaseModel, ChoiceArrayField
 from portal.validators import validate_linked_in_pattern
@@ -47,6 +48,16 @@ class Team(BaseModel):
 
     def __str__(self):
         return self.short_name
+
+    @cached_property
+    def approved_members(self):
+        """Return all members with approved volunteer profiles."""
+        return self.members.filter(application_status=ApplicationStatus.APPROVED)
+
+    @cached_property
+    def pending_members(self):
+        """Return all members with pending volunteer profiles."""
+        return self.members.filter(application_status=ApplicationStatus.PENDING)
 
 
 class Role(BaseModel):
@@ -87,7 +98,7 @@ class VolunteerProfile(BaseModel):
         models.CharField(max_length=32, blank=True, choices=LANGUAGES)
     )
     teams = models.ManyToManyField(
-        "volunteer.Team", verbose_name="team", related_name="team", blank=True
+        "volunteer.Team", verbose_name="members", related_name="members", blank=True
     )
     pyladies_chapter = models.CharField(max_length=50, blank=True, null=True)
     additional_comments = models.CharField(max_length=1000, blank=True, null=True)
@@ -97,6 +108,16 @@ class VolunteerProfile(BaseModel):
         choices=REGION_CHOICES,
         default=Region.NO_REGION,
     )
+
+    @cached_property
+    def is_approved(self):
+        """Returns True if the volunteer profile is approved."""
+        return self.application_status == ApplicationStatus.APPROVED
+
+    @cached_property
+    def is_pending(self):
+        """Returns False if the volunteer profile is pending."""
+        return self.application_status == ApplicationStatus.PENDING
 
     def clean(self):
         super().clean()

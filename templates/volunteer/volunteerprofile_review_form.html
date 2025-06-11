@@ -7,7 +7,7 @@
         <h1 class="display-5">
             Volunteer Profile for: {{ object.user.username }}
         </h1>
-        {% if object.application_status.lower == "approved" %}
+        {% if object.is_approved %}
             <form action="{% url 'volunteer:resend_onboarding_email' object.pk %}"
                   method="post"
                   class="form">
@@ -197,7 +197,7 @@
                 <div class="card-body">
                     <div class="row mb-3">
                         <div class="col-md-3 fw-bold">
-                            {% if object.application_status == "Pending Review" %}
+                            {% if object.is_pending %}
                                 Teams applied for:
                             {% else %}
                                 Current team assignment:
@@ -237,14 +237,14 @@
                     </div>
                 </div>
                 <div class="card-footer">
-                    {% if object.application_status.lower == "pending review" %}
+                    {% if object.is_pending %}
                         <div class="alert alert-info" role="alert">
                             By approving this volunteer and assigning them to teams and roles,
                             you will be sending them an email confirmation inviting them to the team.
                         </div>
                     {% endif %}
                     <button type="submit" class="btn btn-primary">
-                        {% if object.application_status.lower == "approved" %}
+                        {% if object.is_approved %}
                             Update Team and Role Assignments
                         {% else %}
                             Approve and Onboard

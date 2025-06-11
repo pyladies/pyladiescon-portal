@@ -23,7 +23,7 @@ class TestVolunteer:
         client.force_login(portal_user)
         response = client.get(reverse("volunteer:index"))
         assert response.status_code == 200
-        assert response.context["profile_id"] is None
+        assert response.context["profile"] is None
 
     def test_volunteer_profile_view_with_profile(self, client, portal_user):
         profile = VolunteerProfile(user=portal_user)
@@ -33,7 +33,7 @@ class TestVolunteer:
         client.force_login(portal_user)
         response = client.get(reverse("volunteer:index"))
 
-        assert response.context["profile_id"] == profile.id
+        assert response.context["profile"] == profile
         assert response.status_code == 200
 
     def test_volunteer_profile_update_own_profile(self, client, portal_user):

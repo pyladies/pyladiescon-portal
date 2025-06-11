@@ -7,13 +7,15 @@
     <h1 class="display-5">
         Volunteer Profile
     </h1>
-    {% if profile_id %}
-        <a class="btn btn-primary btn-lg"
-           role="button"
-           href="{% url 'volunteer:volunteer_profile_detail' profile_id %}">View my Profile</a>
-        <a class="btn btn-secondary btn-lg"
-           role="button"
-           href="{% url 'volunteer:volunteer_profile_edit' profile_id %}">Edit Profile</a>
+    {% if profile %}
+        <div>
+            <a class="btn btn-primary btn-lg"
+               role="button"
+               href="{% url 'volunteer:volunteer_profile_detail' profile.id %}">View my Profile</a>
+            <a class="btn btn-secondary btn-lg"
+               role="button"
+               href="{% url 'volunteer:volunteer_profile_edit' profile.id %}">Edit Profile</a>
+        </div>
     {% else %}
         <p class="col-md-8 fs-4">
             You have not created your Volunteer Profile yet. Once you created your profile, our team will review it.
@@ -29,7 +31,7 @@
             Links and Resources
         </h2>
         <ul class="list-unstyled ps-8">
-            {% if profile_id %}
+            {% if profile.id %}
                 <li>
                     <a href="{% url 'volunteer:index' %}" class="icon-link">
                         Manage your volunteer profile
