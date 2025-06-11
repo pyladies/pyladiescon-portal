@@ -2,7 +2,7 @@ import django_filters
 import django_tables2 as tables
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
+from django.contrib.auth.mixins import UserPassesTestMixin
 from django.contrib.postgres.search import SearchQuery, SearchVector
 from django.shortcuts import redirect, render
 from django.urls import reverse, reverse_lazy
