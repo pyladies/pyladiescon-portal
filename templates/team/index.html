@@ -12,14 +12,21 @@
             {% for team in teams %}
                 <div class="col">
                     <div class="card h-100">
-                        <div class="card-body">
-                            <h5 class="card-title">
-                                {{ team.short_name }}
+                        <div class="card-header">
+                            <h5>
+                                <a href="{% url 'team_detail' team.id %}">{{ team.short_name }}</a>
                             </h5>
+                        </div>
+                        <div class="card-body">
                             <p class="card-text">
-                                {{ team.description | truncatechars:30 }}
+                                {{ team.description | truncatechars:50 }}
                             </p>
-                            <a href="{% url 'team_detail' team.id %}" class="btn btn-primary">More Info</a>
+                            <p class="card-text">
+                                <span class="badge bg-warning rounded-pill">{{ team.pending_members.count }}</span> <a href="{% url 'team_detail' team.id %}#pending-members">pending {{ team.pending_members.count|pluralize:"member, members" }}</a>
+                            </p>
+                            <p class="card-text">
+                                <span class="badge bg-primary rounded-pill">{{ team.approved_members.count }}</span> <a href="{% url 'team_detail' team.id %}#approved-members">approved {{ team.approved_members.count|pluralize:"member, members" }}</a>
+                            </p>
                         </div>
                     </div>
                 </div>

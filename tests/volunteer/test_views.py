@@ -1,4 +1,5 @@
 import pytest
+from django.contrib.messages import get_messages
 from django.urls import reverse
 from pytest_django.asserts import assertRedirects
 
@@ -22,7 +23,7 @@ class TestVolunteer:
         client.force_login(portal_user)
         response = client.get(reverse("volunteer:index"))
         assert response.status_code == 200
-        assert response.context["profile_id"] is None
+        assert response.context["profile"] is None
 
     def test_volunteer_profile_view_with_profile(self, client, portal_user):
         profile = VolunteerProfile(user=portal_user)
@@ -32,7 +33,7 @@ class TestVolunteer:
         client.force_login(portal_user)
         response = client.get(reverse("volunteer:index"))
 
-        assert response.context["profile_id"] == profile.id
+        assert response.context["profile"] == profile
         assert response.status_code == 200
 
     def test_volunteer_profile_update_own_profile(self, client, portal_user):
@@ -352,6 +353,16 @@ class TestManageVolunteers:
         assert ApplicationStatus.PENDING in render_application_status
         assert "bg-warning" in render_application_status
 
+        another_profile.application_status = ApplicationStatus.PENDING
+        action_button = volunteer_table.render_actions("", another_profile)
+        assert "btn-primary" in action_button
+        assert "Review" in action_button
+
+        another_profile.application_status = ApplicationStatus.APPROVED
+        action_button = volunteer_table.render_actions("", another_profile)
+        assert "btn-info" in action_button
+        assert "Manage" in action_button
+
     def test_filter_volunteers_table(self, client, portal_user, django_user_model):
         profile = VolunteerProfile(user=portal_user)
         profile.languages_spoken = [LANGUAGES[0]]
@@ -378,3 +389,237 @@ class TestManageVolunteers:
         filter_queryset = filter.qs
         search_by_name = filter.search_fulltext(filter_queryset, "", "")
         assert search_by_name.count() == 2
+
+        qs = filter.filter_languages_spoken(filter_queryset, "", LANGUAGES[1])
+        assert qs.count() == 0  # no matching languages
+
+        qs = filter.filter_languages_spoken(filter_queryset, "", LANGUAGES[0])
+        assert qs.count() == 2  # both profiles match the language
+
+
+@pytest.mark.django_db
+class TestManageVolunteerApplications:
+
+    def test_review_volunteers_view_forbidden_if_not_superuser(
+        self, client, portal_user, django_user_model
+    ):
+        another_user = django_user_model.objects.create_user(
+            username="other",
+        )
+        another_profile = VolunteerProfile(user=another_user)
+        another_profile.languages_spoken = [LANGUAGES[0]]
+        another_profile.save()
+
+        client.force_login(portal_user)
+        response = client.get(
+            reverse(
+                "volunteer:volunteer_profile_manage", kwargs={"pk": another_profile.id}
+            )
+        )
+        assert response.status_code == 403
+
+    def test_review_volunteers_view_is_superuser(
+        self, client, portal_user, django_user_model
+    ):
+        another_user = django_user_model.objects.create_user(
+            username="other",
+        )
+        another_profile = VolunteerProfile(user=another_user)
+        another_profile.languages_spoken = [LANGUAGES[0]]
+        another_profile.save()
+
+        portal_user.is_superuser = True
+        portal_user.save()
+
+        client.force_login(portal_user)
+        response = client.get(
+            reverse(
+                "volunteer:volunteer_profile_manage", kwargs={"pk": another_profile.id}
+            )
+        )
+        assert response.status_code == 200
+
+    def test_manage_volunteers_view_is_staff(
+        self, client, portal_user, django_user_model
+    ):
+        another_user = django_user_model.objects.create_user(
+            username="other",
+        )
+        another_profile = VolunteerProfile(user=another_user)
+        another_profile.languages_spoken = [LANGUAGES[0]]
+        another_profile.save()
+
+        portal_user.is_staff = True
+        portal_user.save()
+
+        client.force_login(portal_user)
+        response = client.get(
+            reverse(
+                "volunteer:volunteer_profile_manage", kwargs={"pk": another_profile.id}
+            )
+        )
+        assert response.status_code == 200
+
+    def test_approve_volunteer_profile_valid_data(
+        self, client, portal_user, django_user_model
+    ):
+        profile = VolunteerProfile(user=portal_user)
+        profile.languages_spoken = [LANGUAGES[0]]
+        profile.save()
+
+        another_user = django_user_model.objects.create_user(
+            username="other",
+        )
+        another_profile = VolunteerProfile(user=another_user)
+        another_profile.languages_spoken = [LANGUAGES[0]]
+        another_profile.save()
+
+        portal_user.is_superuser = True
+        portal_user.save()
+
+        team = Team(short_name="Test Team", description="Test Description")
+        team.save()
+        team.team_leads.add(profile)
+
+        role = Role(short_name="Test Role", description="Test Role Description")
+        role.save()
+        another_profile.roles.add(role)
+
+        client.force_login(portal_user)
+        response = client.post(
+            reverse(
+                "volunteer:volunteer_profile_manage", kwargs={"pk": another_profile.id}
+            ),
+            data={"teams": [team.id], "roles": [role.id]},
+        )
+
+        assert response.status_code == 302
+        another_profile.refresh_from_db()
+        assert another_profile.application_status == ApplicationStatus.APPROVED
+
+        assert another_profile.teams.count() == 1
+        assert another_profile.teams.first().short_name == team.short_name
+
+        assert another_profile.roles.count() == 1
+        assert another_profile.roles.first().short_name == role.short_name
+
+    def test_approve_volunteer_profile_data_not_valid(
+        self, client, portal_user, django_user_model
+    ):
+        profile = VolunteerProfile(user=portal_user)
+        profile.languages_spoken = [LANGUAGES[0]]
+        profile.save()
+
+        another_user = django_user_model.objects.create_user(
+            username="other",
+        )
+        another_profile = VolunteerProfile(user=another_user)
+        another_profile.languages_spoken = [LANGUAGES[0]]
+        another_profile.save()
+
+        portal_user.is_superuser = True
+        portal_user.save()
+
+        client.force_login(portal_user)
+
+        # no such team or role
+        response = client.post(
+            reverse(
+                "volunteer:volunteer_profile_manage", kwargs={"pk": another_profile.id}
+            ),
+            data={"teams": [111]},
+        )
+
+        # stays in the same page because of errors
+        assert response.status_code == 200
+        another_profile.refresh_from_db()
+
+        # application status remains pending and no teams or roles are assigned
+        assert another_profile.application_status == ApplicationStatus.PENDING
+        assert another_profile.teams.count() == 0
+        assert another_profile.roles.count() == 0
+
+    def test_resend_onboarding_email_if_approved(
+        self, client, portal_user, django_user_model
+    ):
+        profile = VolunteerProfile(user=portal_user)
+        profile.languages_spoken = [LANGUAGES[0]]
+        profile.save()
+
+        another_user = django_user_model.objects.create_user(
+            username="other",
+        )
+        another_profile = VolunteerProfile(user=another_user)
+        another_profile.languages_spoken = [LANGUAGES[0]]
+        another_profile.application_status = ApplicationStatus.APPROVED
+        another_profile.save()
+
+        portal_user.is_superuser = True
+        portal_user.save()
+
+        client.force_login(portal_user)
+        response = client.post(
+            reverse(
+                "volunteer:resend_onboarding_email", kwargs={"pk": another_profile.id}
+            ),
+        )
+
+        # redirected to the manage volunteer page because it was successful
+        messages = list(get_messages(response.wsgi_request))
+        assert len(messages) == 1
+        assert "Onboarding email was sent successfully." in messages[0].message
+
+    @pytest.mark.parametrize(
+        "application_status",
+        [
+            ApplicationStatus.CANCELLED,
+            ApplicationStatus.REJECTED,
+            ApplicationStatus.PENDING,
+        ],
+    )
+    def test_resend_onboarding_email_not_sent_if_not_approved(
+        self, client, portal_user, django_user_model, application_status
+    ):
+        profile = VolunteerProfile(user=portal_user)
+        profile.languages_spoken = [LANGUAGES[0]]
+        profile.save()
+
+        another_user = django_user_model.objects.create_user(
+            username="other",
+        )
+        another_profile = VolunteerProfile(user=another_user)
+        another_profile.languages_spoken = [LANGUAGES[0]]
+        another_profile.application_status = application_status
+        another_profile.save()
+
+        portal_user.is_superuser = True
+        portal_user.save()
+
+        client.force_login(portal_user)
+        response = client.post(
+            reverse(
+                "volunteer:resend_onboarding_email", kwargs={"pk": another_profile.id}
+            ),
+        )
+        messages = list(get_messages(response.wsgi_request))
+        assert len(messages) == 1
+        assert (
+            "Onboarding email can only be sent to approved volunteers."
+            in messages[0].message
+        )
+
+    def test_resend_onboarding_email_not_sent_if_no_such_object(
+        self, client, portal_user
+    ):
+
+        portal_user.is_superuser = True
+        portal_user.save()
+
+        client.force_login(portal_user)
+
+        response = client.post(
+            reverse("volunteer:resend_onboarding_email", kwargs={"pk": 123456}),
+        )
+        messages = list(get_messages(response.wsgi_request))
+        assert len(messages) == 1
+        assert "Volunteer profile not found." in messages[0].message

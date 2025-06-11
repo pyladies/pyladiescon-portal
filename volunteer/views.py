@@ -1,18 +1,26 @@
+import django_filters
 import django_tables2 as tables
+from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
+from django.contrib.auth.mixins import UserPassesTestMixin
 from django.contrib.postgres.search import SearchQuery, SearchVector
 from django.shortcuts import redirect, render
 from django.urls import reverse, reverse_lazy
 from django.utils.html import format_html
+from django.views import View
 from django.views.generic import DetailView, ListView
 from django.views.generic.edit import CreateView, DeleteView, UpdateView
-from django_filters import CharFilter, FilterSet
 from django_filters.views import FilterView
 from django_tables2.views import SingleTableMixin
 
-from .forms import VolunteerProfileForm
-from .models import ApplicationStatus, Team, VolunteerProfile
+from .forms import VolunteerProfileForm, VolunteerProfileReviewForm
+from .languages import LANGUAGES
+from .models import (
+    ApplicationStatus,
+    Team,
+    VolunteerProfile,
+    send_volunteer_onboarding_email,
+)
 
 
 @login_required
@@ -20,27 +28,47 @@ def index(request):
     context = {}
     try:
         profile = VolunteerProfile.objects.get(user=request.user)
-        context["profile_id"] = profile.id
+        context["profile"] = profile
     except VolunteerProfile.DoesNotExist:
-        context["profile_id"] = None
+        context["profile"] = None
     return render(request, "volunteer/index.html", context)
 
 
-class VolunteerProfileFilter(FilterSet):
-    search = CharFilter(
+class VolunteerAdminRequiredMixin(UserPassesTestMixin):
+    """Mixin for views that require administrative permission for the volunteers.
+    Currently it requires the user to be a superuser or staff member.
+    This can be extended to include more complex permission checks in the future.
+    """
+
+    def test_func(self):
+        return self.request.user.is_superuser or self.request.user.is_staff
+
+
+class VolunteerProfileFilter(django_filters.FilterSet):
+    search = django_filters.CharFilter(
         label="Search by username, first name, or last name", method="search_fulltext"
+    )
+    languages_spoken = django_filters.ChoiceFilter(
+        method="filter_languages_spoken",
+        choices=LANGUAGES,
+        label="Languages Spoken",
+        field_name="languages_spoken",
     )
 
     class Meta:
         model = VolunteerProfile
-        fields = ["search"]
+        fields = ["search", "application_status"]
 
     def search_fulltext(self, queryset, field_name, value):
         if not value:
             return queryset
         return queryset.annotate(  # pragma: no cover
-            search=SearchVector("user__username")
+            search=SearchVector("user__username", "user__first_name", "user__last_name")
         ).filter(search=SearchQuery(value))
+
+    def filter_languages_spoken(self, queryset, name, value):
+        """Custom filtering for the languages_spoken field."""
+        return queryset.filter(languages_spoken__contains=[value])
 
 
 class VolunteerProfileTable(tables.Table):
@@ -94,16 +122,21 @@ class VolunteerProfileTable(tables.Table):
             return format_html('<span class="badge bg-warning">{}</span>', value)
 
     def render_actions(self, value, record):
-        """Render the actions column with link to review the application."""
+        """Render the actions column.
+        If the application status is Pending, render the Review button.
+        If the application status is Approved, render the Manage volunteer button.
+        """
         render_html = ""
-        if record.application_status == ApplicationStatus.PENDING:
-            review_url = reverse(
-                "volunteer:volunteer_profile_detail", kwargs={"pk": record.pk}
-            )
+        application_status = record.application_status
+        url = reverse("volunteer:volunteer_profile_manage", kwargs={"pk": record.pk})
+        if application_status == ApplicationStatus.PENDING:
             render_html = format_html(
-                '<a href="{}" class="btn btn-sm btn-primary">Review</a> ', review_url
+                '<a href="{}" class="btn btn-sm btn-primary">Review</a> ', url
             )
-
+        elif application_status == ApplicationStatus.APPROVED:
+            render_html = format_html(
+                '<a href="{}" class="btn btn-sm btn-info">Manage</a> ', url
+            )
         return render_html
 
     def render_username(self, value, record):
@@ -126,7 +159,9 @@ class VolunteerProfileTable(tables.Table):
         html_content = ""
         for team in record.teams.all():
             html_content = format_html(
-                '<span class="badge bg-secondary">{}</span> ', team.short_name
+                '{}<span class="badge bg-secondary">{}</span> ',
+                html_content,
+                team.short_name,
             )
         return html_content
 
@@ -142,14 +177,11 @@ class VolunteerProfileTable(tables.Table):
         return html_content
 
 
-class VolunteerProfileList(UserPassesTestMixin, SingleTableMixin, FilterView):
+class VolunteerProfileList(VolunteerAdminRequiredMixin, SingleTableMixin, FilterView):
     model = VolunteerProfile
     template_name = "volunteer/volunteerprofile_list.html"
     table_class = VolunteerProfileTable
     filterset_class = VolunteerProfileFilter
-
-    def test_func(self):
-        return self.request.user.is_staff or self.request.user.is_superuser
 
 
 class VolunteerProfileView(DetailView):
@@ -164,6 +196,24 @@ class VolunteerProfileView(DetailView):
         ):
             return redirect("volunteer:index")
         return super(VolunteerProfileView, self).get(request, *args, **kwargs)
+
+
+class ManageVolunteerProfile(VolunteerAdminRequiredMixin, UpdateView):
+    """View for managing a volunteer profile.
+
+    Only accessible to staff or superusers.
+    Only allows updating a profile that has been approved.
+    """
+
+    model = VolunteerProfile
+    template_name = "volunteer/volunteerprofile_review_form.html"
+    success_url = reverse_lazy("volunteer:volunteer_profile_list")
+    form_class = VolunteerProfileReviewForm
+
+    def get_form_kwargs(self):
+        kwargs = super(ManageVolunteerProfile, self).get_form_kwargs()
+        kwargs.update({"user": self.request.user})
+        return kwargs
 
 
 class VolunteerProfileCreate(CreateView):
@@ -206,13 +256,13 @@ class VolunteerProfileDelete(DeleteView):
     success_url = reverse_lazy("volunteer:index")
 
 
-class TeamList(LoginRequiredMixin, ListView):
+class TeamList(VolunteerAdminRequiredMixin, ListView):
     model = Team
     template_name = "team/index.html"
     context_object_name = "teams"
 
 
-class TeamView(LoginRequiredMixin, DetailView):
+class TeamView(VolunteerAdminRequiredMixin, DetailView):
     model = Team
     template_name = "team/team_detail.html"
     context_object_name = "team"
@@ -223,3 +273,37 @@ class TeamView(LoginRequiredMixin, DetailView):
         except Team.DoesNotExist:
             return redirect("teams")
         return super(TeamView, self).get(request, pk)
+
+
+class ResendOnboardingEmailView(VolunteerAdminRequiredMixin, View):
+
+    def post(self, request, pk):
+        """
+        Resend the onboarding email to the volunteer.
+        """
+        try:
+            profile = VolunteerProfile.objects.get(pk=pk)
+            if profile.application_status == ApplicationStatus.APPROVED:
+                send_volunteer_onboarding_email(profile)
+                messages.add_message(
+                    request, messages.SUCCESS, "Onboarding email was sent successfully."
+                )
+            else:
+
+                messages.add_message(
+                    request,
+                    messages.ERROR,
+                    "Onboarding email can only be sent to approved volunteers.",
+                )
+        except VolunteerProfile.DoesNotExist:
+            messages.add_message(
+                request, messages.ERROR, "Volunteer profile not found."
+            )
+
+        except Exception as e:  # pragma: no cover
+
+            messages.add_message(
+                request, messages.ERROR, f"An error occurred: {str(e)}"
+            )
+
+        return redirect("volunteer:volunteer_profile_manage", pk=pk)

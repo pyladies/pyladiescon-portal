@@ -12,6 +12,10 @@
         <form action="" method="get" class="form">
             {% bootstrap_form filter.form %}
             {% bootstrap_button 'Search' %}
+            {% if filter.form.is_bound %}
+                <a href="{% url 'volunteer:volunteer_profile_list' %}"
+                   class="btn btn-secondary">Reset Filters</a>
+            {% endif %}
         </form>
     {% endif %}
     {% render_table table %}

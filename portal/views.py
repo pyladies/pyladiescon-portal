@@ -36,13 +36,13 @@ def index(request):
         # Prefetch team_leads and team members (and their users) for all teams in one go
         teams_qs = (
             context["volunteer_profile"]
-            .teams.prefetch_related("team_leads__user", "team__user")
+            .teams.prefetch_related("team_leads__user", "members__user")
             .all()
         )
 
         for team in teams_qs:
             leads = team.team_leads.all()
-            members = team.team.all().exclude(pk=context["volunteer_profile"].pk)
+            members = team.members.all().exclude(pk=context["volunteer_profile"].pk)
             teams.append(
                 {
                     "name": team.short_name,
