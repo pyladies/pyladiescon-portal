@@ -292,9 +292,9 @@ MEDIA_ROOT = os.path.join(BASE_DIR, "media")  # Local filesystem path
 
 GDRIVE_FOLDER_ID = os.getenv("GDRIVE_FOLDER_ID", "")
 
-# CACHES = {
-#     "default": {
-#         "BACKEND": "django.core.cache.backends.db.DatabaseCache",
-#         "LOCATION": "stats_cache_table",
-#     }
-# }
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.db.DatabaseCache",
+        "LOCATION": "stats_cache_table",
+    }
+}
