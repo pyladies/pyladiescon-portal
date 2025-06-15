@@ -1,0 +1,70 @@
+{% extends "portal/base.html" %}
+{% load allauth i18n %}
+{% load django_bootstrap5 %}
+{% block body %}
+{% endblock body %}
+{% block content %}
+    <div class="container px-4 py-5" id="featured-3">
+        <h2 class="pb-2 border-bottom">
+            {{ team.short_name }}
+            {% if user.is_superuser %}
+                <small class="fs-6"><a href="{% url 'admin:volunteer_team_change' team.id %}">Edit in Django Admin</a></small>
+            {% endif %}
+        </h2>
+        <div class="row g-4 py-5 row-cols-1 row-cols-lg-3">
+            {{ team.description }}
+        </div>
+        <h3 id="team-leads">
+            Team Leads
+        </h3>
+        <ul>
+            {% for member in team.team_leads.all %}
+                <li>
+                    {% if user.is_superuser %}
+                        <a href="{% url 'volunteer:volunteer_profile_detail' member.id %}">{{ member.user.get_full_name }}</a>
+                    {% else %}
+                        {{ member.user.get_full_name }}
+                    {% endif %}
+                </li>
+            {% endfor %}
+        </ul>
+        {% if user.is_superuser %}
+            <h3 id="pending-members">
+                Pending Members <span class="badge bg-warning rounded-pill">{{ team.pending_members.count }}</span>
+            </h3>
+            {% if team.pending_members.count == 0 %}
+                No pending members.
+            {% else %}
+                <ul>
+                    {% for member in team.pending_members.all %}
+                        <li>
+                            {% if user.is_superuser %}
+                                <a href="{% url 'volunteer:volunteer_profile_manage' member.id %}">{{ member.user.get_full_name }}</a>
+                            {% else %}
+                                {{ member.user.get_full_name }}
+                            {% endif %}
+                        </li>
+                    {% endfor %}
+                </ul>
+            {% endif %}
+        {% endif %}
+        <h3 id="approved-members">
+            Approved Members <span class="badge bg-primary rounded-pill">{{ team.approved_members.count }}</span>
+        </h3>
+        {% if team.approved_members.count == 0 %}
+            No approved members.
+        {% else %}
+            <ul>
+                {% for member in team.approved_members.all %}
+                    <li>
+                        {% if user.is_superuser %}
+                            <a href="{% url 'volunteer:volunteer_profile_detail' member.id %}">{{ member.user.get_full_name }}</a>
+                        {% else %}
+                            {{ member.user.get_full_name }}
+                        {% endif %}
+                    </li>
+                {% endfor %}
+            </ul>
+        {% endif %}
+    </div>
+{% endblock content %}

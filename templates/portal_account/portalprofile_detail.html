@@ -1,42 +1,80 @@
 {% extends "portal/base.html" %}
 {% load allauth i18n %}
 {% load django_bootstrap5 %}
-
 {% block body %}
-{% endblock %}
+{% endblock body %}
 {% block content %}
-    <h1 class="display-5 mb-4">Your Portal Profile</h1>
-    
+    <h1 class="display-5 mb-4">
+        Your Portal Profile
+    </h1>
     <div class="card mb-4">
         <div class="card-header">
-            <h5 class="card-title mb-0">Basic Information</h5>
+            <h5 class="card-title mb-0">
+                Basic Information
+            </h5>
         </div>
         <div class="card-body">
             <div class="row mb-3">
-                <div class="col-md-3 fw-bold">Username:</div>
-                <div class="col-md-9">{{ object.user.username }}</div>
+                <div class="col-md-3 fw-bold">
+                    Username:
+                </div>
+                <div class="col-md-9">
+                    {{ object.user.username }}
+                </div>
             </div>
             <div class="row mb-3">
-                <div class="col-md-3 fw-bold">Name:</div>
-                <div class="col-md-9">{{ object.user.first_name }} {{ object.user.last_name }}</div>
+                <div class="col-md-3 fw-bold">
+                    Name:
+                </div>
+                <div class="col-md-9">
+                    {{ object.user.first_name }} {{ object.user.last_name }}
+                </div>
             </div>
             <div class="row mb-3">
-                <div class="col-md-3 fw-bold">Email:</div>
-                <div class="col-md-9">{{ object.user.email }}</div>
+                <div class="col-md-3 fw-bold">
+                    Email:
+                </div>
+                <div class="col-md-9">
+                    {{ object.user.email }}
+                </div>
             </div>
             <div class="row mb-3">
-                <div class="col-md-3 fw-bold">Pronouns:</div>
-                <div class="col-md-9">{{ object.pronouns|default:"Not specified" }}</div>
+                <div class="col-md-3 fw-bold">
+                    Pronouns:
+                </div>
+                <div class="col-md-9">
+                    {{ object.pronouns|default:"Not specified" }}
+                </div>
             </div>
             <div class="row mb-3">
-                <div class="col-md-3 fw-bold">Code of Conduct Agreement:</div>
-                <div class="col-md-9">{% if object.coc_agreement %}Agreed{% else %}Not agreed{% endif %}</div>
+                <div class="col-md-3 fw-bold">
+                    Code of Conduct Agreement:
+                </div>
+                <div class="col-md-9">
+                    {% if object.coc_agreement %}
+                        Agreed
+                    {% else %}
+                        Not agreed
+                    {% endif %}
+                </div>
+            </div>
+            <div class="row mb-3">
+                <div class="col-md-3 fw-bold">
+                    Terms of Service Agreement:
+                </div>
+                <div class="col-md-9">
+                    {% if object.tos_agreement %}
+                        Agreed
+                    {% else %}
+                        Not agreed
+                    {% endif %}
+                </div>
             </div>
         </div>
     </div>
-    
     <div class="mt-4">
-        <a class="btn btn-primary" href="{% url 'portal_account:portal_profile_edit' object.pk %}">Edit Profile</a>
+        <a class="btn btn-primary"
+           href="{% url 'portal_account:portal_profile_edit' object.pk %}">Edit Profile</a>
         <a class="btn btn-secondary" href="{% url 'portal_account:index' %}">Back to Account Management</a>
     </div>
-{% endblock %}
+{% endblock content %}

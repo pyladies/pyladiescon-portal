@@ -29,7 +29,10 @@ class Migration(migrations.Migration):
                         to="portal.basemodel",
                     ),
                 ),
-                ("pronouns", models.CharField(blank=True, max_length=100, null=True)),
+                (
+                    "pronouns",
+                    models.CharField(blank=True, max_length=100, null=True),
+                ),
                 ("coc_agreement", models.BooleanField(default=False)),
                 (
                     "user",

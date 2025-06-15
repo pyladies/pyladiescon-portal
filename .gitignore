@@ -1,0 +1,34 @@
+
+# Python cache
+__pycache__/
+*.py[cod]
+.cache
+
+# Virtual envs
+.venv/
+venv/
+env/
+
+# Env files
+.envrc
+.env.dev
+.env.prod
+.env.prod.db
+.env
+
+# Coverage and state
+.coverage
+.state
+
+# Django static build
+staticroot/
+
+# Editor files
+.vscode/
+
+# macOS file
+.DS_Store
+
+site/
+htmlcov/
+

@@ -2,13 +2,17 @@
 <section>
     <h2>
         {% slot title %}
-        {% endslot %}
-    </h2>
-    {% slot body %}
     {% endslot %}
-    {% if slots.actions %}
-        <ul>
-            {% for action in slots.actions %}<li>{{ action }}</li>{% endfor %}
-        </ul>
-    {% endif %}
+</h2>
+{% slot body %}
+{% endslot %}
+{% if slots.actions %}
+    <ul>
+        {% for action in slots.actions %}
+            <li>
+                {{ action }}
+            </li>
+        {% endfor %}
+    </ul>
+{% endif %}
 </section>

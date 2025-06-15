@@ -1,20 +1,70 @@
 {% extends "portal/base.html" %}
 {% load allauth i18n %}
 {% load django_bootstrap5 %}
-
 {% block body %}
-{% endblock %}
+{% endblock body %}
 {% block content %}
-    <h1 class="display-5">Volunteer Profile</h1>
-    {% if profile_id %}
-        <a class="btn btn-primary btn-lg" role="button" href="{% url 'volunteer:volunteer_profile_detail' profile_id %}">View my Profile</a>
-        <a class="btn btn-secondary btn-lg" role="button" href="{% url 'volunteer:volunteer_profile_edit' profile_id %}">Edit Profile</a>
+    <h1 class="display-5">
+        Volunteer Profile
+    </h1>
+    {% if profile %}
+        <div>
+            <a class="btn btn-primary btn-lg"
+               role="button"
+               href="{% url 'volunteer:volunteer_profile_detail' profile.id %}">View my Profile</a>
+            <a class="btn btn-secondary btn-lg"
+               role="button"
+               href="{% url 'volunteer:volunteer_profile_edit' profile.id %}">Edit Profile</a>
+        </div>
     {% else %}
         <p class="col-md-8 fs-4">
             You have not created your Volunteer Profile yet. Once you created your profile, our team will review it.
             We will then assign you to the appropriate team that needs help so you can get set up with the
             necessary access.
         </p>
-        <a class="btn btn-primary btn-lg" role="button" href="{% url 'volunteer:volunteer_profile_new'%}">Create my Profile</a>
+        <a class="btn btn-primary btn-lg"
+           role="button"
+           href="{% url 'volunteer:volunteer_profile_new' %}">Create my Profile</a>
     {% endif %}
-{% endblock %}
+    <p>
+        <h2>
+            Links and Resources
+        </h2>
+        <ul class="list-unstyled ps-8">
+            {% if profile.id %}
+                <li>
+                    <a href="{% url 'volunteer:index' %}" class="icon-link">
+                        Manage your volunteer profile
+                        <i class="fa-solid fa-chevron-right"></i>
+                    </a>
+                </li>
+            {% else %}
+                <li>
+                    <a href="{% url 'volunteer:volunteer_profile_new' %}" class="icon-link">
+                        Volunteer Now
+                        <i class="fa-solid fa-chevron-right"></i>
+                    </a>
+                </li>
+            {% endif %}
+            <li>
+                <a href="https://conference.pyladies.com/docs/" class="icon-link">
+                    Team Descriptions
+                    <i class="fa-solid fa-chevron-right"></i>
+                </a> Learn about the different teams and their roles.
+            </li>
+            <li>
+                <a href="https://conference.pyladies.com/docs/roles_and_responsibilities/"
+                   class="icon-link">
+                    Volunteer Responsibilities
+                    <i class="fa-solid fa-chevron-right"></i>
+                </a> Understand the expectations and responsibilities of a volunteer.
+            </li>
+            <li>
+                <a href="https://discord.com/invite/2fUN4ddVfP" class="icon-link">
+                    Join our Discord
+                    <i class="fa-brands fa-discord"></i>
+                </a> All of our volunteers are required to be in our Discord server.
+            </li>
+        </ul>
+    </p>
+{% endblock content %}

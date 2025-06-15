@@ -1,0 +1,16 @@
+asgiref==3.8.1
+Django==5.2.3
+django-allauth==65.9.0
+django-filter==25.1
+django-tables2==2.7.5
+gunicorn==23.0.0
+packaging==24.2
+psycopg2-binary==2.9.10
+sqlparse==0.5.3
+django-bootstrap5==25.1
+whitenoise==6.9.0
+dj-database-url==2.3.0
+boto3==1.38.5
+django-storages==1.14.6
+django-widget-tweaks==1.5.0
+pillow==11.2.1

@@ -6,7 +6,15 @@
 {% if attrs.name %}name="{{ attrs.name }}"{% endif %}
 {% if attrs.value %}value="{{ attrs.value }}"{% endif %}
 {% if attrs.type %}type="{{ attrs.type }}"{% endif %}
->
+
+class="{% block class %}
+    btn
+    {% if "link" in attrs.tags %}btn-link
+    {% else %}
+      {% if "prominent" in attrs.tags %}btn-lg{% elif "minor" in attrs.tags %}btn-sm{% endif %}
+      btn-{% if 'outline' in attrs.tags %}outline-{% endif %}{% if "danger" in attrs.tags %}danger{% elif "secondary" in attrs.tags %}secondary{% elif "warning" in attrs.tags %}warning{% else %}primary{% endif %}
+    {% endif %}{% endblock %}">
+
 {% slot %}
 {% endslot %}
 </{% if attrs.href %}a{% else %}button{% endif %}>
