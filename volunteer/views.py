@@ -13,6 +13,7 @@ from django.views.generic.edit import CreateView, DeleteView, UpdateView
 from django_filters.views import FilterView
 from django_tables2.views import SingleTableMixin
 
+from django.http import HttpResponse
 from .forms import VolunteerProfileForm, VolunteerProfileReviewForm
 from .languages import LANGUAGES
 from .models import (
@@ -256,6 +257,9 @@ class VolunteerProfileDelete(DeleteView):
     success_url = reverse_lazy("volunteer:index")
 
 
+def sponsorship_success(request):
+    return HttpResponse("Thank you for submitting your sponsorship profile!")
+
 class TeamList(VolunteerAdminRequiredMixin, ListView):
     model = Team
     template_name = "team/index.html"
@@ -307,3 +311,4 @@ class ResendOnboardingEmailView(VolunteerAdminRequiredMixin, View):
             )
 
         return redirect("volunteer:volunteer_profile_manage", pk=pk)
+    
