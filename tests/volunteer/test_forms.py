@@ -1,4 +1,5 @@
 import pytest
+from django.core.exceptions import ValidationError
 
 from volunteer.constants import Region
 from volunteer.forms import SelectMultipleWidget, VolunteerProfileForm
@@ -11,6 +12,7 @@ class TestVolunteerProfileForm:
         "languages_spoken": ["en"],
         "region": Region.NORTH_AMERICA,
         "discord_username": "validuser123",
+        "github_username": "validuser123",
         "availability_hours_per_week": 5,
     }
 
@@ -34,6 +36,7 @@ class TestVolunteerProfileForm:
         assert "languages_spoken" in form.errors
         assert "region" in form.errors
         assert "discord_username" in form.errors
+        assert "github_username" in form.errors
         assert "availability_hours_per_week" in form.errors
 
         form = VolunteerProfileForm(
@@ -42,18 +45,21 @@ class TestVolunteerProfileForm:
         assert not form.is_valid()
         assert "languages_spoken" in form.errors
         assert "discord_username" in form.errors
+        assert "github_username" in form.errors
         assert "availability_hours_per_week" in form.errors
 
         form = VolunteerProfileForm(user=portal_user, data={"languages_spoken": ["en"]})
         assert not form.is_valid()
         assert "region" in form.errors
         assert "discord_username" in form.errors
+        assert "github_username" in form.errors
         assert "availability_hours_per_week" in form.errors
 
         form = VolunteerProfileForm(user=portal_user, data={"discord_username": ["en"]})
         assert not form.is_valid()
         assert "region" in form.errors
         assert "languages_spoken" in form.errors
+        assert "github_username" in form.errors
         assert "availability_hours_per_week" in form.errors
 
         form = VolunteerProfileForm(
@@ -63,12 +69,14 @@ class TestVolunteerProfileForm:
         assert "region" in form.errors
         assert "languages_spoken" in form.errors
         assert "discord_username" in form.errors
+        assert "github_username" in form.errors
 
         form = VolunteerProfileForm(
             user=portal_user, data={"languages_spoken": ["en"], "timezone": "UTC-12"}
         )
         assert not form.is_valid()
         assert "discord_username" in form.errors
+        assert "github_username" in form.errors
 
     @pytest.mark.parametrize(
         "username,valid",
@@ -112,7 +120,7 @@ class TestVolunteerProfileForm:
             ("user123", True),
             ("User123-Name", True),
             ("a" * 39, True),
-            ("", True),
+            ("", False),
             ("-username", False),
             ("username-", False),
             ("user--name", False),
@@ -123,6 +131,8 @@ class TestVolunteerProfileForm:
     def test_github_username_validation(self, portal_user, username, valid):
         """Test GitHub username validation with various cases."""
         form_data = {**self.BASE_VALID_DATA, "github_username": username}
+        if username == "":
+            form_data.pop("github_username")
         form = VolunteerProfileForm(user=portal_user, data=form_data)
         assert form.is_valid() == valid
         if not valid:
@@ -282,10 +292,9 @@ class TestVolunteerProfileForm:
         assert updated_profile.availability_hours_per_week == 20
 
     def test_optional_social_fields(self, portal_user):
-        """Test that all social media fields except Discord are optional."""
+        """Test that all social media fields except Discord and GitHub are optional."""
         form_data = {
             **self.BASE_VALID_DATA,
-            "github_username": "",
             "instagram_username": "",
             "bluesky_username": "",
             "mastodon_url": "",
@@ -296,10 +305,9 @@ class TestVolunteerProfileForm:
         assert form.is_valid()
 
     def test_empty_optional_fields(self, portal_user):
-        """Test that optional fields can be empty (Discord is required)."""
+        """Test that optional fields can be empty (Discord and GitHub are required)."""
         form_data = {
             **self.BASE_VALID_DATA,
-            "github_username": "",
             "instagram_username": "",
             "bluesky_username": "",
             "mastodon_url": "",
@@ -308,7 +316,6 @@ class TestVolunteerProfileForm:
         }
         form = VolunteerProfileForm(user=portal_user, data=form_data)
         assert form.is_valid()
-        assert form.cleaned_data["github_username"] is None
         assert form.cleaned_data["bluesky_username"] is None
 
     def test_form_clean_method(self, portal_user):
@@ -360,7 +367,6 @@ class TestVolunteerProfileForm:
         """Test that all optional fields can be empty."""
         form_data = {
             **self.BASE_VALID_DATA,
-            "github_username": "",
             "instagram_username": "",
             "bluesky_username": "",
             "mastodon_url": "",
@@ -471,6 +477,128 @@ class TestVolunteerProfileForm:
         )
         assert form.is_valid()
         assert form.cleaned_data["linkedin_url"] == "https://linkedin.com/in/username"
+
+    def test_github_username_required_field(self, portal_user):
+        """Test that GitHub username is a required field."""
+        # Test form without github_username
+        form_data = {**self.BASE_VALID_DATA}
+        form_data.pop("github_username")
+        form = VolunteerProfileForm(user=portal_user, data=form_data)
+        assert not form.is_valid()
+        assert "github_username" in form.errors
+        assert "GitHub username is required." in str(form.errors["github_username"])
+
+    def test_github_username_required_error_message(self, portal_user):
+        """Test the specific error message when GitHub username is missing."""
+        form_data = {**self.BASE_VALID_DATA}
+        form_data.pop("github_username")
+        form = VolunteerProfileForm(user=portal_user, data=form_data)
+        assert not form.is_valid()
+        assert form.errors["github_username"] == ["GitHub username is required."]
+
+    def test_github_username_empty_string_validation(self, portal_user):
+        """Test that empty string for GitHub username fails validation."""
+        form_data = {**self.BASE_VALID_DATA, "github_username": ""}
+        form = VolunteerProfileForm(user=portal_user, data=form_data)
+        assert not form.is_valid()
+        assert "github_username" in form.errors
+        assert "GitHub username is required." in str(form.errors["github_username"])
+
+    def test_github_username_whitespace_only_validation(self, portal_user):
+        """Test that whitespace-only GitHub username fails validation."""
+        form_data = {**self.BASE_VALID_DATA, "github_username": "   "}
+        form = VolunteerProfileForm(user=portal_user, data=form_data)
+        assert not form.is_valid()
+        assert "github_username" in form.errors
+
+    def test_github_username_field_properties(self, portal_user):
+        """Test that GitHub username field has correct properties."""
+        form = VolunteerProfileForm(user=portal_user)
+        github_field = form.fields["github_username"]
+
+        assert github_field.required is True
+        assert github_field.max_length == 50
+        assert "Required - Your GitHub username" in github_field.help_text
+        assert "PyLadiesCon repos" in github_field.help_text
+        assert github_field.label == "GitHub Username"
+
+    def test_github_username_valid_with_required_value(self, portal_user):
+        """Test that form is valid when GitHub username is provided."""
+        form_data = {**self.BASE_VALID_DATA, "github_username": "validuser123"}
+        form = VolunteerProfileForm(user=portal_user, data=form_data)
+        assert form.is_valid()
+        assert form.cleaned_data["github_username"] == "validuser123"
+
+    def test_github_username_help_text_content(self, portal_user):
+        """Test that GitHub username help text explains the requirement."""
+        form = VolunteerProfileForm(user=portal_user)
+        help_text = form.fields["github_username"].help_text
+
+        assert "Required" in help_text
+        assert "GitHub username" in help_text
+        assert "PyLadiesCon repos" in help_text
+        assert "volunteers" in help_text
+
+    def test_form_save_with_github_username(self, portal_user):
+        """Test that form saves correctly with required GitHub username."""
+        form_data = {**self.BASE_VALID_DATA, "github_username": "testuser123"}
+        form = VolunteerProfileForm(user=portal_user, data=form_data)
+        assert form.is_valid()
+
+        profile = form.save()
+        assert profile.github_username == "testuser123"
+        assert profile.user == portal_user
+
+    def test_github_username_clean_method_coverage(self, portal_user):
+        """Test clean_github_username method for complete coverage."""
+        # Test with None value (should not raise ValidationError since required validation is handled by field)
+        form = VolunteerProfileForm(user=portal_user, data={**self.BASE_VALID_DATA})
+        form.cleaned_data = {**self.BASE_VALID_DATA}
+        form.cleaned_data["github_username"] = None
+
+        # Should not raise ValidationError - None values are handled by required field validation
+        result = form.clean_github_username()
+        assert result is None
+
+        # Test with empty string (should not raise ValidationError since required validation is handled by field)
+        form.cleaned_data["github_username"] = ""
+        result = form.clean_github_username()
+        assert result == ""
+
+    def test_github_username_validation_and_cleaning(self, portal_user):
+        """Test the complete validation flow for GitHub username."""
+        # Test valid username goes through validation
+        form_data = {**self.BASE_VALID_DATA, "github_username": "valid-user123"}
+        form = VolunteerProfileForm(user=portal_user, data=form_data)
+        assert form.is_valid()
+
+        # Test invalid username format
+        form_data = {**self.BASE_VALID_DATA, "github_username": "-invalid-start"}
+        form = VolunteerProfileForm(user=portal_user, data=form_data)
+        assert not form.is_valid()
+        assert "github_username" in form.errors
+
+    def test_github_username_error_message_override(self, portal_user):
+        """Test that the custom required error message is used."""
+        form = VolunteerProfileForm(user=portal_user)
+        error_messages = form.fields["github_username"].error_messages
+        assert "required" in error_messages
+        assert error_messages["required"] == "GitHub username is required."
+
+    def test_github_username_form_validation_integration(self, portal_user):
+        """Test complete form validation behavior for GitHub username."""
+        # Test form with missing github_username shows our custom error
+        form_data = {**self.BASE_VALID_DATA}
+        form_data.pop("github_username")
+        form = VolunteerProfileForm(user=portal_user, data=form_data)
+        assert not form.is_valid()
+        assert "github_username" in form.errors
+
+        # Test form with valid github_username passes validation
+        form_data = {**self.BASE_VALID_DATA, "github_username": "validuser"}
+        form = VolunteerProfileForm(user=portal_user, data=form_data)
+        assert form.is_valid()
+        assert form.cleaned_data["github_username"] == "validuser"
 
 
 class TestSelectMultipleWidget:

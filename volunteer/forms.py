@@ -36,6 +36,13 @@ class SelectMultipleWidget(SelectMultiple):
 
 class VolunteerProfileForm(ModelForm):
 
+    github_username = forms.CharField(
+        required=True,
+        max_length=50,
+        help_text="Required - Your GitHub username (e.g., username). We'll grant read access to PyLadiesCon repos to our volunteers.",
+        label="GitHub Username",
+        error_messages={"required": "GitHub username is required."},
+    )
     additional_comments = forms.CharField(widget=forms.Textarea, required=False)
     teams = forms.ModelMultipleChoiceField(
         required=False,
@@ -53,7 +60,7 @@ class VolunteerProfileForm(ModelForm):
         model = VolunteerProfile
         exclude = ["user", "application_status", "roles"]
         help_texts = {
-            "github_username": "GitHub username (e.g., username)",
+            "github_username": "Required - Your GitHub username (e.g., username). We'll grant read access to PyLadiesCon repos to our volunteers.",
             "discord_username": "Required - Your Discord username for team communication (e.g., username or username#1234)",
             "instagram_username": "Instagram username without @ (e.g., username)",
             "bluesky_username": "Bluesky username (e.g., username or username.bsky.social)",
@@ -79,7 +86,7 @@ class VolunteerProfileForm(ModelForm):
 
     def clean_github_username(self):
         github_username = self.cleaned_data.get("github_username")
-        if github_username:
+        if github_username:  # Only validate format if field has value
             self.validate_github_username(github_username)
         return github_username
 
