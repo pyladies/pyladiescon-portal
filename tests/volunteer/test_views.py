@@ -363,7 +363,9 @@ class TestManageVolunteers:
         assert "btn-info" in action_button
         assert "Manage" in action_button
 
-    def test_render_teams_with_multiple_teams(self, client, portal_user, django_user_model):
+    def test_render_teams_with_multiple_teams(
+        self, client, portal_user, django_user_model
+    ):
         """Test that multiple teams are rendered correctly with links."""
         profile = VolunteerProfile(user=portal_user)
         profile.languages_spoken = [LANGUAGES[0]]
@@ -381,7 +383,7 @@ class TestManageVolunteers:
         team1.save()
         team2 = Team(short_name="Team 2", description="Second Team")
         team2.save()
-        
+
         # Add both teams to profile
         another_profile.teams.add(team1, team2)
         another_profile.save()
@@ -392,16 +394,22 @@ class TestManageVolunteers:
         client.force_login(portal_user)
         url = reverse("volunteer:volunteer_profile_list")
         response = client.get(url)
-        
+
         volunteer_table = response.context["table"]
         team_render = volunteer_table.render_teams(None, another_profile)
-        
+
         # Check that both teams are rendered with links
         team1_url = reverse("team_detail", kwargs={"pk": team1.pk})
         team2_url = reverse("team_detail", kwargs={"pk": team2.pk})
-        
-        assert f'<a href="{team1_url}" class="badge bg-secondary text-decoration-none">Team 1</a>' in team_render
-        assert f'<a href="{team2_url}" class="badge bg-secondary text-decoration-none">Team 2</a>' in team_render
+
+        assert (
+            f'<a href="{team1_url}" class="badge bg-secondary text-decoration-none">Team 1</a>'
+            in team_render
+        )
+        assert (
+            f'<a href="{team2_url}" class="badge bg-secondary text-decoration-none">Team 2</a>'
+            in team_render
+        )
 
     def test_render_teams_with_no_teams(self, client, portal_user):
         """Test that profiles with no teams render empty string."""
@@ -415,10 +423,10 @@ class TestManageVolunteers:
         client.force_login(portal_user)
         url = reverse("volunteer:volunteer_profile_list")
         response = client.get(url)
-        
+
         volunteer_table = response.context["table"]
         team_render = volunteer_table.render_teams(None, profile)
-        
+
         # Should return empty string when no teams
         assert team_render == ""
 
@@ -439,15 +447,15 @@ class TestManageVolunteers:
         client.force_login(portal_user)
         url = reverse("volunteer:volunteer_profile_list")
         response = client.get(url)
-        
+
         volunteer_table = response.context["table"]
         team_render = volunteer_table.render_teams(None, profile)
-        
+
         # Check that the rendered HTML contains href attribute
         assert 'href="/teams/' in team_render
         assert f'href="/teams/{team.pk}"' in team_render
-        assert 'text-decoration-none' in team_render
-        assert 'badge bg-secondary' in team_render
+        assert "text-decoration-none" in team_render
+        assert "badge bg-secondary" in team_render
 
     def test_filter_volunteers_table(self, client, portal_user, django_user_model):
         profile = VolunteerProfile(user=portal_user)
