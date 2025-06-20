@@ -50,6 +50,8 @@ INSTALLED_APPS = [
     "storages",
     "portal",
     "volunteer",
+    "speaker",
+    "event",
     "portal_account",
     "widget_tweaks",
 ]
