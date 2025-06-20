@@ -1,5 +1,4 @@
 import pytest
-from django.core.exceptions import ValidationError
 
 from volunteer.constants import Region
 from volunteer.forms import SelectMultipleWidget, VolunteerProfileForm
