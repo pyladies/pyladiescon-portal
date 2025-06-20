@@ -43,6 +43,8 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "django.contrib.sites",
     "django_bootstrap5",
+    "django_filters",
+    "django_tables2",
     "allauth",
     "allauth.account",
     "storages",
@@ -51,6 +53,7 @@ INSTALLED_APPS = [
     "portal_account",
     "widget_tweaks",
 ]
+DJANGO_TABLES2_TEMPLATE = "portal/base-tables-responsive.html"
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
@@ -62,6 +65,7 @@ MIDDLEWARE = [
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "allauth.account.middleware.AccountMiddleware",
+    "django.middleware.locale.LocaleMiddleware",
 ]
 
 ROOT_URLCONF = "portal.urls"
@@ -98,9 +102,9 @@ if os.environ.get("DATABASE_URL", None) is not None:
 else:
     DATABASES = {
         "default": {
-            "ENGINE": os.environ.get("SQL_ENGINE", "django.db.backends.sqlite3"),
-            "NAME": os.environ.get("SQL_DATABASE", BASE_DIR / "db.sqlite3"),
-            "USER": os.environ.get("SQL_USER", "user"),
+            "ENGINE": os.environ.get("SQL_ENGINE", "django.db.backends.postgresql"),
+            "NAME": os.environ.get("SQL_DATABASE", "postgres"),
+            "USER": os.environ.get("SQL_USER", "postgres"),
             "PASSWORD": os.environ.get("SQL_PASSWORD", "password"),
             "HOST": os.environ.get("SQL_HOST", "localhost"),
             "PORT": os.environ.get("SQL_PORT", "5432"),
@@ -132,7 +136,14 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = "en-us"
 
+LANGUAGES = (
+    ("pt-br", "Português"),
+    ("en-us", "English"),
+)
+
 TIME_ZONE = "UTC"
+
+LOCALE_PATHS = (os.path.join(BASE_DIR, "locale/"),)
 
 USE_I18N = True
 
@@ -278,3 +289,12 @@ else:
 
 MEDIA_URL = "/media/"  # URL to serve media files
 MEDIA_ROOT = os.path.join(BASE_DIR, "media")  # Local filesystem path
+
+GDRIVE_FOLDER_ID = os.getenv("GDRIVE_FOLDER_ID", "")
+
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.db.DatabaseCache",
+        "LOCATION": "stats_cache_table",
+    }
+}

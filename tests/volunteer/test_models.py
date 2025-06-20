@@ -1,11 +1,19 @@
 import pytest
+from django.conf import settings
+from django.contrib.auth.models import User
 from django.core import mail
 from django.core.exceptions import ValidationError
 from django.urls import reverse
 
-from volunteer.constants import Region
+from volunteer.constants import ApplicationStatus, Region, RoleTypes
 from volunteer.languages import LANGUAGES
-from volunteer.models import Role, Team, VolunteerProfile
+from volunteer.models import (
+    Role,
+    Team,
+    VolunteerProfile,
+    send_internal_volunteer_onboarding_email,
+    send_volunteer_onboarding_email,
+)
 
 
 @pytest.mark.django_db
@@ -112,7 +120,7 @@ class TestVolunteerModel:
             user=portal_user,
             languages_spoken=["en"],
             region=Region.NORTH_AMERICA,
-            **{field: value}
+            **{field: value},
         )
 
         with pytest.raises(ValidationError) as excinfo:
@@ -170,6 +178,9 @@ class TestVolunteerModel:
             "http://linkedin.com/in/username",
             "https://www.linkedin.com/in/username",
             "linkedin.com/in/username",
+            "https://linkedin.com/company/pyladiescon",
+            "https://www.linkedin.com/school/some-school",
+            "https://linkedin.com/in/rãé-gómez-Łukasz-Schröder-Jürgen-süß",
         ]
 
         for url in valid_urls:
@@ -211,19 +222,19 @@ class TestVolunteerModel:
         assert "Invalid LinkedIn URL format" in str(excinfo.value)
 
     def test_linkedin_url_validation_with_invalid_chars(self, portal_user):
-        """Test LinkedIn URL validation with invalid characters."""
+        """Test LinkedIn URL validation with invalid characters.
+
+        For now as long as it starts with linkedin domain, we'll consider it valid.
+        """
         profile = VolunteerProfile(
             user=portal_user,
             languages_spoken=["en"],
             region=Region.NORTH_AMERICA,
+            discord_username="validuser123",
             linkedin_url="linkedin.com/in/user@name",
         )
 
-        with pytest.raises(ValidationError) as excinfo:
-            profile.full_clean()
-
-        assert "linkedin_url" in str(excinfo.value)
-        assert "Invalid LinkedIn URL format" in str(excinfo.value)
+        profile.full_clean()
 
     def test_linkedin_url_invalid_domain(self, portal_user):
         """Test LinkedIn URL validation with invalid domain format."""
@@ -231,6 +242,7 @@ class TestVolunteerModel:
             user=portal_user,
             languages_spoken=["en"],
             region=Region.NORTH_AMERICA,
+            discord_username="validuser123",
             linkedin_url="https://invalid-domain.com/in/username",
         )
 
@@ -246,6 +258,7 @@ class TestVolunteerModel:
             user=portal_user,
             languages_spoken=["en"],
             region=Region.NORTH_AMERICA,
+            discord_username="validuser123",
             linkedin_url="https://linkedin.com/username",
         )
 
@@ -293,13 +306,54 @@ class TestVolunteerModel:
         )
 
     def test_email_is_sent_after_saved(self, portal_user):
+        # set up an admin account to receive internal notification email
+        admin_role = Role.objects.create(
+            short_name=RoleTypes.ADMIN, description="Admin role"
+        )
+        admin_user_to_notify = User.objects.create_superuser(
+            username="testadmin",
+            email="test-admin@example.com",
+            password="pyladiesadmin123",
+        )
+        admin_profile = VolunteerProfile(user=admin_user_to_notify)
+        admin_profile.languages_spoken = [LANGUAGES[0]]
+        admin_profile.region = Region.NORTH_AMERICA
+        admin_profile.save()
+
+        User.objects.create_superuser(
+            username="testsuperuser",
+            email="superusertest@example.com",
+            password="supersuper123",
+        )
+
+        admin_profile.roles.add(admin_role)
+        admin_profile.save()
+
+        mail.outbox.clear()
+
+        # the actual process to test
         profile = VolunteerProfile(user=portal_user)
         profile.languages_spoken = [LANGUAGES[0]]
         profile.region = Region.NORTH_AMERICA
         profile.save()
-        assert (
+
+        # 3 emails were sent:
+        # - #1 to the user with admin role
+        # - #2 to the super user
+        # - #3 to the applicant
+        assert len(mail.outbox) == 3
+        assert (  # user creation, to internal staff
             str(mail.outbox[0].subject)
-            == "[PyLadiesCon Dev]  Volunteer Application Received"
+            == f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} New Volunteer Application"
+        )
+        assert (  # user creation, to internal staff
+            str(mail.outbox[1].subject)
+            == f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} New Volunteer Application"
+        )
+
+        assert (  # user creation, to user
+            str(mail.outbox[2].subject)
+            == f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} Volunteer Application Received"
         )
 
     def test_email_is_sent_after_updated(self, portal_user):
@@ -314,7 +368,7 @@ class TestVolunteerModel:
 
         assert (
             str(mail.outbox[0].subject)
-            == "[PyLadiesCon Dev]  Volunteer Application Updated"
+            == f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} Volunteer Application Updated"
         )
 
     def test_volunteer_notification_email_contains_info(self, portal_user):
@@ -350,3 +404,207 @@ class TestVolunteerModel:
         assert str(profile.availability_hours_per_week) in body
 
         assert reverse("volunteer:index") in body
+
+    def test_volunteer_onboarding_email_contains_info(self, portal_user, settings):
+        settings.GDRIVE_FOLDER_ID = "super-secret-folder-id"
+
+        profile = VolunteerProfile(user=portal_user)
+        profile.languages_spoken = [LANGUAGES[0], LANGUAGES[1]]
+        profile.region = Region.NORTH_AMERICA
+        profile.discord_username = "mydiscord"
+        profile.save()
+
+        team = Team.objects.create(
+            short_name="Super random team name", description="Development Team"
+        )
+        profile.teams.add(team)
+        role = Role.objects.create(
+            short_name="Obscure Role name", description="Test role desc"
+        )
+        profile.roles.add(role)
+
+        profile.application_status = "Approved"
+
+        mail.outbox.clear()
+        send_volunteer_onboarding_email(profile)
+        assert len(mail.outbox) == 1
+        assert (
+            str(mail.outbox[0].subject)
+            == f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} Welcome to the PyLadiesCon Volunteer Team"
+        )
+        # role name and team name in the body
+        assert role.short_name in str(mail.outbox[0].body)
+        assert team.short_name in str(mail.outbox[0].body)
+
+        # gdrive info not in the body. It's for admin onboarding only
+        assert "super-secret-folder-id" not in str(mail.outbox[0].body)
+
+    def test_admin_onboarding_email_contains_info(self, portal_user, settings):
+        settings.GDRIVE_FOLDER_ID = "super-secret-folder-id"
+
+        profile = VolunteerProfile(user=portal_user)
+        profile.languages_spoken = [LANGUAGES[0], LANGUAGES[1]]
+        profile.region = Region.NORTH_AMERICA
+        profile.discord_username = "mydiscord"
+        profile.save()
+
+        team = Team.objects.create(
+            short_name="Super random team name", description="Development Team"
+        )
+        profile.teams.add(team)
+        admin_role = Role.objects.create(
+            short_name=RoleTypes.ADMIN, description="Test role desc"
+        )
+        profile.roles.add(admin_role)
+
+        profile.application_status = ApplicationStatus.APPROVED
+
+        mail.outbox.clear()
+        send_volunteer_onboarding_email(profile)
+        assert len(mail.outbox) == 1
+        assert (
+            str(mail.outbox[0].subject)
+            == f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} Welcome to the PyLadiesCon Volunteer Team"
+        )
+        # role name and team name in the body
+        assert admin_role.short_name in str(mail.outbox[0].body)
+        assert team.short_name in str(mail.outbox[0].body)
+
+        # gdrive info is in the body because this is an admin
+        assert "super-secret-folder-id" in str(mail.outbox[0].body)
+
+    @pytest.mark.parametrize(
+        "application_status",
+        [
+            ApplicationStatus.PENDING,
+            ApplicationStatus.REJECTED,
+            ApplicationStatus.CANCELLED,
+        ],
+    )
+    def test_onboarding_email_not_sent_if_not_approved(
+        self, portal_user, application_status
+    ):
+
+        profile = VolunteerProfile(user=portal_user)
+        profile.languages_spoken = [LANGUAGES[0], LANGUAGES[1]]
+        profile.region = Region.NORTH_AMERICA
+        profile.discord_username = "mydiscord"
+        profile.save()
+
+        team = Team.objects.create(
+            short_name="Super random team name", description="Development Team"
+        )
+        profile.teams.add(team)
+        admin_role = Role.objects.create(
+            short_name=RoleTypes.ADMIN, description="Test role desc"
+        )
+        profile.roles.add(admin_role)
+
+        profile.application_status = application_status
+
+        mail.outbox.clear()
+        send_volunteer_onboarding_email(profile)
+        assert len(mail.outbox) == 0
+
+    def test_internal_volunteer_onboarding_email_contains_info(
+        self, portal_user, settings
+    ):
+        settings.GDRIVE_FOLDER_ID = "super-secret-folder-id"
+
+        profile = VolunteerProfile(user=portal_user)
+        profile.languages_spoken = [LANGUAGES[0], LANGUAGES[1]]
+        profile.region = Region.NORTH_AMERICA
+        profile.discord_username = "mydiscord"
+        profile.save()
+
+        team = Team.objects.create(
+            short_name="Super random team name", description="Development Team"
+        )
+        profile.teams.add(team)
+        role = Role.objects.create(
+            short_name="Obscure Role name", description="Test role desc"
+        )
+        profile.roles.add(role)
+
+        profile.application_status = "Approved"
+
+        mail.outbox.clear()
+        send_internal_volunteer_onboarding_email(profile)
+        assert len(mail.outbox) == 1
+        assert (
+            str(mail.outbox[0].subject)
+            == f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} Complete the Volunteer Onboarding for: {profile.user.first_name} {profile.user.last_name}"
+        )
+        # role name and team name in the body
+        assert role.short_name in str(mail.outbox[0].body)
+        assert team.short_name in str(mail.outbox[0].body)
+
+        # gdrive info not in the body. It's for admin onboarding only
+        assert "super-secret-folder-id" not in str(mail.outbox[0].body)
+
+    def test_internal_admin_onboarding_email_contains_info(self, portal_user, settings):
+        settings.GDRIVE_FOLDER_ID = "super-secret-folder-id"
+
+        profile = VolunteerProfile(user=portal_user)
+        profile.languages_spoken = [LANGUAGES[0], LANGUAGES[1]]
+        profile.region = Region.NORTH_AMERICA
+        profile.discord_username = "mydiscord"
+        profile.save()
+
+        team = Team.objects.create(
+            short_name="Super random team name", description="Development Team"
+        )
+        profile.teams.add(team)
+        admin_role = Role.objects.create(
+            short_name=RoleTypes.ADMIN, description="Test role desc"
+        )
+        profile.roles.add(admin_role)
+
+        profile.application_status = ApplicationStatus.APPROVED
+
+        mail.outbox.clear()
+        send_internal_volunteer_onboarding_email(profile)
+        assert len(mail.outbox) == 1
+        assert (
+            str(mail.outbox[0].subject)
+            == f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} Complete the Volunteer Onboarding for: {profile.user.first_name} {profile.user.last_name}"
+        )
+        # role name and team name in the body
+        assert admin_role.short_name in str(mail.outbox[0].body)
+        assert team.short_name in str(mail.outbox[0].body)
+
+        # gdrive info is in the body because this is an admin
+        assert "super-secret-folder-id" in str(mail.outbox[0].body)
+
+    @pytest.mark.parametrize(
+        "application_status",
+        [
+            ApplicationStatus.PENDING,
+            ApplicationStatus.REJECTED,
+            ApplicationStatus.CANCELLED,
+        ],
+    )
+    def test_internal_onboarding_email_not_sent_if_not_approved(
+        self, portal_user, application_status
+    ):
+
+        profile = VolunteerProfile(user=portal_user)
+        profile.languages_spoken = [LANGUAGES[0], LANGUAGES[1]]
+        profile.region = Region.NORTH_AMERICA
+        profile.discord_username = "mydiscord"
+        profile.save()
+
+        team = Team.objects.create(
+            short_name="Super random team name", description="Development Team"
+        )
+        profile.teams.add(team)
+        admin_role = Role.objects.create(
+            short_name=RoleTypes.ADMIN, description="Test role desc"
+        )
+        profile.roles.add(admin_role)
+
+        profile.application_status = application_status
+
+        mail.outbox.clear()
+        send_internal_volunteer_onboarding_email(profile)
+        assert len(mail.outbox) == 0

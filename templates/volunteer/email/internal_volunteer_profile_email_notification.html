@@ -1,0 +1,66 @@
+{% extends "volunteer/email/base_email.html" %}
+{% load i18n %}
+{% block content %}
+    <p>
+        Hello, {{ recipient_name }}.
+    </p>
+    <p>
+        We're writing to let you know that a new volunteer has just signed up. Be sure to review their application in a timely manner.
+    </p>
+    <p>
+        Volunteer application status: <strong>{{ profile.application_status }}</strong>.
+    </p>
+    <p>
+        Volunteer Information:
+    </p>
+    <ul>
+        <li>
+            Name: {{ profile.user.first_name }} {{ profile.user.last_name }}
+        </li>
+        <li>
+            Availability: {{ profile.availability_hours_per_week }} hours per week
+        </li>
+        <li>
+            GitHub username: {{ profile.github_username }}
+        </li>
+        <li>
+            Discord username: {{ profile.discord_username }}
+        </li>
+        <li>
+            Instagram username: {{ profile.instagram_username }}
+        </li>
+        <li>
+            Bluesky username: {{ profile.bluesky_username }}
+        </li>
+        <li>
+            Mastodon URL: {{ profile.mastodon_url }}
+        </li>
+        <li>
+            X username: {{ profile.x_username }}
+        </li>
+        <li>
+            LinkedIn URL: {{ profile.linkedin_url }}
+        </li>
+        <li>
+            PyLadies Chapter: {{ profile.pyladies_chapter }}
+        </li>
+        <li>
+            Region: {{ profile.region }}
+        </li>
+        <li>
+            Languages spoken: {{ profile.languages_spoken|join:", " }}
+        </li>
+        <li>
+            PyLadies Chapter: {{ profile.pyladies_chapter }}
+        </li>
+        <li>
+            Additional Comments: {{ profile.additional_comments }}
+        </li>
+    </ul>
+    <p>
+        To approve this volunteer and assign them to your teams, click <a href="https://{{ current_site.domain }}{% url 'volunteer:volunteer_profile_manage' profile.id %}">here</a>.
+    </p>
+    <p>
+        To manage other volunteers, visit the <a href="https://{{ current_site.domain }}{% url 'volunteer:volunteer_profile_list' %}">Volunteer Management Portal</a>.
+    </p>
+{% endblock content %}

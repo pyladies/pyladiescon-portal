@@ -11,6 +11,9 @@ COPY requirements-app.txt /code/
 RUN --mount=type=cache,target=/root/.cache/pip \
     pip install -r requirements-app.txt
 
+RUN apt-get update && apt-get install -y gettext
+
+
 ###############################################################################
 #  Build our development container
 ###############################################################################
@@ -48,3 +51,4 @@ RUN \
     DATABASE_URL=postgres://localhost:5432/db \
     DJANGO_SETTINGS_MODULE=portal.settings \
     python manage.py collectstatic --noinput
+

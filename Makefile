@@ -16,6 +16,9 @@ default:
 	# Collect static assets
 	docker compose run --rm web python manage.py collectstatic --noinput
 
+	# Create createcachetable
+	#docker compose run --rm web python manage.py createcachetable
+
 	# Mark the state so we don't rebuild this needlessly.
 	mkdir -p .state
 	touch .state/docker-build-web
@@ -55,17 +58,26 @@ migrate: .state/docker-build-web
 lint: .state/docker-build-web
 	docker compose run --rm web isort --check-only .
 	docker compose run --rm web black --check .
+	docker compose run --rm web djlint . --check
+	docker compose run --rm web djlint . --lint
 	docker compose run --rm web flake8
 	docker compose run --rm web python manage.py makemigrations --check --settings=portal.settings
 
 reformat: .state/docker-build-web
 	docker compose run --rm web isort .
 	docker compose run --rm web black .
+	docker compose run --rm web djlint . --reformat
 
 test: .state/docker-build-web
 	docker compose run --rm web pytest --cov --reuse-db --no-migrations --cov-fail-under=100 --cov-report html --cov-report term
 
 check: test lint
+
+create_translations: .state/docker-build-web
+	docker compose run --rm web ./manage.py makemessages --locale $(LANG)
+
+compile_translations: .state/docker-build-web
+	docker compose run --rm web ./manage.py compilemessages
 
 clean:
 	docker compose down -v
@@ -74,4 +86,4 @@ clean:
 	rm -f .state/db-initialized
 	rm -f .state/db-migrated
 
-.PHONY: default serve shell dbshell manage migrations migrate lint reformat test check clean
+.PHONY: default serve shell dbshell manage migrations migrate lint reformat test check create_translations compile_translations clean

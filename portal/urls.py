@@ -21,6 +21,7 @@ from django.contrib import admin
 from django.urls import include, path
 
 from portal import views
+from volunteer import views as volunteer_view
 
 urlpatterns = [
     path("", views.index, name="index"),
@@ -31,4 +32,15 @@ urlpatterns = [
         "portal_account/",
         include("portal_account.urls", namespace="portal_account"),
     ),
+    path(
+        "teams/",
+        volunteer_view.TeamList.as_view(),
+        name="teams",
+    ),
+    path(
+        "teams/<int:pk>",
+        volunteer_view.TeamView.as_view(),
+        name="team_detail",
+    ),
+    path("i18n/", include("django.conf.urls.i18n")),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

@@ -1,7 +1,7 @@
 import pytest
 
 from volunteer.constants import Region
-from volunteer.forms import LanguageSelectMultiple, VolunteerProfileForm
+from volunteer.forms import SelectMultipleWidget, VolunteerProfileForm
 from volunteer.models import VolunteerProfile
 
 
@@ -230,6 +230,13 @@ class TestVolunteerProfileForm:
             ("linkedin.com", False, None),
             ("linkedin.com/username", False, None),
             ("https://othersite.com/in/username", False, None),
+            ("https://linkedin.com/company/pyladiescon", True, "https://"),
+            ("https://www.linkedin.com/school/some-school", True, "https://"),
+            (
+                "https://linkedin.com/in/rãé-gómez-Łukasz-Schröder-Jürgen-süß",
+                True,
+                "https://",
+            ),
         ],
     )
     def test_linkedin_url_validation(self, portal_user, url, valid, cleaned_prefix):
@@ -466,13 +473,13 @@ class TestVolunteerProfileForm:
         assert form.cleaned_data["linkedin_url"] == "https://linkedin.com/in/username"
 
 
-class TestLanguageSelectMultiple:
-    """Tests for the LanguageSelectMultiple widget."""
+class TestSelectMultipleWidget:
+    """Tests for the SelectMultipleWidget widget."""
 
     def test_init_with_attrs(self):
         """Test initialization with custom attributes."""
         custom_attrs = {"class": "custom-class", "data-test": "test-value"}
-        widget = LanguageSelectMultiple(attrs=custom_attrs)
+        widget = SelectMultipleWidget(attrs=custom_attrs)
 
         # Verify that the custom attributes were merged with default attributes
         assert "custom-class" in widget.attrs["class"]

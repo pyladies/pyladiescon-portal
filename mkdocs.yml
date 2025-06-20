@@ -25,10 +25,10 @@ theme:
     - content.code.select
     - content.tabs.link
     - content.action.edit
-  markdown_extensions:
-    - pymdownx.superfences
-    - pymdownx.tabbed:
-        alternate_style: true
+markdown_extensions:
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
 nav:
   - Home: index.md
   - About:

@@ -6,14 +6,17 @@ from django.contrib.sites.models import Site
 from django.core.exceptions import ValidationError
 from django.core.mail import EmailMultiAlternatives
 from django.db import models
+from django.db.models import Q
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.template.loader import render_to_string
 from django.urls import reverse
+from django.utils.functional import cached_property
 
 from portal.models import BaseModel, ChoiceArrayField
+from portal.validators import validate_linked_in_pattern
 
-from .constants import ApplicationStatus, Region
+from .constants import ApplicationStatus, Region, RoleTypes
 from .languages import LANGUAGES
 
 APPLICATION_STATUS_CHOICES = [
@@ -45,6 +48,16 @@ class Team(BaseModel):
 
     def __str__(self):
         return self.short_name
+
+    @cached_property
+    def approved_members(self):
+        """Return all members with approved volunteer profiles."""
+        return self.members.filter(application_status=ApplicationStatus.APPROVED)
+
+    @cached_property
+    def pending_members(self):
+        """Return all members with pending volunteer profiles."""
+        return self.members.filter(application_status=ApplicationStatus.PENDING)
 
 
 class Role(BaseModel):
@@ -85,7 +98,7 @@ class VolunteerProfile(BaseModel):
         models.CharField(max_length=32, blank=True, choices=LANGUAGES)
     )
     teams = models.ManyToManyField(
-        "volunteer.Team", verbose_name="team", related_name="team", blank=True
+        "volunteer.Team", verbose_name="members", related_name="members", blank=True
     )
     pyladies_chapter = models.CharField(max_length=50, blank=True, null=True)
     additional_comments = models.CharField(max_length=1000, blank=True, null=True)
@@ -95,6 +108,16 @@ class VolunteerProfile(BaseModel):
         choices=REGION_CHOICES,
         default=Region.NO_REGION,
     )
+
+    @cached_property
+    def is_approved(self):
+        """Returns True if the volunteer profile is approved."""
+        return self.application_status == ApplicationStatus.APPROVED
+
+    @cached_property
+    def is_pending(self):
+        """Returns False if the volunteer profile is pending."""
+        return self.application_status == ApplicationStatus.PENDING
 
     def clean(self):
         super().clean()
@@ -190,15 +213,11 @@ class VolunteerProfile(BaseModel):
 
     def _validate_linkedin_url(self):
         if self.linkedin_url:
-            linkedin_pattern = (
-                r"^(https?://)?(www\.)?linkedin\.com/in/[a-zA-Z0-9_-]+/?$"
-            )
-
-            if not re.match(linkedin_pattern, self.linkedin_url):
+            if not validate_linked_in_pattern(self.linkedin_url):
                 raise ValidationError(
                     {
                         "linkedin_url": "Invalid LinkedIn URL format. "
-                        "Should be in the format: linkedin.com/in/username or https://www.linkedin.com/in/username."
+                        "Example: linkedin.com/in/username or https://www.linkedin.com/in/username."
                     }
                 )
 
@@ -209,32 +228,151 @@ class VolunteerProfile(BaseModel):
         return reverse("volunteer:volunteer_profile_edit", kwargs={"pk": self.pk})
 
 
+def _send_email(
+    subject, recipient_list, *, html_template=None, text_template=None, context=None
+):
+    """Helper function to send an email."""
+    context = context or {}
+    context["current_site"] = Site.objects.get_current()
+    text_content = render_to_string(
+        text_template,
+        context=context,
+    )
+    html_content = render_to_string(
+        html_template,
+        context=context,
+    )
+    msg = EmailMultiAlternatives(
+        subject,
+        text_content,
+        settings.DEFAULT_FROM_EMAIL,
+        recipient_list,
+    )
+    msg.attach_alternative(html_content, "text/html")
+    msg.send()
+
+
 def send_volunteer_notification_email(instance, updated=False):
     """Send email to the user whenever their volunteer profile was updated/created."""
-    context = {"profile": instance, "current_site": Site.objects.get_current()}
+    context = {"profile": instance}
     subject = f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} Volunteer Application"
     if updated:
         context["updated"] = True
         subject += " Updated"
     else:
         subject += " Received"
-    text_content = render_to_string(
-        "volunteer/email/volunteer_profile_email_notification.txt",
-        context=context,
-    )
-    html_content = render_to_string(
-        "volunteer/email/volunteer_profile_email_notification.html",
+
+    html_template = "volunteer/email/volunteer_profile_email_notification.html"
+    text_template = "volunteer/email/volunteer_profile_email_notification.txt"
+
+    _send_email(
+        subject,
+        [instance.user.email],
+        html_template=html_template,
+        text_template=text_template,
         context=context,
     )
 
-    msg = EmailMultiAlternatives(
+
+def send_volunteer_onboarding_email(instance):
+    """Send the volunteer onboarding email when their volunteer profile has been updated.
+    This should only be sent when the volunteer profile is approved.
+    """
+    if instance.application_status == ApplicationStatus.APPROVED:
+        context = {"profile": instance, "GDRIVE_FOLDER_ID": settings.GDRIVE_FOLDER_ID}
+        subject = f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} Welcome to the PyLadiesCon Volunteer Team"
+
+        for role in instance.roles.all():
+            if role.short_name in [RoleTypes.ADMIN, RoleTypes.STAFF]:
+                context["admin_onboarding"] = True
+        html_template = "volunteer/email/new_volunteer_onboarding.html"
+        text_template = "volunteer/email/new_volunteer_onboarding.txt"
+        _send_email(
+            subject,
+            [instance.user.email],
+            html_template=html_template,
+            text_template=text_template,
+            context=context,
+        )
+
+
+def send_internal_volunteer_onboarding_email(instance):
+    """Notify internal team about a new volunteer onboarding.
+    This should only be sent when the volunteer profile is approved.
+    """
+    if instance.application_status == ApplicationStatus.APPROVED:
+        context = {"profile": instance, "GDRIVE_FOLDER_ID": settings.GDRIVE_FOLDER_ID}
+        subject = f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} Complete the Volunteer Onboarding for: {instance.user.first_name} {instance.user.last_name}"
+
+        for role in instance.roles.all():
+            if role.short_name in [RoleTypes.ADMIN, RoleTypes.STAFF]:
+                context["admin_onboarding"] = True
+        html_template = "volunteer/email/internal_volunteer_onboarding.html"
+        text_template = "volunteer/email/internal_volunteer_onboarding.txt"
+        _send_email(
+            subject,
+            [instance.user.email],
+            html_template=html_template,
+            text_template=text_template,
+            context=context,
+        )
+
+
+def _send_internal_email(
+    subject, *, html_template=None, text_template=None, context=None
+):
+    """Helper function to send an internal email.
+
+    Lookup who the internal team members who should receive the email and then send the emails individually.
+    """
+
+    recipients = User.objects.filter(
+        Q(
+            id__in=VolunteerProfile.objects.prefetch_related("roles")
+            .filter(roles__short_name__in=[RoleTypes.ADMIN, RoleTypes.STAFF])
+            .values_list("id", flat=True)
+        )
+        | Q(is_superuser=True)
+        | Q(is_staff=True)
+    ).distinct()
+    # TODO Roles need to use django model choices not enum
+
+    if not recipients.exists():
+        return
+
+    # send each email individually to each recipient, for privacy reasons
+    for recipient in recipients:
+        context["recipient_name"] = recipient.get_full_name() or recipient.username
+
+        _send_email(
+            subject,
+            [recipient.email],
+            html_template=html_template,
+            text_template=text_template,
+            context=context,
+        )
+
+
+def send_internal_notification_email(instance):
+    """Send email to the team whenever a new volunteer profile is created.
+
+    Emails will be sent to team members with the role type Staff or Admin.
+    Emails will also be sent to users with is_superuser or is_staff set to True.
+
+    """
+    context = {"profile": instance}
+    subject = f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} New Volunteer Application"
+
+    text_template = "volunteer/email/internal_volunteer_profile_email_notification.txt"
+
+    html_template = "volunteer/email/internal_volunteer_profile_email_notification.html"
+
+    _send_internal_email(
         subject,
-        text_content,
-        settings.DEFAULT_FROM_EMAIL,
-        [instance.user.email],
+        html_template=html_template,
+        text_template=text_template,
+        context=context,
     )
-    msg.attach_alternative(html_content, "text/html")
-    msg.send()
 
 
 @receiver(post_save, sender=VolunteerProfile)
@@ -244,6 +382,8 @@ def volunteer_profile_signal(sender, instance, created, **kwargs):
     Send a notification email to the user to confirm their volunteer application status.
     """
     if created:
+        send_internal_notification_email(instance)
         send_volunteer_notification_email(instance)
     else:
+        # no need to send email to internal team for VolunteerProfile updates (e.g. changing username, etc)
         send_volunteer_notification_email(instance, updated=True)

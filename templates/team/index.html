@@ -1,0 +1,36 @@
+{% extends "portal/base.html" %}
+{% load allauth i18n %}
+{% load django_bootstrap5 %}
+{% block body %}
+{% endblock body %}
+{% block content %}
+    <div class="container px-4 py-5" id="featured-3">
+        <h1 class="pb-2 border-bottom">
+            Teams
+        </h1>
+        <div class="row pt-2 row-cols-1 row-cols-md-3 g-4">
+            {% for team in teams %}
+                <div class="col">
+                    <div class="card h-100">
+                        <div class="card-header">
+                            <h5>
+                                <a href="{% url 'team_detail' team.id %}">{{ team.short_name }}</a>
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <p class="card-text">
+                                {{ team.description | truncatechars:50 }}
+                            </p>
+                            <p class="card-text">
+                                <span class="badge bg-warning rounded-pill">{{ team.pending_members.count }}</span> <a href="{% url 'team_detail' team.id %}#pending-members">pending {{ team.pending_members.count|pluralize:"member, members" }}</a>
+                            </p>
+                            <p class="card-text">
+                                <span class="badge bg-primary rounded-pill">{{ team.approved_members.count }}</span> <a href="{% url 'team_detail' team.id %}#approved-members">approved {{ team.approved_members.count|pluralize:"member, members" }}</a>
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+{% endblock content %}
