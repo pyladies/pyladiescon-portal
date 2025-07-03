@@ -13,6 +13,10 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 import os
 from pathlib import Path
 
+from dotenv import load_dotenv
+load_dotenv()
+
+
 import dj_database_url
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -28,9 +32,10 @@ SECRET_KEY = os.environ.get("SECRET_KEY")
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = bool(os.environ.get("DEBUG", default=0))
 
-ALLOWED_HOSTS = os.environ.get("DJANGO_ALLOWED_HOSTS")
-if ALLOWED_HOSTS:
-    ALLOWED_HOSTS = ALLOWED_HOSTS.split(",")
+ALLOWED_HOSTS = ['localhost', '127.0.0.1']
+# ALLOWED_HOSTS = os.environ.get("DJANGO_ALLOWED_HOSTS")
+# if ALLOWED_HOSTS:
+#     ALLOWED_HOSTS = ALLOWED_HOSTS.split(",")
 
 # Application definition
 
@@ -52,6 +57,7 @@ INSTALLED_APPS = [
     "volunteer",
     "portal_account",
     "widget_tweaks",
+    "sponsorship"
 ]
 DJANGO_TABLES2_TEMPLATE = "portal/base-tables-responsive.html"
 
@@ -103,9 +109,9 @@ else:
     DATABASES = {
         "default": {
             "ENGINE": os.environ.get("SQL_ENGINE", "django.db.backends.postgresql"),
-            "NAME": os.environ.get("SQL_DATABASE", "postgres"),
+            "NAME": os.environ.get("SQL_DATABASE", "pyladiescon"),
             "USER": os.environ.get("SQL_USER", "postgres"),
-            "PASSWORD": os.environ.get("SQL_PASSWORD", "password"),
+            "PASSWORD": os.environ.get("SQL_PASSWORD", "Laraba1234#"),
             "HOST": os.environ.get("SQL_HOST", "localhost"),
             "PORT": os.environ.get("SQL_PORT", "5432"),
         }
