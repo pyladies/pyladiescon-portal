@@ -6,22 +6,22 @@ from django.db import migrations
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('sponsorship', '0001_initial'),
+        ("sponsorship", "0001_initial"),
     ]
 
     operations = [
         migrations.RenameField(
-            model_name='sponsorshipprofile',
-            old_name='description',
-            new_name='company_description',
+            model_name="sponsorshipprofile",
+            old_name="description",
+            new_name="company_description",
         ),
         migrations.RenameField(
-            model_name='sponsorshipprofile',
-            old_name='main_contact',
-            new_name='main_contact_user',
+            model_name="sponsorshipprofile",
+            old_name="main_contact",
+            new_name="main_contact_user",
         ),
         migrations.RemoveField(
-            model_name='sponsorshipprofile',
-            name='sponsorship_tier',
+            model_name="sponsorshipprofile",
+            name="sponsorship_tier",
         ),
     ]

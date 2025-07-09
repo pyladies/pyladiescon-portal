@@ -6,11 +6,14 @@ from django.db import migrations
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('sponsorship', '0002_rename_description_sponsorshipprofile_company_description_and_more'),
+        (
+            "sponsorship",
+            "0002_rename_description_sponsorshipprofile_company_description_and_more",
+        ),
     ]
 
     operations = [
         migrations.DeleteModel(
-            name='SponsorshipTier',
+            name="SponsorshipTier",
         ),
     ]

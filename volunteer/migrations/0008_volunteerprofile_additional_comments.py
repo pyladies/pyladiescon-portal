@@ -6,13 +6,13 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('volunteer', '0007_remove_volunteerprofile_additional_comments'),
+        ("volunteer", "0007_remove_volunteerprofile_additional_comments"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='volunteerprofile',
-            name='additional_comments',
+            model_name="volunteerprofile",
+            name="additional_comments",
             field=models.CharField(blank=True, max_length=1000, null=True),
         ),
     ]

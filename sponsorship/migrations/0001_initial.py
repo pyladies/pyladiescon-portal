@@ -15,27 +15,96 @@ class Migration(migrations.Migration):
 
     operations = [
         migrations.CreateModel(
-            name='SponsorshipTier',
+            name="SponsorshipTier",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('amount', models.DecimalField(decimal_places=2, max_digits=10)),
-                ('name', models.CharField(max_length=100)),
-                ('description', models.TextField()),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("amount", models.DecimalField(decimal_places=2, max_digits=10)),
+                ("name", models.CharField(max_length=100)),
+                ("description", models.TextField()),
             ],
         ),
         migrations.CreateModel(
-            name='SponsorshipProfile',
+            name="SponsorshipProfile",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('organization_name', models.CharField(max_length=255)),
-                ('sponsorship_type', models.CharField(choices=[('Champion', 'Champion'), ('Supporter', 'Supporter'), ('Connector', 'Connector'), ('Booster', 'Booster'), ('Partner', 'Partner'), ('Individual', 'Individual')], max_length=20)),
-                ('logo', models.ImageField(upload_to='sponsor_logos/')),
-                ('description', models.TextField()),
-                ('application_status', models.CharField(choices=[('pending', 'Pending'), ('approved', 'Approved'), ('rejected', 'Rejected'), ('cancelled', 'Cancelled')], default='pending', max_length=20)),
-                ('additional_contacts', models.ManyToManyField(blank=True, related_name='additional_contacts', to=settings.AUTH_USER_MODEL)),
-                ('main_contact', models.OneToOneField(on_delete=django.db.models.deletion.CASCADE, related_name='main_contact', to=settings.AUTH_USER_MODEL)),
-                ('user', models.OneToOneField(on_delete=django.db.models.deletion.CASCADE, related_name='sponsorship_user', to=settings.AUTH_USER_MODEL)),
-                ('sponsorship_tier', models.ForeignKey(null=True, on_delete=django.db.models.deletion.SET_NULL, to='sponsorship.sponsorshiptier')),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("organization_name", models.CharField(max_length=255)),
+                (
+                    "sponsorship_type",
+                    models.CharField(
+                        choices=[
+                            ("Champion", "Champion"),
+                            ("Supporter", "Supporter"),
+                            ("Connector", "Connector"),
+                            ("Booster", "Booster"),
+                            ("Partner", "Partner"),
+                            ("Individual", "Individual"),
+                        ],
+                        max_length=20,
+                    ),
+                ),
+                ("logo", models.ImageField(upload_to="sponsor_logos/")),
+                ("description", models.TextField()),
+                (
+                    "application_status",
+                    models.CharField(
+                        choices=[
+                            ("pending", "Pending"),
+                            ("approved", "Approved"),
+                            ("rejected", "Rejected"),
+                            ("cancelled", "Cancelled"),
+                        ],
+                        default="pending",
+                        max_length=20,
+                    ),
+                ),
+                (
+                    "additional_contacts",
+                    models.ManyToManyField(
+                        blank=True,
+                        related_name="additional_contacts",
+                        to=settings.AUTH_USER_MODEL,
+                    ),
+                ),
+                (
+                    "main_contact",
+                    models.OneToOneField(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="main_contact",
+                        to=settings.AUTH_USER_MODEL,
+                    ),
+                ),
+                (
+                    "user",
+                    models.OneToOneField(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="sponsorship_user",
+                        to=settings.AUTH_USER_MODEL,
+                    ),
+                ),
+                (
+                    "sponsorship_tier",
+                    models.ForeignKey(
+                        null=True,
+                        on_delete=django.db.models.deletion.SET_NULL,
+                        to="sponsorship.sponsorshiptier",
+                    ),
+                ),
             ],
         ),
     ]

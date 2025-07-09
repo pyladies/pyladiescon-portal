@@ -33,7 +33,7 @@ SECRET_KEY = os.environ.get("SECRET_KEY")
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = bool(os.environ.get("DEBUG", default=0))
 
-ALLOWED_HOSTS = ['localhost', '127.0.0.1']
+ALLOWED_HOSTS = ["localhost", "127.0.0.1"]
 # ALLOWED_HOSTS = os.environ.get("DJANGO_ALLOWED_HOSTS")
 # if ALLOWED_HOSTS:
 #     ALLOWED_HOSTS = ALLOWED_HOSTS.split(",")
@@ -58,7 +58,7 @@ INSTALLED_APPS = [
     "volunteer",
     "portal_account",
     "widget_tweaks",
-    "sponsorship"
+    "sponsorship",
 ]
 DJANGO_TABLES2_TEMPLATE = "portal/base-tables-responsive.html"
 
