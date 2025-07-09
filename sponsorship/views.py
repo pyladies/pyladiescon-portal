@@ -1,7 +1,8 @@
-from django.shortcuts import render, redirect
-from .forms import SponsorshipProfileForm
-from django.contrib.auth.decorators import login_required
 from django.contrib import messages
+from django.contrib.auth.decorators import login_required
+from django.shortcuts import redirect, render
+
+from .forms import SponsorshipProfileForm
 
 
 @login_required
