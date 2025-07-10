@@ -109,9 +109,9 @@ else:
     DATABASES = {
         "default": {
             "ENGINE": os.environ.get("SQL_ENGINE", "django.db.backends.postgresql"),
-            "NAME": os.environ.get("SQL_DATABASE", "pyladiescon"),
+            "NAME": os.environ.get("SQL_DATABASE", "postgres"),
             "USER": os.environ.get("SQL_USER", "postgres"),
-            "PASSWORD": os.environ.get("SQL_PASSWORD", "Laraba1234#"),
+            "PASSWORD": os.environ.get("SQL_PASSWORD", "password"),
             "HOST": os.environ.get("SQL_HOST", "localhost"),
             "PORT": os.environ.get("SQL_PORT", "5432"),
         }
