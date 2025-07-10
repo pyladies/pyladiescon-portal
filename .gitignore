@@ -30,4 +30,5 @@ staticroot/
 
 site/
 htmlcov/
+/media/
 
