@@ -22,5 +22,4 @@ urlpatterns = [
         login_required(views.PortalProfileUpdate.as_view()),
         name="portal_profile_edit",
     ),
-    path("sponsorship/", include("sponsorship.urls")),
 ]
