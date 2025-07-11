@@ -1,9 +1,9 @@
 import pytest
+from django.contrib.auth.models import User
+from django.contrib.messages import get_messages
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
 from pytest_django.asserts import assertRedirects
-from django.core.files.uploadedfile import SimpleUploadedFile
-from django.contrib.messages import get_messages
-from django.contrib.auth.models import User
 
 from portal_account.models import PortalProfile
 from sponsorship.models import SponsorshipProfile
@@ -11,6 +11,7 @@ from sponsorship.models import SponsorshipProfile
 # -----------------------------------------------------------------------------------
 # Portal Profile Tests
 # -----------------------------------------------------------------------------------
+
 
 @pytest.mark.django_db
 class TestPortalProfile:
@@ -50,7 +51,9 @@ class TestPortalProfile:
         another_profile.save()
         client.force_login(portal_user)
         response = client.get(
-            reverse("portal_account:portal_profile_edit", kwargs={"pk": another_profile.id})
+            reverse(
+                "portal_account:portal_profile_edit", kwargs={"pk": another_profile.id}
+            )
         )
         assertRedirects(response, reverse("portal_account:index"))
 
@@ -62,7 +65,10 @@ class TestPortalProfile:
         another_profile.save()
         client.force_login(portal_user)
         response = client.get(
-            reverse("portal_account:portal_profile_detail", kwargs={"pk": another_profile.id})
+            reverse(
+                "portal_account:portal_profile_detail",
+                kwargs={"pk": another_profile.id},
+            )
         )
         assertRedirects(response, reverse("portal_account:index"))
 
@@ -87,9 +93,11 @@ class TestPortalProfile:
         response = client.get(reverse("portal_account:portal_profile_new"))
         assert response.status_code == 200
 
+
 # -----------------------------------------------------------------------------------
 # Sponsorship Profile View Tests
 # -----------------------------------------------------------------------------------
+
 
 @pytest.mark.django_db
 class TestSponsorshipViews:
