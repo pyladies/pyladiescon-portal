@@ -159,12 +159,15 @@
         {% endblock content %}
     </div>
     <footer class="footer mt-auto py-3 bg-dark text-white">
-        <div class="container">
-            <span>Problems with this site? File an issue in our <a href="https://github.com/pyladies/pyladiescon-portal">GitHub repository</a>, or open a pull request.
-            </span>
-            {% block footer_text %}
-            {% endblock footer_text %}
-        </div>
+      <div class="container d-flex align-items-center justify-content-between">
+        <span>
+          Problems with this site? File an issue in our
+          <a href="https://github.com/pyladies/pyladiescon-portal">GitHub repository</a>, or open a pull request.
+        </span>
+        <a href="http://www.djangoproject.com/">
+          <img src="https://www.djangoproject.com/m/img/badges/djangopowered126x54.gif" border="0" alt="Powered by Django." title="Powered by Django." />
+        </a>
+      </div>
     </footer>
 </body>
 </html>
