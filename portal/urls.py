@@ -28,10 +28,8 @@ urlpatterns = [
     path("volunteer/", include("volunteer.urls", namespace="volunteer")),
     path("admin/", admin.site.urls),
     path("accounts/", include("allauth.urls")),
-    path(
-        "portal_account/",
-        include("portal_account.urls", namespace="portal_account"),
-    ),
+    path("portal_account/", include("portal_account.urls", namespace="portal_account")),
+    path("sponsorship/", include("sponsorship.urls", namespace="sponsorship")),
     path(
         "teams/",
         volunteer_view.TeamList.as_view(),
@@ -44,3 +42,4 @@ urlpatterns = [
     ),
     path("i18n/", include("django.conf.urls.i18n")),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+
