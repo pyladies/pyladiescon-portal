@@ -1,9 +1,9 @@
 from django.contrib.auth.decorators import login_required
-from django.urls import path
+from django.urls import include, path
 
 from . import views
 
-app_name = "volunteer"
+app_name = "portal_account"
 
 urlpatterns = [
     path("", views.index, name="index"),
