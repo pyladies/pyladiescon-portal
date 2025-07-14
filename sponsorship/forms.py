@@ -11,7 +11,6 @@ class SponsorshipProfileForm(forms.ModelForm):
             "additional_contacts",
             "organization_name",
             "sponsorship_type",
-            #'sponsorship_tier',
             "logo",
             "company_description",
         ]
