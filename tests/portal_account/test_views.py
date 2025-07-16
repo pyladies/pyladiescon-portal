@@ -1,7 +1,10 @@
+from io import BytesIO
+
 import pytest
 from django.contrib.messages import get_messages
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
+from PIL import Image
 from pytest_django.asserts import assertRedirects
 
 from portal_account.models import PortalProfile
@@ -98,6 +101,14 @@ class TestPortalProfile:
 # -----------------------------------------------------------------------------------
 
 
+def create_sample_image():
+    image = Image.new("RGB", (100, 100), color="red")
+    image_bytes = BytesIO()
+    image.save(image_bytes, format="PNG")
+    image_bytes.seek(0)
+    return image_bytes.read()
+
+
 @pytest.mark.django_db
 class TestSponsorshipViews:
 
@@ -108,8 +119,10 @@ class TestSponsorshipViews:
         assert "form" in response.context
 
     def test_create_sponsorship_profile_post_valid(self, client, portal_user):
-        logo = SimpleUploadedFile("logo.png", b"dummydata", content_type="image/png")
+        sample_image = create_sample_image()
+        logo = SimpleUploadedFile("logo.png", sample_image, content_type="image/png")
         client.force_login(portal_user)
+
         data = {
             "main_contact_user": portal_user.id,
             "organization_name": "Test Organization",
@@ -130,7 +143,9 @@ class TestSponsorshipViews:
         assert "Sponsorship profile submitted successfully!" in messages
 
     def test_sponsorship_profile_str_returns_org_name(self, portal_user):
-        logo = SimpleUploadedFile("logo.png", b"dummydata", content_type="image/png")
+        sample_image = create_sample_image()
+        logo = SimpleUploadedFile("logo.png", sample_image, content_type="image/png")
+
         profile = SponsorshipProfile.objects.create(
             user=portal_user,
             main_contact_user=portal_user,
