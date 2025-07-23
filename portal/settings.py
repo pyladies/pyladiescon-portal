@@ -166,7 +166,7 @@ MEDIA_ROOT = os.path.join(BASE_DIR, "media")
 MEDIA_URL = "/media/"
 
 USE_SPACES = os.getenv("USE_SPACES")
-
+print(f"USE_SPACES: {USE_SPACES}")
 if USE_SPACES == "true":
     print("Using AWS S3 for media storage")
     STORAGES = {
