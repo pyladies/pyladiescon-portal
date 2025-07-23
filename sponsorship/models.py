@@ -31,7 +31,7 @@ class SponsorshipProfile(models.Model):
     organization_name = models.CharField(max_length=255)
     sponsorship_type = models.CharField(max_length=20, choices=SPONSORSHIP_TYPES)
     # sponsorship_tier = models.ForeignKey("SponsorshipTier", on_delete=models.SET_NULL, null=True, blank = True)
-    logo = models.ImageField(upload_to="sponsor_logos/")
+    logo = models.ImageField(upload_to="sponsor_logos/", null=True, blank=True)
     company_description = models.TextField()
     application_status = models.CharField(
         max_length=20,
