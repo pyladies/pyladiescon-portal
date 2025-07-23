@@ -299,19 +299,19 @@ def send_volunteer_onboarding_email(instance):
 def send_internal_volunteer_onboarding_email(instance):
     """Notify internal team about a new volunteer onboarding.
     This should only be sent when the volunteer profile is approved.
+
+    Send notification email to staff and admin team members
     """
     if instance.application_status == ApplicationStatus.APPROVED:
         context = {"profile": instance, "GDRIVE_FOLDER_ID": settings.GDRIVE_FOLDER_ID}
         subject = f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} Complete the Volunteer Onboarding for: {instance.user.first_name} {instance.user.last_name}"
-
         for role in instance.roles.all():
             if role.short_name in [RoleTypes.ADMIN, RoleTypes.STAFF]:
                 context["admin_onboarding"] = True
         html_template = "volunteer/email/internal_volunteer_onboarding.html"
         text_template = "volunteer/email/internal_volunteer_onboarding.txt"
-        _send_email(
+        _send_internal_email(
             subject,
-            [instance.user.email],
             html_template=html_template,
             text_template=text_template,
             context=context,
