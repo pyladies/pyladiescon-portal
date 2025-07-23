@@ -511,6 +511,16 @@ class TestVolunteerModel:
     ):
         settings.GDRIVE_FOLDER_ID = "super-secret-folder-id"
 
+        admin_user_to_notify = User.objects.create_superuser(
+            username="testadmin",
+            email="test-admin@example.com",
+            password="pyladiesadmin123",
+        )
+        admin_profile = VolunteerProfile(user=admin_user_to_notify)
+        admin_profile.languages_spoken = [LANGUAGES[0]]
+        admin_profile.region = Region.NORTH_AMERICA
+        admin_profile.save()
+
         profile = VolunteerProfile(user=portal_user)
         profile.languages_spoken = [LANGUAGES[0], LANGUAGES[1]]
         profile.region = Region.NORTH_AMERICA
@@ -521,6 +531,7 @@ class TestVolunteerModel:
             short_name="Super random team name", description="Development Team"
         )
         profile.teams.add(team)
+
         role = Role.objects.create(
             short_name="Obscure Role name", description="Test role desc"
         )
@@ -544,6 +555,16 @@ class TestVolunteerModel:
 
     def test_internal_admin_onboarding_email_contains_info(self, portal_user, settings):
         settings.GDRIVE_FOLDER_ID = "super-secret-folder-id"
+
+        admin_user_to_notify = User.objects.create_superuser(
+            username="testadmin",
+            email="test-admin@example.com",
+            password="pyladiesadmin123",
+        )
+        admin_profile = VolunteerProfile(user=admin_user_to_notify)
+        admin_profile.languages_spoken = [LANGUAGES[0]]
+        admin_profile.region = Region.NORTH_AMERICA
+        admin_profile.save()
 
         profile = VolunteerProfile(user=portal_user)
         profile.languages_spoken = [LANGUAGES[0], LANGUAGES[1]]
