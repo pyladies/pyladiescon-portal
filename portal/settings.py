@@ -52,6 +52,7 @@ INSTALLED_APPS = [
     "volunteer",
     "portal_account",
     "widget_tweaks",
+    "sponsorship",
 ]
 DJANGO_TABLES2_TEMPLATE = "portal/base-tables-responsive.html"
 
