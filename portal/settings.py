@@ -168,6 +168,7 @@ MEDIA_URL = "/media/"
 USE_SPACES = os.getenv("USE_SPACES")
 
 if USE_SPACES == "true":
+    print("Using AWS S3 for media storage")
     STORAGES = {
         "default": {
             "BACKEND": "storage_backend.custom_storage.MediaStorage",
@@ -184,6 +185,8 @@ if USE_SPACES == "true":
     AWS_S3_ENDPOINT_URL = os.getenv("AWS_S3_ENDPOINT_URL")
     AWS_S3_OBJECT_PARAMETERS = {"CacheControl": "max-age=86400"}
     AWS_QUERYSTRING_AUTH = False
+else:
+    print("Using local filesystem for media storage")
 
 
 # Default primary key field type
