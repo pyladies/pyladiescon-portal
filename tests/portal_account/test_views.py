@@ -158,7 +158,9 @@ class TestSponsorshipViews:
         assert str(profile) == "Test Org"
 
     @pytest.mark.skip(reason="Failing on CI, needs investigation")
-    def test_sponsorship_profile_with_logo(self, client, portal_user):  # pragma: no cover
+    def test_sponsorship_profile_with_logo(
+        self, client, portal_user
+    ):  # pragma: no cover
         """This test is allowed to fail on CI."""
         sample_image = create_sample_image()
         logo = SimpleUploadedFile("logo.png", sample_image, content_type="image/png")
