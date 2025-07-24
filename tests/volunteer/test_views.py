@@ -311,7 +311,7 @@ class TestManageVolunteers:
         volunteer_table = response.context["table"]
         team_render = volunteer_table.render_teams(team, another_profile)
         expected_team_url = reverse("team_detail", kwargs={"pk": team.pk})
-        expected_team_render = f'<a href="{expected_team_url}" class="badge bg-secondary text-decoration-none">{team.short_name}</a> '
+        expected_team_render = f'<a href="{expected_team_url}" class="badge bg-secondary">{team.short_name}</a> '
         assert team_render == expected_team_render
 
         role_render = volunteer_table.render_roles(role, another_profile)
@@ -403,11 +403,11 @@ class TestManageVolunteers:
         team2_url = reverse("team_detail", kwargs={"pk": team2.pk})
 
         assert (
-            f'<a href="{team1_url}" class="badge bg-secondary text-decoration-none">Team 1</a>'
+            f'<a href="{team1_url}" class="badge bg-secondary">Team 1</a>'
             in team_render
         )
         assert (
-            f'<a href="{team2_url}" class="badge bg-secondary text-decoration-none">Team 2</a>'
+            f'<a href="{team2_url}" class="badge bg-secondary">Team 2</a>'
             in team_render
         )
 
@@ -452,9 +452,8 @@ class TestManageVolunteers:
         team_render = volunteer_table.render_teams(None, profile)
 
         # Check that the rendered HTML contains href attribute
-        assert 'href="/teams/' in team_render
-        assert f'href="/teams/{team.pk}"' in team_render
-        assert "text-decoration-none" in team_render
+        assert reverse("teams") in team_render
+        assert reverse("team_detail", kwargs={"pk": team.pk}) in team_render
         assert "badge bg-secondary" in team_render
 
     def test_filter_volunteers_table(self, client, portal_user, django_user_model):

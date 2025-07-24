@@ -160,7 +160,7 @@ class VolunteerProfileTable(tables.Table):
         for team in record.teams.all():
             team_url = reverse("team_detail", kwargs={"pk": team.pk})
             html_content = format_html(
-                '{}<a href="{}" class="badge bg-secondary text-decoration-none">{}</a> ',
+                '{}<a href="{}" class="badge bg-secondary">{}</a> ',
                 html_content,
                 team_url,
                 team.short_name,
