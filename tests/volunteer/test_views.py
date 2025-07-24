@@ -310,9 +310,9 @@ class TestManageVolunteers:
 
         volunteer_table = response.context["table"]
         team_render = volunteer_table.render_teams(team, another_profile)
-        assert (
-            team_render == f'<span class="badge bg-secondary">{team.short_name}</span> '
-        )
+        expected_team_url = reverse("team_detail", kwargs={"pk": team.pk})
+        expected_team_render = f'<a href="{expected_team_url}" class="badge bg-secondary">{team.short_name}</a> '
+        assert team_render == expected_team_render
 
         role_render = volunteer_table.render_roles(role, another_profile)
         assert (
@@ -362,6 +362,99 @@ class TestManageVolunteers:
         action_button = volunteer_table.render_actions("", another_profile)
         assert "btn-info" in action_button
         assert "Manage" in action_button
+
+    def test_render_teams_with_multiple_teams(
+        self, client, portal_user, django_user_model
+    ):
+        """Test that multiple teams are rendered correctly with links."""
+        profile = VolunteerProfile(user=portal_user)
+        profile.languages_spoken = [LANGUAGES[0]]
+        profile.save()
+
+        another_user = django_user_model.objects.create_user(
+            username="other",
+        )
+        another_profile = VolunteerProfile(user=another_user)
+        another_profile.languages_spoken = [LANGUAGES[0]]
+        another_profile.save()
+
+        # Create multiple teams
+        team1 = Team(short_name="Team 1", description="First Team")
+        team1.save()
+        team2 = Team(short_name="Team 2", description="Second Team")
+        team2.save()
+
+        # Add both teams to profile
+        another_profile.teams.add(team1, team2)
+        another_profile.save()
+
+        portal_user.is_superuser = True
+        portal_user.save()
+
+        client.force_login(portal_user)
+        url = reverse("volunteer:volunteer_profile_list")
+        response = client.get(url)
+
+        volunteer_table = response.context["table"]
+        team_render = volunteer_table.render_teams(None, another_profile)
+
+        # Check that both teams are rendered with links
+        team1_url = reverse("team_detail", kwargs={"pk": team1.pk})
+        team2_url = reverse("team_detail", kwargs={"pk": team2.pk})
+
+        assert (
+            f'<a href="{team1_url}" class="badge bg-secondary">Team 1</a>'
+            in team_render
+        )
+        assert (
+            f'<a href="{team2_url}" class="badge bg-secondary">Team 2</a>'
+            in team_render
+        )
+
+    def test_render_teams_with_no_teams(self, client, portal_user):
+        """Test that profiles with no teams render empty string."""
+        profile = VolunteerProfile(user=portal_user)
+        profile.languages_spoken = [LANGUAGES[0]]
+        profile.save()
+
+        portal_user.is_superuser = True
+        portal_user.save()
+
+        client.force_login(portal_user)
+        url = reverse("volunteer:volunteer_profile_list")
+        response = client.get(url)
+
+        volunteer_table = response.context["table"]
+        team_render = volunteer_table.render_teams(None, profile)
+
+        # Should return empty string when no teams
+        assert team_render == ""
+
+    def test_team_badge_links_are_clickable(self, client, portal_user):
+        """Test that team badges contain proper href attributes."""
+        profile = VolunteerProfile(user=portal_user)
+        profile.languages_spoken = [LANGUAGES[0]]
+        profile.save()
+
+        team = Team(short_name="Test Team", description="Test Description")
+        team.save()
+        profile.teams.add(team)
+        profile.save()
+
+        portal_user.is_superuser = True
+        portal_user.save()
+
+        client.force_login(portal_user)
+        url = reverse("volunteer:volunteer_profile_list")
+        response = client.get(url)
+
+        volunteer_table = response.context["table"]
+        team_render = volunteer_table.render_teams(None, profile)
+
+        # Check that the rendered HTML contains href attribute
+        assert reverse("teams") in team_render
+        assert reverse("team_detail", kwargs={"pk": team.pk}) in team_render
+        assert "badge bg-secondary" in team_render
 
     def test_filter_volunteers_table(self, client, portal_user, django_user_model):
         profile = VolunteerProfile(user=portal_user)

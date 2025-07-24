@@ -155,12 +155,14 @@ class VolunteerProfileTable(tables.Table):
         return html_content
 
     def render_teams(self, value, record):
-        """Render the teams as badges."""
+        """Render the teams as badges with links to team detail pages."""
         html_content = ""
         for team in record.teams.all():
+            team_url = reverse("team_detail", kwargs={"pk": team.pk})
             html_content = format_html(
-                '{}<span class="badge bg-secondary">{}</span> ',
+                '{}<a href="{}" class="badge bg-secondary">{}</a> ',
                 html_content,
+                team_url,
                 team.short_name,
             )
         return html_content
