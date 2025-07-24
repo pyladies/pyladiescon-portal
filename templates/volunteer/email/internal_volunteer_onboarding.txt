@@ -2,7 +2,7 @@
 {% load i18n %}
 {% load account %}
 {% block content %}
-Hello, {{ profile.user.first_name }}.
+Hello, {{ recipient_name }}.
 We're writing to let you know that a new volunteer has just been approved and onboarded.
 Be sure to complete the rest of the onboarding process. They've been sent an introductory email with further
 instructions, however, there are some action items that you need to complete as well since not everything can
