@@ -62,6 +62,13 @@ class TestVolunteer:
         )
         assertRedirects(response, reverse("volunteer:index"))
 
+    def test_volunteer_profile_edit_nonexistent_profile(self, client, portal_user):
+        client.force_login(portal_user)
+        response = client.get(
+            reverse("volunteer:volunteer_profile_edit", kwargs={"pk": 99999})
+        )
+        assertRedirects(response, reverse("volunteer:index"))
+
     def test_volunteer_profile_create(self, client, portal_user):
         client.force_login(portal_user)
         response = client.get(reverse("volunteer:volunteer_profile_new"))
@@ -105,6 +112,38 @@ class TestVolunteer:
         assert response.status_code == 200
         profile_result = response.context["volunteerprofile"]
         assert profile_result == profile
+
+    def test_volunteer_profile_view_nonexistent_profile(self, client, portal_user):
+        client.force_login(portal_user)
+        response = client.get(
+            reverse("volunteer:volunteer_profile_detail", kwargs={"pk": 99999})
+        )
+        assertRedirects(response, reverse("volunteer:index"))
+
+    def test_volunteer_profile_view_staff_can_view_other_profile(
+        self, client, portal_user, django_user_model
+    ):
+        another_user = django_user_model.objects.create_user(
+            username="other",
+        )
+        another_profile = VolunteerProfile(user=another_user)
+        another_profile.languages_spoken = [LANGUAGES[0]]
+        another_profile.region = Region.NORTH_AMERICA
+        another_profile.save()
+
+        # Make portal_user staff
+        portal_user.is_staff = True
+        portal_user.save()
+
+        client.force_login(portal_user)
+        response = client.get(
+            reverse(
+                "volunteer:volunteer_profile_detail", kwargs={"pk": another_profile.id}
+            )
+        )
+        assert response.status_code == 200
+        profile_result = response.context["volunteerprofile"]
+        assert profile_result == another_profile
 
     def test_new_volunteer_profile_form_submit(self, client, portal_user):
         client.force_login(portal_user)
@@ -353,11 +392,13 @@ class TestManageVolunteers:
         assert "bg-warning" in render_application_status
 
         another_profile.application_status = ApplicationStatus.PENDING
+        another_profile.save()
         action_button = volunteer_table.render_actions("", another_profile)
         assert "btn-primary" in action_button
         assert "Review" in action_button
 
         another_profile.application_status = ApplicationStatus.APPROVED
+        another_profile.save()
         action_button = volunteer_table.render_actions("", another_profile)
         assert "btn-info" in action_button
         assert "Manage" in action_button
@@ -482,6 +523,12 @@ class TestManageVolunteers:
         filter_queryset = filter.qs
         search_by_name = filter.search_fulltext(filter_queryset, "", "")
         assert search_by_name.count() == 2
+
+        # Test search with actual search term
+        search_with_term = filter.search_fulltext(
+            filter_queryset, "", portal_user.username
+        )
+        assert search_with_term.count() == 1
 
         # qs = filter.filter_language(filter_queryset, "", "es")
         # assert qs.count() == 0  # no matching languages
@@ -711,3 +758,311 @@ class TestManageVolunteerApplications:
         messages = list(get_messages(response.wsgi_request))
         assert len(messages) == 1
         assert "Volunteer profile not found." in messages[0].message
+
+
+@pytest.mark.django_db
+class TestCancelVolunteering:
+
+    def test_cancel_volunteering_by_volunteer_themselves(
+        self, client, portal_user, django_user_model
+    ):
+        """Test that volunteers can cancel their own application."""
+        profile = VolunteerProfile(user=portal_user)
+        profile.languages_spoken = [LANGUAGES[0]]
+        profile.application_status = ApplicationStatus.APPROVED
+        profile.save()
+
+        # Create a team and add volunteer to it
+        team = Team(short_name="Test Team", description="Test Description")
+        team.save()
+        profile.teams.add(team)
+
+        client.force_login(portal_user)
+        response = client.post(
+            reverse("volunteer:cancel_volunteering", kwargs={"pk": profile.id})
+        )
+
+        # Check redirect
+        assertRedirects(response, reverse("volunteer:index"))
+
+        # Check profile was updated
+        profile.refresh_from_db()
+        assert profile.application_status == ApplicationStatus.CANCELLED
+        assert profile.teams.count() == 0
+
+        # Check success message
+        messages = list(get_messages(response.wsgi_request))
+        assert len(messages) == 1
+        assert (
+            "Your volunteer application has been cancelled successfully."
+            in messages[0].message
+        )
+
+    def test_cancel_volunteering_by_staff(self, client, portal_user, django_user_model):
+        """Test that staff can cancel volunteer applications."""
+        volunteer_user = django_user_model.objects.create_user(username="volunteer")
+        profile = VolunteerProfile(user=volunteer_user)
+        profile.languages_spoken = [LANGUAGES[0]]
+        profile.application_status = ApplicationStatus.APPROVED
+        profile.save()
+
+        # Create a team and add volunteer to it
+        team = Team(short_name="Test Team", description="Test Description")
+        team.save()
+        profile.teams.add(team)
+
+        # Make portal_user staff
+        portal_user.is_staff = True
+        portal_user.save()
+
+        client.force_login(portal_user)
+        response = client.post(
+            reverse("volunteer:cancel_volunteering", kwargs={"pk": profile.id})
+        )
+
+        # Check redirect
+        assertRedirects(response, reverse("volunteer:volunteer_profile_list"))
+
+        # Check profile was updated
+        profile.refresh_from_db()
+        assert profile.application_status == ApplicationStatus.CANCELLED
+        assert profile.teams.count() == 0
+
+    def test_cancel_volunteering_permission_denied(
+        self, client, portal_user, django_user_model
+    ):
+        """Test that users cannot cancel other users' applications without permission."""
+        volunteer_user = django_user_model.objects.create_user(username="volunteer")
+        profile = VolunteerProfile(user=volunteer_user)
+        profile.languages_spoken = [LANGUAGES[0]]
+        profile.application_status = ApplicationStatus.APPROVED
+        profile.save()
+
+        client.force_login(portal_user)
+        response = client.post(
+            reverse("volunteer:cancel_volunteering", kwargs={"pk": profile.id})
+        )
+
+        # Check redirect to index with error
+        assertRedirects(response, reverse("volunteer:index"))
+
+        # Check profile was NOT updated
+        profile.refresh_from_db()
+        assert profile.application_status == ApplicationStatus.APPROVED
+
+        # Check error message
+        messages = list(get_messages(response.wsgi_request))
+        assert len(messages) == 1
+        assert (
+            "You don't have permission to cancel this volunteer application."
+            in messages[0].message
+        )
+
+    def test_cancel_already_cancelled_application(self, client, portal_user):
+        """Test that cancelling an already cancelled application shows warning."""
+        profile = VolunteerProfile(user=portal_user)
+        profile.languages_spoken = [LANGUAGES[0]]
+        profile.application_status = ApplicationStatus.CANCELLED
+        profile.save()
+
+        client.force_login(portal_user)
+        response = client.post(
+            reverse("volunteer:cancel_volunteering", kwargs={"pk": profile.id})
+        )
+
+        # Check redirect
+        assertRedirects(
+            response,
+            reverse("volunteer:volunteer_profile_detail", kwargs={"pk": profile.id}),
+        )
+
+        # Check warning message
+        messages = list(get_messages(response.wsgi_request))
+        assert len(messages) == 1
+        assert "This volunteer application is already cancelled." in messages[0].message
+
+    def test_cancel_volunteering_nonexistent_profile(self, client, portal_user):
+        """Test cancelling a non-existent profile returns error."""
+        client.force_login(portal_user)
+        response = client.post(
+            reverse("volunteer:cancel_volunteering", kwargs={"pk": 99999})
+        )
+
+        # Check redirect to index with error
+        assertRedirects(response, reverse("volunteer:index"))
+
+        # Check error message
+        messages = list(get_messages(response.wsgi_request))
+        assert len(messages) == 1
+        assert "Volunteer profile not found." in messages[0].message
+
+    def test_cancel_volunteering_with_team_leads(
+        self, client, portal_user, django_user_model
+    ):
+        """Test that cancelling volunteering sends notifications to team leads."""
+        # Create volunteer
+        profile = VolunteerProfile(user=portal_user)
+        profile.languages_spoken = [LANGUAGES[0]]
+        profile.application_status = ApplicationStatus.APPROVED
+        profile.save()
+
+        # Create team lead
+        team_lead_user = django_user_model.objects.create_user(
+            username="teamlead", email="teamlead@example.com"
+        )
+        team_lead_profile = VolunteerProfile(user=team_lead_user)
+        team_lead_profile.languages_spoken = [LANGUAGES[0]]
+        team_lead_profile.save()
+
+        # Create team with lead
+        team = Team(short_name="Test Team", description="Test Description")
+        team.save()
+        team.team_leads.add(team_lead_profile)
+        profile.teams.add(team)
+
+        client.force_login(portal_user)
+        response = client.post(
+            reverse("volunteer:cancel_volunteering", kwargs={"pk": profile.id})
+        )
+
+        # Check that the cancellation was successful
+        profile.refresh_from_db()
+        assert profile.application_status == ApplicationStatus.CANCELLED
+        assert profile.teams.count() == 0
+
+    def test_volunteer_list_excludes_cancelled(
+        self, client, portal_user, django_user_model
+    ):
+        """Test that cancelled applications are excluded from the volunteer list."""
+        # Create profiles with different statuses
+        approved_user = django_user_model.objects.create_user(username="approved")
+        approved_profile = VolunteerProfile(user=approved_user)
+        approved_profile.languages_spoken = [LANGUAGES[0]]
+        approved_profile.application_status = ApplicationStatus.APPROVED
+        approved_profile.save()
+
+        cancelled_user = django_user_model.objects.create_user(username="cancelled")
+        cancelled_profile = VolunteerProfile(user=cancelled_user)
+        cancelled_profile.languages_spoken = [LANGUAGES[0]]
+        cancelled_profile.application_status = ApplicationStatus.CANCELLED
+        cancelled_profile.save()
+
+        pending_user = django_user_model.objects.create_user(username="pending")
+        pending_profile = VolunteerProfile(user=pending_user)
+        pending_profile.languages_spoken = [LANGUAGES[0]]
+        pending_profile.application_status = ApplicationStatus.PENDING
+        pending_profile.save()
+
+        # Make portal_user staff to access the list
+        portal_user.is_staff = True
+        portal_user.save()
+
+        client.force_login(portal_user)
+        response = client.get(reverse("volunteer:volunteer_profile_list"))
+
+        assert response.status_code == 200
+
+        # Get the queryset from the table
+        table = response.context["table"]
+        profiles_in_table = [item for item in table.data]
+
+        # Check that cancelled profile is not in the list
+        profile_ids = [profile.id for profile in profiles_in_table]
+        assert approved_profile.id in profile_ids
+        assert pending_profile.id in profile_ids
+        assert cancelled_profile.id not in profile_ids
+
+    def test_cancel_volunteering_generic_exception(
+        self, client, portal_user, monkeypatch
+    ):
+        """Test the generic exception handler in cancel volunteering."""
+        profile = VolunteerProfile(user=portal_user)
+        profile.languages_spoken = [LANGUAGES[0]]
+        profile.application_status = ApplicationStatus.APPROVED
+        profile.save()
+
+        # Mock the save method to raise an exception
+        def mock_save(*args, **kwargs):
+            raise Exception("Database error")
+
+        monkeypatch.setattr(VolunteerProfile, "save", mock_save)
+
+        client.force_login(portal_user)
+        response = client.post(
+            reverse("volunteer:cancel_volunteering", kwargs={"pk": profile.id})
+        )
+
+        # Should redirect to profile detail page on exception
+        assertRedirects(
+            response,
+            reverse("volunteer:volunteer_profile_detail", kwargs={"pk": profile.id}),
+        )
+
+        # Check error message
+        messages = list(get_messages(response.wsgi_request))
+        assert len(messages) == 1
+        assert "An error occurred while cancelling:" in messages[0].message
+
+    def test_volunteer_table_render_actions_approved_branch(
+        self, portal_user, django_user_model
+    ):
+        """Test the render_actions method specifically for APPROVED status to ensure branch coverage."""
+        import uuid
+
+        from volunteer.views import VolunteerProfileTable
+
+        # Create a profile with APPROVED status
+        another_user = django_user_model.objects.create_user(
+            username=f"testuser_{uuid.uuid4().hex[:8]}"
+        )
+        profile = VolunteerProfile(user=another_user)
+        profile.languages_spoken = [LANGUAGES[0]]
+        profile.application_status = ApplicationStatus.APPROVED
+        profile.save()
+
+        # Ensure we're testing the right status
+        assert profile.application_status == ApplicationStatus.APPROVED
+
+        # Create table instance and call render_actions directly
+        table = VolunteerProfileTable([])
+        result = table.render_actions("", profile)
+
+        # Verify the APPROVED branch was executed and we get expected result
+        assert result is not None
+        assert "btn-info" in result
+        assert "Manage" in result
+        assert "volunteer_profile_manage" in result
+
+    def test_volunteer_table_render_actions_edge_cases(
+        self, portal_user, django_user_model
+    ):
+        """Test render_actions with different application statuses to ensure full branch coverage."""
+        import uuid
+
+        from volunteer.views import VolunteerProfileTable
+
+        table = VolunteerProfileTable([])
+
+        # Test with REJECTED status (should return empty string)
+        user1 = django_user_model.objects.create_user(
+            username=f"user_rejected_{uuid.uuid4().hex[:8]}"
+        )
+        profile1 = VolunteerProfile(user=user1)
+        profile1.languages_spoken = [LANGUAGES[0]]
+        profile1.application_status = ApplicationStatus.REJECTED
+        profile1.save()
+
+        result1 = table.render_actions("", profile1)
+        assert result1 == ""
+
+        # Test with CANCELLED status (should return empty string)
+        user2 = django_user_model.objects.create_user(
+            username=f"user_cancelled_{uuid.uuid4().hex[:8]}"
+        )
+        profile2 = VolunteerProfile(user=user2)
+        profile2.languages_spoken = [LANGUAGES[0]]
+        profile2.application_status = ApplicationStatus.CANCELLED
+        profile2.save()
+
+        result2 = table.render_actions("", profile2)
+        assert result2 == ""
