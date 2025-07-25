@@ -1,0 +1,65 @@
+{% load i18n %}
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Volunteer Application Cancelled</title>
+    </head>
+    <body>
+        <div>
+            <h2>
+                Volunteer Application Cancelled
+            </h2>
+            <p>
+                Dear {{ profile.user.first_name|default:profile.user.username }},
+            </p>
+            <p>
+                This email confirms that your volunteer application for PyLadiesCon has been cancelled.
+            </p>
+            <div>
+                <h3>
+                    Changes Made:
+                </h3>
+                <ul>
+                    <li>
+                        Your application status has been set to "Cancelled"
+                    </li>
+                    {% if teams_removed %}
+                        <li>
+                            You have been removed from the following teams:
+                            <ul>
+                                {% for team in teams_removed %}
+                                    <li>
+                                        {{ team.short_name }}
+                                    </li>
+                                {% endfor %}
+                            </ul>
+                        </li>
+                    {% endif %}
+                    <li>
+                        Team leads have been notified of your departure
+                    </li>
+                </ul>
+            </div>
+            <p>
+                We understand that circumstances can change, and we appreciate the time you were willing to dedicate to PyLadiesCon.
+            </p>
+            <p>
+                If you change your mind in the future and would like to volunteer again, you're welcome to submit a new volunteer application through our portal.
+            </p>
+            <p>
+                Thank you for your interest in PyLadiesCon, and we hope to see you as a participant or volunteer in future events!
+            </p>
+            <p>
+                Best regards,
+                <br>
+                The PyLadiesCon Team
+            </p>
+            <hr>
+            <p>
+                This is an automated email from the PyLadiesCon volunteer portal. Please do not reply to this email.
+            </p>
+        </div>
+    </body>
+</html>
