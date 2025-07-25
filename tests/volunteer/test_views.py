@@ -921,9 +921,7 @@ class TestCancelVolunteering:
         profile.teams.add(team)
 
         client.force_login(portal_user)
-        response = client.post(
-            reverse("volunteer:cancel_volunteering", kwargs={"pk": profile.id})
-        )
+        client.post(reverse("volunteer:cancel_volunteering", kwargs={"pk": profile.id}))
 
         # Check that the cancellation was successful
         profile.refresh_from_db()
