@@ -1,0 +1,37 @@
+{% extends "portal/base.html" %}
+{% load allauth i18n %}
+{% load django_bootstrap5 %}
+{% block body %}
+{% endblock body %}
+{% block content %}
+    <!-- <head> -->
+        <!-- <title>An example</title> -->
+    <!-- </head> -->
+    <!-- <body> -->
+    <!--     <button onclick="call_counter('http://www.google.com', 12345);"> -->
+    <!--         I update object 12345 -->
+    <!--     </button> -->
+    <!--     <button onclick="call_counter('http://www.yahoo.com', 999);"> -->
+    <!--         I update object 999 -->
+    <!--     </button> -->
+    <!-- </body> -->
+    <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js"></script>
+    <script>
+        function load_speakers(url, number) {
+            $.get('load-speakers', function (data) {
+              console.log("Loading Speakers! {data}");
+            });
+        }
+    </script>
+    <h1 class="display-5">
+        Events
+    </h1>
+        <p class="col-md-8 fs-4">
+          Event Module!
+        </p>
+        {% if user.is_superuser %}
+          <button class="col-md-8 fs-4" onclick="load_speakers('/event', 12345);">
+            Load Event Speakers
+          </button> 
+        {% endif %}
+{% endblock content %}
