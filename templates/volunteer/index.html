@@ -1,9 +1,26 @@
 {% extends "portal/base.html" %}
 {% load allauth i18n %}
 {% load django_bootstrap5 %}
+{% load portal_extras %}
 {% block body %}
 {% endblock body %}
 {% block content %}
+    {% if user.is_superuser %}
+        <h1 class="display-5">
+            Manage Volunteers
+        </h1>
+        <p>
+            Review volunteer applications and manage team members.
+        </p>
+        <ul class="list-unstyled ps-8">
+            <li>
+                <a href="{% url 'volunteer:volunteers_list' %}" class="icon-link">
+                    {% translate "Manage Volunteers" %}
+                    <i class="fa-solid fa-chevron-right"></i>
+                </a>
+            </li>
+        </ul>
+    {% endif %}
     <h1 class="display-5">
         Volunteer Profile
     </h1>
