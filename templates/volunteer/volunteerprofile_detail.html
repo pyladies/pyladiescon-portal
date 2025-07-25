@@ -217,10 +217,87 @@
         {% if user.is_superuser and user.username != object.user.username %}
             <a class="btn btn-secondary"
                href="{% url 'volunteer:volunteers_list' %}">Back to Manage Volunteers</a>
+            {% if object.application_status != "Cancelled" %}
+                <button type="button"
+                        class="btn btn-danger ms-2"
+                        data-bs-toggle="modal"
+                        data-bs-target="#cancelVolunteeringModal">
+                    Cancel Volunteering
+                </button>
+            {% endif %}
         {% else %}
-            <a class="btn btn-primary"
-               href="{% url 'volunteer:volunteer_profile_edit' object.pk %}">Edit Profile</a>
+            {% if object.application_status != "Cancelled" %}
+                <a class="btn btn-primary"
+                   href="{% url 'volunteer:volunteer_profile_edit' object.pk %}">Edit Profile</a>
+                <button type="button"
+                        class="btn btn-danger ms-2"
+                        data-bs-toggle="modal"
+                        data-bs-target="#cancelVolunteeringModal">
+                    Cancel My Volunteering
+                </button>
+            {% endif %}
             <a class="btn btn-secondary" href="{% url 'volunteer:index' %}">Back to Volunteer Dashboard</a>
         {% endif %}
     </div>
+    <!-- Cancel Volunteering Modal -->
+    {% if object.application_status != "Cancelled" %}
+        <div class="modal fade"
+             id="cancelVolunteeringModal"
+             tabindex="-1"
+             aria-labelledby="cancelVolunteeringModalLabel"
+             aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="cancelVolunteeringModalLabel">
+                            Cancel Volunteering
+                        </h5>
+                        <button type="button"
+                                class="btn-close"
+                                data-bs-dismiss="modal"
+                                aria-label="Close">
+                        </button>
+                    </div>
+                    <div class="modal-body">
+                        <p>
+                            <strong>Are you sure you want to cancel your volunteer application?</strong>
+                        </p>
+                        <p>
+                            This action will:
+                        </p>
+                        <ul>
+                            <li>
+                                Set your application status to "Cancelled"
+                            </li>
+                            <li>
+                                Remove you from all assigned teams
+                            </li>
+                            <li>
+                                Send a confirmation email to you
+                            </li>
+                            <li>
+                                Notify team leads about your departure
+                            </li>
+                        </ul>
+                        <p class="text-danger">
+                            <strong>This action cannot be undone.</strong> If you change your mind, you'll need to submit a new volunteer application.
+                        </p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                            Keep Volunteering
+                        </button>
+                        <form method="post"
+                              action="{% url 'volunteer:cancel_volunteering' object.pk %}"
+                              style="display: inline">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-danger">
+                                Yes, Cancel My Volunteering
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    {% endif %}
 {% endblock content %}
