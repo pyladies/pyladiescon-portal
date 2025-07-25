@@ -4,11 +4,11 @@
 {% block body %}
 {% endblock body %}
 {% block content %}
-    {% if user.is_authenticated %}
-        <div class="container px-4 py-3" id="featured-3">
-            <h2 class="pb-2 border-bottom">
-                PyLadiesCon Portal
-            </h2>
+    <div class="container px-4 py-3" id="featured-3">
+        <h2 class="pb-2 border-bottom">
+            PyLadiesCon Portal
+        </h2>
+        {% if user.is_authenticated %}
             <div class="row g-4 py-5 row-cols-1 row-cols-lg-3">
                 <div class="feature col">
                     <div class="d-inline-flex align-items-center justify-content-center fa-3x mb-3">
@@ -127,12 +127,7 @@
                     </div>
                 {% endif %}
             </div>
-        </div>
-    {% else %}
-        <div class="container px-4 py-5">
-            <h2 class="pb-2 border-bottom">
-                PyLadiesCon Portal
-            </h2>
+        {% else %}
             <div class="row row-cols-1 row-cols-md-2 align-items-md-center g-5 py-5">
                 <div class="col d-flex flex-column align-items-start gap-2">
                     <h2 class="fw-bold text-body-emphasis">
@@ -195,6 +190,6 @@
                     </div>
                 </div>
             </div>
-        </div>
-    {% endif %}
+        {% endif %}
+    </div>
 {% endblock content %}
