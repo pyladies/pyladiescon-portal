@@ -53,3 +53,6 @@ def index(request):
     context["teams"] = teams
 
     return render(request, "portal/index.html", context)
+
+def sponsorship_success(request):
+    return render(request, "sponsorship/success.html")

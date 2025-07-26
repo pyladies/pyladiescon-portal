@@ -21,6 +21,10 @@ from .models import (
     VolunteerProfile,
     send_volunteer_onboarding_email,
 )
+from django.http import HttpResponse
+
+from .models import VolunteerProfile
+from .forms import VolunteerProfileForm
 
 
 @login_required
@@ -307,3 +311,5 @@ class ResendOnboardingEmailView(VolunteerAdminRequiredMixin, View):
             )
 
         return redirect("volunteer:volunteer_profile_manage", pk=pk)
+def sponsorship_success(request):
+    return HttpResponse("Thank you for submitting your sponsorship profile!")
