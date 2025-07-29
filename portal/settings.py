@@ -47,13 +47,19 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "django.contrib.sites",
     "django_bootstrap5",
+    "django_filters",
+    "django_tables2",
     "allauth",
     "allauth.account",
+    "storages",
     "portal",
     'sponsorship',
     "volunteer",
     "portal_account",
+    "widget_tweaks",
+    "sponsorship",
 ]
+DJANGO_TABLES2_TEMPLATE = "portal/base-tables-responsive.html"
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
@@ -65,6 +71,7 @@ MIDDLEWARE = [
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "allauth.account.middleware.AccountMiddleware",
+    "django.middleware.locale.LocaleMiddleware",
 ]
 
 ROOT_URLCONF = "portal.urls"
@@ -101,9 +108,9 @@ if os.environ.get("DATABASE_URL", None) is not None:
 else:
     DATABASES = {
         "default": {
-            "ENGINE": os.environ.get("SQL_ENGINE", "django.db.backends.sqlite3"),
-            "NAME": os.environ.get("SQL_DATABASE", BASE_DIR / "db.sqlite3"),
-            "USER": os.environ.get("SQL_USER", "user"),
+            "ENGINE": os.environ.get("SQL_ENGINE", "django.db.backends.postgresql"),
+            "NAME": os.environ.get("SQL_DATABASE", "postgres"),
+            "USER": os.environ.get("SQL_USER", "postgres"),
             "PASSWORD": os.environ.get("SQL_PASSWORD", "password"),
             "HOST": os.environ.get("SQL_HOST", "localhost"),
             "PORT": os.environ.get("SQL_PORT", "5432"),
@@ -136,7 +143,14 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = "en-us"
 
+LANGUAGES = (
+    ("pt-br", "Português"),
+    ("en-us", "English"),
+)
+
 TIME_ZONE = "UTC"
+
+LOCALE_PATHS = (os.path.join(BASE_DIR, "locale/"),)
 
 USE_I18N = True
 
@@ -149,6 +163,29 @@ USE_TZ = True
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticroot"
 STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
+MEDIA_ROOT = os.path.join(BASE_DIR, "media")
+MEDIA_URL = "/media/"
+
+USE_SPACES = os.getenv("USE_SPACES")
+
+if USE_SPACES == "true":
+    STORAGES = {
+        "default": {
+            "BACKEND": "storage_backend.custom_storage.MediaStorage",
+        },
+        "staticfiles": {
+            "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+        },
+    }
+
+    AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
+    AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
+    AWS_STORAGE_BUCKET_NAME = os.getenv("AWS_STORAGE_BUCKET_NAME")
+    AWS_DEFAULT_ACL = "public-read"
+    AWS_S3_ENDPOINT_URL = os.getenv("AWS_S3_ENDPOINT_URL")
+    AWS_S3_OBJECT_PARAMETERS = {"CacheControl": "max-age=86400"}
+    AWS_QUERYSTRING_AUTH = False
+
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
@@ -169,14 +206,19 @@ ACCOUNT_EMAIL_VERIFICATION_BY_CODE_ENABLED = True
 ACCOUNT_EMAIL_SUBJECT_PREFIX = "[PyLadiesCon Dev] "
 LOGIN_REDIRECT_URL = "/"
 ACCOUNT_LOGIN_METHODS = {"username"}
-ACCOUNT_SIGNUP_FIELDS = ["email*", "username*", "first_name*", "last_name*", "password1*", "password2*"]
+ACCOUNT_SIGNUP_FIELDS = [
+    "email*",
+    "username*",
+    "first_name*",
+    "last_name*",
+    "password1*",
+    "password2*",
+]
 ACCOUNT_MAX_EMAIL_ADDRESSES = 3
 ACCOUNT_LOGOUT_ON_GET = True
 
 # Use custom signup form
-ACCOUNT_FORMS = {
-    'signup': 'portal.forms.CustomSignupForm'
-}
+ACCOUNT_FORMS = {"signup": "portal.forms.CustomSignupForm"}
 
 # Default settings
 BOOTSTRAP5 = {
@@ -237,7 +279,7 @@ BOOTSTRAP5 = {
     },
 }
 
-## Email settings
+# Email settings
 if "DJANGO_EMAIL_HOST" in os.environ:
     # If the env vars are set, use them
     EMAIL_HOST = os.getenv("DJANGO_EMAIL_HOST")
@@ -251,3 +293,17 @@ else:
     EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 
 DEBUG = True
+    DEFAULT_FROM_EMAIL = "noreply@localhost"
+
+
+MEDIA_URL = "/media/"  # URL to serve media files
+MEDIA_ROOT = os.path.join(BASE_DIR, "media")  # Local filesystem path
+
+GDRIVE_FOLDER_ID = os.getenv("GDRIVE_FOLDER_ID", "")
+
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.db.DatabaseCache",
+        "LOCATION": "stats_cache_table",
+    }
+}

@@ -1,4 +1,5 @@
 from django.contrib import admin
+
 from .models import PortalProfile
 
 
@@ -9,9 +10,11 @@ class PortalProfileAdmin(admin.ModelAdmin):
         "user__last_name",
         "pronouns",
         "coc_agreement",
+        "tos_agreement",
     )
     search_fields = ("user__email", "user__first_name", "user__last_name")
-    list_filter = ("pronouns", "coc_agreement")
+    list_filter = ("pronouns", "coc_agreement", "tos_agreement")
+    readonly_fields = ("coc_agreement", "tos_agreement")
 
 
 admin.site.register(PortalProfile, PortalProfileAdmin)

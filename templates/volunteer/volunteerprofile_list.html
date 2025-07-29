@@ -1,0 +1,22 @@
+{% extends "portal/base.html" %}
+{% load allauth i18n %}
+{% load django_bootstrap5 %}
+{% load render_table from django_tables2 %}
+{% block body %}
+{% endblock body %}
+{% block content %}
+    <h1 class="display-5">
+        Manage Volunteers
+    </h1>
+    {% if filter %}
+        <form action="" method="get" class="form">
+            {% bootstrap_form filter.form %}
+            {% bootstrap_button 'Search' %}
+            {% if filter.form.is_bound %}
+                <a href="{% url 'volunteer:volunteer_profile_list' %}"
+                   class="btn btn-secondary">Reset Filters</a>
+            {% endif %}
+        </form>
+    {% endif %}
+    {% render_table table %}
+{% endblock content %}

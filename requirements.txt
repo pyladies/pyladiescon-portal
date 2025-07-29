@@ -10,3 +10,4 @@ whitenoise==6.9.0
 dj-database-url==2.3.0
 Pillow==11.1.0
 
+-r requirements-docs.txt

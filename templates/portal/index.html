@@ -1,70 +1,195 @@
 {% extends "portal/base.html" %}
 {% load allauth i18n %}
 {% load django_bootstrap5 %}
-
 {% block body %}
-{% endblock %}
+{% endblock body %}
 {% block content %}
-    {% if user.is_authenticated %}
-        <div class="container px-4 py-5" id="featured-3">
-            <h2 class="pb-2 border-bottom">PyLadiesCon Portal</h2>
+    <div class="container px-4 py-3" id="featured-3">
+        <h2 class="pb-2 border-bottom">
+            PyLadiesCon Portal
+        </h2>
+        {% if user.is_authenticated %}
             <div class="row g-4 py-5 row-cols-1 row-cols-lg-3">
                 <div class="feature col">
                     <div class="d-inline-flex align-items-center justify-content-center fa-3x mb-3">
                         <i class="fa-solid fa-user-group"></i>
                     </div>
-                    <h3 class="fs-2 text-body-emphasis">Volunteer</h3>
-                    <p>Sign up to volunteer with us! Fill in your Volunteer profile and we'll get you set up.</p>
-                    <a href="{% url 'volunteer:index' %}" class="icon-link">
-                      Volunteer Now
-                      <i class="fa-solid fa-chevron-right"></i>
-                    </a>
+                    <h3 class="fs-2 text-body-emphasis">
+                        Volunteer
+                    </h3>
+                    <p>
+                        {% if user.is_authenticated and volunteer_profile %}
+                            {% translate "Thanks for signing up to volunteer. Check back here to manage your volunteer profile and your availabilities. You can always update your profile in case there has been changes to your situation and/or availabilities." %}
+                        {% else %}
+                            {% translate "Sign up to volunteer with us! Fill in your Volunteer profile and we'll get you set up." %}
+                        {% endif %}
+                    </p>
+                    <ul class="list-unstyled ps-8">
+                        {% if user.is_authenticated and volunteer_profile %}
+                            <li>
+                                <a href="{% url 'volunteer:index' %}" class="icon-link">
+                                    {% translate "Manage your volunteer profile" %}
+                                    <i class="fa-solid fa-chevron-right"></i>
+                                </a>
+                            </li>
+                        {% else %}
+                            <li>
+                                <a href="{% url 'volunteer:volunteer_profile_new' %}" class="icon-link">
+                                    {% translate "Volunteer Now" %}
+                                    <i class="fa-solid fa-chevron-right"></i>
+                                </a>
+                            </li>
+                        {% endif %}
+                        <li>
+                            <a href="https://conference.pyladies.com/docs/" class="icon-link">
+                                {% translate "Team Descriptions" %}
+                                <i class="fa-solid fa-chevron-right"></i>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="https://conference.pyladies.com/docs/roles_and_responsibilities/"
+                               class="icon-link">
+                                {% translate "Volunteer Responsibilities" %}
+                                <i class="fa-solid fa-chevron-right"></i>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="https://discord.com/invite/2fUN4ddVfP" class="icon-link">
+                                {% translate "Join our Discord" %}
+                                <i class="fa-brands fa-discord"></i>
+                            </a>
+                        </li>
+                    </ul>
                 </div>
                 <div class="feature col">
                     <div class="d-inline-flex align-items-center justify-content-center fa-3x mb-3">
                         <i class="fa-solid fa-hand-holding-dollar"></i>
                     </div>
-                    <h3 class="fs-2 text-body-emphasis">Sponsor Us</h3>
-                    <p>Want to become a sponsor? Fill out your sponsorship profile and we'll follow up with details!</p>
-                    <a href="{% url 'sponsorship:create' %}" class="icon-link">
-                        Become a sponsor!
+                    <h3 class="fs-2 text-body-emphasis">
+                        Sponsor Us
+                    </h3>
+                    <p>
+                        Sponsorship package is coming soon!
+                    </p>
+                    <a href="{% url 'sponsorship:create_sponsorship_profile' %}">Sponsor Us Now
                         <i class="fa-solid fa-chevron-right"></i>
-                        </a>
+                    </a>
                 </div>
                 <div class="feature col">
                     <div class="d-inline-flex align-items-center justify-content-center fa-3x mb-3">
                         <i class="fa-solid fa-microphone"></i>
                     </div>
-                    <h3 class="fs-2 text-body-emphasis">Speaker Portal</h3>
-                    <p>Are you one of our speakers? Soon, you'll have access to this page. </p>
-{#                        <a href="#" class="icon-link">#}
-{#                          Call to action#}
-{#                          <svg class="bi"><use xlink:href="#chevron-right"></use></svg>#}
-{#                        </a>#}
+                    <h3 class="fs-2 text-body-emphasis">
+                        Speaker Portal
+                    </h3>
+                    <p>
+                        Are you one of our speakers? Soon, you'll have access to this page.
+                    </p>
+                </div>
+                {% if user.is_superuser %}
+                    <div class="feature col">
+                        <div class="d-inline-flex align-items-center justify-content-center fa-3x mb-3">
+                            <i class="fa-solid fa-people-roof"></i>
+                        </div>
+                        <h3 class="fs-2 text-body-emphasis">
+                            Manage Volunteers
+                        </h3>
+                        <p>
+                            Review volunteer applications and manage team members.
+                        </p>
+                        <ul class="list-unstyled ps-8">
+                            <li>
+                                <a href="{% url 'volunteer:volunteers_list' %}" class="icon-link">
+                                    {% translate "Manage Volunteers" %}
+                                    <i class="fa-solid fa-chevron-right"></i>
+                                </a>
+                            </li>
+                        </ul>
+                    </div>
+                    <div class="feature col">
+                        <div class="d-inline-flex align-items-center justify-content-center fa-3x mb-3">
+                            <i class="fa-solid fa-user-secret"></i>
+                        </div>
+                        <h3 class="fs-2 text-body-emphasis">
+                            Admin Area
+                        </h3>
+                        <p>
+                            Access the Django Admin area for your superuser privileges. Use your power responsibly!
+                        </p>
+                        <ul class="list-unstyled ps-8">
+                            <li>
+                                <a href="{% url 'admin:index' %}" class="icon-link">
+                                    {% translate "Admin Area" %}
+                                    <i class="fa-solid fa-chevron-right"></i>
+                                </a>
+                            </li>
+                        </ul>
+                    </div>
+                {% endif %}
+            </div>
+        {% else %}
+            <div class="row row-cols-1 row-cols-md-2 align-items-md-center g-5 py-5">
+                <div class="col d-flex flex-column align-items-start gap-2">
+                    <h2 class="fw-bold text-body-emphasis">
+                        Welcome to the <a href="https://conference.pyladies.com">PyLadiesCon</a> Conference Management Portal.
+                    </h2>
+                    <p class="text-body-secondary">
+                        Interested in volunteering with us? You're in the right place!
+                        <a href="{% url 'account_signup' %}">Sign up</a> for an account to get started, and then fill in your Volunteer Profile.
+                    </p>
+                    <p>
+                        <a href="{% url 'account_signup' %}" class="btn btn-primary btn-lg">Sign up!</a>
+                        <a href="{% url 'account_login' %}"
+                           class="btn btn-outline-primary btn-lg">Sign in</a>
+                    </p>
+                    <p class="text-body-secondary">
+                        Join {{ stats.volunteer_signups_count }} volunteers who have signed up!
+                    </p>
+                </div>
+                <div class="col">
+                    <div class="row row-cols-1 row-cols-sm-2 g-4">
+                        <div class="col d-flex flex-column gap-2">
+                            <h4 class="fw-semibold mb-0 text-body-emphasis">
+                                Sign up to Volunteer
+                            </h4>
+                            <p class="text-body-secondary">
+                                We're always looking for volunteers and team members! Sign up and fill in your volunteer profile to get started
+                            </p>
+                            <a href="{% url 'account_signup' %}">Sign up</a>
+                        </div>
+                        <div class="col d-flex flex-column gap-2">
+                            <h4 class="fw-semibold mb-0 text-body-emphasis">
+                                Our Open Roles
+                            </h4>
+                            <p class="text-body-secondary">
+                                We have various roles available, like the communications committee,
+                                design, finance, infrastructure, and programs committee. Not sure which team to join? Read
+                                our docs to learn what each team is about.
+                            </p>
+                            <a href="https://conference.pyladies.com/docs/">Learn about the roles</a>
+                        </div>
+                        <div class="col d-flex flex-column gap-2">
+                            <h4 class="fw-semibold mb-0 text-body-emphasis">
+                                Responsibilities
+                            </h4>
+                            <p class="text-body-secondary">
+                                Familiarize yourself with your responsibilities and the required commitments as one of our volunteers.
+                            </p>
+                            <a href="https://conference.pyladies.com/docs/roles_and_responsibilities/">Understand the responsibilities</a>
+                        </div>
+                        <div class="col d-flex flex-column gap-2">
+                            <h4 class="fw-semibold mb-0 text-body-emphasis">
+                                Support us!
+                            </h4>
+                            <p class="text-body-secondary">
+                                Sponsor and donate to the conference!
+                            </p>
+                            <a href="https://2025.conference.pyladies.com/en/sponsors/">Sponsorship Prospectus</a>
+                            <a href="{% url 'sponsorship:create_sponsorship_profile' %}">Create Sponsorship Profile</a>
+                        </div>
+                    </div>
                 </div>
             </div>
-
-        </div>
-
-    {% else %}
-        <div class="p-5 text-center bg-body-tertiary rounded-3">
-            <svg class="bi mt-4 mb-3" style="color: var(--bs-indigo);" width="100" height="100"><use xlink:href="#bootstrap"></use></svg>
-            <h1 class="text-body-emphasis">PyLadiesCon Web Portal</h1>
-            <p class="col-lg-8 mx-auto fs-5 text-muted">
-                Welcome to our PyLadiesCon Conference Management Portal.
-                <br> Sign up to volunteer with us.
-            </p>
-            <div class="d-inline-flex gap-2 mb-5">
-
-                <a class="d-inline-flex align-items-center btn btn-primary btn-lg px-4 rounded-pill" href="{% url 'account_signup' %}" role="button">
-                    Sign up
-                    <svg class="bi ms-2" width="24" height="24"><use xlink:href="#arrow-right-short"></use></svg>
-                </a>
-                <a class="btn btn-outline-secondary btn-lg px-4 rounded-pill" href="{% url 'account_login' %}" role="button">
-                    Login
-                </a>
-            </div>
-        </div>
-    {% endif %}
-
-{% endblock %}
+        {% endif %}
+    </div>
+{% endblock content %}
