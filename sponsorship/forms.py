@@ -7,8 +7,8 @@ class SponsorshipProfileForm(forms.ModelForm):
     class Meta:
         model = SponsorshipProfile
         fields = [
-            'main_contact',
-            'sponsor_organization_name',
+            'main_contact_user',
+            'organization_name',
             'sponsorship_type',
             'sponsorship_tier',
             'logo',
@@ -20,12 +20,14 @@ class SponsorshipProfileForm(forms.ModelForm):
         }
     
     def __init__(self, *args, **kwargs):
-        user = kwargs.pop("user", None)  # Expecting current user from the view
+        user = kwargs.pop("user", None)
         super().__init__(*args, **kwargs)
 
+        self._user = user  # ✅ Save user for later use
+
         if user:
-            self.fields["main_contact"].initial = user
-            self.fields["main_contact"].disabled = True  # Makes it read-only
+            self.fields["main_contact_user"].initial = user
+
 
     def save(self, commit=True):
         instance = super().save(commit=False)
