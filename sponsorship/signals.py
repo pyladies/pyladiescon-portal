@@ -1,13 +1,18 @@
+print("✅ sponsorship.signals loaded")
+
+from django.conf import settings
+from django.contrib.sites.models import Site
+from django.core.mail import EmailMultiAlternatives
 from django.db.models.signals import post_save
 from django.dispatch import receiver
-from .models import SponsorshipProfile
-from django.conf import settings
 from django.template.loader import render_to_string
-from django.core.mail import EmailMultiAlternatives
-from django.contrib.sites.models import Site
+
+from .models import SponsorshipProfile
 
 
-def _send_email(subject, recipient_list, *, html_template=None, text_template=None, context=None):
+def _send_email(
+    subject, recipient_list, *, html_template=None, text_template=None, context=None
+):
     context = context or {}
     context["current_site"] = Site.objects.get_current()
 
@@ -29,7 +34,9 @@ def sponsorship_profile_signal(sender, instance, created, **kwargs):
     """Send emails when sponsorship profile is submitted or approved."""
     if created:
         # Email on submission
-        subject = f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} Sponsorship Application Received"
+        subject = (
+            f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} Sponsorship Application Received"
+        )
         _send_email(
             subject,
             [instance.user.email],
@@ -39,7 +46,9 @@ def sponsorship_profile_signal(sender, instance, created, **kwargs):
         )
     elif instance.application_status == "approved":
         # Email on approval
-        subject = f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} Sponsorship Profile Approved"
+        subject = (
+            f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} Sponsorship Profile Approved"
+        )
         _send_email(
             subject,
             [instance.user.email],
