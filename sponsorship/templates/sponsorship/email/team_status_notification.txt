@@ -1,0 +1,8 @@
+Hello team,
+
+The sponsorship profile for {{ profile.organization_name }} has been approved.
+
+Please review the profile and begin the sponsor onboarding process.
+
+Thanks,  
+The System

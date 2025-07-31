@@ -1,0 +1,8 @@
+Hi {{ profile.user.first_name }},
+
+Thank you for submitting your sponsorship application for {{ profile.organization_name }}!
+
+We’ve received your profile and our team will review it shortly. You will receive a follow-up email once a decision has been made.
+
+Best,  
+The PyLadiesCon Team

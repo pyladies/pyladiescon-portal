@@ -8,4 +8,5 @@ urlpatterns = [
     path(
         "create/", views.create_sponsorship_profile, name="create_sponsorship_profile"
     ),
+    path("success/", views.sponsorship_success, name="success"),
 ]

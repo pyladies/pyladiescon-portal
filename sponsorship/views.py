@@ -20,3 +20,9 @@ def create_sponsorship_profile(request):
     else:
         form = SponsorshipProfileForm()
     return render(request, "sponsorship/sponsorship_profile_form.html", {"form": form})
+
+
+@login_required
+def sponsorship_success(request):
+    print("Not implemented", request)
+    pass
