@@ -6,4 +6,4 @@ class SponsorshipConfig(AppConfig):
     name = "sponsorship"
 
     def ready(self):
-        import sponsorship.signals  # this registers the signals
+        import sponsorship.signals  # noqa: this registers the signals

@@ -1,5 +1,3 @@
-print("✅ sponsorship.signals loaded")
-
 from django.conf import settings
 from django.contrib.sites.models import Site
 from django.core.mail import EmailMultiAlternatives

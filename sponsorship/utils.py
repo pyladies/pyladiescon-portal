@@ -5,8 +5,6 @@ from django.core.mail import EmailMultiAlternatives
 from django.db.models import Q
 from django.template.loader import render_to_string
 
-from .models import SponsorshipProfile
-
 
 def _send_email(
     subject, recipient_list, *, html_template=None, text_template=None, context=None

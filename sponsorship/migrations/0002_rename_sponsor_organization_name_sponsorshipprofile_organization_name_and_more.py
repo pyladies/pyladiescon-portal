@@ -8,49 +8,77 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('sponsorship', '0001_initial'),
+        ("sponsorship", "0001_initial"),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
     operations = [
         migrations.RenameField(
-            model_name='sponsorshipprofile',
-            old_name='sponsor_organization_name',
-            new_name='organization_name',
+            model_name="sponsorshipprofile",
+            old_name="organization_name",
+            new_name="organization_name",
         ),
         migrations.RemoveField(
-            model_name='sponsorshipprofile',
-            name='main_contact',
+            model_name="sponsorshipprofile",
+            name="main_contact_user",
         ),
         migrations.AddField(
-            model_name='sponsorshipprofile',
-            name='main_contact_user',
-            field=models.OneToOneField(default=1, on_delete=django.db.models.deletion.CASCADE, related_name='main_contact', to=settings.AUTH_USER_MODEL),
+            model_name="sponsorshipprofile",
+            name="main_contact_user",
+            field=models.OneToOneField(
+                default=1,
+                on_delete=django.db.models.deletion.CASCADE,
+                related_name="main_contact",
+                to=settings.AUTH_USER_MODEL,
+            ),
             preserve_default=False,
         ),
         migrations.AlterField(
-            model_name='sponsorshipprofile',
-            name='additional_contacts',
-            field=models.ManyToManyField(blank=True, related_name='additional_contacts', to=settings.AUTH_USER_MODEL),
+            model_name="sponsorshipprofile",
+            name="additional_contacts",
+            field=models.ManyToManyField(
+                blank=True,
+                related_name="additional_contacts",
+                to=settings.AUTH_USER_MODEL,
+            ),
         ),
         migrations.AlterField(
-            model_name='sponsorshipprofile',
-            name='logo',
-            field=models.ImageField(blank=True, null=True, upload_to='sponsor_logos/'),
+            model_name="sponsorshipprofile",
+            name="logo",
+            field=models.ImageField(blank=True, null=True, upload_to="sponsor_logos/"),
         ),
         migrations.AlterField(
-            model_name='sponsorshipprofile',
-            name='sponsorship_tier',
-            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, to='sponsorship.sponsorshiptier'),
+            model_name="sponsorshipprofile",
+            name="sponsorship_tier",
+            field=models.ForeignKey(
+                blank=True,
+                null=True,
+                on_delete=django.db.models.deletion.SET_NULL,
+                to="sponsorship.sponsorshiptier",
+            ),
         ),
         migrations.AlterField(
-            model_name='sponsorshipprofile',
-            name='sponsorship_type',
-            field=models.CharField(choices=[('Champion', 'Champion'), ('Supporter', 'Supporter'), ('Connector', 'Connector'), ('Booster', 'Booster'), ('Partner', 'Partner'), ('Individual', 'Individual')], max_length=20),
+            model_name="sponsorshipprofile",
+            name="sponsorship_type",
+            field=models.CharField(
+                choices=[
+                    ("Champion", "Champion"),
+                    ("Supporter", "Supporter"),
+                    ("Connector", "Connector"),
+                    ("Booster", "Booster"),
+                    ("Partner", "Partner"),
+                    ("Individual", "Individual"),
+                ],
+                max_length=20,
+            ),
         ),
         migrations.AlterField(
-            model_name='sponsorshipprofile',
-            name='user',
-            field=models.OneToOneField(on_delete=django.db.models.deletion.CASCADE, related_name='sponsorship_user', to=settings.AUTH_USER_MODEL),
+            model_name="sponsorshipprofile",
+            name="user",
+            field=models.OneToOneField(
+                on_delete=django.db.models.deletion.CASCADE,
+                related_name="sponsorship_user",
+                to=settings.AUTH_USER_MODEL,
+            ),
         ),
     ]

@@ -9,7 +9,8 @@ class SponsorshipProfileAdmin(admin.ModelAdmin):
         "organization_name",
         "main_contact_user",
         "sponsorship_type",
+        "sponsorship_tier",
         "application_status",
     )
     list_filter = ("sponsorship_type", "application_status", "sponsorship_tier")
-    search_fields = ("sponsor_organization_name", "main_contact__username")
+    search_fields = ("organization_name", "main_contact_user")
