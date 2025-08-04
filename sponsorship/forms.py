@@ -34,7 +34,7 @@ class SponsorshipProfileForm(forms.ModelForm):
 
     def save(self, commit=True):
         instance = super().save(commit=False)
-        instance.main_contact = self._user  # Enforce value
+        instance.main_contact_user = self._user  # Enforce value
         instance.application_status = "pending"  # Set status manually
         if commit:
             instance.save()

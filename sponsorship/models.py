@@ -23,7 +23,7 @@ class SponsorshipProfile(models.Model):
         User, on_delete=models.CASCADE, related_name="sponsorship_user"
     )
     main_contact_user = models.OneToOneField(
-        User, on_delete=models.CASCADE, related_name="main_contact"
+        User, on_delete=models.CASCADE, related_name="main_contact_user"
     )
     additional_contacts = models.ManyToManyField(
         User, blank=True, related_name="additional_contacts"
