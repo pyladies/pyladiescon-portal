@@ -4,6 +4,8 @@ from pytest_django.asserts import assertContains
 
 from portal_account.forms import PortalProfileForm
 from portal_account.models import PortalProfile
+from django.contrib.auth import get_user_model
+from sponsorship.forms import SponsorshipProfileForm
 
 
 @pytest.mark.django_db
@@ -72,3 +74,23 @@ class TestSignupView:
         assertContains(
             response, "form-control", status_code=200
         )  # Verify Bootstrap styling
+
+User = get_user_model()
+
+def test_sponsorship_profile_form_save_sets_fields():
+    user = User.objects.create_user(username="miracle", password="secure123")
+
+    form_data = {
+        "organization_name": "My Org",
+        "organization_website": "https://example.com",
+        "company_description": "We build tech for social good.",
+        "main_contact_user": user.pk,  # Might not be required if it's handled in form
+        # Add any other required fields your form or model validates
+    }
+
+    form = SponsorshipProfileForm(data=form_data, user=user)
+    assert form.is_valid(), form.errors  # Make sure validation passes
+
+    instance = form.save()
+    assert instance.main_contact_user == user
+    assert instance.application_status == "pending"
