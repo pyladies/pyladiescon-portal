@@ -2,7 +2,7 @@
 {% load allauth i18n %}
 {% load django_bootstrap5 %}
 {% block body %}
-{% endblock body %}  
+{% endblock body %}
 {% block content %}
     <div class="container px-4 py-3" id="featured-3">
         <h2 class="pb-2 border-bottom">
@@ -105,7 +105,8 @@
                                 </a>
                             </li>
                             <li>
-                                <a href="{% url 'sponsorship:sponsorship_profile_list' %}" class="icon-link">
+                                <a href="{% url 'sponsorship:sponsorship_profile_list' %}"
+                                   class="icon-link">
                                     {% translate "Manage Sponsors" %}
                                     <i class="fa-solid fa-chevron-right"></i>
                                 </a>

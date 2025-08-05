@@ -1,17 +1,19 @@
 {% extends "portal/base.html" %}
 {% load django_bootstrap5 %}
 {% load render_table from django_tables2 %}
-
 {% block content %}
-<h1 class="display-5">Manage Sponsorship Profiles</h1>
-
-<form method="get" class="form mb-3">
-    {% bootstrap_form filter.form %}
-    <button type="submit" class="btn btn-primary">Search</button>
-    {% if filter.form.is_bound %}
-        <a href="{% url 'sponsorship:sponsorship_profile_list' %}" class="btn btn-secondary">Reset</a>
-    {% endif %}
-</form>
-
-{% render_table table %}
-{% endblock %}
+    <h1 class="display-5">
+        Manage Sponsorship Profiles
+    </h1>
+    <form method="get" class="form mb-3">
+        {% bootstrap_form filter.form %}
+        <button type="submit" class="btn btn-primary">
+            Search
+        </button>
+        {% if filter.form.is_bound %}
+            <a href="{% url 'sponsorship:sponsorship_profile_list' %}"
+               class="btn btn-secondary">Reset</a>
+        {% endif %}
+    </form>
+    {% render_table table %}
+{% endblock body %}
