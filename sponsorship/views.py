@@ -3,6 +3,13 @@ from django.contrib.auth.decorators import login_required
 from django.shortcuts import render
 
 from .forms import SponsorshipProfileForm
+import django_tables2 as tables
+from django.utils.html import format_html
+from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
+from django.views.generic import ListView
+from django_tables2.views import SingleTableMixin
+
+from .models import SponsorshipProfile
 
 
 @login_required
@@ -20,3 +27,40 @@ def create_sponsorship_profile(request):
     else:
         form = SponsorshipProfileForm()
     return render(request, "sponsorship/sponsorship_profile_form.html", {"form": form})
+
+class SponsorshipAdminRequiredMixin(UserPassesTestMixin):
+    def test_func(self):
+        return self.request.user.is_superuser or self.request.user.is_staff
+    
+    
+class SponsorshipProfileTable(tables.Table):
+    organization_name = tables.Column(verbose_name="Organization")
+    main_contact_user = tables.Column(accessor="main_contact_user", verbose_name="Main Contact")
+    sponsorship_type = tables.Column(verbose_name="Type")
+    #sponsorship_tier = tables.Column(verbose_name="Tier")
+    company_description = tables.Column(verbose_name="Company Description")
+    application_status = tables.Column(verbose_name="Application Status")
+   
+
+    class Meta:
+        model = SponsorshipProfile
+        fields = ("organization_name", "main_contact_user", "sponsorship_type", "company_description", "application_status")
+        attrs = {
+            "class": "table table-hover table-bordered table-sm",
+            "thead": {"class": "table-light"},
+        }
+
+    def render_main_contact_user(self, value):
+        return format_html("<b>{}</b>", value)
+
+    def render_application_status(self, value):
+        return format_html('<span class="badge bg-info">{}</span>', value)
+
+
+class SponsorshipProfileListView(
+    LoginRequiredMixin, SponsorshipAdminRequiredMixin, SingleTableMixin, ListView
+):
+    model = SponsorshipProfile
+    table_class = SponsorshipProfileTable
+    template_name = "sponsorship/sponsorshipprofile_list.html"
+    context_object_name = "sponsors"
