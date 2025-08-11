@@ -32,7 +32,11 @@ class SponsorshipProfile(models.Model):
     sponsorship_type = models.CharField(max_length=20, choices=SPONSORSHIP_TYPES)
     # sponsorship_tier = models.ForeignKey("SponsorshipTier", on_delete=models.SET_NULL, null=True, blank = True)
     logo = models.ImageField(upload_to="sponsor_logos/", null=True, blank=True)
+    amount_to_pay = models.DecimalField(
+        max_digits=10, decimal_places=2, default=0.00, null=True, blank=True
+    )
     company_description = models.TextField()
+    
     application_status = models.CharField(
         max_length=20,
         choices=[

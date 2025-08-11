@@ -13,4 +13,5 @@ class SponsorshipProfileForm(forms.ModelForm):
             "sponsorship_type",
             "logo",
             "company_description",
+            "amount_to_pay"
         ]
