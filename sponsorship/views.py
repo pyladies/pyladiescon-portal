@@ -44,7 +44,9 @@ class SponsorshipProfileTable(tables.Table):
     # sponsorship_tier = tables.Column(verbose_name="Tier")
     company_description = tables.Column(verbose_name="Company Description")
     amount_to_pay = tables.Column(verbose_name="Amount to Pay")
+    payment_status = tables.Column(verbose_name="Payment Status")
     application_status = tables.Column(verbose_name="Application Status")
+    
 
     class Meta:
         model = SponsorshipProfile
@@ -54,6 +56,7 @@ class SponsorshipProfileTable(tables.Table):
             "sponsorship_type",
             "company_description",
             "amount_to_pay",
+            "payment_status",
             "application_status",
         )
         attrs = {
@@ -66,6 +69,18 @@ class SponsorshipProfileTable(tables.Table):
 
     def render_application_status(self, value):
         return format_html('<span class="badge bg-info">{}</span>', value)
+    def render_payment_status(self, value):
+        badge = {
+            "not_paid": "secondary",
+            "paid": "success",
+            "awaiting": "warning",
+        }.get(value, "secondary")
+        labels = {
+            "not_paid": "Not Paid",
+            "paid": "Paid",
+            "awaiting": "Awaiting Payment",
+        }
+        return format_html('<span class="badge bg-{}">{}</span>',badge, labels.get(value, value))
 
 
 class SponsorshipProfileFilter(django_filters.FilterSet):
@@ -79,10 +94,14 @@ class SponsorshipProfileFilter(django_filters.FilterSet):
         choices=SponsorshipProfile.APPLICATION_STATUS_CHOICES,
         label="Application Status",
     )
+    payment_status = django_filters.ChoiceFilter(
+        choices=SponsorshipProfile.PAYMENT_STATUS_CHOICES,
+        label="Payment Status",
+    )
 
     class Meta:
         model = SponsorshipProfile
-        fields = ["search", "sponsorship_type", "application_status"]
+        fields = ["search", "sponsorship_type", "application_status", "payment_status"]
 
     def search_fulltext(self, queryset, name, value):
         if not value:
