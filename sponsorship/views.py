@@ -43,6 +43,7 @@ class SponsorshipProfileTable(tables.Table):
     sponsorship_type = tables.Column(verbose_name="Type")
     # sponsorship_tier = tables.Column(verbose_name="Tier")
     company_description = tables.Column(verbose_name="Company Description")
+    amount_to_pay = tables.Column(verbose_name="Amount to Pay")
     application_status = tables.Column(verbose_name="Application Status")
 
     class Meta:
@@ -52,6 +53,7 @@ class SponsorshipProfileTable(tables.Table):
             "main_contact_user",
             "sponsorship_type",
             "company_description",
+            "amount_to_pay",
             "application_status",
         )
         attrs = {

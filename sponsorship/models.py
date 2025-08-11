@@ -18,6 +18,12 @@ class SponsorshipProfile(models.Model):
         ("rejected", "Rejected"),
         ("cancelled", "Cancelled"),
     ]
+    
+    PAYMENT_STATUS_CHOICES = [
+        ("not_paid", "Not Paid"),
+        ("paid", "Paid"),
+        ("awaiting", "Awaiting Payment"),
+    ]
 
     user = models.OneToOneField(
         User, on_delete=models.CASCADE, related_name="sponsorship_user"
@@ -45,6 +51,11 @@ class SponsorshipProfile(models.Model):
             ("cancelled", "Cancelled"),
         ],
         default="pending",
+    )
+    payment_status = models.CharField(
+        max_length=20,
+        choices=PAYMENT_STATUS_CHOICES,
+        default="not_paid",
     )
 
     def __str__(self):
