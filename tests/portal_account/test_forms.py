@@ -1,10 +1,10 @@
 import pytest
+from django.contrib.auth import get_user_model
 from django.urls import reverse
 from pytest_django.asserts import assertContains
 
 from portal_account.forms import PortalProfileForm
 from portal_account.models import PortalProfile
-from django.contrib.auth import get_user_model
 from sponsorship.forms import SponsorshipProfileForm
 
 
@@ -75,7 +75,9 @@ class TestSignupView:
             response, "form-control", status_code=200
         )  # Verify Bootstrap styling
 
+
 User = get_user_model()
+
 
 def test_sponsorship_profile_form_save_sets_fields():
     user = User.objects.create_user(username="miracle", password="secure123")
