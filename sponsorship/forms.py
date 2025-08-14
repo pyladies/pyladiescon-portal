@@ -32,11 +32,6 @@ class SponsorshipProfileForm(forms.ModelForm):
             'min': '0'
         })
         
-        # Add help text to amount field
-        self.fields['amount_to_pay'].help_text = (
-            "Amount will be auto-filled based on sponsorship type, but can be modified if needed."
-        )
-        
         # Make amount field not required initially (will be set via JavaScript)
         self.fields['amount_to_pay'].required = False
 

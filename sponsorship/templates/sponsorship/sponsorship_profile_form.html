@@ -19,5 +19,94 @@
             Submit
         </button>
     </form>
+
+    <!-- Auto-fill JavaScript -->
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log('Auto-fill script loaded');
+        
+        // Sponsorship prices
+        const prices = {
+            'Champion': 10000.00,
+            'Supporter': 5000.00,
+            'Connector': 2500.00,
+            'Booster': 1000.00,
+            'Partner': 500.00,
+            'Individual': 100.00
+        };
+        
+        // Find form elements - Django typically creates IDs like id_fieldname
+        const sponsorshipField = document.querySelector('#id_sponsorship_type');
+        const amountField = document.querySelector('#id_amount_to_pay');
+        
+        console.log('Sponsorship field:', sponsorshipField);
+        console.log('Amount field:', amountField);
+        
+        if (!sponsorshipField || !amountField) {
+            console.error('Form fields not found');
+            return;
+        }
+        
+        // Function to update amount
+        function updateAmount() {
+            const selectedType = sponsorshipField.value;
+            console.log('Selected type:', selectedType);
+            
+            if (selectedType && prices[selectedType]) {
+                const price = prices[selectedType];
+                amountField.value = price.toFixed(2);
+                console.log('Set amount to:', price);
+                
+                // Visual feedback - briefly highlight the field
+                amountField.style.backgroundColor = '#d4edda';
+                amountField.style.transition = 'background-color 0.3s';
+                
+                setTimeout(() => {
+                    amountField.style.backgroundColor = '';
+                }, 2000);
+                
+                // Show success message
+                showMessage('Amount auto-filled to $' + price.toFixed(2) + ' for ' + selectedType + ' sponsorship');
+            }
+        }
+        
+        // Function to show message
+        function showMessage(text) {
+            // Remove existing message
+            const existingMsg = document.querySelector('.auto-fill-msg');
+            if (existingMsg) {
+                existingMsg.remove();
+            }
+            
+            // Create message element
+            const msgDiv = document.createElement('div');
+            msgDiv.className = 'auto-fill-msg alert alert-info';
+            msgDiv.style.marginTop = '10px';
+            msgDiv.innerHTML = '<strong>Info:</strong> ' + text + ' (You can still modify this amount if needed)';
+            
+            // Insert after the amount field's parent paragraph
+            const amountParagraph = amountField.closest('p');
+            if (amountParagraph) {
+                amountParagraph.parentNode.insertBefore(msgDiv, amountParagraph.nextSibling);
+            }
+            
+            // Auto-remove after 5 seconds
+            setTimeout(() => {
+                if (msgDiv.parentNode) {
+                    msgDiv.remove();
+                }
+            }, 5000);
+        }
+        
+        // Listen for changes
+        sponsorshipField.addEventListener('change', updateAmount);
+        
+        // Auto-fill on page load if a type is already selected
+        if (sponsorshipField.value) {
+            updateAmount();
+        }
+        
+        console.log('Auto-fill setup complete');
+    });
+    </script>
 {% endblock content %}
-<!-- Compare this snippet from sponsorship/templates/sponsorship/sponsorship_profile_form.html: -->
