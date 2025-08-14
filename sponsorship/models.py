@@ -24,6 +24,15 @@ class SponsorshipProfile(models.Model):
         ("paid", "Paid"),
         ("awaiting", "Awaiting Payment"),
     ]
+    
+    SPOSNORSHIP_PRICES = {
+        "Champion": 10000.00,
+        "Supporter": 5000.00,
+        "Connector": 2500.00,
+        "Booster": 1000.00,
+        "Partner": 500.00,
+        "Individual": 100.00,
+    }
 
     user = models.OneToOneField(
         User, on_delete=models.CASCADE, related_name="sponsorship_user"
@@ -60,6 +69,27 @@ class SponsorshipProfile(models.Model):
 
     def __str__(self):
         return self.organization_name
+    
+    @classmethod
+    def get_sponsorship_prices(cls):
+        """Return the sponsorship pricing dictionary"""
+        return cls.SPONSORSHIP_PRICING
+
+    def get_default_amount(self):
+        """Get the default amount for this sponsorship type"""
+        return self.SPONSORSHIP_PRICING.get(self.sponsorship_type, 0.00)
+
+    def save(self, *args, **kwargs):
+        """Override save to auto-set amount if not provided"""
+        if self.amount_to_pay is None or self.amount_to_pay == 0:
+            self.amount_to_pay = self.get_default_amount()
+        super().save(*args, **kwargs)
+
+    @property
+    def sponsorship_type_display_with_price(self):
+        """Return sponsorship type with its default price for display"""
+        price = self.SPONSORSHIP_PRICING.get(self.sponsorship_type, 0)
+        return f"{self.get_sponsorship_type_display()} (${price:,.2f})"
 
 
 # class SponsorshipTier(models.Model):
