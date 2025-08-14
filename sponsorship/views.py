@@ -46,7 +46,6 @@ class SponsorshipProfileTable(tables.Table):
     amount_to_pay = tables.Column(verbose_name="Amount to Pay")
     payment_status = tables.Column(verbose_name="Payment Status")
     application_status = tables.Column(verbose_name="Application Status")
-    
 
     class Meta:
         model = SponsorshipProfile
@@ -69,6 +68,7 @@ class SponsorshipProfileTable(tables.Table):
 
     def render_application_status(self, value):
         return format_html('<span class="badge bg-info">{}</span>', value)
+
     def render_payment_status(self, value):
         badge = {
             "not_paid": "secondary",
@@ -80,7 +80,9 @@ class SponsorshipProfileTable(tables.Table):
             "paid": "Paid",
             "awaiting": "Awaiting Payment",
         }
-        return format_html('<span class="badge bg-{}">{}</span>',badge, labels.get(value, value))
+        return format_html(
+            '<span class="badge bg-{}">{}</span>', badge, labels.get(value, value)
+        )
 
 
 class SponsorshipProfileFilter(django_filters.FilterSet):

@@ -18,13 +18,13 @@ class SponsorshipProfile(models.Model):
         ("rejected", "Rejected"),
         ("cancelled", "Cancelled"),
     ]
-    
+
     PAYMENT_STATUS_CHOICES = [
         ("not_paid", "Not Paid"),
         ("paid", "Paid"),
         ("awaiting", "Awaiting Payment"),
     ]
-    
+
     SPOSNORSHIP_PRICES = {
         "Champion": 10000.00,
         "Supporter": 5000.00,
@@ -69,7 +69,7 @@ class SponsorshipProfile(models.Model):
 
     def __str__(self):
         return self.organization_name
-    
+
     @classmethod
     def get_sponsorship_prices(cls):
         """Return the sponsorship pricing dictionary"""

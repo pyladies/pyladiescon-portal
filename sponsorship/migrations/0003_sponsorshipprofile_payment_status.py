@@ -6,13 +6,21 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('sponsorship', '0002_sponsorshipprofile_amount_to_pay'),
+        ("sponsorship", "0002_sponsorshipprofile_amount_to_pay"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='sponsorshipprofile',
-            name='payment_status',
-            field=models.CharField(choices=[('not_paid', 'Not Paid'), ('paid', 'Paid'), ('awaiting', 'Awaiting Payment')], default='not_paid', max_length=20),
+            model_name="sponsorshipprofile",
+            name="payment_status",
+            field=models.CharField(
+                choices=[
+                    ("not_paid", "Not Paid"),
+                    ("paid", "Paid"),
+                    ("awaiting", "Awaiting Payment"),
+                ],
+                default="not_paid",
+                max_length=20,
+            ),
         ),
     ]
