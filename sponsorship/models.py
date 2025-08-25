@@ -25,7 +25,7 @@ class SponsorshipProfile(models.Model):
         ("awaiting", "Awaiting Payment"),
     ]
 
-    SPONSORSHIP_PRICES = {
+    SPOSNORSHIP_PRICES = {
         "Champion": 10000.00,
         "Supporter": 5000.00,
         "Connector": 2500.00,
