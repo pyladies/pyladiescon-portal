@@ -114,7 +114,7 @@ class VolunteerProfileForm(ModelForm):
                 )
             else:
                 raise ValidationError(
-                    "discord_username": "Discord username must consist of alphanumeric characters, "
+                    "discord_username: Discord username must consist of alphanumeric characters, "
                     "periods, underscores, and cannot have two consecutive periods."
                 )
 
