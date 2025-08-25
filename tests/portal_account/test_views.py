@@ -15,7 +15,6 @@ from sponsorship.models import SponsorshipProfile
 from sponsorship.views import (
     SponsorshipAdminRequiredMixin,
     SponsorshipProfileFilter,
-    SponsorshipProfileListView,
     SponsorshipProfileTable,
 )
 
@@ -353,13 +352,6 @@ class TestSponsorshipProfileFilter:
 
     def test_search_fulltext_empty_value(self, portal_user):
         """Test search with empty value returns original queryset"""
-        profile = SponsorshipProfile.objects.create(
-            user=portal_user,
-            main_contact_user=portal_user,
-            organization_name="Test Org",
-            sponsorship_type="Champion",
-            company_description="Test description",
-        )
 
         filter_instance = SponsorshipProfileFilter()
         queryset = SponsorshipProfile.objects.all()
