@@ -18,14 +18,14 @@ class SponsorshipProfile(models.Model):
         ("rejected", "Rejected"),
         ("cancelled", "Cancelled"),
     ]
-    
+
     PAYMENT_STATUS_CHOICES = [
         ("not_paid", "Not Paid"),
         ("paid", "Paid"),
         ("awaiting", "Awaiting Payment"),
     ]
-    
-    SPOSNORSHIP_PRICES = {
+
+    SPONSORSHIP_PRICES = {
         "Champion": 10000.00,
         "Supporter": 5000.00,
         "Connector": 2500.00,
@@ -69,15 +69,15 @@ class SponsorshipProfile(models.Model):
 
     def __str__(self):
         return self.organization_name
-    
+
     @classmethod
     def get_sponsorship_prices(cls):
         """Return the sponsorship pricing dictionary"""
-        return cls.SPONSORSHIP_PRICING
+        return cls.SPONSORSHIP_PRICES
 
     def get_default_amount(self):
         """Get the default amount for this sponsorship type"""
-        return self.SPONSORSHIP_PRICING.get(self.sponsorship_type, 0.00)
+        return self.SPONSORSHIP_PRICES.get(self.sponsorship_type, 0.00)
 
     def save(self, *args, **kwargs):
         """Override save to auto-set amount if not provided"""
@@ -88,7 +88,7 @@ class SponsorshipProfile(models.Model):
     @property
     def sponsorship_type_display_with_price(self):
         """Return sponsorship type with its default price for display"""
-        price = self.SPONSORSHIP_PRICING.get(self.sponsorship_type, 0)
+        price = self.SPONSORSHIP_PRICES.get(self.sponsorship_type, 0)
         return f"{self.get_sponsorship_type_display()} (${price:,.2f})"
 
 
