@@ -145,7 +145,7 @@ class VolunteerProfile(BaseModel):
     def _validate_discord_username(self):
         if self.discord_username:
             if not re.match(
-                r"^[a-zA-Z0-9](?:[a-zA-Z0-9]|[._-](?=[a-zA-Z0-9])){0,30}[a-zA-Z0-9]$",
+                r"^(?=.{2,32}$)(?!.*\.\.)[a-zA-Z0-9._]+$",
                 self.discord_username,
             ):
                 if len(self.discord_username) < 2 or len(self.discord_username) > 32:
@@ -158,7 +158,7 @@ class VolunteerProfile(BaseModel):
                     raise ValidationError(
                         {
                             "discord_username": "Discord username must consist of alphanumeric characters, "
-                            "dots, underscores, or hyphens, and cannot have consecutive special characters."
+                            "periods, underscores, and cannot have two consecutive periods."
                         }
                     )
 

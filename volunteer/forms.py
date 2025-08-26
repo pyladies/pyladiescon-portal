@@ -105,7 +105,7 @@ class VolunteerProfileForm(ModelForm):
 
     def validate_discord_username(self, value):
         if not re.match(
-            r"^[a-zA-Z0-9](?:[a-zA-Z0-9]|[._-](?=[a-zA-Z0-9])){0,30}[a-zA-Z0-9]$",
+            r"^(?=.{2,32}$)(?!.*\.\.)[a-zA-Z0-9._]+$",
             value,
         ):
             if len(value) < 2 or len(value) > 32:
@@ -114,8 +114,8 @@ class VolunteerProfileForm(ModelForm):
                 )
             else:
                 raise ValidationError(
-                    "Discord username must consist of alphanumeric characters, "
-                    "dots, underscores, or hyphens, and cannot have consecutive special characters."
+                    "discord_username: Discord username must consist of alphanumeric characters, "
+                    "periods, underscores, and cannot have two consecutive periods."
                 )
 
     def clean_instagram_username(self):
