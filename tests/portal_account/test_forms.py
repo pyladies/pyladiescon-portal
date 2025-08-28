@@ -1,3 +1,5 @@
+import json
+
 import pytest
 from django.urls import reverse
 from pytest_django.asserts import assertContains
@@ -8,7 +10,6 @@ from portal_account.models import PortalProfile
 
 @pytest.mark.django_db
 class TestPortalProfileForm:
-
     def test_profile_form_saved(self, portal_user):
         form_data = {
             "user": portal_user,
@@ -46,29 +47,82 @@ class TestSignupView:
         response = client.post(
             reverse("account_signup"),
             {
-                "username": "",  # Invalid empty username
-                "email": "invalid-email",  # Invalid email format
-                "password1": "short",  # Too short password
-                "password2": "mismatch",  # Password mismatch
+                "username": "",  # invalid empty username
+                "email": "invalid-email",  # invalid email format
+                "password1": "short",  # too short password
+                "password2": "mismatch",  # password mismatch
             },
         )
-
-        # Verify error styling classes exist
-        assertContains(
-            response, "is-invalid", status_code=200
-        )  # Bootstrap invalid class
-        assertContains(
-            response, "invalid-feedback", status_code=200
-        )  # Error message class
-
-        # Verify specific field errors
-        assertContains(response, "This field is required", status_code=200)  # username
-        assertContains(
-            response, "Enter a valid email address", status_code=200
-        )  # email
+        # styling classes
+        assertContains(response, "is-invalid", status_code=200)
+        assertContains(response, "invalid-feedback", status_code=200)
+        # some specific messages
+        assertContains(response, "This field is required", status_code=200)
+        assertContains(response, "Enter a valid email address", status_code=200)
 
     def test_widget_tweaks_loaded(self, client):
         response = client.get(reverse("account_signup"))
-        assertContains(
-            response, "form-control", status_code=200
-        )  # Verify Bootstrap styling
+        assertContains(response, "form-control", status_code=200)
+
+
+# ---------- Sponsorship form coverage helpers ----------
+
+
+@pytest.mark.django_db
+class TestSponsorshipForm:
+    def test_get_sponsorship_prices_json_returns_valid_json(self, monkeypatch):
+        from sponsorship.forms import SponsorshipProfileForm
+        from sponsorship.models import SponsorshipProfile
+
+        fake_prices = {"Champion": "1000.00", "Supporter": "500.00"}
+
+        # make the classmethod/staticmethod return a fixed dict for the test
+        monkeypatch.setattr(
+            SponsorshipProfile,
+            "get_sponsorship_prices",
+            staticmethod(lambda: fake_prices),
+            raising=False,
+        )
+
+        form = SponsorshipProfileForm()
+        payload = form.get_sponsorship_prices_json()
+        assert isinstance(payload, str)
+        assert json.loads(payload) == fake_prices
+
+    def test_init_sets_attrs_and_amount_field_not_required(self):
+        from sponsorship.forms import SponsorshipProfileForm
+
+        form = SponsorshipProfileForm()
+
+        st_attrs = form.fields["sponsorship_type"].widget.attrs
+        assert st_attrs.get("class") == "form-control"
+        assert st_attrs.get("id") == "id_sponsorship_type"
+
+        amt_field = form.fields["amount_to_pay"]
+        amt_attrs = amt_field.widget.attrs
+        assert amt_attrs.get("class") == "form-control"
+        assert amt_attrs.get("id") == "id_amount_to_pay"
+        assert amt_attrs.get("step") == "0.01"
+        assert amt_attrs.get("min") == "0"
+        assert amt_field.required is False
+
+    def test_clean_amount_to_pay_validation(self):
+        from django import forms as djforms
+
+        from sponsorship.forms import SponsorshipProfileForm
+
+        form = SponsorshipProfileForm()
+
+        # None -> error
+        form.cleaned_data = {"amount_to_pay": None}
+        with pytest.raises(djforms.ValidationError):
+            form.clean_amount_to_pay()
+
+        # <= 0 -> error
+        form.cleaned_data = {"amount_to_pay": 0}
+        with pytest.raises(djforms.ValidationError):
+            form.clean_amount_to_pay()
+
+        # positive -> ok, returned as-is
+        form.cleaned_data = {"amount_to_pay": 10}
+        assert form.clean_amount_to_pay() == 10
