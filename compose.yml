@@ -43,6 +43,7 @@ services:
       DJANGO_DEFAULT_FROM_EMAIL: PyLadiesCon <pyladiescon@example.com>
       DJANGO_EMAIL_HOST: maildev
       DJANGO_EMAIL_PORT: 1025
+    env_file: .env
     depends_on:
       redis:
         condition: service_healthy
