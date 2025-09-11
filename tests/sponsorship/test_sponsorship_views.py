@@ -4,6 +4,8 @@ from django.contrib.auth import get_user_model
 from django.contrib.messages import get_messages
 from django.urls import reverse
 
+from sponsorship.models import SponsorshipTier
+
 pytestmark = pytest.mark.django_db
 
 
@@ -54,6 +56,12 @@ def test_post_valid_executes_save_block_and_sets_pending(auth_client, monkeypatc
     from sponsorship.forms import SponsorshipProfileForm
     from sponsorship.models import SponsorshipProfile
 
+    tier = SponsorshipTier.objects.create(
+        name="Champion",
+        amount=10000.00,
+        description="Champion sponsorship tier"
+    )
+
     # Stub save_m2m so the unconditional call in the form doesn't explode
     monkeypatch.setattr(
         "sponsorship.forms.SponsorshipProfileForm.save_m2m",
@@ -74,10 +82,9 @@ def test_post_valid_executes_save_block_and_sets_pending(auth_client, monkeypatc
     data = {
         "main_contact_user": str(auth_client.user.id),
         "organization_name": "ACME Corp",
-        "sponsorship_type": "Champion",
+        "sponsorship_tier": str(tier.pk),
         "company_description": "We love sponsoring great events!",
-        "sponsorship_tier": "",
-        "application_status": "pending",  # required since it's in the form fields
+        "application_status": "pending",
     }
 
     resp = auth_client.post(url, data=data, follow=True)
@@ -93,6 +100,7 @@ def test_post_valid_executes_save_block_and_sets_pending(auth_client, monkeypatc
     assert profile.user == auth_client.user
     assert profile.main_contact_user_id == auth_client.user.id
     assert profile.application_status == "pending"
+    assert profile.sponsorship_tier == tier
 
     msgs = [str(m).lower() for m in get_messages(resp.wsgi_request)]
     assert any("submitted successfully" in m for m in msgs)

@@ -9,7 +9,6 @@ class SponsorshipProfileForm(forms.ModelForm):
         fields = [
             "main_contact_user",
             "organization_name",
-            "sponsorship_type",
             "sponsorship_tier",
             "logo",
             "company_description",

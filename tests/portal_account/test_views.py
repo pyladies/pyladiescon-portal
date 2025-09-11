@@ -9,7 +9,7 @@ from pytest_django.asserts import assertRedirects
 
 import sponsorship.views as views
 from portal_account.models import PortalProfile
-from sponsorship.models import SponsorshipProfile
+from sponsorship.models import SponsorshipProfile, SponsorshipTier
 
 # -----------------------------------------------------------------------------------
 # Portal Profile Tests
@@ -132,6 +132,12 @@ class TestSponsorshipViews:
     ):
         client.force_login(portal_user)
 
+        tier = SponsorshipTier.objects.create(
+            name="Champion",
+            amount=10000.00,
+            description="Champion sponsorship tier"
+        )
+
         # Make the view instantiate the form with user=request.user
         RealForm = views.SponsorshipProfileForm
 
@@ -144,10 +150,9 @@ class TestSponsorshipViews:
         data = {
             "main_contact_user": portal_user.id,
             "organization_name": "Test Organization",
-            "sponsorship_type": "Champion",
+            "sponsorship_tier": tier.pk,
             "company_description": "We support tech initiatives.",
-            "application_status": "pending",  # required by the form
-            "sponsorship_tier": "",
+            "application_status": "pending",
         }
 
         response = client.post(
@@ -157,11 +162,17 @@ class TestSponsorshipViews:
         assert SponsorshipProfile.objects.filter(user=portal_user).exists()
 
     def test_sponsorship_profile_str_returns_org_name(self, portal_user):
+        tier = SponsorshipTier.objects.create(
+            name="Champion",
+            amount=10000.00,
+            description="Champion sponsorship tier"
+        )
+        
         profile = SponsorshipProfile.objects.create(
             user=portal_user,
             main_contact_user=portal_user,
             organization_name="Test Org",
-            sponsorship_type="Champion",
+            sponsorship_tier=tier,
             company_description="Test description",
         )
         assert str(profile) == "Test Org"
@@ -171,6 +182,12 @@ class TestSponsorshipViews:
         self, client, portal_user
     ):  # pragma: no cover
         """This test is allowed to fail on CI."""
+        tier = SponsorshipTier.objects.create(
+            name="Champion",
+            amount=10000.00,
+            description="Champion sponsorship tier"
+        )
+        
         sample_image = create_sample_image()
         logo = SimpleUploadedFile("logo.png", sample_image, content_type="image/png")
         client.force_login(portal_user)
@@ -178,7 +195,7 @@ class TestSponsorshipViews:
         data = {
             "main_contact_user": portal_user.id,
             "organization_name": "Test Organization",
-            "sponsorship_type": "Champion",
+            "sponsorship_tier": tier.pk,
             "company_description": "We support tech initiatives.",
         }
         file_data = {"logo": logo}

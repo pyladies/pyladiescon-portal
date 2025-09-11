@@ -2,7 +2,7 @@ import pytest
 from django.contrib.auth import get_user_model
 
 from sponsorship.forms import SponsorshipProfileForm
-from sponsorship.models import SponsorshipProfile
+from sponsorship.models import SponsorshipProfile, SponsorshipTier
 
 pytestmark = pytest.mark.django_db
 
@@ -17,6 +17,12 @@ def _mkuser(username="u_form"):
 def test_form_save_commit_true_executes_save_and_save_m2m(monkeypatch):
     user = _mkuser()
 
+    tier = SponsorshipTier.objects.create(
+        name="Champion",
+        amount=10000.00,
+        description="Champion sponsorship tier"
+    )
+
     # Your form unconditionally calls save_m2m(); stub it since the form has no M2M fields
     monkeypatch.setattr(
         "sponsorship.forms.SponsorshipProfileForm.save_m2m",
@@ -27,10 +33,9 @@ def test_form_save_commit_true_executes_save_and_save_m2m(monkeypatch):
     data = {
         "main_contact_user": str(user.id),
         "organization_name": "ACME Corp",
-        "sponsorship_type": "Champion",
+        "sponsorship_tier": str(tier.pk),
         "company_description": "desc",
-        "sponsorship_tier": "",
-        "application_status": "pending",  # required because it's in Meta.fields
+        "application_status": "pending",
     }
 
     # Pass user=... so form.save() sets main_contact_user correctly
@@ -47,3 +52,4 @@ def test_form_save_commit_true_executes_save_and_save_m2m(monkeypatch):
     assert obj.user == user
     assert obj.main_contact_user == user
     assert obj.application_status == "pending"
+    assert obj.sponsorship_tier == tier

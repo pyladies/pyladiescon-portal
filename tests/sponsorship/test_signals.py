@@ -91,10 +91,9 @@ class TestSponsorshipSignals(TestCase):
             user=self.user,
             main_contact_user=self.main_contact,
             organization_name="Test Company",
-            sponsorship_type="Champion",
+            sponsorship_tier=self.tier,
             company_description="Test description",
             application_status="pending",
-            sponsorship_tier=self.tier,
         )
 
         # Verify _send_email was called for sponsor confirmation
@@ -115,10 +114,9 @@ class TestSponsorshipSignals(TestCase):
             user=self.user,
             main_contact_user=self.main_contact,
             organization_name="Approved Company",
-            sponsorship_type="Supporter",
+            sponsorship_tier=self.tier,
             company_description="Test description",
             application_status="pending",
-            sponsorship_tier=self.tier,
         )
 
         # Clear any calls from creation
@@ -169,10 +167,9 @@ class TestSponsorshipSignals(TestCase):
             user=self.user,
             main_contact_user=self.main_contact,
             organization_name="Test Company",
-            sponsorship_type="Partner",
+            sponsorship_tier=self.tier,
             company_description="Test description",
             application_status="pending",
-            sponsorship_tier=self.tier,
         )
 
         # Clear creation calls
@@ -200,10 +197,9 @@ class TestSponsorshipSignals(TestCase):
             user=self.user,
             main_contact_user=self.main_contact,
             organization_name="Test Company",
-            sponsorship_type="Individual",
+            sponsorship_tier=self.tier,
             company_description="Test description",
             application_status="pending",
-            sponsorship_tier=self.tier,
         )
 
         # Clear creation calls
@@ -252,7 +248,7 @@ class TestSponsorshipSignals(TestCase):
             user=self.user,
             main_contact_user=self.main_contact,
             organization_name="No Prefix Company",
-            sponsorship_type="Booster",
+            sponsorship_tier=self.tier,
             company_description="Test description",
             application_status="pending",
         )
@@ -296,7 +292,7 @@ class TestSponsorshipSignals(TestCase):
                 user=self.user,
                 main_contact_user=self.main_contact,
                 organization_name="Signal Test Co",
-                sponsorship_type="Champion",
+                sponsorship_tier=self.tier,
                 company_description="Testing signal connection",
                 application_status="pending",
             )
