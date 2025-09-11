@@ -85,9 +85,7 @@ def test_sponsorship_profile_form_save_sets_fields():
     user = User.objects.create_user(username="miracle", password="secure123")
 
     tier = SponsorshipTier.objects.create(
-        name="Champion",
-        amount=10000.00,
-        description="Champion sponsorship tier"
+        name="Champion", amount=10000.00, description="Champion sponsorship tier"
     )
 
     form_data = {

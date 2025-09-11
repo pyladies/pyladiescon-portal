@@ -15,8 +15,8 @@ class SponsorshipProfileAdmin(admin.ModelAdmin):
     list_display = (
         "organization_name",
         "main_contact_user",
-        "sponsorship_tier", 
+        "sponsorship_tier",
         "application_status",
     )
-    list_filter = ("application_status", "sponsorship_tier") 
+    list_filter = ("application_status", "sponsorship_tier")
     search_fields = ("organization_name", "main_contact_user")

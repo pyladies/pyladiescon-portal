@@ -18,9 +18,7 @@ def test_form_save_commit_true_executes_save_and_save_m2m(monkeypatch):
     user = _mkuser()
 
     tier = SponsorshipTier.objects.create(
-        name="Champion",
-        amount=10000.00,
-        description="Champion sponsorship tier"
+        name="Champion", amount=10000.00, description="Champion sponsorship tier"
     )
 
     # Your form unconditionally calls save_m2m(); stub it since the form has no M2M fields

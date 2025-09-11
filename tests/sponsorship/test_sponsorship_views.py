@@ -57,9 +57,7 @@ def test_post_valid_executes_save_block_and_sets_pending(auth_client, monkeypatc
     from sponsorship.models import SponsorshipProfile
 
     tier = SponsorshipTier.objects.create(
-        name="Champion",
-        amount=10000.00,
-        description="Champion sponsorship tier"
+        name="Champion", amount=10000.00, description="Champion sponsorship tier"
     )
 
     # Stub save_m2m so the unconditional call in the form doesn't explode
