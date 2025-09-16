@@ -8,17 +8,16 @@ from .forms import SponsorshipProfileForm
 @login_required
 def create_sponsorship_profile(request):
     if request.method == "POST":
-        form = SponsorshipProfileForm(request.POST, request.FILES)
+        form = SponsorshipProfileForm(request.POST, request.FILES, user=request.user)
         if form.is_valid():
             profile = form.save(commit=False)
-            profile.user = request.user
-            profile.application_status = "pending"
+            profile.user = request.user  # Set the user field
             profile.save()
             form.save_m2m()  # Save ManyToMany relationships
             messages.success(request, "Sponsorship profile submitted successfully!")
-            form = SponsorshipProfileForm()  # Clear form after submission
+            form = SponsorshipProfileForm(user=request.user)  # Fresh form for next use
     else:
-        form = SponsorshipProfileForm()
+        form = SponsorshipProfileForm(user=request.user)
     return render(request, "sponsorship/sponsorship_profile_form.html", {"form": form})
 
 

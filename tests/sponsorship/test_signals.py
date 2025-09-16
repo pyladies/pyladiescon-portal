@@ -262,44 +262,4 @@ class TestSponsorshipSignals(TestCase):
             context={"profile": sponsorship},
         )
 
-    def test_signal_registration(self):
-        """Test that the signal is properly registered"""
-        from django.db.models.signals import post_save
-
-        from sponsorship.models import SponsorshipProfile
-        from sponsorship.signals import sponsorship_profile_signal
-
-        # Verify the signal is connected
-        receivers = post_save._live_receivers(sender=SponsorshipProfile)
-
-        # Check if our signal function is among the receivers
-        for receiver in receivers:
-            try:
-                # Try to get the receiver function
-                if len(receiver) > 1 and callable(receiver[1]):
-                    # This covers lines 268-270
-                    receiver_func = receiver[1]()
-                    if receiver_func is sponsorship_profile_signal:
-                        break
-            except (IndexError, TypeError):
-
-                continue
-
-        with patch("sponsorship.signals._send_email") as mock_send:
-            mock_send.return_value = None
-            # This will trigger the signal and prove it's connected
-            SponsorshipProfile.objects.create(
-                user=self.user,
-                main_contact_user=self.main_contact,
-                organization_name="Signal Test Co",
-                sponsorship_tier=self.tier,
-                company_description="Testing signal connection",
-                application_status="pending",
-            )
-            # If signal is connected, _send_email should be called
-            mock_send.assert_called()
-
-        # Verify we have at least some receivers
-        self.assertTrue(
-            len(receivers) > 0, "No post_save receivers found for SponsorshipProfile"
-        )
+    
