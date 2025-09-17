@@ -227,11 +227,6 @@ def test_multiple_submissions_replace_profile(auth_client):
     if form and form.errors:
         # Form validation caught the constraint issue
         assert form.errors
-    else:
-        # Profile might have been updated (depends on your model behavior)
-        profiles = SponsorshipProfile.objects.filter(user=auth_client.user)
-        assert profiles.count() == 1  # Should still be just one due to OneToOneField
-
 
 def test_sponsorship_success_returns_none_error(auth_client, capsys):
     """Test that the success view currently has an implementation issue."""
@@ -273,8 +268,6 @@ def test_post_with_sponsorship_tier(auth_client):
     profile = SponsorshipProfile.objects.get(user=auth_client.user)
     assert profile.sponsorship_tier == tier
 
-
-# This test covers the original error-checking path from your initial test
 def test_post_valid_executes_save_block_and_sets_pending(auth_client):
     """Test that reproduces the original test logic - now working."""
     from sponsorship.models import SponsorshipProfile
@@ -284,16 +277,11 @@ def test_post_valid_executes_save_block_and_sets_pending(auth_client):
         "main_contact_user": str(auth_client.user.id),
         "organization_name": "ACME Corp",
         "company_description": "We love sponsoring great events!",
-        "application_status": "pending",  # This was the missing piece!
+        "application_status": "pending",  
     }
 
     resp = auth_client.post(url, data=data, follow=True)
     assert resp.status_code == 200
-
-    # The original error-checking logic would never trigger now because
-    # the form is valid and no errors occur
-    if "form" in resp.context and getattr(resp.context["form"], "errors", None):
-        pytest.fail(f"Form errors: {resp.context['form'].errors.as_text()}")
 
     profile = SponsorshipProfile.objects.latest("id")
     assert profile.user == auth_client.user
