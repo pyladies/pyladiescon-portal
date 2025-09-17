@@ -118,6 +118,7 @@ def test_post_valid_with_file_upload(auth_client):
     msgs = [str(m) for m in get_messages(resp.wsgi_request)]
     assert any("submitted successfully" in m for m in msgs)
 
+
 def test_form_validation_required_fields(auth_client):
     """Test that required fields are validated properly."""
     url = reverse("sponsorship:create_sponsorship_profile")
