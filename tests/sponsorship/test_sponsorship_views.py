@@ -228,6 +228,7 @@ def test_multiple_submissions_replace_profile(auth_client):
         # Form validation caught the constraint issue
         assert form.errors
 
+
 def test_sponsorship_success_returns_none_error(auth_client, capsys):
     """Test that the success view currently has an implementation issue."""
     url = reverse("sponsorship:success")
@@ -268,6 +269,7 @@ def test_post_with_sponsorship_tier(auth_client):
     profile = SponsorshipProfile.objects.get(user=auth_client.user)
     assert profile.sponsorship_tier == tier
 
+
 def test_post_valid_executes_save_block_and_sets_pending(auth_client):
     """Test that reproduces the original test logic - now working."""
     from sponsorship.models import SponsorshipProfile
@@ -277,7 +279,7 @@ def test_post_valid_executes_save_block_and_sets_pending(auth_client):
         "main_contact_user": str(auth_client.user.id),
         "organization_name": "ACME Corp",
         "company_description": "We love sponsoring great events!",
-        "application_status": "pending",  
+        "application_status": "pending",
     }
 
     resp = auth_client.post(url, data=data, follow=True)
