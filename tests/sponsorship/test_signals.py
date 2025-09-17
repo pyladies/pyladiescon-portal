@@ -79,7 +79,7 @@ class TestSponsorshipSignals(TestCase):
         )
 
         # Verify HTML alternative was attached and email sent
-        mock_msg.attach_alternative.assert_called_once_with("HTML content", "text/html")
+        ck_msg.attach_alternative.assert_called_once_with("HTML content", "text/html")
         mock_msg.send.assert_called_once()
 
     @patch("sponsorship.signals._send_email")
@@ -261,5 +261,3 @@ class TestSponsorshipSignals(TestCase):
             text_template="sponsorship/email/sponsor_status_update.txt",
             context={"profile": sponsorship},
         )
-
-    
