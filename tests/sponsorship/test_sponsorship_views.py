@@ -112,18 +112,11 @@ def test_post_valid_with_file_upload(auth_client):
     # Check that profile was created
     profile = SponsorshipProfile.objects.get(user=auth_client.user)
 
-    # NOTE: Currently the file upload doesn't work due to form's save() method
-    # The form validation fails but the profile still gets created without the file
-    # This test verifies the current behavior - fix the form later if needed
     assert profile.organization_name == "ACME Corp"
 
     # Check success message is still shown
     msgs = [str(m) for m in get_messages(resp.wsgi_request)]
     assert any("submitted successfully" in m for m in msgs)
-
-    # TODO: Fix form's save method to handle file uploads properly
-    # When fixed, change this to: assert profile.logo.name
-
 
 def test_form_validation_required_fields(auth_client):
     """Test that required fields are validated properly."""
@@ -208,8 +201,6 @@ def test_multiple_submissions_replace_profile(auth_client):
     profile1 = SponsorshipProfile.objects.get(user=auth_client.user)
     assert profile1.organization_name == "First Corp"
 
-    # Second submission - this will likely fail due to OneToOneField constraint
-    # Let's see what happens
     data2 = {
         "main_contact_user": str(auth_client.user.id),
         "organization_name": "Second Corp",
@@ -217,8 +208,6 @@ def test_multiple_submissions_replace_profile(auth_client):
         "application_status": "pending",
     }
 
-    # This might raise an IntegrityError due to OneToOneField constraint
-    # or it might just show form errors
     resp = auth_client.post(url, data=data2)
     assert resp.status_code == 200
 
