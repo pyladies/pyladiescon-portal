@@ -1,0 +1,14 @@
+{% extends "account/email/base_message.txt" %}
+{% load i18n %}
+{% load account %}
+{% block content %}
+{{ profile.user.first_name }}, thank you for applying to volunteer with us.
+
+We received many volunteer applications, and we're not able to accept everyone.
+At this time, the team you've applied for is at full capacity.
+
+We are placing you on a waitlist in case the volunteer opportunity opens up in the future.
+
+Thank you for your understanding and for your interest in volunteering with us!
+
+{% endblock content %}

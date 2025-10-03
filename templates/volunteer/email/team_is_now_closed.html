@@ -1,0 +1,22 @@
+{% extends "volunteer/email/base_email.html" %}
+{% load i18n %}
+{% block content %}
+    <p>
+        {{ profile.user.first_name }}, thank you for applying to volunteer with us.
+    </p>
+    {% if updated %}
+        <p>
+            Your volunteer profile has recently been updated.
+        </p>
+    {% endif %}
+    <p>
+        We received many volunteer applications, and we're not able to accept everyone.
+        At this time, the team you've applied for is at full capacity.
+    </p>
+    <p>
+        We are placing you on a waitlist in case the volunteer opportunity opens up in the future.
+    </p>
+    <p>
+        Thank you for your understanding and for your interest in volunteering with us!
+    </p>
+{% endblock content %}

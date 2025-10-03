@@ -25,6 +25,9 @@
                                 <span class="badge bg-warning rounded-pill">{{ team.pending_members.count }}</span> <a href="{% url 'team_detail' team.id %}#pending-members">pending {{ team.pending_members.count|pluralize:"member, members" }}</a>
                             </p>
                             <p class="card-text">
+                                <span class="badge bg-warning rounded-pill">{{ team.waitlisted_members.count }}</span> <a href="{% url 'team_detail' team.id %}#waitlisted-members">waitlisted {{ team.waitlisted_members.count|pluralize:"member, members" }}</a>
+                            </p>
+                            <p class="card-text">
                                 <span class="badge bg-primary rounded-pill">{{ team.approved_members.count }}</span> <a href="{% url 'team_detail' team.id %}#approved-members">approved {{ team.approved_members.count|pluralize:"member, members" }}</a>
                             </p>
                         </div>
