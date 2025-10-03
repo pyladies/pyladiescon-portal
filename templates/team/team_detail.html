@@ -47,6 +47,24 @@
                     {% endfor %}
                 </ul>
             {% endif %}
+            <h3 id="waitlisted-members">
+                Waitlisted Members <span class="badge bg-warning rounded-pill">{{ team.waitlisted_members.count }}</span>
+            </h3>
+            {% if team.waitlisted_members.count == 0 %}
+                No waitlisted members.
+            {% else %}
+                <ul>
+                    {% for member in team.waitlisted_members.all %}
+                        <li>
+                            {% if user.is_superuser %}
+                                <a href="{% url 'volunteer:volunteer_profile_manage' member.id %}">{{ member.user.get_full_name }}</a>
+                            {% else %}
+                                {{ member.user.get_full_name }}
+                            {% endif %}
+                        </li>
+                    {% endfor %}
+                </ul>
+            {% endif %}
         {% endif %}
         <h3 id="approved-members">
             Approved Members <span class="badge bg-primary rounded-pill">{{ team.approved_members.count }}</span>

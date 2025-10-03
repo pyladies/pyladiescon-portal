@@ -24,6 +24,7 @@ APPLICATION_STATUS_CHOICES = [
     (ApplicationStatus.APPROVED, ApplicationStatus.APPROVED),
     (ApplicationStatus.REJECTED, ApplicationStatus.REJECTED),
     (ApplicationStatus.CANCELLED, ApplicationStatus.CANCELLED),
+    (ApplicationStatus.WAITLISTED, ApplicationStatus.WAITLISTED),
 ]
 
 REGION_CHOICES = [
@@ -45,6 +46,7 @@ class Team(BaseModel):
         verbose_name="team leads",
         related_name="team_leads",
     )
+    open_to_new_members = models.BooleanField(default=True)
 
     def __str__(self):
         return self.short_name
@@ -58,6 +60,11 @@ class Team(BaseModel):
     def pending_members(self):
         """Return all members with pending volunteer profiles."""
         return self.members.filter(application_status=ApplicationStatus.PENDING)
+
+    @cached_property
+    def waitlisted_members(self):
+        """Return all members with waitlisted volunteer profiles."""
+        return self.members.filter(application_status=ApplicationStatus.WAITLISTED)
 
 
 class Role(BaseModel):
@@ -261,9 +268,12 @@ def send_volunteer_notification_email(instance, updated=False):
         subject += " Updated"
     else:
         subject += " Received"
-
-    html_template = "volunteer/email/volunteer_profile_email_notification.html"
-    text_template = "volunteer/email/volunteer_profile_email_notification.txt"
+    if instance.application_status == ApplicationStatus.WAITLISTED:
+        html_template = "volunteer/email/team_is_now_closed.html"
+        text_template = "volunteer/email/team_is_now_closed.txt"
+    else:
+        html_template = "volunteer/email/volunteer_profile_email_notification.html"
+        text_template = "volunteer/email/volunteer_profile_email_notification.txt"
 
     _send_email(
         subject,

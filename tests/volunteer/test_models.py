@@ -629,3 +629,22 @@ class TestVolunteerModel:
         mail.outbox.clear()
         send_internal_volunteer_onboarding_email(profile)
         assert len(mail.outbox) == 0
+
+    def test_email_if_waitlisted(self, portal_user):
+        profile = VolunteerProfile(user=portal_user)
+        profile.languages_spoken = [LANGUAGES[0]]
+        profile.region = Region.NORTH_AMERICA
+        profile.application_status = ApplicationStatus.WAITLISTED
+        profile.save()
+        mail.outbox.clear()
+
+        profile.region = Region.ASIA
+        profile.save()
+
+        assert (
+            str(mail.outbox[0].subject)
+            == f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} Volunteer Application Updated"
+        )
+
+        # message about being waitslisted is in the body
+        assert "and we're not able to accept everyone" in str(mail.outbox[0].body)

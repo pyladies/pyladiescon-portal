@@ -46,12 +46,14 @@ class VolunteerProfileForm(ModelForm):
     additional_comments = forms.CharField(widget=forms.Textarea, required=False)
     teams = forms.ModelMultipleChoiceField(
         required=False,
-        queryset=Team.objects.all(),
+        queryset=Team.objects.filter(open_to_new_members=True),
         widget=forms.CheckboxSelectMultiple,
         help_text=mark_safe(
             "See <a href='https://conference.pyladies.com/docs/' "
             "target='_blank' rel='noopener'>the committee page</a> "
             "for information on each one."
+            "<br>Only teams that are open to new members are shown."
+            "If the team is not listed, it means that it is now full and no longer accepting new members."
         ),
         label="Which teams are you interested in joining?",
     )
