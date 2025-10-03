@@ -1,9 +1,12 @@
 import pytest
+from django.contrib.auth import get_user_model
 from django.urls import reverse
 from pytest_django.asserts import assertContains
 
 from portal_account.forms import PortalProfileForm
 from portal_account.models import PortalProfile
+from sponsorship.forms import SponsorshipProfileForm
+from sponsorship.models import SponsorshipProfile, SponsorshipTier
 
 
 @pytest.mark.django_db
@@ -72,3 +75,36 @@ class TestSignupView:
         assertContains(
             response, "form-control", status_code=200
         )  # Verify Bootstrap styling
+
+
+User = get_user_model()
+
+
+@pytest.mark.django_db
+def test_sponsorship_profile_form_save_sets_fields():
+    user = User.objects.create_user(username="miracle", password="secure123")
+
+    tier = SponsorshipTier.objects.create(
+        name="Champion", amount=10000.00, description="Champion sponsorship tier"
+    )
+
+    form_data = {
+        "organization_name": "My Org",
+        "company_description": "We build tech for social good.",
+        "main_contact_user": user.pk,
+        "sponsorship_tier": tier.pk,
+        "application_status": "pending",
+    }
+
+    form = SponsorshipProfileForm(data=form_data, user=user)
+    assert form.is_valid(), form.errors.as_text()
+
+    instance = form.save(commit=False)
+    instance.user = user
+    instance.save()
+
+    assert isinstance(instance, SponsorshipProfile)
+    assert instance.user == user
+    assert instance.main_contact_user == user
+    assert instance.application_status == "pending"
+    assert instance.sponsorship_tier == tier
