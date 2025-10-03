@@ -19,11 +19,19 @@ class SponsorshipProfile(models.Model):
         ("cancelled", "Cancelled"),
     ]
 
-    user = models.OneToOneField(
-        User, on_delete=models.CASCADE, related_name="sponsorship_user"
+    user = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        related_name="sponsorship_user",
+        null=True,
+        blank=True,
     )
-    main_contact_user = models.OneToOneField(
-        User, on_delete=models.CASCADE, related_name="main_contact_user"
+    main_contact_user = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        related_name="main_contact_user",
+        null=True,
+        blank=True,
     )
     additional_contacts = models.ManyToManyField(
         User, blank=True, related_name="additional_contacts"

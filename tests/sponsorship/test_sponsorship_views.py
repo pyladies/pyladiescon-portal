@@ -183,8 +183,8 @@ def test_form_initializes_with_current_user(auth_client):
     assert form.fields["main_contact_user"].initial == auth_client.user
 
 
-def test_multiple_submissions_replace_profile(auth_client):
-    """Test that multiple submissions work correctly."""
+def test_multiple_submissions_create_additional_profiles(auth_client):
+    """Test that multiple submissions are allowed."""
     from sponsorship.models import SponsorshipProfile
 
     url = reverse("sponsorship:create_sponsorship_profile")
@@ -198,8 +198,10 @@ def test_multiple_submissions_replace_profile(auth_client):
     }
     auth_client.post(url, data=data1)
 
-    # Check first profile exists
-    profile1 = SponsorshipProfile.objects.get(user=auth_client.user)
+    # Check the profile exists
+    profiles = SponsorshipProfile.objects.filter(user=auth_client.user)
+    assert profiles.count() == 1
+    profile1 = profiles.first()
     assert profile1.organization_name == "First Corp"
 
     data2 = {
@@ -212,11 +214,11 @@ def test_multiple_submissions_replace_profile(auth_client):
     resp = auth_client.post(url, data=data2)
     assert resp.status_code == 200
 
-    # Check what happened - either error in form or profile updated
-    form = resp.context.get("form")
-    if form and form.errors:
-        # Form validation caught the constraint issue
-        assert form.errors
+    # Another profile is now created
+    profiles = SponsorshipProfile.objects.filter(user=auth_client.user)
+    assert profiles.count() == 2
+    profile2 = profiles.last()
+    assert profile2.organization_name == "Second Corp"
 
 
 def test_sponsorship_success_returns_none_error(auth_client, capsys):
