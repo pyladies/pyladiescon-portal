@@ -1,0 +1,86 @@
+{% load i18n %}
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Team Member Cancelled Volunteering</title>
+    </head>
+    <body>
+        <div>
+            <h2>
+                Team Member Departure Notification
+            </h2>
+            <p>
+                Dear Team Lead,
+            </p>
+            <p>
+                This email is to inform you that a member of your team has cancelled their volunteer application.
+            </p>
+            <div>
+                <h3>
+                    Volunteer Details:
+                </h3>
+                <ul>
+                    <li>
+                        <strong>Name:</strong> {{ profile.user.first_name }} {{ profile.user.last_name }}
+                    </li>
+                    <li>
+                        <strong>Username:</strong> {{ profile.user.username }}
+                    </li>
+                    <li>
+                        <strong>Email:</strong> {{ profile.user.email }}
+                    </li>
+                    <li>
+                        <strong>Team:</strong> {{ team.short_name }}
+                    </li>
+                    {% if profile.discord_username %}
+                        <li>
+                            <strong>Discord:</strong> {{ profile.discord_username }}
+                        </li>
+                    {% endif %}
+                </ul>
+            </div>
+            <div>
+                <h3>
+                    Offboarding Tasks
+                </h3>
+                <p>
+                    As a team lead, you may need to handle the following offboarding tasks:
+                </p>
+                <ul>
+                    <li>
+                        Remove access to team-specific resources, tools, or platforms
+                    </li>
+                    <li>
+                        Revoke permissions for team channels, documents, or repositories
+                    </li>
+                    <li>
+                        Redistribute any assigned tasks or responsibilities
+                    </li>
+                    <li>
+                        Update team documentation and contact lists
+                    </li>
+                    <li>
+                        Remove from team-specific communication channels (Slack, Discord, etc.)
+                    </li>
+                </ul>
+            </div>
+            <p>
+                The volunteer has been automatically removed from the {{ team.short_name }} team in our system, and their application status has been set to "Cancelled".
+            </p>
+            <p>
+                If you have any questions or need assistance with the offboarding process, please reach out to the admin team.
+            </p>
+            <p>
+                Best regards,
+                <br>
+                The PyLadiesCon Admin Team
+            </p>
+            <hr>
+            <p>
+                This is an automated email from the PyLadiesCon volunteer portal. Please do not reply to this email.
+            </p>
+        </div>
+    </body>
+</html>
