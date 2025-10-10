@@ -1,0 +1,23 @@
+Volunteer Application Cancelled
+
+Dear {{ profile.user.first_name|default:profile.user.username }},
+
+This email confirms that your volunteer application for PyLadiesCon has been cancelled.
+
+Changes Made:
+- Your application status has been set to "Cancelled"
+{% if teams_removed %}- You have been removed from the following teams:
+{% for team in teams_removed %}  * {{ team.short_name }}
+{% endfor %}{% endif %}- Team leads have been notified of your departure
+
+We understand that circumstances can change, and we appreciate the time you were willing to dedicate to PyLadiesCon.
+
+If you change your mind in the future and would like to volunteer again, you're welcome to submit a new volunteer application through our portal.
+
+Thank you for your interest in PyLadiesCon, and we hope to see you as a participant or volunteer in future events!
+
+Best regards,
+The PyLadiesCon Team
+
+---
+This is an automated email from the PyLadiesCon volunteer portal. Please do not reply to this email.

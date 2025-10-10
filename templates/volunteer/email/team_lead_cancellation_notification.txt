@@ -1,0 +1,31 @@
+Team Member Departure Notification
+
+Dear Team Lead,
+
+This email is to inform you that a member of your team has cancelled their volunteer application.
+
+Volunteer Details:
+- Name: {{ profile.user.first_name }} {{ profile.user.last_name }}
+- Username: {{ profile.user.username }}
+- Email: {{ profile.user.email }}
+- Team: {{ team.short_name }}
+{% if profile.discord_username %}- Discord: {{ profile.discord_username }}
+{% endif %}
+
+OFFBOARDING TASKS
+As a team lead, you may need to handle the following offboarding tasks:
+- Remove access to team-specific resources, tools, or platforms
+- Revoke permissions for team channels, documents, or repositories
+- Redistribute any assigned tasks or responsibilities
+- Update team documentation and contact lists
+- Remove from team-specific communication channels (Slack, Discord, etc.)
+
+The volunteer has been automatically removed from the {{ team.short_name }} team in our system, and their application status has been set to "Cancelled".
+
+If you have any questions or need assistance with the offboarding process, please reach out to the admin team.
+
+Best regards,
+The PyLadiesCon Admin Team
+
+---
+This is an automated email from the PyLadiesCon volunteer portal. Please do not reply to this email.

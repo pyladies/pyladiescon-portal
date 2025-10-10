@@ -1,9 +1,11 @@
 import django_filters
 import django_tables2 as tables
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import UserPassesTestMixin
 from django.contrib.postgres.search import SearchQuery, SearchVector
+from django.http import Http404
 from django.shortcuts import redirect, render
 from django.urls import reverse, reverse_lazy
 from django.utils.html import format_html
@@ -185,12 +187,23 @@ class VolunteerProfileList(VolunteerAdminRequiredMixin, SingleTableMixin, Filter
     table_class = VolunteerProfileTable
     filterset_class = VolunteerProfileFilter
 
+    def get_queryset(self):
+        """Filter out cancelled applications by default."""
+        return (
+            super()
+            .get_queryset()
+            .exclude(application_status=ApplicationStatus.CANCELLED)
+        )
+
 
 class VolunteerProfileView(DetailView):
     model = VolunteerProfile
 
     def get(self, request, *args, **kwargs):
-        self.object = self.get_object()
+        try:
+            self.object = self.get_object()
+        except Http404:
+            return redirect("volunteer:index")
         if (
             not self.object
             or self.object.user != request.user
@@ -242,7 +255,10 @@ class VolunteerProfileUpdate(UpdateView):
     form_class = VolunteerProfileForm
 
     def get(self, request, *args, **kwargs):
-        self.object = self.get_object()
+        try:
+            self.object = self.get_object()
+        except Http404:
+            return redirect("volunteer:index")
         if not self.object or self.object.user != request.user:
             return redirect("volunteer:index")
         return super(VolunteerProfileUpdate, self).get(request, *args, **kwargs)
@@ -309,3 +325,93 @@ class ResendOnboardingEmailView(VolunteerAdminRequiredMixin, View):
             )
 
         return redirect("volunteer:volunteer_profile_manage", pk=pk)
+
+
+class CancelVolunteeringView(View):
+    """View to handle volunteer application cancellation."""
+
+    def post(self, request, pk):
+        try:
+            profile = VolunteerProfile.objects.get(pk=pk)
+
+            # Check permissions - only the volunteer themselves or staff can cancel
+            if profile.user != request.user and not (
+                request.user.is_staff or request.user.is_superuser
+            ):
+                messages.add_message(
+                    request,
+                    messages.ERROR,
+                    "You don't have permission to cancel this volunteer application.",
+                )
+                return redirect("volunteer:index")
+
+            # Check if already cancelled
+            if profile.application_status == ApplicationStatus.CANCELLED:
+                messages.add_message(
+                    request,
+                    messages.WARNING,
+                    "This volunteer application is already cancelled.",
+                )
+                return redirect("volunteer:volunteer_profile_detail", pk=pk)
+
+            # Store team information before clearing for email notifications
+            teams_before_cancel = list(profile.teams.all())
+
+            # Update the volunteer profile
+            profile.application_status = ApplicationStatus.CANCELLED
+            profile.teams.clear()  # Remove from all teams
+            profile.save()
+
+            # Send confirmation email to volunteer
+            from .models import _send_email
+
+            context = {
+                "profile": profile,
+                "teams_removed": teams_before_cancel,
+            }
+            _send_email(
+                subject=f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} Volunteer Application Cancelled",
+                recipient_list=[profile.user.email],
+                html_template="volunteer/email/volunteer_cancellation_confirmation.html",
+                text_template="volunteer/email/volunteer_cancellation_confirmation.txt",
+                context=context,
+            )
+
+            # Send notification to team leads
+            for team in teams_before_cancel:
+                team_leads_emails = [lead.user.email for lead in team.team_leads.all()]
+                if team_leads_emails:
+                    context = {
+                        "profile": profile,
+                        "team": team,
+                    }
+                    _send_email(
+                        subject=f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} Team Member Cancelled: {profile.user.get_full_name() or profile.user.username}",
+                        recipient_list=team_leads_emails,
+                        html_template="volunteer/email/team_lead_cancellation_notification.html",
+                        text_template="volunteer/email/team_lead_cancellation_notification.txt",
+                        context=context,
+                    )
+
+            messages.add_message(
+                request,
+                messages.SUCCESS,
+                "Your volunteer application has been cancelled successfully.",
+            )
+
+            # Redirect based on user type
+            if request.user.is_staff or request.user.is_superuser:
+                return redirect("volunteer:volunteer_profile_list")
+            else:
+                return redirect("volunteer:index")
+
+        except VolunteerProfile.DoesNotExist:
+            messages.add_message(
+                request, messages.ERROR, "Volunteer profile not found."
+            )
+            return redirect("volunteer:index")
+        except Exception as e:
+            messages.add_message(
+                request, messages.ERROR, f"An error occurred while cancelling: {str(e)}"
+            )
+            return redirect("volunteer:volunteer_profile_detail", pk=pk)
