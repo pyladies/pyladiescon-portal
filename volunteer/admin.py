@@ -1,6 +1,18 @@
 from django.contrib import admin
 
+from .constants import ApplicationStatus
 from .models import Role, Team, VolunteerProfile
+
+
+@admin.action(description="Mark selected Volunteers as waitlisted")
+def bulk_waitlist_volunteers(modeladmin, request, queryset):
+    """Waitlist the volunteers one by one.
+
+    We want to trigger the email notification signal for each volunteers this way.
+    """
+    for volunteer in queryset:
+        volunteer.application_status = ApplicationStatus.WAITLISTED
+        volunteer.save()
 
 
 class VolunteerProfileAdmin(admin.ModelAdmin):
@@ -23,6 +35,7 @@ class VolunteerProfileAdmin(admin.ModelAdmin):
         "application_status",
     )
     list_filter = ("region", "application_status")
+    actions = [bulk_waitlist_volunteers]
 
 
 admin.site.register(Role)
