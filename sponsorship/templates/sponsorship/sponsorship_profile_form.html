@@ -1,0 +1,23 @@
+{% extends "portal/base.html" %}
+{% block content %}
+    <h2>
+        Create Sponsorship Profile
+    </h2>
+    {% if messages %}
+        <ul class="messages">
+            {% for message in messages %}
+                <li class="alert alert-success">
+                    {{ message }}
+                </li>
+            {% endfor %}
+        </ul>
+    {% endif %}
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit">
+            Submit
+        </button>
+    </form>
+{% endblock content %}
+<!-- Compare this snippet from sponsorship/templates/sponsorship/sponsorship_profile_form.html: -->

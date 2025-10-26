@@ -5,7 +5,12 @@
 {% endblock body %}
 {% block content %}
     <h1 class="display-5 mb-4">
-        {% trans "Your Volunteer Profile" %}
+        {% if user.is_superuser and user.username != object.user.username %}
+            Volunteer Profile for:  {{ object.user.username }}
+        {% else %}
+            Your Volunteer Profile
+        {% endif %}
+        <span class="badge bg-info text-dark me-1">{{ object.application_status }}</span>
     </h1>
     <div class="card mb-4">
         <div class="card-header">
@@ -43,7 +48,7 @@
                     {% trans "Availability:" %}
                 </div>
                 <div class="col-md-9">
-                    <p>{{ object.availability_hours_per_week|default:0 }} hours per week</p>
+                    {{ object.availability_hours_per_week|default:0 }} hours per week
                 </div>
             </div>
             <div class="row mb-3">
@@ -64,15 +69,7 @@
             </div>
             <div class="row mb-3">
                 <div class="col-md-3 fw-bold">
-                    {% trans "Application Status:" %}
-                </div>
-                <div class="col-md-9">
-                    {{ object.application_status }}
-                </div>
-            </div>
-            <div class="row mb-3">
-                <div class="col-md-3 fw-bold">
-                    {% trans "Languages:" %}
+                    Languages:
                 </div>
                 <div class="col-md-9">
                     {% for language in object.languages_spoken %}
@@ -133,7 +130,7 @@
                             GitHub:
                         </div>
                         <div class="col-md-9">
-                            {{ object.github_username }}
+                            <a href="https://github.com/{{ object.github_username }}">{{ object.github_username }}</a>
                         </div>
                     </div>
                 {% endif %}
@@ -211,12 +208,19 @@
             </h5>
         </div>
         <div class="card-body">
-            <p>{{ object.additional_comments }}</p>
+            <p>
+                {{ object.additional_comments }}
+            </p>
         </div>
     </div>
     <div class="mt-4">
-        <a class="btn btn-primary"
-           href="{% url 'volunteer:volunteer_profile_edit' object.pk %}">{% trans "Edit Profile" %}</a>
-        <a class="btn btn-secondary" href="{% url 'volunteer:index' %}">{% trans "Back to Volunteer Dashboard" %}</a>
+        {% if user.is_superuser and user.username != object.user.username %}
+            <a class="btn btn-secondary"
+               href="{% url 'volunteer:volunteers_list' %}">Back to Manage Volunteers</a>
+        {% else %}
+            <a class="btn btn-primary"
+               href="{% url 'volunteer:volunteer_profile_edit' object.pk %}">Edit Profile</a>
+            <a class="btn btn-secondary" href="{% url 'volunteer:index' %}">Back to Volunteer Dashboard</a>
+        {% endif %}
     </div>
 {% endblock content %}

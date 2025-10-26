@@ -1,0 +1,8 @@
+Hi {{ profile.user.first_name }},
+
+Congratulations! Your sponsorship application for {{ profile.organization_name }} has been approved 🎉
+
+We're excited to have you as a sponsor for PyLadiesCon. A team member will reach out soon with next steps and onboarding information.
+
+Best,  
+The PyLadiesCon Team

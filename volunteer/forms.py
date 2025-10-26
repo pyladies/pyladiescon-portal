@@ -6,19 +6,28 @@ from django.forms import ModelForm
 from django.forms.widgets import SelectMultiple
 from django.utils.safestring import mark_safe
 
+from portal.validators import validate_linked_in_pattern
+
+from .constants import ApplicationStatus
 from .languages import LANGUAGES
-from .models import VolunteerProfile
+from .models import (
+    Role,
+    Team,
+    VolunteerProfile,
+    send_internal_volunteer_onboarding_email,
+    send_volunteer_onboarding_email,
+)
 
 
-class LanguageSelectMultiple(SelectMultiple):
+class SelectMultipleWidget(SelectMultiple):
     """
-    A custom widget for selecting multiple languages with autocomplete.
+    A custom widget for selecting multiple values with autocomplete.
     """
 
     def __init__(self, attrs=None, choices=()):
         default_attrs = {
             "class": "form-control select2-multiple",
-            "data-placeholder": "Start typing to select languages...",
+            "data-placeholder": "Start typing to select ...",
         }
         if attrs:
             default_attrs.update(attrs)
@@ -27,13 +36,33 @@ class LanguageSelectMultiple(SelectMultiple):
 
 class VolunteerProfileForm(ModelForm):
 
+    github_username = forms.CharField(
+        required=True,
+        max_length=50,
+        help_text="Required - Your GitHub username (e.g., username). We'll grant read access to PyLadiesCon repos to our volunteers.",
+        label="GitHub Username",
+        error_messages={"required": "GitHub username is required."},
+    )
     additional_comments = forms.CharField(widget=forms.Textarea, required=False)
+    teams = forms.ModelMultipleChoiceField(
+        required=False,
+        queryset=Team.objects.filter(open_to_new_members=True),
+        widget=forms.CheckboxSelectMultiple,
+        help_text=mark_safe(
+            "See <a href='https://conference.pyladies.com/docs/' "
+            "target='_blank' rel='noopener'>the committee page</a> "
+            "for information on each one."
+            "<br>Only teams that are open to new members are shown."
+            "If the team is not listed, it means that it is now full and no longer accepting new members."
+        ),
+        label="Which teams are you interested in joining?",
+    )
 
     class Meta:
         model = VolunteerProfile
-        exclude = ["user", "application_status"]
+        exclude = ["user", "application_status", "roles"]
         help_texts = {
-            "github_username": "GitHub username (e.g., username)",
+            "github_username": "Required - Your GitHub username (e.g., username). We'll grant read access to PyLadiesCon repos to our volunteers.",
             "discord_username": "Required - Your Discord username for team communication (e.g., username or username#1234)",
             "instagram_username": "Instagram username without @ (e.g., username)",
             "bluesky_username": "Bluesky username (e.g., username or username.bsky.social)",
@@ -48,18 +77,18 @@ class VolunteerProfileForm(ModelForm):
                 "rel='noopener'>PSF’s D&amp;I Workgroup Membership handbook</a> "
                 "under “Which region should I be representing?” for guidance."
             ),
-            "teams": mark_safe(
-                "Which team are you interested in joining? "
-                "See <a href='https://conference.pyladies.com/docs/' "
-                "target='_blank' rel='noopener'>the committee page</a> "
-                "for information on each one."
-            ),
             "pyladies_chapter": "What PyLadies chapter are you a part of? If you are not part of any chapter leave this blank.",
+            "availability_hours_per_week": "Our volunteers are expected to commit at least 1 hour per week until the conference day."
+            "By sharing your availability, we can better match you with tasks and teams.",
+        }
+        labels = {
+            "availability_hours_per_week": "What is your volunteering availability?",
+            "pyladies_chapter": "PyLadies Chapter",
         }
 
     def clean_github_username(self):
         github_username = self.cleaned_data.get("github_username")
-        if github_username:
+        if github_username:  # Only validate format if field has value
             self.validate_github_username(github_username)
         return github_username
 
@@ -78,7 +107,7 @@ class VolunteerProfileForm(ModelForm):
 
     def validate_discord_username(self, value):
         if not re.match(
-            r"^[a-zA-Z0-9](?:[a-zA-Z0-9]|[._-](?=[a-zA-Z0-9])){0,30}[a-zA-Z0-9]$",
+            r"^(?=.{2,32}$)(?!.*\.\.)[a-zA-Z0-9._]+$",
             value,
         ):
             if len(value) < 2 or len(value) > 32:
@@ -87,8 +116,8 @@ class VolunteerProfileForm(ModelForm):
                 )
             else:
                 raise ValidationError(
-                    "Discord username must consist of alphanumeric characters, "
-                    "dots, underscores, or hyphens, and cannot have consecutive special characters."
+                    "discord_username: Discord username must consist of alphanumeric characters, "
+                    "periods, underscores, and cannot have two consecutive periods."
                 )
 
     def clean_instagram_username(self):
@@ -162,11 +191,10 @@ class VolunteerProfileForm(ModelForm):
         return linkedin_url
 
     def validate_linkedin_url(self, value):
-        linkedin_pattern = r"^(https?://)?(www\.)?linkedin\.com/in/[a-zA-Z0-9_-]+/?$"
-        if not re.match(linkedin_pattern, value):
+        if not validate_linked_in_pattern(value):
             raise ValidationError(
                 "Invalid LinkedIn URL format. "
-                "Should be in the format: linkedin.com/in/username or https://www.linkedin.com/in/username."
+                "Example: linkedin.com/in/username or https://www.linkedin.com/in/username."
             )
 
     def clean(self):
@@ -181,8 +209,11 @@ class VolunteerProfileForm(ModelForm):
 
         self.fields["discord_username"].required = True
         self.fields["languages_spoken"].choices = sorted_languages
-        self.fields["languages_spoken"].widget = LanguageSelectMultiple(
-            choices=sorted_languages
+        self.fields["languages_spoken"].widget = SelectMultipleWidget(
+            choices=sorted_languages,
+            attrs={
+                "data-placeholder": "Start typing to select languages...",
+            },
         )
 
         if self.instance and self.instance.pk:
@@ -191,5 +222,47 @@ class VolunteerProfileForm(ModelForm):
     def save(self, commit=True):
         if self.user:
             self.instance.user = self.user
+
         volunteer_profile = super().save(commit)
+        return volunteer_profile
+
+
+class VolunteerProfileReviewForm(ModelForm):
+
+    additional_comments = forms.CharField(widget=forms.Textarea, required=False)
+    teams = forms.ModelMultipleChoiceField(
+        required=True,
+        queryset=Team.objects.all(),
+        widget=forms.CheckboxSelectMultiple,
+        error_messages={"required": "Please assign at least one team."},
+    )
+    roles = forms.ModelMultipleChoiceField(
+        required=True,
+        queryset=Role.objects.all(),
+        widget=forms.CheckboxSelectMultiple,
+        error_messages={"required": "Please assign at least one role."},
+    )
+
+    class Meta:
+        model = VolunteerProfile
+        fields = ["teams", "roles"]
+
+    def __init__(self, *args, **kwargs):
+        self.user = kwargs.pop("user", None)
+        super().__init__(*args, **kwargs)
+
+    def clean(self):
+        cleaned_data = super().clean()
+        return cleaned_data
+
+    def save(self, commit=True):
+        newly_approved = False
+        if self.instance.application_status == ApplicationStatus.PENDING:
+            self.instance.application_status = ApplicationStatus.APPROVED
+            newly_approved = True
+        volunteer_profile = super().save(commit)
+
+        if newly_approved:
+            send_volunteer_onboarding_email(volunteer_profile)
+            send_internal_volunteer_onboarding_email(volunteer_profile)
         return volunteer_profile

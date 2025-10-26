@@ -1,6 +1,7 @@
 from django.contrib.auth import get_user
 from django.shortcuts import redirect, render
 
+from portal.common import get_stats_cached_values
 from portal_account.models import PortalProfile
 from volunteer.languages import LANGUAGES
 from volunteer.models import VolunteerProfile
@@ -25,28 +26,9 @@ def index(request):
         context["volunteer_profile"] = None
         context["roles"] = []
 
+        context["stats"] = get_stats_cached_values()
+
     lang_dict = dict(LANGUAGES)
     context["lang_dict"] = lang_dict
-
-    teams = []
-    if user.is_authenticated and context["volunteer_profile"]:
-        # Prefetch team_leads and team members (and their users) for all teams in one go
-        teams_qs = (
-            context["volunteer_profile"]
-            .teams.prefetch_related("team_leads__user", "team__user")
-            .all()
-        )
-
-        for team in teams_qs:
-            leads = team.team_leads.all()
-            members = team.team.all().exclude(pk=context["volunteer_profile"].pk)
-            teams.append(
-                {
-                    "name": team.short_name,
-                    "leads": leads,
-                    "members": members,
-                }
-            )
-    context["teams"] = teams
 
     return render(request, "portal/index.html", context)

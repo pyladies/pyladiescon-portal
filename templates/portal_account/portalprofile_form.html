@@ -22,7 +22,6 @@
         </p>
         <div class="row g-5">
             {% bootstrap_form_errors form %}
-
             <form action="{% if object.pk %}{% url 'portal_account:portal_profile_edit' object.pk %}{% else %}{% url 'portal_account:portal_profile_new' %}{% endif %}"
                   method="post"
                   class="form">
@@ -33,7 +32,6 @@
                 {% bootstrap_field form.email %}
                 {% bootstrap_field form.pronouns %}
                 {% bootstrap_field form.coc_agreement %}
-              
                 <div class="mt-4">
                     <input type="submit"
                            value="{% if object.pk %}Update Profile{% else %}Create Profile{% endif %}"
@@ -201,5 +199,4 @@
             {# djlint:on #}
         </div>
     </main>
-
 {% endblock content %}

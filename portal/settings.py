@@ -43,6 +43,8 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "django.contrib.sites",
     "django_bootstrap5",
+    "django_filters",
+    "django_tables2",
     "allauth",
     "allauth.account",
     "storages",
@@ -50,7 +52,9 @@ INSTALLED_APPS = [
     "volunteer",
     "portal_account",
     "widget_tweaks",
+    "sponsorship",
 ]
+DJANGO_TABLES2_TEMPLATE = "portal/base-tables-responsive.html"
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
@@ -286,3 +290,12 @@ else:
 
 MEDIA_URL = "/media/"  # URL to serve media files
 MEDIA_ROOT = os.path.join(BASE_DIR, "media")  # Local filesystem path
+
+GDRIVE_FOLDER_ID = os.getenv("GDRIVE_FOLDER_ID", "")
+
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.db.DatabaseCache",
+        "LOCATION": "stats_cache_table",
+    }
+}

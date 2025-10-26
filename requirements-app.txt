@@ -1,6 +1,8 @@
 asgiref==3.8.1
-Django==5.1.8
-django-allauth==65.5.0
+Django==5.2.7
+django-allauth==65.11.2
+django-filter==25.1
+django-tables2==2.7.5
 gunicorn==23.0.0
 packaging==24.2
 psycopg2-binary==2.9.10
@@ -11,4 +13,4 @@ dj-database-url==2.3.0
 boto3==1.38.5
 django-storages==1.14.6
 django-widget-tweaks==1.5.0
-pillow==11.2.1
+pillow==11.3.0

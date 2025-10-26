@@ -17,6 +17,7 @@ class ApplicationStatus(StrEnum):
     APPROVED = "Approved"
     REJECTED = "Rejected"
     CANCELLED = "Cancelled"
+    WAITLISTED = "Waitlisted"
 
 
 class Region(StrEnum):
