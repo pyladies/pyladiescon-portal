@@ -93,7 +93,7 @@ def get_volunteer_onboarded_stat_cache():
             application_status=ApplicationStatus.APPROVED.value
         ).count()
         cache.set(
-            CACHE_KEY_VOLUNTEER_SIGNUPS_COUNT,
+            CACHE_KEY_VOLUNTEER_ONBOARDED_COUNT,
             volunteer_onboarded_count,
             STATS_CACHE_TIMEOUT,
         )
