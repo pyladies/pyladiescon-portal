@@ -7,17 +7,17 @@
     <main>
         <h1 class="display-5">
             {% if object.pk %}
-                Edit
+                {% trans "Edit" %}
             {% else %}
-                Create
+                {% trans "Create" %}
             {% endif %}
-            your Portal Profile
+            {% trans "your Portal Profile" %}
         </h1>
         <p class="lead">
             {% if object.pk %}
-                Update your portal profile information below.
+                {% blocktranslate %} Update your portal profile information below.{% endblocktranslate %}
             {% else %}
-                Please complete your portal profile before proceeding.
+                {% blocktranslate %} Please complete your portal profile before proceeding.{% endblocktranslate %}
             {% endif %}
         </p>
         <div class="row g-5">
@@ -38,9 +38,9 @@
                            class="btn btn-primary" />
                     {% if object.pk %}
                         <a href="{% url 'portal_account:portal_profile_detail' object.pk %}"
-                           class="btn btn-secondary">Cancel</a>
+                           class="btn btn-secondary">{% trans "Cancel" %}</a>
                     {% else %}
-                        <a href="{% url 'portal_account:index' %}" class="btn btn-secondary">Cancel</a>
+                        <a href="{% url 'portal_account:index' %}" class="btn btn-secondary">{% trans "Cancel" %}</a>
                     {% endif %}
                 </div>
             </form>

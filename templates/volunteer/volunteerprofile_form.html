@@ -40,9 +40,9 @@
         </h1>
         <p class="lead">
             {% if object.pk %}
-                Update your information below.
+                {% trans "Update your information below." %}
             {% else %}
-                Fill in the profile below.
+                {% trans "Fill in the profile below." %}
             {% endif %}
             <div class="alert alert-info" role="alert">
                 <h4 class="alert-heading">
@@ -291,7 +291,7 @@
                         <a href="{% url 'volunteer:volunteer_profile_detail' object.pk %}"
                            class="btn btn-secondary">Cancel</a>
                     {% else %}
-                        <a href="{% url 'volunteer:index' %}" class="btn btn-secondary">Cancel</a>
+                        <a href="{% url 'volunteer:index' %}" class="btn btn-secondary">{% trans "Cancel" %}</a>
                     {% endif %}
                 </div>
             </form>

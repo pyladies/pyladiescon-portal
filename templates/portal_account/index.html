@@ -5,34 +5,34 @@
 {% endblock body %}
 {% block content %}
     <h1 class="display-5">
-        Account Management
+        {% trans "Account Management" %}
     </h1>
     <a class="btn btn-primary btn-lg"
        role="button"
-       href="{% url 'account_email' %}">Manage Emails</a>
+       href="{% url 'account_email' %}">{% trans "Manage Emails" %}</a>
     <a class="btn btn-primary btn-lg"
        role="button"
-       href="{% url 'account_change_password' %}">Change Password</a>
+       href="{% url 'account_change_password' %}">{% trans "Change Password" %}</a>
     <a class="btn btn-primary btn-lg"
        role="button"
-       href="{% url 'account_logout' %}">Sign out</a>
+       href="{% url 'account_logout' %}">{% trans "Sign out" %}</a>
     <hr>
     <h1 class="display-5">
-        Your Portal Profile
+        {% trans "Your Portal Profile" %}
     </h1>
     {% if profile_id %}
         <a class="btn btn-primary btn-lg"
            role="button"
-           href="{% url 'portal_account:portal_profile_detail' profile_id %}">View my profile</a>
+           href="{% url 'portal_account:portal_profile_detail' profile_id %}">{% trans "View my profile" %}</a>
         <a class="btn btn-secondary btn-lg"
            role="button"
            href="{% url 'portal_account:portal_profile_edit' profile_id %}">Edit profile</a>
     {% else %}
         <p class="col-md-8 fs-4">
-            Your profile is not complete. Please complete your profile before proceeding.
+            {% blocktranslate %}Your profile is not complete. Please complete your profile before proceeding. {% endblocktranslate %}
         </p>
         <a class="btn btn-primary btn-lg"
            role="button"
-           href="{% url 'portal_account:portal_profile_new' %}">Create my profile</a>
+           href="{% url 'portal_account:portal_profile_new' %}">{% trans "Create my profile" %}</a>
     {% endif %}
 {% endblock content %}
