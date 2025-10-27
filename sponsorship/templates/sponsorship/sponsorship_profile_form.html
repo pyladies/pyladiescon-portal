@@ -1,23 +1,102 @@
 {% extends "portal/base.html" %}
+{% load allauth i18n %}
+{% load django_bootstrap5 %}
+{% load static %}
+{% block extra_head %}
+    {{ block.super }}
+    <!-- jQuery -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <!-- Select2 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css"
+          rel="stylesheet" />
+    <!-- Select2 JS -->
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+    <style>
+        .select2-container {
+            width: 100% !important;
+        }
+        .select2-selection--multiple {
+            border: 1px solid #ced4da !important;
+            border-radius: 0.25rem !important;
+            min-height: 38px !important;
+        }
+        .select2-selection__placeholder {
+            font-size: 0.85em !important;
+            color: #adb5bd !important;
+            position: relative !important;
+            top: -3px !important;
+        }
+    </style>
+{% endblock extra_head %}
 {% block content %}
-    <h2>
-        Create Sponsorship Profile
-    </h2>
-    {% if messages %}
-        <ul class="messages">
-            {% for message in messages %}
-                <li class="alert alert-success">
-                    {{ message }}
-                </li>
-            {% endfor %}
-        </ul>
-    {% endif %}
-    <form method="post" enctype="multipart/form-data">
-        {% csrf_token %}
-        {{ form.as_p }}
-        <button type="submit">
-            Submit
-        </button>
-    </form>
+    <main>
+        <h1 class="display-5">
+            {% if object.pk %}
+                Edit
+            {% else %}
+                Create
+            {% endif %}
+            Sponsorship Profile
+        </h1>
+        <p class="lead">
+            {% if object.pk %}
+                Update information below.
+            {% else %}
+                Fill in the information below.
+            {% endif %}
+        </p>
+        <div class="row g-5">
+            {% bootstrap_form_errors form %}
+            <form action="{% if object.pk %}{#  url 'sponsorship:sponsorship_profile_edit' object.pk #}{% else %}{% url 'sponsorship:sponsorship_profile_new' %}{% endif %}"
+                  method="post"
+                  class="form">
+                {% csrf_token %}
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">
+                            Basic Information
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        {% bootstrap_field form.main_contact_user %}
+                        {% bootstrap_field form.organization_name %}
+                        {% bootstrap_field form.sponsor_contact_name %}
+                        {% bootstrap_field form.sponsors_contact_email %}
+                        {% bootstrap_field form.sponsorship_tier %}
+                        {% bootstrap_field form.sponsorship_override_amount %}
+                        {% bootstrap_field form.organization_address %}
+                        {% bootstrap_field form.logo %}
+                        {% bootstrap_field form.company_description %}
+                        {% bootstrap_field form.progress_status %}
+                    </div>
+                </div>
+                <div class="mt-4">
+                    <button type="submit" class="btn btn-primary">
+                        {% if object.pk %}
+                            Update Profile
+                        {% else %}
+                            Create Profile
+                        {% endif %}
+                    </button>
+                    {#                    {% if object.pk %}#}
+                    {#                        <a href="{% url 'sponsorship:volunteer_profile_detail' object.pk %}"#}
+                    {#                           class="btn btn-secondary">Cancel</a>#}
+                    {#                    {% else %}#}
+                    {#                        <a href="{% url 'volunteer:index' %}" class="btn btn-secondary">Cancel</a>#}
+                    {#                    {% endif %}#}
+                </div>
+            </form>
+        </div>
+    </main>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initialize Select2 for languages_spoken field
+            $('.select2-multiple').select2({
+                theme: 'classic',
+                placeholder: 'Start typing to select languages...',
+                width: '100%',
+            });
+        });
+    </script>
 {% endblock content %}
 <!-- Compare this snippet from sponsorship/templates/sponsorship/sponsorship_profile_form.html: -->

@@ -1,23 +1,34 @@
 from django.contrib.auth.models import User
 from django.db import models
 
+from portal.models import BaseModel
 
-class SponsorshipTier(models.Model):
+
+class SponsorshipProgressStatus(models.IntegerChoices):
+    """Sponsorship Progress status."""
+
+    NOT_CONTACTED = 1, "Not Contacted"
+    AWAITING_RESPONSE = 2, "Awaiting Response"
+    REJECTED = 3, "Rejected"
+    ACCEPTED = 4, "Accepted"
+    APPROVED = 5, "Approved"
+    AGREEMENT_SENT = 6, "Agreement Sent"
+    AGREEMENT_SIGNED = 7, "Agreement Signed"
+    INVOICED = 8, "Invoiced"
+    PAID = 9, "Paid"
+    CANCELLED = 10, "Cancelled"
+
+
+class SponsorshipTier(BaseModel):
     name = models.CharField(max_length=100)  # "Championship", "Supporter", etc.
     amount = models.DecimalField(max_digits=10, decimal_places=2)  # 10000.00, etc.
     description = models.TextField()
 
     def __str__(self):
-        return self.name
+        return f"{self.name} (${self.amount:.2f})"
 
 
-class SponsorshipProfile(models.Model):
-    APPLICATION_STATUS_CHOICES = [
-        ("pending", "Pending"),
-        ("approved", "Approved"),
-        ("rejected", "Rejected"),
-        ("cancelled", "Cancelled"),
-    ]
+class SponsorshipProfile(BaseModel):
 
     user = models.ForeignKey(
         User,
@@ -41,11 +52,16 @@ class SponsorshipProfile(models.Model):
         "SponsorshipTier", on_delete=models.SET_NULL, null=True, blank=True
     )
     logo = models.ImageField(upload_to="sponsor_logos/", null=True, blank=True)
-    company_description = models.TextField()
-    application_status = models.CharField(
-        max_length=20,
-        choices=APPLICATION_STATUS_CHOICES,
-        default="pending",
+    company_description = models.TextField(blank=True, null=True)
+    progress_status = models.IntegerField(
+        choices=SponsorshipProgressStatus,
+        default=SponsorshipProgressStatus.NOT_CONTACTED,
+    )
+    sponsor_contact_name = models.CharField(max_length=255, blank=True, null=True)
+    sponsors_contact_email = models.EmailField(blank=True, null=True)
+    organization_address = models.TextField(blank=True, null=True)
+    sponsorship_override_amount = models.DecimalField(
+        max_digits=10, decimal_places=2, blank=True, null=True
     )
 
     def __str__(self):

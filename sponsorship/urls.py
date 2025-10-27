@@ -6,7 +6,13 @@ app_name = "sponsorship"
 
 urlpatterns = [
     path(
-        "create/", views.create_sponsorship_profile, name="create_sponsorship_profile"
+        "new",
+        views.SponsorshipProfileCreate.as_view(),
+        name="sponsorship_profile_new",
     ),
-    path("success/", views.sponsorship_success, name="success"),
+    path(
+        "list",
+        views.SponsorshipProfileList.as_view(),
+        name="sponsorship_list",
+    ),
 ]

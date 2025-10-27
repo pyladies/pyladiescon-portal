@@ -2,7 +2,6 @@ import django_filters
 import django_tables2 as tables
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.contrib.auth.mixins import UserPassesTestMixin
 from django.contrib.postgres.search import SearchQuery, SearchVector
 from django.shortcuts import redirect, render
 from django.urls import reverse, reverse_lazy
@@ -12,6 +11,8 @@ from django.views.generic import DetailView, ListView
 from django.views.generic.edit import CreateView, DeleteView, UpdateView
 from django_filters.views import FilterView
 from django_tables2.views import SingleTableMixin
+
+from common.mixins import AdminRequiredMixin
 
 from .forms import VolunteerProfileForm, VolunteerProfileReviewForm
 from .languages import LANGUAGES
@@ -34,14 +35,11 @@ def index(request):
     return render(request, "volunteer/index.html", context)
 
 
-class VolunteerAdminRequiredMixin(UserPassesTestMixin):
+class VolunteerAdminRequiredMixin(AdminRequiredMixin):
     """Mixin for views that require administrative permission for the volunteers.
     Currently it requires the user to be a superuser or staff member.
     This can be extended to include more complex permission checks in the future.
     """
-
-    def test_func(self):
-        return self.request.user.is_superuser or self.request.user.is_staff
 
 
 class VolunteerProfileFilter(django_filters.FilterSet):

@@ -2,17 +2,15 @@ import re
 
 from django.conf import settings
 from django.contrib.auth.models import User
-from django.contrib.sites.models import Site
 from django.core.exceptions import ValidationError
-from django.core.mail import EmailMultiAlternatives
 from django.db import models
 from django.db.models import Q
 from django.db.models.signals import post_save
 from django.dispatch import receiver
-from django.template.loader import render_to_string
 from django.urls import reverse
 from django.utils.functional import cached_property
 
+from common.send_emails import send_email
 from portal.models import BaseModel, ChoiceArrayField
 from portal.validators import validate_linked_in_pattern
 
@@ -235,30 +233,6 @@ class VolunteerProfile(BaseModel):
         return reverse("volunteer:volunteer_profile_edit", kwargs={"pk": self.pk})
 
 
-def _send_email(
-    subject, recipient_list, *, html_template=None, text_template=None, context=None
-):
-    """Helper function to send an email."""
-    context = context or {}
-    context["current_site"] = Site.objects.get_current()
-    text_content = render_to_string(
-        text_template,
-        context=context,
-    )
-    html_content = render_to_string(
-        html_template,
-        context=context,
-    )
-    msg = EmailMultiAlternatives(
-        subject,
-        text_content,
-        settings.DEFAULT_FROM_EMAIL,
-        recipient_list,
-    )
-    msg.attach_alternative(html_content, "text/html")
-    msg.send()
-
-
 def send_volunteer_notification_email(instance, updated=False):
     """Send email to the user whenever their volunteer profile was updated/created."""
     context = {"profile": instance}
@@ -269,13 +243,13 @@ def send_volunteer_notification_email(instance, updated=False):
     else:
         subject += " Received"
     if instance.application_status == ApplicationStatus.WAITLISTED:
-        html_template = "volunteer/email/team_is_now_closed.html"
-        text_template = "volunteer/email/team_is_now_closed.txt"
+        html_template = "emails/volunteer/team_is_now_closed.html"
+        text_template = "emails/volunteer/team_is_now_closed.txt"
     else:
-        html_template = "volunteer/email/volunteer_profile_email_notification.html"
-        text_template = "volunteer/email/volunteer_profile_email_notification.txt"
+        html_template = "emails/volunteer/volunteer_profile_email_notification.html"
+        text_template = "emails/volunteer/volunteer_profile_email_notification.txt"
 
-    _send_email(
+    send_email(
         subject,
         [instance.user.email],
         html_template=html_template,
@@ -295,9 +269,9 @@ def send_volunteer_onboarding_email(instance):
         for role in instance.roles.all():
             if role.short_name in [RoleTypes.ADMIN, RoleTypes.STAFF]:
                 context["admin_onboarding"] = True
-        html_template = "volunteer/email/new_volunteer_onboarding.html"
-        text_template = "volunteer/email/new_volunteer_onboarding.txt"
-        _send_email(
+        html_template = "emails/volunteer/new_volunteer_onboarding.html"
+        text_template = "emails/volunteer/new_volunteer_onboarding.txt"
+        send_email(
             subject,
             [instance.user.email],
             html_template=html_template,
@@ -318,8 +292,8 @@ def send_internal_volunteer_onboarding_email(instance):
         for role in instance.roles.all():
             if role.short_name in [RoleTypes.ADMIN, RoleTypes.STAFF]:
                 context["admin_onboarding"] = True
-        html_template = "volunteer/email/internal_volunteer_onboarding.html"
-        text_template = "volunteer/email/internal_volunteer_onboarding.txt"
+        html_template = "emails/volunteer/internal_volunteer_onboarding.html"
+        text_template = "emails/volunteer/internal_volunteer_onboarding.txt"
         _send_internal_email(
             subject,
             html_template=html_template,
@@ -345,7 +319,6 @@ def _send_internal_email(
         | Q(is_superuser=True)
         | Q(is_staff=True)
     ).distinct()
-    # TODO Roles need to use django model choices not enum
 
     if not recipients.exists():
         return
@@ -354,7 +327,7 @@ def _send_internal_email(
     for recipient in recipients:
         context["recipient_name"] = recipient.get_full_name() or recipient.username
 
-        _send_email(
+        send_email(
             subject,
             [recipient.email],
             html_template=html_template,
@@ -373,9 +346,11 @@ def send_internal_notification_email(instance):
     context = {"profile": instance}
     subject = f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} New Volunteer Application"
 
-    text_template = "volunteer/email/internal_volunteer_profile_email_notification.txt"
+    text_template = "emails/volunteer/internal_volunteer_profile_email_notification.txt"
 
-    html_template = "volunteer/email/internal_volunteer_profile_email_notification.html"
+    html_template = (
+        "emails/volunteer/internal_volunteer_profile_email_notification.html"
+    )
 
     _send_internal_email(
         subject,
