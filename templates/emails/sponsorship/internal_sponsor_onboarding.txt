@@ -1,0 +1,11 @@
+{% extends "emails/base_email.txt" %}
+{% load i18n %}
+{% load account %}
+{% block content %}
+Hello, {{ recipient_name }}.
+We're writing to let you know that a new Sponsorship has been added to the system.
+
+
+{% include "emails/sponsorship/sponsor_information_partial.txt" with profile=profile %}
+
+{% endblock content %}

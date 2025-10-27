@@ -1,0 +1,8 @@
+{% extends "emails/base_email.html" %}
+{% load i18n %}
+{% block content %}
+    <p>
+        Hello, {{ recipient_name }}. We're writing to let you know that a new Sponsorship has been added to the system.
+    </p>
+    {% include "emails/sponsorship/sponsor_information_partial.html" with profile=profile %}
+{% endblock content %}

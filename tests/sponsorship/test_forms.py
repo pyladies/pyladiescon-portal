@@ -1,53 +1,119 @@
 import pytest
-from django.contrib.auth import get_user_model
 
 from sponsorship.forms import SponsorshipProfileForm
-from sponsorship.models import SponsorshipProfile, SponsorshipTier
-
-pytestmark = pytest.mark.django_db
-
-
-def _mkuser(username="u_form"):
-    User = get_user_model()
-    return User.objects.create_user(
-        username=username, email=f"{username}@example.com", password="pass1234"
-    )
+from sponsorship.models import (
+    SponsorshipProgressStatus,
+    SponsorshipTier,
+)
 
 
-def test_form_save_commit_true_executes_save_and_save_m2m(monkeypatch):
-    user = _mkuser()
-
-    tier = SponsorshipTier.objects.create(
-        name="Champion", amount=10000.00, description="Champion sponsorship tier"
-    )
-
-    # Your form unconditionally calls save_m2m(); stub it since the form has no M2M fields
-    monkeypatch.setattr(
-        "sponsorship.forms.SponsorshipProfileForm.save_m2m",
-        lambda self: None,
-        raising=False,
-    )
-
-    data = {
-        "main_contact_user": str(user.id),
-        "organization_name": "ACME Corp",
-        "sponsorship_tier": str(tier.pk),
-        "company_description": "desc",
-        "application_status": "pending",
+@pytest.mark.django_db
+class TestSponsorshipProfileForm:
+    BASE_VALID_DATA = {
+        "organization_name": "Awesome Company",
+        "progress_status": SponsorshipProgressStatus.AWAITING_RESPONSE.value,
     }
 
-    # Pass user=... so form.save() sets main_contact_user correctly
-    form = SponsorshipProfileForm(data=data, user=user)
-    assert form.is_valid(), form.errors.as_text()
+    @pytest.fixture
+    def form_data(self, admin_user):
+        return {
+            "organization_name": "Awesome Company",
+            "progress_status": SponsorshipProgressStatus.AWAITING_RESPONSE.value,
+            "main_contact_user": admin_user,
+        }
 
-    # IMPORTANT: model requires `user` (OneToOne, non-null). Set it before commit=True save.
-    form.instance.user = user
+    def test_form_saves_correctly(self, form_data):
 
-    obj = form.save(commit=True)  # <-- executes instance.save() and save_m2m()
+        form = SponsorshipProfileForm(data=form_data)
+        assert form.is_valid()
 
-    assert isinstance(obj, SponsorshipProfile)
-    assert obj.pk is not None
-    assert obj.user == user
-    assert obj.main_contact_user == user
-    assert obj.application_status == "pending"
-    assert obj.sponsorship_tier == tier
+        profile = form.save()
+        assert profile.organization_name == form_data["organization_name"]
+        assert profile.progress_status == form_data["progress_status"]
+        assert profile.main_contact_user == form_data["main_contact_user"]
+
+    def test_required_fields(self, form_data, admin_user, portal_user):
+        """Test validation of required fields."""
+        form = SponsorshipProfileForm(data={})
+        assert not form.is_valid()
+        assert "organization_name" in form.errors
+        assert "progress_status" in form.errors
+        assert "main_contact_user" in form.errors
+
+        form = SponsorshipProfileForm(data={"organization_name": "Test Org"})
+        assert not form.is_valid()
+        assert "progress_status" in form.errors
+        assert "main_contact_user" in form.errors
+        assert "organization_name" not in form.errors
+
+        form = SponsorshipProfileForm(
+            data={"progress_status": SponsorshipProgressStatus.AWAITING_RESPONSE.value}
+        )
+        assert not form.is_valid()
+        assert "progress_status" not in form.errors
+        assert "main_contact_user" in form.errors
+        assert "organization_name" in form.errors
+
+        form = SponsorshipProfileForm(data={"main_contact_user": admin_user})
+        assert not form.is_valid()
+        assert "progress_status" in form.errors
+        assert "main_contact_user" not in form.errors
+        assert "organization_name" in form.errors
+
+        form = SponsorshipProfileForm(
+            data={
+                "main_contact_user": portal_user,
+                "organization_name": "Test Org",
+                "progress_status": SponsorshipProgressStatus.AWAITING_RESPONSE.value,
+            }
+        )
+        assert not form.is_valid()
+        assert "progress_status" not in form.errors
+        assert "main_contact_user" in form.errors  # Portal user is not admin
+        assert "organization_name" not in form.errors
+
+    def test_form_with_user(self, form_data, portal_user):
+        """Test that the user is associated to the profile if exists."""
+        form = SponsorshipProfileForm(data=form_data, user=portal_user)
+        assert form.is_valid()
+        form.save()
+        assert form.instance.user == portal_user
+
+    def test_form_without_user(self, form_data):
+        """Test that the profile can be created without a user."""
+        form = SponsorshipProfileForm(data=form_data)
+        assert form.is_valid()
+        profile = form.save()
+        assert profile.user is None
+
+    def test_fields_are_saved(self, form_data, admin_user):
+        """Test that all fields are saved correctly."""
+
+        tier = SponsorshipTier.objects.create(name="Gold", amount=5000)
+        form_data.update(
+            {
+                "sponsor_contact_name": "John Doe",
+                "sponsors_contact_email": "test2@example.com",
+                "sponsorship_tier": tier.id,
+                "sponsorship_override_amount": 4500,
+                "organization_address": "123 Test St, Test City",
+                "company_description": "We are a test company.",
+                "progress_status": SponsorshipProgressStatus.ACCEPTED.value,
+            }
+        )
+
+        form = SponsorshipProfileForm(data=form_data)
+        assert form.is_valid()
+        profile = form.save()
+
+        assert profile.organization_name == form_data["organization_name"]
+        assert profile.sponsor_contact_name == form_data["sponsor_contact_name"]
+        assert profile.sponsors_contact_email == form_data["sponsors_contact_email"]
+        assert profile.sponsorship_tier == tier
+        assert (
+            profile.sponsorship_override_amount
+            == form_data["sponsorship_override_amount"]
+        )
+        assert profile.organization_address == form_data["organization_address"]
+        assert profile.company_description == form_data["company_description"]
+        assert profile.progress_status == form_data["progress_status"]

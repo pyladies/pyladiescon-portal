@@ -69,11 +69,14 @@
                         {% trans "Sponsor Us" %}
                     </h3>
                     <p>
-                        {% trans "Sponsorship package is coming soon!" %}
+                        {% trans "Resources for sponsorships." %}
                     </p>
-                    <a href="{% url 'sponsorship:create_sponsorship_profile' %}">Sponsor Us Now
-                        <i class="fa-solid fa-chevron-right"></i>
-                    </a>
+                    <ul class="list-unstyled ps-8">
+                        <li>
+                            <a href="https://2025.conference.pyladies.com/en/sponsors/"
+                               class="icon-link">Sponsorship Packages <i class="fa-solid fa-chevron-right"></i></a>
+                        </li>
+                    </ul>
                 </div>
                 <div class="feature col">
                     <div class="d-inline-flex align-items-center justify-content-center fa-3x mb-3">
@@ -83,8 +86,18 @@
                         {% trans "Speaker Portal" %}
                     </h3>
                     <p>
-                        {% trans "Are you one of our speakers? Soon, you'll have access to this page." %}
+                        {% trans "Resources for speakers and presenters." %}
                     </p>
+                    <ul class="list-unstyled ps-8">
+                        <li>
+                            <a href="https://conference.pyladies.com/docs/speakers/speaker_guide/"
+                               class="icon-link">Speaker Guide <i class="fa-solid fa-chevron-right"></i></a>
+                        </li>
+                        <li>
+                            <a href="https://conference.pyladies.com/docs/speakers/keynote_speaker_guide/"
+                               class="icon-link">Keynote Speaker Guide <i class="fa-solid fa-chevron-right"></i></a>
+                        </li>
+                    </ul>
                 </div>
                 {% if user.is_superuser %}
                     <div class="feature col">
@@ -103,6 +116,26 @@
                                     {% translate "Manage Volunteers" %}
                                     <i class="fa-solid fa-chevron-right"></i>
                                 </a>
+                            </li>
+                        </ul>
+                    </div>
+                    <div class="feature col">
+                        <div class="d-inline-flex align-items-center justify-content-center fa-3x mb-3">
+                            <i class="fa-solid fa-user-secret"></i>
+                        </div>
+                        <h3 class="fs-2 text-body-emphasis">
+                            Manage Sponsorships
+                        </h3>
+                        <p>
+                            Review and Track Sponsorship progress.
+                        </p>
+                        <ul class="list-unstyled ps-8">
+                            <li>
+                                <a href="{% url 'sponsorship:sponsorship_list' %}" class="icon-link">Manage Sponsorships <i class="fa-solid fa-chevron-right"></i></a>
+                            </li>
+                            <li>
+                                <a href="{% url 'sponsorship:sponsorship_profile_new' %}"
+                                   class="icon-link">New Sponsorship <i class="fa-solid fa-chevron-right"></i></a>
                             </li>
                         </ul>
                     </div>
@@ -185,7 +218,6 @@
                                 Sponsor and donate to the conference!
                             </p>
                             <a href="https://2025.conference.pyladies.com/en/sponsors/">Sponsorship Prospectus</a>
-                            <a href="{% url 'sponsorship:create_sponsorship_profile' %}">Create Sponsorship Profile</a>
                         </div>
                     </div>
                 </div>

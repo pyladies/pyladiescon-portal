@@ -34,3 +34,12 @@ class TestPortalIndex:
         assert response.status_code == 200
         assert "Sign out" not in response.content.decode()
         assert "Login" not in response.content.decode()
+
+
+@pytest.mark.django_db
+class TestPortalStats:
+
+    def test_stats_doesnt_require_login(self, client):
+        response = client.get(reverse("portal_stats"))
+        assert response.status_code == 200
+        assert "PyLadiesCon Stats" in response.content.decode()

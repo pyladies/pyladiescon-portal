@@ -254,7 +254,7 @@ BOOTSTRAP5 = {
     # Set placeholder attributes to label if no placeholder is provided.
     "set_placeholder": True,
     # Class to indicate required field (better to set this in your Django form).
-    "required_css_class": "",
+    "required_css_class": "required",
     # Class to indicate field has one or more errors (better to set this in your Django form).
     "error_css_class": "",
     # Class to indicate success, meaning the field has valid input (better to set this in your Django form).

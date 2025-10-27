@@ -44,4 +44,9 @@ urlpatterns = [
         name="team_detail",
     ),
     path("i18n/", include("django.conf.urls.i18n")),
+    path(
+        "stats/",
+        views.stats,
+        name="portal_stats",
+    ),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
