@@ -127,7 +127,10 @@ class VolunteerProfileTable(tables.Table):
         render_html = ""
         application_status = record.application_status
         url = reverse("volunteer:volunteer_profile_manage", kwargs={"pk": record.pk})
-        if application_status == ApplicationStatus.PENDING:
+        if application_status in [
+            ApplicationStatus.PENDING,
+            ApplicationStatus.WAITLISTED,
+        ]:
             render_html = format_html(
                 '<a href="{}" class="btn btn-sm btn-primary">Review</a> ', url
             )
