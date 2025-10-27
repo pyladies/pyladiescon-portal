@@ -73,7 +73,7 @@
             <div class="progress-bar bg-success"
                  role="progressbar"
                  style="width: {{ stats.sponsorship_paid_percent|floatformat:2 }}%"
-                 aria-valuenow="{{ stats.sponsorship_paid_percent }}"
+                 aria-valuenow="{{ stats.sponsorship_paid_percent|floatformat:2 }}"
                  aria-valuemin="0"
                  aria-valuemax="100">
                 {{ stats.sponsorship_paid_percent }}% paid

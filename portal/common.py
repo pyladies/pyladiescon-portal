@@ -93,7 +93,7 @@ def get_volunteer_onboarded_stat_cache():
             application_status=ApplicationStatus.APPROVED.value
         ).count()
         cache.set(
-            CACHE_KEY_VOLUNTEER_SIGNUPS_COUNT,
+            CACHE_KEY_VOLUNTEER_ONBOARDED_COUNT,
             volunteer_onboarded_count,
             STATS_CACHE_TIMEOUT,
         )
@@ -117,10 +117,17 @@ def get_volunteer_languages_stat_cache():
     """Returns the cached count of volunteer languages."""
     volunteer_languages_count = cache.get(CACHE_KEY_VOLUNTEER_LANGUAGES)
     if not volunteer_languages_count:
-        volunteer_languages_qs = VolunteerProfile.objects.annotate(
-            num_languages=Sum("languages_spoken")
-        ).values_list("languages_spoken", flat=True)
-        volunteer_languages_count = volunteer_languages_qs.count()
+        volunteer_languages_qs = VolunteerProfile.objects.values_list(
+            "languages_spoken", flat=True
+        )
+        languages = [
+            language_code
+            for sublist in volunteer_languages_qs
+            for language_code in sublist
+            if sublist
+        ]
+
+        volunteer_languages_count = len(set(languages))
         cache.set(
             CACHE_KEY_VOLUNTEER_LANGUAGES,
             volunteer_languages_count,
