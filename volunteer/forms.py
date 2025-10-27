@@ -257,7 +257,10 @@ class VolunteerProfileReviewForm(ModelForm):
 
     def save(self, commit=True):
         newly_approved = False
-        if self.instance.application_status == ApplicationStatus.PENDING:
+        if self.instance.application_status in (
+            ApplicationStatus.PENDING,
+            ApplicationStatus.WAITLISTED,
+        ):
             self.instance.application_status = ApplicationStatus.APPROVED
             newly_approved = True
         volunteer_profile = super().save(commit)

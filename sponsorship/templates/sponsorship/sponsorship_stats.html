@@ -1,52 +1,82 @@
-<div class="row">
-    <div class="col-sm-3">
-        <div class="card">
-            <div class="card-body">
-                <h5 class="card-title">
-                    Number of Sponsors Committed
-                </h5>
-                <h1 class="display-4 text-primary">
-                    {{ stats.sponsorship_total_count }}
-                </h1>
-                <span class="text-muted">out of {{ stats.sponsorship_total_count }} that were contacted</span>
+{% load portal_extras %}
+<div class="container  border rounded-3 p-3 mb-4">
+    <div class="row">
+        <div class="col-sm-3">
+            <div class="card border-0">
+                <div class="card-body">
+                    <h5 class="card-title">
+                        Number of Sponsors Committed
+                    </h5>
+                    <h1 class="display-4 text-primary">
+                        {{ stats.sponsorship_total_count }}
+                    </h1>
+                    <span class="text-muted">out of {{ stats.sponsorship_total_count }} that were contacted</span>
+                </div>
+            </div>
+        </div>
+        <div class="col-sm-3">
+            <div class="card border-0">
+                <div class="card-body">
+                    <h5 class="card-title">
+                        Sponsorship Paid
+                    </h5>
+                    <h1 class="display-4 text-success">
+                        {{ stats.sponsorship_paid_amount| as_currency }}
+                    </h1>
+                    <span class="text-muted">from {{ stats.sponsorship_paid_count }} sponsors</span>
+                </div>
+            </div>
+        </div>
+        <div class="col-sm-3">
+            <div class="card border-0">
+                <div class="card-body">
+                    <h5 class="card-title">
+                        Pending Sponsorship Amount
+                    </h5>
+                    <h1 class="display-4 text-warning">
+                        {{ stats.sponsorship_pending_amount | as_currency }}
+                    </h1>
+                    <span class="text-muted">from {{ stats.sponsorship_pending_count }} sponsors</span>
+                </div>
+            </div>
+        </div>
+        <div class="col-sm-3">
+            <div class="card border-0">
+                <div class="card-body">
+                    <h5 class="card-title">
+                        Total Sponsorship Committed
+                    </h5>
+                    <h1 class="display-4 text-success">
+                        {{ stats.sponsorship_committed_amount| as_currency }}
+                    </h1>
+                </div>
             </div>
         </div>
     </div>
-    <div class="col-sm-3">
-        <div class="card">
-            <div class="card-body">
-                <h5 class="card-title">
-                    Sponsorship Paid
-                </h5>
-                <h1 class="display-4 text-success">
-                    {{ stats.sponsorship_paid_amount }}
-                </h1>
-                <span class="text-muted">from {{ stats.sponsorship_paid_count }} sponsors</span>
+    <div class="row">
+        <div class="col-sm-3">
+            <div class="card border-0">
+                <div class="card-body">
+                    <h5 class="card-title">
+                        We've raised
+                    </h5>
+                    <h1 class="display-4 text-success">
+                        {{ stats.sponsorship_towards_goal_percent|floatformat:0 }}%
+                    </h1>
+                    <span class="text-muted">towards our goal of $15,000</span>
+                </div>
             </div>
         </div>
     </div>
-    <div class="col-sm-3">
-        <div class="card">
-            <div class="card-body">
-                <h5 class="card-title">
-                    Pending Sponsorship Amount
-                </h5>
-                <h1 class="display-4 text-warning">
-                    {{ stats.sponsorship_pending_amount }}
-                </h1>
-                <span class="text-muted">from {{ stats.sponsorship_pending_count }} sponsors</span>
-            </div>
-        </div>
-    </div>
-    <div class="col-sm-3">
-        <div class="card">
-            <div class="card-body">
-                <h5 class="card-title">
-                    Total Sponsorship Committed
-                </h5>
-                <h1 class="display-4 text-success">
-                    {{ stats.sponsorship_committed_amount }}
-                </h1>
+    <div class="row">
+        <div class="progress">
+            <div class="progress-bar bg-success"
+                 role="progressbar"
+                 style="width: {{ stats.sponsorship_paid_percent|floatformat:2 }}%"
+                 aria-valuenow="{{ stats.sponsorship_paid_percent }}"
+                 aria-valuemin="0"
+                 aria-valuemax="100">
+                {{ stats.sponsorship_paid_percent }}% paid
             </div>
         </div>
     </div>

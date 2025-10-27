@@ -1,0 +1,46 @@
+<div class="container border rounded-3 p-3 mb-4">
+    <div class="row">
+        <div class="col-sm-3">
+            <div class="card border-0">
+                <div class="card-body">
+                    <h5 class="card-title">
+                        Volunteers Signed Up
+                    </h5>
+                    <h1 class="display-4 text-primary">
+                        {{ stats.volunteer_signups_count }}
+                    </h1>
+                    <span class="text-muted">for {{ stats.volunteer_teams_count }} teams</span>
+                </div>
+            </div>
+        </div>
+        <div class="col-sm-3">
+            <div class="card border-0">
+                <div class="card-body">
+                    <h5 class="card-title">
+                        Volunteers Onboarded
+                    </h5>
+                    <h1 class="display-4 text-success">
+                        {{ stats.volunteer_onboarded_count }}
+                    </h1>
+                </div>
+            </div>
+        </div>
+        <div class="col-sm-6">
+            <div class="card border-0">
+                <div class="card-body">
+                    <h5 class="card-title">
+                        About our Volunteers
+                    </h5>
+                    <span class="text-muted">They speak</span>
+                    <h1 class="display-4 text-info">
+                        {{ stats.volunteer_languages_count }} Languages
+                    </h1>
+                    <span class="text-muted">They're from </span>
+                    <h1 class="display-4 text-info">
+                        {{ stats.volunteer_pyladies_chapters_count }} PyLadies Chapters
+                    </h1>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
