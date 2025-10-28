@@ -6,8 +6,12 @@
 {% endblock body %}
 {% block content %}
     <h1 class="display-5">
-        Manage Sponsors <a class="btn btn-primary"
+        {% if request.user.is_superuser %}
+            Manage Sponsors <a class="btn btn-primary"
     href="{% url 'sponsorship:sponsorship_profile_new' %}">Add New Sponsor</a>
+        {% else %}
+            View Sponsors
+        {% endif %}
     </h1>
     {% include "sponsorship/sponsorship_stats.html" %}
     {% if filter %}
