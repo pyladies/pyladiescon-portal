@@ -66,7 +66,7 @@
                         <i class="fa-solid fa-hand-holding-dollar"></i>
                     </div>
                     <h3 class="fs-2 text-body-emphasis">
-                        {% trans "Sponsor Us" %}
+                        {% trans "Sponsorship" %}
                     </h3>
                     <p>
                         {% trans "Resources for sponsorships." %}
@@ -76,6 +76,11 @@
                             <a href="https://2025.conference.pyladies.com/en/sponsors/"
                                class="icon-link">Sponsorship Packages <i class="fa-solid fa-chevron-right"></i></a>
                         </li>
+                        {% if user.is_authenticated and volunteer_profile and volunteer_profile.is_approved %}
+                            <li>
+                                <a href="{% url 'sponsorship:sponsorship_list' %}" class="icon-link">View Current Sponsorships <i class="fa-solid fa-chevron-right"></i></a>
+                            </li>
+                        {% endif %}
                     </ul>
                 </div>
                 <div class="feature col">

@@ -63,6 +63,8 @@
                             <li class="nav-item">
                                 <a class="nav-link" href="{% url 'teams' %}">Teams</a>
                             </li>
+                        {% endif %}
+                        {% if user.is_superuser or user.is_authenticated and volunteer_profile and volunteer_profile.is_approved %}
                             <li class="nav-item">
                                 <a class="nav-link" href="{% url 'sponsorship:sponsorship_list' %}">Sponsorship</a>
                             </li>
