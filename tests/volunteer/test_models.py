@@ -393,6 +393,10 @@ class TestVolunteerModel:
         )
 
     def test_volunteer_notification_email_contains_info(self, portal_user):
+        chapter = PyladiesChapter.objects.create(
+            chapter_name="vancouver", chapter_description="Vancouver, Canada"
+        )
+
         profile = VolunteerProfile(user=portal_user)
         profile.languages_spoken = [LANGUAGES[0], LANGUAGES[1]]
         profile.region = Region.NORTH_AMERICA
@@ -403,7 +407,7 @@ class TestVolunteerModel:
         profile.mastodon_url = "mymastodon"
         profile.x_username = "myxusername"
         profile.linkedin_url = "mylinkedin"
-        profile.pyladies_chapter = "mychapter"
+        profile.chapter = chapter
         profile.additional_comments = "mycomments"
         profile.availability_hours_per_week = 30
 
@@ -420,7 +424,7 @@ class TestVolunteerModel:
         assert profile.region in body
         assert profile.languages_spoken[0][0] in body
         assert profile.user.first_name in body
-        assert profile.pyladies_chapter in body
+        assert profile.chapter.chapter_description in body
         assert profile.additional_comments in body
         assert str(profile.availability_hours_per_week) in body
 

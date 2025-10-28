@@ -140,7 +140,7 @@ def get_volunteer_pyladies_chapters_stat_cache():
     volunteer_pyladies_chapters_count = cache.get(CACHE_KEY_VOLUNTEER_PYLADIES_CHAPTERS)
     if not volunteer_pyladies_chapters_count:
         volunteer_pyladies_chapters_count = VolunteerProfile.objects.filter(
-            pyladies_chapter__isnull=False
+            chapter__isnull=False
         ).count()
         cache.set(
             CACHE_KEY_VOLUNTEER_PYLADIES_CHAPTERS,
