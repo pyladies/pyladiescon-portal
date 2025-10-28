@@ -76,6 +76,8 @@ class Role(BaseModel):
 
 class PyladiesChapter(BaseModel):
     chapter_name = models.CharField(max_length=100)
+    chapter_description = models.CharField(max_length=100)
+    chapter_email = models.EmailField(blank=True, max_length=254, null=True)
     chapter_website = models.URLField(max_length=200, blank=True, null=True)
 
     class Meta:
@@ -84,7 +86,7 @@ class PyladiesChapter(BaseModel):
         ]
 
     def __str__(self):
-        return self.chapter_name
+        return self.chapter_description
 
 
 class VolunteerProfile(BaseModel):
