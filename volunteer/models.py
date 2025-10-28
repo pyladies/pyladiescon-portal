@@ -121,7 +121,6 @@ class VolunteerProfile(BaseModel):
     teams = models.ManyToManyField(
         "volunteer.Team", verbose_name="members", related_name="members", blank=True
     )
-    pyladies_chapter = models.CharField(max_length=50, blank=True, null=True)
     additional_comments = models.CharField(max_length=1000, blank=True, null=True)
     availability_hours_per_week = models.PositiveIntegerField(default=1)
     region = models.CharField(

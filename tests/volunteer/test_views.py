@@ -5,7 +5,13 @@ from pytest_django.asserts import assertRedirects
 
 from volunteer.constants import Region
 from volunteer.languages import LANGUAGES
-from volunteer.models import ApplicationStatus, Role, Team, VolunteerProfile
+from volunteer.models import (
+    ApplicationStatus,
+    PyladiesChapter,
+    Role,
+    Team,
+    VolunteerProfile,
+)
 from volunteer.views import (
     VolunteerProfileFilter,
     VolunteerProfileTable,
@@ -113,7 +119,9 @@ class TestVolunteer:
 
     def test_new_volunteer_profile_form_submit(self, client, portal_user):
         client.force_login(portal_user)
-
+        chapter = PyladiesChapter.objects.create(
+            chapter_name="vancouver", chapter_description="Vancouver, Canada"
+        )
         assert VolunteerProfile.objects.filter(user=portal_user).count() == 0
 
         data = {
@@ -126,7 +134,7 @@ class TestVolunteer:
             "mastodon_url": "https://mastodon.social/@test",
             "x_username": "test_x",
             "linkedin_url": "https://www.linkedin.com/in/test",
-            "pyladies_chapter": "Test Chapter",
+            "chapter": chapter.id,
             "additional_comments": "Blablabla",
             "availability_hours_per_week": 10,
             "region": Region.NORTH_AMERICA,
@@ -137,7 +145,7 @@ class TestVolunteer:
         profile = VolunteerProfile.objects.get(user=portal_user)
         assert profile.languages_spoken == [LANGUAGES[0][0], LANGUAGES[1][0]]
         assert profile.region == Region.NORTH_AMERICA
-        assert profile.pyladies_chapter == data["pyladies_chapter"]
+        assert profile.chapter == chapter
         assert profile.discord_username == data["discord_username"]
         assert profile.github_username == data["github_username"]
         assert profile.bluesky_username == data["bluesky_username"]
@@ -152,6 +160,9 @@ class TestVolunteer:
 
     def test_edit_volunteer_profile_form_submit(self, client, portal_user):
         client.force_login(portal_user)
+        chapter = PyladiesChapter.objects.create(
+            chapter_name="vancouver", chapter_description="Vancouver, Canada"
+        )
         profile = VolunteerProfile(user=portal_user)
         profile.languages_spoken = [LANGUAGES[0]]
         profile.region = Region.NORTH_AMERICA
@@ -169,7 +180,7 @@ class TestVolunteer:
             "mastodon_url": "https://mastodon.social/@test",
             "x_username": "test_x",
             "linkedin_url": "https://www.linkedin.com/in/test",
-            "pyladies_chapter": "Test Chapter",
+            "chapter": chapter.id,
             "additional_comments": "Blablabla",
             "availability_hours_per_week": 40,
             "region": Region.ASIA,
@@ -183,7 +194,7 @@ class TestVolunteer:
         profile = VolunteerProfile.objects.get(user=portal_user)
         assert profile.languages_spoken == [LANGUAGES[0][0], LANGUAGES[1][0]]
         assert profile.region == Region.ASIA
-        assert profile.pyladies_chapter == data["pyladies_chapter"]
+        assert profile.chapter == chapter
         assert profile.discord_username == data["discord_username"]
         assert profile.github_username == data["github_username"]
         assert profile.bluesky_username == data["bluesky_username"]
