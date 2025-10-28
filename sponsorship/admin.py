@@ -1,4 +1,6 @@
 from django.contrib import admin
+from import_export import resources
+from import_export.admin import ImportExportModelAdmin
 
 from .models import SponsorshipProfile, SponsorshipTier
 
@@ -10,8 +12,23 @@ class SponsorshipTierAdmin(admin.ModelAdmin):
     search_fields = ("name", "description")
 
 
+class SponsorshipProfileResource(resources.ModelResource):
+    class Meta:
+        model = SponsorshipProfile
+        fields = (
+            "id",
+            "organization_name",
+            "sponsor_contact_name",
+            "sponsors_contact_email",
+            "sponsorship_tier",
+            "progress_status",
+            "sponsorship_override_amount",
+            "main_contact_user",
+        )
+
+
 @admin.register(SponsorshipProfile)
-class SponsorshipProfileAdmin(admin.ModelAdmin):
+class SponsorshipProfileAdmin(ImportExportModelAdmin):
     list_display = (
         "organization_name",
         "sponsor_contact_name",
@@ -38,3 +55,4 @@ class SponsorshipProfileAdmin(admin.ModelAdmin):
         "progress_status",
         "main_contact_user",
     )
+    resource_classes = [SponsorshipProfileResource]

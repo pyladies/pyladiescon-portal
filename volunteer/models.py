@@ -5,6 +5,7 @@ from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models import Q
+from django.db.models.functions import Lower
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.urls import reverse
@@ -73,6 +74,21 @@ class Role(BaseModel):
         return self.short_name
 
 
+class PyladiesChapter(BaseModel):
+    chapter_name = models.CharField(max_length=100)
+    chapter_description = models.CharField(max_length=100)
+    chapter_email = models.EmailField(blank=True, max_length=254, null=True)
+    chapter_website = models.URLField(max_length=200, blank=True, null=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(Lower("chapter_name"), name="chapter_name")
+        ]
+
+    def __str__(self):
+        return self.chapter_description
+
+
 class VolunteerProfile(BaseModel):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     roles = models.ManyToManyField(
@@ -112,6 +128,13 @@ class VolunteerProfile(BaseModel):
         max_length=50,
         choices=REGION_CHOICES,
         default=Region.NO_REGION,
+    )
+    chapter = models.ForeignKey(
+        PyladiesChapter,
+        on_delete=models.SET_NULL,
+        related_name="chapter_member",
+        null=True,
+        blank=True,
     )
 
     @cached_property

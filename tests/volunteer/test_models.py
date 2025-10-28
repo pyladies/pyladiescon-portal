@@ -3,11 +3,13 @@ from django.conf import settings
 from django.contrib.auth.models import User
 from django.core import mail
 from django.core.exceptions import ValidationError
+from django.db.utils import IntegrityError
 from django.urls import reverse
 
 from volunteer.constants import ApplicationStatus, Region, RoleTypes
 from volunteer.languages import LANGUAGES
 from volunteer.models import (
+    PyladiesChapter,
     Role,
     Team,
     VolunteerProfile,
@@ -49,6 +51,25 @@ class TestVolunteerModel:
         role = Role(short_name="Test Role", description="Test Description")
         role.save()
         assert str(role) == "Test Role"
+
+    def test_pyladies_chapter_representation(self):
+        """Test string representation of PyLadies Chapter."""
+        chapter = PyladiesChapter(
+            chapter_name="vancouver", chapter_description="Vancouver, Canada"
+        )
+        chapter.save()
+        assert str(chapter) == "Vancouver, Canada"
+
+    def test_pyladies_chapter_is_unique_ignore_case(self):
+        """Test PyLadies chapter is unique."""
+        chapter = PyladiesChapter(
+            chapter_name="vancouver", chapter_description="Vancouver, Canada"
+        )
+        chapter.save()
+        with pytest.raises(IntegrityError):
+            PyladiesChapter.objects.create(
+                chapter_name="Vancouver", chapter_description="Vancouver, Canada"
+            )
 
     def test_team_relationships(self, portal_user):
         """Test team relationships with volunteers."""

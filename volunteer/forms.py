@@ -77,13 +77,13 @@ class VolunteerProfileForm(ModelForm):
                 "rel='noopener'>PSF’s D&amp;I Workgroup Membership handbook</a> "
                 "under “Which region should I be representing?” for guidance."
             ),
-            "pyladies_chapter": "What PyLadies chapter are you a part of? If you are not part of any chapter leave this blank.",
+            "chapter": "What PyLadies chapter are you a part of? If you are not part of any chapter leave this blank.",
             "availability_hours_per_week": "Our volunteers are expected to commit at least 1 hour per week until the conference day."
             "By sharing your availability, we can better match you with tasks and teams.",
         }
         labels = {
             "availability_hours_per_week": "What is your volunteering availability?",
-            "pyladies_chapter": "PyLadies Chapter",
+            "chapter": "PyLadies Chapter",
         }
 
     def clean_github_username(self):

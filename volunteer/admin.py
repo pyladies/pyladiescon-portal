@@ -1,7 +1,9 @@
 from django.contrib import admin
+from import_export import resources
+from import_export.admin import ImportExportModelAdmin
 
 from .constants import ApplicationStatus
-from .models import Role, Team, VolunteerProfile
+from .models import PyladiesChapter, Role, Team, VolunteerProfile
 
 
 @admin.action(description="Mark selected Volunteers as waitlisted")
@@ -36,6 +38,29 @@ class VolunteerProfileAdmin(admin.ModelAdmin):
     )
     list_filter = ("region", "application_status")
     actions = [bulk_waitlist_volunteers]
+
+
+class PyladiesChapterResource(resources.ModelResource):
+    class Meta:
+        model = PyladiesChapter
+        fields = (
+            "id",
+            "chapter_name",
+            "chapter_description",
+            "chapter_email",
+            "chapter_website",
+        )
+
+
+@admin.register(PyladiesChapter)
+class PyladiesChapterAdmin(ImportExportModelAdmin):
+    list_display = (
+        "chapter_name",
+        "chapter_description",
+        "chapter_email",
+        "chapter_website",
+    )
+    resource_classes = [PyladiesChapterResource]
 
 
 admin.site.register(Role)

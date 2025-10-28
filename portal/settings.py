@@ -45,6 +45,7 @@ INSTALLED_APPS = [
     "django_bootstrap5",
     "django_filters",
     "django_tables2",
+    "import_export",
     "allauth",
     "allauth.account",
     "storages",
