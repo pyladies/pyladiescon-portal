@@ -54,16 +54,16 @@ class TestVolunteerModel:
 
     def test_pyladies_chapter_representation(self):
         """Test string representation of PyLadies Chapter."""
-        chapter = PyladiesChapter(chapter_name="Vancouver")
+        chapter = PyladiesChapter(chapter_name="vancouver", chapter_description="Vancouver, Canada")
         chapter.save()
-        assert str(chapter) == "Vancouver"
+        assert str(chapter) == "Vancouver, Canada"
 
     def test_pyladies_chapter_is_unique_ignore_case(self):
         """Test PyLadies chapter is unique."""
-        chapter = PyladiesChapter(chapter_name="Vancouver")
+        chapter = PyladiesChapter(chapter_name="vancouver", chapter_description="Vancouver, Canada")
         chapter.save()
         with pytest.raises(IntegrityError):
-            PyladiesChapter.objects.create(chapter_name="vancouver")
+            PyladiesChapter.objects.create(chapter_name="Vancouver")
 
     def test_team_relationships(self, portal_user):
         """Test team relationships with volunteers."""
