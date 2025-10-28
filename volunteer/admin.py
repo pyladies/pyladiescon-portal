@@ -43,12 +43,23 @@ class VolunteerProfileAdmin(admin.ModelAdmin):
 class PyladiesChapterResource(resources.ModelResource):
     class Meta:
         model = PyladiesChapter
-        fields = ("id", "chapter_name", "chapter_description", "chapter_email", "chapter_website")
+        fields = (
+            "id",
+            "chapter_name",
+            "chapter_description",
+            "chapter_email",
+            "chapter_website",
+        )
 
 
 @admin.register(PyladiesChapter)
 class PyladiesChapterAdmin(ImportExportModelAdmin):
-    list_display = ("chapter_name", "chapter_description", "chapter_email", "chapter_website")
+    list_display = (
+        "chapter_name",
+        "chapter_description",
+        "chapter_email",
+        "chapter_website",
+    )
     resource_classes = [PyladiesChapterResource]
 
 
