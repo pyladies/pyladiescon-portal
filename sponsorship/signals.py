@@ -13,9 +13,7 @@ from .models import SponsorshipProfile
 def _send_internal_email(
     subject,
     *,
-    html_template=None,
-    text_template=None,
-    markdown_template=None,
+    markdown_template,
     context=None,
 ):
     """Helper function to send an internal email.
@@ -23,7 +21,7 @@ def _send_internal_email(
     Lookup who the internal team members who should receive the email and then send the emails individually.
     Send the email to staff, admin, and sponsorship team members
 
-    Supports both legacy HTML/text templates and new Markdown templates.
+    Only supports Markdown templates going forward.
     """
 
     recipients = User.objects.filter(
@@ -46,8 +44,6 @@ def _send_internal_email(
         send_email(
             subject,
             [recipient.email],
-            html_template=html_template,
-            text_template=text_template,
             markdown_template=markdown_template,
             context=context,
         )

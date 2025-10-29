@@ -4,13 +4,15 @@ This document explains how to use the new Markdown-based email template system i
 
 ## Overview
 
-PyLadiesCon Portal now supports **Markdown email templates** as an alternative to separate HTML and text templates. This system:
+PyLadiesCon Portal now **exclusively uses Markdown email templates** for all email communications. This system:
 
-- ✅ **Simplifies email development** - Write once in Markdown, get both HTML and text versions
+- ✅ **Simplifies email development** - Write once in Markdown, get both HTML and text versions  
 - ✅ **Improves maintainability** - Single source of truth for email content
 - ✅ **Provides better formatting** - Rich Markdown features for better-looking emails
-- ✅ **Maintains backward compatibility** - Existing HTML/text templates continue to work
+- ✅ **Enforces consistency** - All emails use the same Markdown-based system
 - ✅ **Ensures security** - Automatic HTML sanitization prevents XSS attacks
+
+**Important**: HTML and text templates are no longer supported. All new and existing email templates must use the Markdown format.
 
 ## Quick Start
 
@@ -189,16 +191,14 @@ All email templates should extend the base template for consistency:
 
 ### send_email() Function
 
-The updated `send_email()` function supports both legacy and Markdown templates:
+The `send_email()` function now exclusively supports Markdown templates:
 
 ```python
 def send_email(
     subject: str,
     recipient_list: list,
     *,
-    html_template: Optional[str] = None,      # Legacy HTML template
-    text_template: Optional[str] = None,      # Legacy text template  
-    markdown_template: Optional[str] = None,  # New Markdown template
+    markdown_template: str,                   # Required Markdown template
     context: Optional[Dict[str, Any]] = None,
 ) -> None
 ```
@@ -206,10 +206,8 @@ def send_email(
 **Parameters:**
 
 - `subject`: Email subject line
-- `recipient_list`: List of recipient email addresses
-- `markdown_template`: Path to Markdown template (preferred for new emails)
-- `html_template`: Path to HTML template (legacy support)
-- `text_template`: Path to text template (legacy support)
+- `recipient_list`: List of recipient email addresses  
+- `markdown_template`: Path to Markdown template (required)
 - `context`: Dictionary of template variables
 
 **Examples:**
@@ -220,15 +218,6 @@ send_email(
     subject="Welcome!",
     recipient_list=["user@example.com"],
     markdown_template="emails/welcome.md",
-    context={"user": user},
-)
-
-# Legacy approach (still supported)
-send_email(
-    subject="Welcome!",
-    recipient_list=["user@example.com"],
-    html_template="emails/welcome.html",
-    text_template="emails/welcome.txt", 
     context={"user": user},
 )
 ```
@@ -248,20 +237,21 @@ send_markdown_email(
 )
 ```
 
-## Migration Guide
+## Migration Complete
 
-### Converting Existing Templates
+**All email templates have been converted to Markdown format.** The system no longer supports HTML or text templates.
 
-To convert existing HTML/text email templates to Markdown:
+### Markdown Conversion Reference
 
-1. **Create a new `.md` file** in the same directory
-2. **Convert HTML to Markdown syntax**:
+For understanding how the conversion was done:
+
+1. **HTML syntax converted to Markdown**:
    - `<h1>Title</h1>` → `# Title`
    - `<strong>Bold</strong>` → `**Bold**`
    - `<a href="url">Link</a>` → `[Link](url)`
    - `<ul><li>Item</li></ul>` → `- Item`
-3. **Update email sending code** to use `markdown_template` parameter
-4. **Test thoroughly** to ensure formatting is correct
+2. **All email sending code updated** to use `markdown_template` parameter
+3. **Old HTML/text templates removed** from the system
 
 **Before (HTML template):**
 ```html
@@ -289,13 +279,7 @@ Thank you for joining **PyLadiesCon**.
 {% endblock content %}
 ```
 
-### Gradual Migration Strategy
 
-1. **Keep existing templates** working during transition
-2. **Convert high-priority emails first** (welcome, onboarding)
-3. **Test Markdown emails thoroughly** in development
-4. **Update email sending calls** one at a time
-5. **Remove old templates** after successful migration
 
 ## Best Practices
 

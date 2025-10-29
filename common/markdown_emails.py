@@ -138,56 +138,29 @@ def send_markdown_email(
     subject: str,
     recipient_list: list,
     *,
-    markdown_template: Optional[str] = None,
-    text_template: Optional[str] = None,
-    html_template: Optional[str] = None,
+    markdown_template: str,
     context: Optional[Dict[str, Any]] = None,
 ) -> None:
-    """Send an email using Markdown, text, or HTML templates.
+    """Send an email using a Markdown template.
 
-    This function supports three modes:
-    1. Markdown template: Converts to both HTML and text
-    2. Legacy mode: Uses separate HTML and text templates
-    3. Text only: Uses text template only
+    Converts the Markdown template to both HTML and plain text versions
+    for optimal email client compatibility.
 
     Args:
         subject: Email subject line
         recipient_list: List of recipient email addresses
-        markdown_template: Path to Markdown template (preferred)
-        text_template: Path to text template (legacy)
-        html_template: Path to HTML template (legacy)
+        markdown_template: Path to Markdown template (required)
         context: Template context dictionary
     """
     context = context or {}
     context["current_site"] = Site.objects.get_current()
 
     renderer = MarkdownEmailRenderer()
-
-    if markdown_template:
-        # New Markdown-based approach
-        markdown_content = renderer.render_template(markdown_template, context)
-        html_content = renderer.markdown_to_html(markdown_content)
-        text_content = renderer.markdown_to_text(markdown_content)
-
-    elif html_template and text_template:
-        # Legacy approach with separate HTML and text templates
-        from django.template.loader import render_to_string
-
-        html_content = render_to_string(html_template, context=context)
-        text_content = render_to_string(text_template, context=context)
-
-    elif text_template:
-        # Text-only approach
-        from django.template.loader import render_to_string
-
-        text_content = render_to_string(text_template, context=context)
-        html_content = None
-
-    else:
-        raise ValueError(
-            "Must provide either markdown_template, or text_template, "
-            "or both html_template and text_template"
-        )
+    
+    # Render Markdown template and convert to HTML and text
+    markdown_content = renderer.render_template(markdown_template, context)
+    html_content = renderer.markdown_to_html(markdown_content)
+    text_content = renderer.markdown_to_text(markdown_content)
 
     # Create and send the email
     msg = EmailMultiAlternatives(
@@ -197,9 +170,7 @@ def send_markdown_email(
         recipient_list,
     )
 
-    if html_content:
-        msg.attach_alternative(html_content, "text/html")
-
+    msg.attach_alternative(html_content, "text/html")
     msg.send()
 
 

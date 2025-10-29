@@ -167,55 +167,13 @@ class SendEmailCompatibilityTest(TestCase):
         self.subject = "Test Email"
         self.context = {"user_name": "Test User"}
 
-    @patch("common.send_emails.render_to_string")
-    def test_legacy_html_text_templates(self, mock_render):
-        """Test that legacy HTML/text templates still work."""
-        mock_render.side_effect = [
-            "Plain text content",  # text template
-            "<p>HTML content</p>",  # html template
-        ]
+    
 
-        mail.outbox = []
 
-        send_email(
-            self.subject,
-            self.recipients,
-            html_template="test.html",
-            text_template="test.txt",
-            context=self.context,
-        )
-
-        self.assertEqual(len(mail.outbox), 1)
-        sent_email = mail.outbox[0]
-
-        self.assertEqual(sent_email.subject, self.subject)
-        self.assertEqual(sent_email.body, "Plain text content")
-        self.assertEqual(len(sent_email.alternatives), 1)
-        self.assertEqual(sent_email.alternatives[0][0], "<p>HTML content</p>")
-
-    @patch("common.send_emails.render_to_string")
-    def test_text_only_template(self, mock_render):
-        """Test text-only email template."""
-        mock_render.return_value = "Plain text only content"
-
-        mail.outbox = []
-
-        send_email(
-            self.subject,
-            self.recipients,
-            text_template="test.txt",
-            context=self.context,
-        )
-
-        self.assertEqual(len(mail.outbox), 1)
-        sent_email = mail.outbox[0]
-
-        self.assertEqual(sent_email.body, "Plain text only content")
-        self.assertEqual(len(sent_email.alternatives), 0)  # No HTML alternative
 
     @patch("common.send_emails.send_markdown_email")
     def test_markdown_template_routing(self, mock_send_markdown):
-        """Test that markdown_template parameter routes to new system."""
+        """Test that send_email routes to markdown system."""
         # Mock the return value
         mock_send_markdown.return_value = True
 
@@ -234,38 +192,9 @@ class SendEmailCompatibilityTest(TestCase):
         )
         self.assertTrue(result)
 
-    def test_send_markdown_email_no_templates_error(self):
-        """Test that send_markdown_email raises error when no templates provided."""
-        with self.assertRaises(ValueError) as cm:
-            send_markdown_email(
-                subject="Test",
-                recipient_list=["test@example.com"],
-                context={},
-            )
-        
-        self.assertIn(
-            "Must provide either markdown_template, or text_template",
-            str(cm.exception)
-        )
 
-    @patch("django.template.loader.render_to_string")
-    def test_send_markdown_email_text_only_no_html(self, mock_render):
-        """Test send_markdown_email with text_template only (no HTML)."""
-        mock_render.return_value = "Plain text content"
-        
-        send_markdown_email(
-            subject="Test Subject",
-            recipient_list=["test@example.com"],
-            text_template="test.txt",
-            context={"name": "Test"},
-        )
-        
-        self.assertEqual(len(mail.outbox), 1)
-        sent_email = mail.outbox[0]
-        
-        self.assertEqual(sent_email.subject, "Test Subject")
-        self.assertEqual(sent_email.body, "Plain text content")
-        self.assertEqual(len(sent_email.alternatives), 0)  # No HTML alternative
+
+
 
     def test_render_template_with_context(self):
         """Test render_template method with context."""
@@ -292,26 +221,7 @@ class SendEmailCompatibilityTest(TestCase):
         # Test that they are the same function
         self.assertEqual(send_email_markdown, send_markdown_email)
 
-    @patch("common.send_emails.render_to_string")
-    def test_legacy_html_only_no_text_template(self, mock_render):
-        """Test legacy send_email with only html_template (no text_template)."""
-        mock_render.return_value = "<h1>HTML content</h1>"
-        
-        send_email(
-            subject="Test Subject",
-            recipient_list=["test@example.com"],
-            html_template="test.html",
-            # No text_template provided - should use empty string
-            context={"name": "Test"},
-        )
-        
-        self.assertEqual(len(mail.outbox), 1)
-        sent_email = mail.outbox[0]
-        
-        self.assertEqual(sent_email.subject, "Test Subject")
-        self.assertEqual(sent_email.body, "")  # Empty text content
-        self.assertEqual(len(sent_email.alternatives), 1)  # HTML alternative exists
-        self.assertEqual(sent_email.alternatives[0], ("<h1>HTML content</h1>", "text/html"))
+
 
     def test_markdown_renderer_reset_behavior(self):
         """Test that Markdown renderer properly resets between conversions."""
@@ -349,26 +259,4 @@ class SendEmailCompatibilityTest(TestCase):
         mock_get_template.assert_called_once_with("test.md")
         mock_template.render.assert_called_once_with({"key": "value"})
 
-    @patch("django.template.loader.render_to_string")
-    def test_send_markdown_email_legacy_both_templates(self, mock_render):
-        """Test send_markdown_email with both html_template and text_template (legacy)."""
-        mock_render.side_effect = ["<h1>HTML content</h1>", "Plain text content"]
-        
-        send_markdown_email(
-            subject="Test Subject",
-            recipient_list=["test@example.com"],
-            html_template="test.html",
-            text_template="test.txt",
-            context={"name": "Test"},
-        )
-        
-        self.assertEqual(len(mail.outbox), 1)
-        sent_email = mail.outbox[0]
-        
-        self.assertEqual(sent_email.subject, "Test Subject")
-        self.assertEqual(sent_email.body, "Plain text content")
-        self.assertEqual(len(sent_email.alternatives), 1)
-        self.assertEqual(sent_email.alternatives[0], ("<h1>HTML content</h1>", "text/html"))
-        
-        # Verify both templates were rendered
-        self.assertEqual(mock_render.call_count, 2)
+
