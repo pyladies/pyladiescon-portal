@@ -42,7 +42,7 @@ They have been assigned the following role(s):
 Since this is a new core-organizer, you will also need to grant them additional privileges and access, such as:
 
 - The Organizer Role on Discord
-- Access to the [PyLadiesCon GDrive](https://drive.google.com/drive/folders/{{ GDRIVE_FOLDER_ID }})
+- Access to the PyLadiesCon GDrive ({{ GDRIVE_FOLDER_ID }})
 - Invitation to [Jelly](https://letsjelly.com/)
 - Invitation to the PyLadiesCon Regular Meeting Calendar
 - Invitation to the PyLadiesCon 1Password account
