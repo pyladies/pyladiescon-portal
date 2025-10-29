@@ -12,7 +12,6 @@ import markdown
 from django.conf import settings
 from django.contrib.sites.models import Site
 from django.core.mail import EmailMultiAlternatives
-from django.template import Context, Template
 from django.template.loader import get_template
 
 
@@ -156,7 +155,7 @@ def send_markdown_email(
     context["current_site"] = Site.objects.get_current()
 
     renderer = MarkdownEmailRenderer()
-    
+
     # Render Markdown template and convert to HTML and text
     markdown_content = renderer.render_template(markdown_template, context)
     html_content = renderer.markdown_to_html(markdown_content)
