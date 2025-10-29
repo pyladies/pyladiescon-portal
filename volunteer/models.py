@@ -265,17 +265,14 @@ def send_volunteer_notification_email(instance, updated=False):
     else:
         subject += " Received"
     if instance.application_status == ApplicationStatus.WAITLISTED:
-        html_template = "emails/volunteer/team_is_now_closed.html"
-        text_template = "emails/volunteer/team_is_now_closed.txt"
+        markdown_template = "emails/volunteer/team_is_now_closed.md"
     else:
-        html_template = "emails/volunteer/volunteer_profile_email_notification.html"
-        text_template = "emails/volunteer/volunteer_profile_email_notification.txt"
+        markdown_template = "emails/volunteer/volunteer_profile_email_notification.md"
 
     send_email(
         subject,
         [instance.user.email],
-        html_template=html_template,
-        text_template=text_template,
+        markdown_template=markdown_template,
         context=context,
     )
 
@@ -291,13 +288,11 @@ def send_volunteer_onboarding_email(instance):
         for role in instance.roles.all():
             if role.short_name in [RoleTypes.ADMIN, RoleTypes.STAFF]:
                 context["admin_onboarding"] = True
-        html_template = "emails/volunteer/new_volunteer_onboarding.html"
-        text_template = "emails/volunteer/new_volunteer_onboarding.txt"
+        markdown_template = "emails/volunteer/new_volunteer_onboarding.md"
         send_email(
             subject,
             [instance.user.email],
-            html_template=html_template,
-            text_template=text_template,
+            markdown_template=markdown_template,
             context=context,
         )
 
@@ -314,22 +309,22 @@ def send_internal_volunteer_onboarding_email(instance):
         for role in instance.roles.all():
             if role.short_name in [RoleTypes.ADMIN, RoleTypes.STAFF]:
                 context["admin_onboarding"] = True
-        html_template = "emails/volunteer/internal_volunteer_onboarding.html"
-        text_template = "emails/volunteer/internal_volunteer_onboarding.txt"
+        markdown_template = "emails/volunteer/internal_volunteer_onboarding.md"
         _send_internal_email(
             subject,
-            html_template=html_template,
-            text_template=text_template,
+            markdown_template=markdown_template,
             context=context,
         )
 
 
 def _send_internal_email(
-    subject, *, html_template=None, text_template=None, context=None
+    subject, *, html_template=None, text_template=None, markdown_template=None, context=None
 ):
     """Helper function to send an internal email.
 
     Lookup who the internal team members who should receive the email and then send the emails individually.
+    
+    Supports both legacy HTML/text templates and new Markdown templates.
     """
 
     recipients = User.objects.filter(
@@ -354,6 +349,7 @@ def _send_internal_email(
             [recipient.email],
             html_template=html_template,
             text_template=text_template,
+            markdown_template=markdown_template,
             context=context,
         )
 
@@ -368,16 +364,11 @@ def send_internal_notification_email(instance):
     context = {"profile": instance}
     subject = f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} New Volunteer Application"
 
-    text_template = "emails/volunteer/internal_volunteer_profile_email_notification.txt"
-
-    html_template = (
-        "emails/volunteer/internal_volunteer_profile_email_notification.html"
-    )
+    markdown_template = "emails/volunteer/internal_volunteer_profile_email_notification.md"
 
     _send_internal_email(
         subject,
-        html_template=html_template,
-        text_template=text_template,
+        markdown_template=markdown_template,
         context=context,
     )
 

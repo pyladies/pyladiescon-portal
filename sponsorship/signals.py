@@ -11,12 +11,14 @@ from .models import SponsorshipProfile
 
 
 def _send_internal_email(
-    subject, *, html_template=None, text_template=None, context=None
+    subject, *, html_template=None, text_template=None, markdown_template=None, context=None
 ):
     """Helper function to send an internal email.
 
     Lookup who the internal team members who should receive the email and then send the emails individually.
     Send the email to staff, admin, and sponsorship team members
+    
+    Supports both legacy HTML/text templates and new Markdown templates.
     """
 
     recipients = User.objects.filter(
@@ -41,6 +43,7 @@ def _send_internal_email(
             [recipient.email],
             html_template=html_template,
             text_template=text_template,
+            markdown_template=markdown_template,
             context=context,
         )
 
@@ -54,14 +57,11 @@ def send_internal_sponsor_onboarding_email(instance):
     context = {"profile": instance}
     subject = f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} New Sponsorship Tracking: {instance.organization_name}"
 
-    text_template = "emails/sponsorship/internal_sponsor_onboarding.txt"
-
-    html_template = "emails/sponsorship/internal_sponsor_onboarding.html"
+    markdown_template = "emails/sponsorship/internal_sponsor_onboarding.md"
 
     _send_internal_email(
         subject,
-        html_template=html_template,
-        text_template=text_template,
+        markdown_template=markdown_template,
         context=context,
     )
 
@@ -72,14 +72,11 @@ def send_internal_sponsor_progress_update_email(instance):
     context = {"profile": instance}
     subject = f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} Update in Sponsorship Tracking for {instance.organization_name}"
 
-    text_template = "emails/sponsorship/internal_sponsor_updated.txt"
-
-    html_template = "emails/sponsorship/internal_sponsor_updated.html"
+    markdown_template = "emails/sponsorship/internal_sponsor_updated.md"
 
     _send_internal_email(
         subject,
-        html_template=html_template,
-        text_template=text_template,
+        markdown_template=markdown_template,
         context=context,
     )
 
