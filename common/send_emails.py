@@ -17,9 +17,9 @@ def send_email(
     context=None,
 ):
     """Helper function to send an email.
-    
+
     This function supports both the new Markdown template system and legacy HTML/text templates.
-    
+
     Args:
         subject: Email subject line
         recipient_list: List of recipient email addresses
@@ -36,11 +36,11 @@ def send_email(
             markdown_template=markdown_template,
             context=context,
         )
-    
+
     # Fall back to legacy system for backward compatibility
     context = context or {}
     context["current_site"] = Site.objects.get_current()
-    
+
     if text_template:
         text_content = render_to_string(
             text_template,
@@ -48,7 +48,7 @@ def send_email(
         )
     else:
         text_content = ""
-    
+
     if html_template:
         html_content = render_to_string(
             html_template,
@@ -56,15 +56,15 @@ def send_email(
         )
     else:
         html_content = None
-    
+
     msg = EmailMultiAlternatives(
         subject,
         text_content,
         settings.DEFAULT_FROM_EMAIL,
         recipient_list,
     )
-    
+
     if html_content:
         msg.attach_alternative(html_content, "text/html")
-    
+
     msg.send()

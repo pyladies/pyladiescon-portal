@@ -11,13 +11,18 @@ from .models import SponsorshipProfile
 
 
 def _send_internal_email(
-    subject, *, html_template=None, text_template=None, markdown_template=None, context=None
+    subject,
+    *,
+    html_template=None,
+    text_template=None,
+    markdown_template=None,
+    context=None,
 ):
     """Helper function to send an internal email.
 
     Lookup who the internal team members who should receive the email and then send the emails individually.
     Send the email to staff, admin, and sponsorship team members
-    
+
     Supports both legacy HTML/text templates and new Markdown templates.
     """
 

@@ -318,12 +318,17 @@ def send_internal_volunteer_onboarding_email(instance):
 
 
 def _send_internal_email(
-    subject, *, html_template=None, text_template=None, markdown_template=None, context=None
+    subject,
+    *,
+    html_template=None,
+    text_template=None,
+    markdown_template=None,
+    context=None,
 ):
     """Helper function to send an internal email.
 
     Lookup who the internal team members who should receive the email and then send the emails individually.
-    
+
     Supports both legacy HTML/text templates and new Markdown templates.
     """
 
@@ -364,7 +369,9 @@ def send_internal_notification_email(instance):
     context = {"profile": instance}
     subject = f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} New Volunteer Application"
 
-    markdown_template = "emails/volunteer/internal_volunteer_profile_email_notification.md"
+    markdown_template = (
+        "emails/volunteer/internal_volunteer_profile_email_notification.md"
+    )
 
     _send_internal_email(
         subject,
