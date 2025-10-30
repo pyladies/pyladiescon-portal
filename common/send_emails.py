@@ -1,33 +1,28 @@
-from django.conf import settings
-from django.contrib.sites.models import Site
-from django.core.mail import EmailMultiAlternatives
-from django.template.loader import render_to_string
+# Import the Markdown email system
+from .markdown_emails import send_markdown_email
 
 
 def send_email(
     subject,
     recipient_list,
     *,
-    html_template=None,
-    text_template=None,
+    markdown_template,
     context=None,
 ):
-    """Helper function to send an email."""
-    context = context or {}
-    context["current_site"] = Site.objects.get_current()
-    text_content = render_to_string(
-        text_template,
-        context=context,
-    )
-    html_content = render_to_string(
-        html_template,
-        context=context,
-    )
-    msg = EmailMultiAlternatives(
+    """Send an email using a Markdown template.
+
+    This function only supports Markdown templates going forward.
+    All email templates should be written in Markdown format.
+
+    Args:
+        subject: Email subject line
+        recipient_list: List of recipient email addresses
+        markdown_template: Path to Markdown template (required)
+        context: Template context dictionary
+    """
+    return send_markdown_email(
         subject,
-        text_content,
-        settings.DEFAULT_FROM_EMAIL,
         recipient_list,
+        markdown_template=markdown_template,
+        context=context,
     )
-    msg.attach_alternative(html_content, "text/html")
-    msg.send()
