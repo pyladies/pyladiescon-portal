@@ -72,8 +72,8 @@
                     Languages:
                 </div>
                 <div class="col-md-9">
-                    {% for language in object.languages_spoken %}
-                        <span class="badge bg-info text-dark me-1">{{ language }}</span>
+                    {% for language in object.language.all %}
+                        <span class="badge bg-info text-dark me-1">{{ language.name }}</span>
                     {% endfor %}
                 </div>
             </div>

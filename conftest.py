@@ -1,5 +1,7 @@
 import pytest
 
+from volunteer.models import Language
+
 
 @pytest.fixture
 def portal_user(db, django_user_model):
@@ -31,3 +33,8 @@ def admin_user(db, django_user_model):
         first_name=first_name,
         last_name=last_name,
     )
+
+
+@pytest.fixture
+def language(db):
+    return Language.objects.create(code="en", name="English")

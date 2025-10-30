@@ -43,4 +43,10 @@
             </div>
         </div>
     </div>
+    <div class="row">
+        {% for breakdown in stats.volunteer_breakdown %}
+            <div id="{{ breakdown.chart_id }}">
+            </div>
+        {% endfor %}
+    </div>
 </div>

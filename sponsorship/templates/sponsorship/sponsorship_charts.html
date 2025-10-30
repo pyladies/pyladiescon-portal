@@ -1,0 +1,18 @@
+{% for breakdown in stats.sponsorship_breakdown %}
+    var data = new google.visualization.DataTable();
+    {% for column in breakdown.columns %}
+        data.addColumn('{{ column.0 }}', '{{ column.1 }}');
+    {% endfor %}
+    data.addRows([
+    {% for data in breakdown.data %}
+        ['{{ data.0 }}', {{ data.1 }}],
+    {% endfor %}
+    ]);
+    var options = {'title':'{{ breakdown.title }}',
+    'width':400,
+    'height':300,
+    is3D: true,
+    };
+    var chart = new google.visualization.PieChart(document.getElementById('{{ breakdown.chart_id }}'));
+    chart.draw(data, options);
+{% endfor %}

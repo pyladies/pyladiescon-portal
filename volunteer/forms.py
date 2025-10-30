@@ -9,8 +9,8 @@ from django.utils.safestring import mark_safe
 from portal.validators import validate_linked_in_pattern
 
 from .constants import ApplicationStatus
-from .languages import LANGUAGES
 from .models import (
+    Language,
     Role,
     Team,
     VolunteerProfile,
@@ -60,7 +60,7 @@ class VolunteerProfileForm(ModelForm):
 
     class Meta:
         model = VolunteerProfile
-        exclude = ["user", "application_status", "roles"]
+        exclude = ["user", "application_status", "roles", "languages_spoken"]
         help_texts = {
             "github_username": "Required - Your GitHub username (e.g., username). We'll grant read access to PyLadiesCon repos to our volunteers.",
             "discord_username": "Required - Your Discord username for team communication (e.g., username or username#1234)",
@@ -204,13 +204,13 @@ class VolunteerProfileForm(ModelForm):
     def __init__(self, *args, **kwargs):
         self.user = kwargs.pop("user", None)
         super().__init__(*args, **kwargs)
-
-        sorted_languages = sorted(LANGUAGES, key=lambda x: x[1])
+        languages = [
+            (lang.id, lang.name) for lang in Language.objects.all().order_by("name")
+        ]
 
         self.fields["discord_username"].required = True
-        self.fields["languages_spoken"].choices = sorted_languages
-        self.fields["languages_spoken"].widget = SelectMultipleWidget(
-            choices=sorted_languages,
+        self.fields["language"].widget = SelectMultipleWidget(
+            choices=languages,
             attrs={
                 "data-placeholder": "Start typing to select languages...",
             },

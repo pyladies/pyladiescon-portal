@@ -48,11 +48,9 @@ class TestGetStatsCachedValues:
 
         VolunteerProfile.objects.create(
             user=get_user_model().objects.create(username="testuser1"),
-            languages_spoken=["en"],
         )
         VolunteerProfile.objects.create(
             user=get_user_model().objects.create(username="testuser2"),
-            languages_spoken=["en"],
         )
 
         result = get_volunteer_signup_stat_cache()
@@ -70,17 +68,15 @@ class TestGetStatsCachedValues:
 
         VolunteerProfile.objects.create(
             user=get_user_model().objects.create(username="testuser1"),
-            languages_spoken=["en"],
         )
         VolunteerProfile.objects.create(
             user=get_user_model().objects.create(username="testuser2"),
-            languages_spoken=["en"],
         )
 
         result = get_stats_cached_values()
         assert result.get(CACHE_KEY_VOLUNTEER_SIGNUPS_COUNT) == 2
 
-    def test_get_sponsorship_total_counts_stats(self):
+    def test_get_sponsorship_total_counts_stats_does_not_count_not_contacted(self):
         cache_key = CACHE_KEY_TOTAL_SPONSORSHIPS
         cache.delete(cache_key)
 
@@ -88,8 +84,17 @@ class TestGetStatsCachedValues:
         assert stats[CACHE_KEY_TOTAL_SPONSORSHIPS] == 0
         cache.delete(cache_key)
 
-        SponsorshipProfile.objects.create(organization_name="testorg1")
-        SponsorshipProfile.objects.create(organization_name="testorg2")
+        SponsorshipProfile.objects.create(
+            organization_name="testorg1"
+        )  # status is not contacted, is not counted
+        SponsorshipProfile.objects.create(
+            organization_name="testorg2",
+            progress_status=SponsorshipProgressStatus.PAID.value,
+        )
+        SponsorshipProfile.objects.create(
+            organization_name="testorg3",
+            progress_status=SponsorshipProgressStatus.INVOICED.value,
+        )
 
         result = get_sponsorship_total_count_stats_cache()
         assert result == 2
