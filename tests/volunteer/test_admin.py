@@ -3,21 +3,20 @@ from django.conf import settings
 from django.core import mail
 from django.urls import reverse
 
-from volunteer.languages import LANGUAGES
 from volunteer.models import ApplicationStatus, VolunteerProfile
 
 
 @pytest.mark.django_db
 class TestAdminActions:
 
-    def test_bulk_waitlist_action(self, client, portal_user):
+    def test_bulk_waitlist_action(self, client, portal_user, language):
         portal_user.is_superuser = True
         portal_user.is_staff = True
         portal_user.save()
 
         profile = VolunteerProfile(user=portal_user)
-        profile.languages_spoken = [LANGUAGES[0]]
         profile.save()
+        profile.language.add(language)
 
         assert profile.application_status == ApplicationStatus.PENDING
         client.force_login(portal_user)

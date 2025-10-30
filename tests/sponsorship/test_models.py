@@ -61,7 +61,6 @@ class TestSponsorshipModel:
             password="pyladiesadmin123",
         )
         admin_profile = VolunteerProfile(user=admin_user_to_notify)
-        admin_profile.languages_spoken = [LANGUAGES[0]]
         admin_profile.region = Region.NORTH_AMERICA
         admin_profile.save()
 
@@ -132,7 +131,6 @@ class TestSponsorshipModel:
             password="pyladiesadmin123",
         )
         admin_profile = VolunteerProfile(user=admin_user_to_notify)
-        admin_profile.languages_spoken = [LANGUAGES[0]]
         admin_profile.region = Region.NORTH_AMERICA
         admin_profile.save()
 

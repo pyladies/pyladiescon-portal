@@ -4,17 +4,13 @@ from django.urls import reverse
 from pytest_django.asserts import assertRedirects
 
 from volunteer.constants import Region
-from volunteer.languages import LANGUAGES
 from volunteer.models import (
     ApplicationStatus,
+    Language,
     PyladiesChapter,
     Role,
     Team,
     VolunteerProfile,
-)
-from volunteer.views import (
-    VolunteerProfileFilter,
-    VolunteerProfileTable,
 )
 
 
@@ -33,7 +29,6 @@ class TestVolunteer:
 
     def test_volunteer_profile_view_with_profile(self, client, portal_user):
         profile = VolunteerProfile(user=portal_user)
-        profile.languages_spoken = [LANGUAGES[0]]
         profile.save()
 
         client.force_login(portal_user)
@@ -44,7 +39,6 @@ class TestVolunteer:
 
     def test_volunteer_profile_update_own_profile(self, client, portal_user):
         profile = VolunteerProfile(user=portal_user)
-        profile.languages_spoken = [LANGUAGES[0]]
         profile.save()
         client.force_login(portal_user)
         response = client.get(
@@ -58,9 +52,7 @@ class TestVolunteer:
         another_user = django_user_model.objects.create_user(
             username="other",
         )
-        another_profile = VolunteerProfile(user=another_user)
-        another_profile.languages_spoken = [LANGUAGES[0]]
-        another_profile.save()
+        another_profile = VolunteerProfile.objects.create(user=another_user)
 
         client.force_login(portal_user)
         response = client.get(
@@ -77,7 +69,6 @@ class TestVolunteer:
 
     def test_volunteer_profile_cannot_create_if_exists(self, client, portal_user):
         profile = VolunteerProfile(user=portal_user)
-        profile.languages_spoken = [LANGUAGES[0]]
         profile.region = Region.NORTH_AMERICA
         profile.save()
 
@@ -92,7 +83,6 @@ class TestVolunteer:
             username="other",
         )
         another_profile = VolunteerProfile(user=another_user)
-        another_profile.languages_spoken = [LANGUAGES[0]]
         another_profile.region = Region.NORTH_AMERICA
         another_profile.save()
 
@@ -106,7 +96,6 @@ class TestVolunteer:
 
     def test_volunteer_profile_view_own_profile(self, client, portal_user):
         profile = VolunteerProfile(user=portal_user)
-        profile.languages_spoken = [LANGUAGES[0]]
         profile.region = Region.NORTH_AMERICA
         profile.save()
         client.force_login(portal_user)
@@ -123,9 +112,9 @@ class TestVolunteer:
             chapter_name="vancouver", chapter_description="Vancouver, Canada"
         )
         assert VolunteerProfile.objects.filter(user=portal_user).count() == 0
-
+        language = Language.objects.create(code="en", name="English")
         data = {
-            "languages_spoken": [LANGUAGES[0][0], LANGUAGES[1][0]],
+            "language": language.id,
             "timezone": "UTC",
             "github_username": "test-github",
             "discord_username": "testdiscord1234",
@@ -143,7 +132,7 @@ class TestVolunteer:
         assert response.status_code == 302
 
         profile = VolunteerProfile.objects.get(user=portal_user)
-        assert profile.languages_spoken == [LANGUAGES[0][0], LANGUAGES[1][0]]
+        assert profile.language.first() == language
         assert profile.region == Region.NORTH_AMERICA
         assert profile.chapter == chapter
         assert profile.discord_username == data["discord_username"]
@@ -159,19 +148,20 @@ class TestVolunteer:
         )
 
     def test_edit_volunteer_profile_form_submit(self, client, portal_user):
+        language = Language.objects.create(code="en", name="English")
         client.force_login(portal_user)
         chapter = PyladiesChapter.objects.create(
             chapter_name="vancouver", chapter_description="Vancouver, Canada"
         )
         profile = VolunteerProfile(user=portal_user)
-        profile.languages_spoken = [LANGUAGES[0]]
         profile.region = Region.NORTH_AMERICA
         profile.discord_username = "blabla"
         profile.availability_hours_per_week = 20
         profile.save()
+        profile.language.add(language)
 
         data = {
-            "languages_spoken": [LANGUAGES[0][0], LANGUAGES[1][0]],
+            "language": language.id,
             "timezone": "UTC",
             "github_username": "test-github",
             "discord_username": "testdiscord1234",
@@ -192,7 +182,7 @@ class TestVolunteer:
         assert response.status_code == 302
 
         profile = VolunteerProfile.objects.get(user=portal_user)
-        assert profile.languages_spoken == [LANGUAGES[0][0], LANGUAGES[1][0]]
+        assert profile.language.first() == language
         assert profile.region == Region.ASIA
         assert profile.chapter == chapter
         assert profile.discord_username == data["discord_username"]
@@ -209,7 +199,6 @@ class TestVolunteer:
 
     def test_redirect_when_teams_exist(self, client, portal_user):
         profile = VolunteerProfile(user=portal_user)
-        profile.languages_spoken = [LANGUAGES[0]]
         profile.save()
         portal_user.is_superuser = True
         portal_user.save()
@@ -228,7 +217,6 @@ class TestVolunteer:
 
     def test_redirect_when_teams_does_not_exist(self, client, portal_user):
         profile = VolunteerProfile(user=portal_user)
-        profile.languages_spoken = [LANGUAGES[0]]
         profile.save()
         portal_user.is_superuser = True
         portal_user.save()
@@ -257,7 +245,6 @@ class TestManageVolunteers:
             username="other",
         )
         another_profile = VolunteerProfile(user=another_user)
-        another_profile.languages_spoken = [LANGUAGES[0]]
         another_profile.save()
 
         portal_user.is_superuser = True
@@ -275,7 +262,6 @@ class TestManageVolunteers:
             username="other",
         )
         another_profile = VolunteerProfile(user=another_user)
-        another_profile.languages_spoken = [LANGUAGES[0]]
         another_profile.save()
 
         portal_user.is_staff = True
@@ -287,15 +273,17 @@ class TestManageVolunteers:
         assert response.status_code == 200
 
     def test_manage_volunteers_table(self, client, portal_user, django_user_model):
+        from volunteer.views import (
+            VolunteerProfileTable,
+        )
+
         profile = VolunteerProfile(user=portal_user)
-        profile.languages_spoken = [LANGUAGES[0]]
         profile.save()
 
         another_user = django_user_model.objects.create_user(
             username="other",
         )
         another_profile = VolunteerProfile(user=another_user)
-        another_profile.languages_spoken = [LANGUAGES[0]]
         another_profile.save()
 
         team = Team(short_name="Test Team", description="Test Team Description")
@@ -379,14 +367,12 @@ class TestManageVolunteers:
     ):
         """Test that multiple teams are rendered correctly with links."""
         profile = VolunteerProfile(user=portal_user)
-        profile.languages_spoken = [LANGUAGES[0]]
         profile.save()
 
         another_user = django_user_model.objects.create_user(
             username="other",
         )
         another_profile = VolunteerProfile(user=another_user)
-        another_profile.languages_spoken = [LANGUAGES[0]]
         another_profile.save()
 
         # Create multiple teams
@@ -425,7 +411,6 @@ class TestManageVolunteers:
     def test_render_teams_with_no_teams(self, client, portal_user):
         """Test that profiles with no teams render empty string."""
         profile = VolunteerProfile(user=portal_user)
-        profile.languages_spoken = [LANGUAGES[0]]
         profile.save()
 
         portal_user.is_superuser = True
@@ -444,7 +429,6 @@ class TestManageVolunteers:
     def test_team_badge_links_are_clickable(self, client, portal_user):
         """Test that team badges contain proper href attributes."""
         profile = VolunteerProfile(user=portal_user)
-        profile.languages_spoken = [LANGUAGES[0]]
         profile.save()
 
         team = Team(short_name="Test Team", description="Test Description")
@@ -468,16 +452,22 @@ class TestManageVolunteers:
         assert "badge bg-secondary" in team_render
 
     def test_filter_volunteers_table(self, client, portal_user, django_user_model):
+        # importing here inline instead of top of the file because it needs the mark.django_db decorator
+        from volunteer.views import VolunteerProfileFilter
+
+
+        language = Language.objects.create(code="en", name="English")
+
         profile = VolunteerProfile(user=portal_user)
-        profile.languages_spoken = [LANGUAGES[0]]
         profile.save()
+        profile.language.add(language)
 
         another_user = django_user_model.objects.create_user(
             username="other",
         )
         another_profile = VolunteerProfile(user=another_user)
-        another_profile.languages_spoken = [LANGUAGES[0]]
         another_profile.save()
+        another_profile.language.add(language)
 
         portal_user.is_superuser = True
         portal_user.save()
@@ -494,10 +484,10 @@ class TestManageVolunteers:
         search_by_name = filter.search_fulltext(filter_queryset, "", "")
         assert search_by_name.count() == 2
 
-        qs = filter.filter_languages_spoken(filter_queryset, "", LANGUAGES[1])
+        qs = filter.filter_language(filter_queryset, "", "es")
         assert qs.count() == 0  # no matching languages
 
-        qs = filter.filter_languages_spoken(filter_queryset, "", LANGUAGES[0])
+        qs = filter.filter_language(filter_queryset, "", language.code)
         assert qs.count() == 2  # both profiles match the language
 
 
@@ -511,7 +501,6 @@ class TestManageVolunteerApplications:
             username="other",
         )
         another_profile = VolunteerProfile(user=another_user)
-        another_profile.languages_spoken = [LANGUAGES[0]]
         another_profile.save()
 
         client.force_login(portal_user)
@@ -529,7 +518,6 @@ class TestManageVolunteerApplications:
             username="other",
         )
         another_profile = VolunteerProfile(user=another_user)
-        another_profile.languages_spoken = [LANGUAGES[0]]
         another_profile.save()
 
         portal_user.is_superuser = True
@@ -550,7 +538,6 @@ class TestManageVolunteerApplications:
             username="other",
         )
         another_profile = VolunteerProfile(user=another_user)
-        another_profile.languages_spoken = [LANGUAGES[0]]
         another_profile.save()
 
         portal_user.is_staff = True
@@ -568,14 +555,12 @@ class TestManageVolunteerApplications:
         self, client, portal_user, django_user_model
     ):
         profile = VolunteerProfile(user=portal_user)
-        profile.languages_spoken = [LANGUAGES[0]]
         profile.save()
 
         another_user = django_user_model.objects.create_user(
             username="other",
         )
         another_profile = VolunteerProfile(user=another_user)
-        another_profile.languages_spoken = [LANGUAGES[0]]
         another_profile.save()
 
         portal_user.is_superuser = True
@@ -611,14 +596,12 @@ class TestManageVolunteerApplications:
         self, client, portal_user, django_user_model
     ):
         profile = VolunteerProfile(user=portal_user)
-        profile.languages_spoken = [LANGUAGES[0]]
         profile.save()
 
         another_user = django_user_model.objects.create_user(
             username="other",
         )
         another_profile = VolunteerProfile(user=another_user)
-        another_profile.languages_spoken = [LANGUAGES[0]]
         another_profile.save()
 
         portal_user.is_superuser = True
@@ -646,17 +629,18 @@ class TestManageVolunteerApplications:
     def test_resend_onboarding_email_if_approved(
         self, client, portal_user, django_user_model
     ):
+        language = Language.objects.create(code="en", name="English")
         profile = VolunteerProfile(user=portal_user)
-        profile.languages_spoken = [LANGUAGES[0]]
         profile.save()
+        profile.language.add(language)
 
         another_user = django_user_model.objects.create_user(
             username="other",
         )
         another_profile = VolunteerProfile(user=another_user)
-        another_profile.languages_spoken = [LANGUAGES[0]]
         another_profile.application_status = ApplicationStatus.APPROVED
         another_profile.save()
+        another_profile.language.add(language)
 
         portal_user.is_superuser = True
         portal_user.save()
@@ -684,17 +668,18 @@ class TestManageVolunteerApplications:
     def test_resend_onboarding_email_not_sent_if_not_approved(
         self, client, portal_user, django_user_model, application_status
     ):
+        language = Language.objects.create(code="en", name="English")
         profile = VolunteerProfile(user=portal_user)
-        profile.languages_spoken = [LANGUAGES[0]]
         profile.save()
+        profile.language.add(language)
 
         another_user = django_user_model.objects.create_user(
             username="other",
         )
         another_profile = VolunteerProfile(user=another_user)
-        another_profile.languages_spoken = [LANGUAGES[0]]
         another_profile.application_status = application_status
         another_profile.save()
+        another_profile.language.add(language)
 
         portal_user.is_superuser = True
         portal_user.save()

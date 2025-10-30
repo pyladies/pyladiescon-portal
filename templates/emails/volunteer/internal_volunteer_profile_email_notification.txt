@@ -23,7 +23,6 @@ Volunteer information:
 - LinkedIn URL: {{ profile.linkedin_url }}
 - PyLadies Chapter: {{ profile.chapter }}
 - Region: {{ profile.region }}
-- Languages spoken: {{ profile.languages_spoken|join:", " }}
 - Additional Comments: {{ profile.additional_comments }}
 
 To approve this volunteer and assign them to your teams https://{{ current_site.domain }}{% url 'volunteer:volunteer_profile_manage' profile.id %}.
