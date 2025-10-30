@@ -5,9 +5,19 @@
         ['{{ data.0 }}', {{ data.1 }},],
     {% endfor %}
     ]);
-    var options = {'title':'{{ breakdown.title }}',
+    var paddingHeight = 80; // Adjust as needed for titles, legends, etc.
+    var rowHeight = 30; // Height per bar/row in pixels
+    var chartHeight = (data.getNumberOfRows() * rowHeight) + paddingHeight;
+    var options = {
+    chart: {
+    'title':'{{ breakdown.title }}',
     hAxis: {title: '{{ breakdown.columns.0 }}', format:'0'},
     vAxis: {title: '{{ breakdown.columns.1 }}'},
+    height: chartHeight,
+    chartArea: {
+    height: rowHeight,
+    },
+    },
     bars: 'horizontal'
     };
     var chart = new google.charts.Bar(document.getElementById('{{ breakdown.chart_id }}'));
