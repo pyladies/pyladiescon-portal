@@ -1,0 +1,15 @@
+{% for breakdown in stats.volunteer_breakdown %}
+    var data = google.visualization.arrayToDataTable([
+    ['{{ breakdown.columns.0 }}', '{{ breakdown.columns.1 }}'],
+    {% for data in breakdown.data %}
+        ['{{ data.0 }}', {{ data.1 }},],
+    {% endfor %}
+    ]);
+    var options = {'title':'{{ breakdown.title }}',
+    hAxis: {title: '{{ breakdown.columns.0 }}', format:'0'},
+    vAxis: {title: '{{ breakdown.columns.1 }}'},
+    bars: 'horizontal'
+    };
+    var chart = new google.charts.Bar(document.getElementById('{{ breakdown.chart_id }}'));
+    chart.draw(data, google.charts.Bar.convertOptions(options));
+{% endfor %}

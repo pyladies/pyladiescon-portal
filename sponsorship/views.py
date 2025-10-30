@@ -141,7 +141,7 @@ class SponsorshipProfileFilter(django_filters.FilterSet):
         ).filter(search=SearchQuery(value))
 
     def filter_progress_status(self, queryset, name, value):
-        """Custom filtering for the languages_spoken field."""
+        """Custom filtering for the progress_status field."""
         return queryset.filter(progress_status=value)
 
     @property

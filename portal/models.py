@@ -6,7 +6,9 @@ from django.utils.timezone import now
 
 
 class ChoiceArrayField(ArrayField):
-    def formfield(self, **kwargs):
+
+    def formfield(self, **kwargs):  # pragma: no cover
+        # Currently this is only used the languages_spoken field but the field is being deprecated
         defaults = {
             "form_class": forms.TypedMultipleChoiceField,
             "choices": self.base_field.choices,

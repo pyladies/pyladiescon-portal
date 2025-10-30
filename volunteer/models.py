@@ -37,6 +37,14 @@ REGION_CHOICES = [
 ]
 
 
+class Language(BaseModel):
+    name = models.CharField("name", max_length=250)
+    code = models.CharField("code", max_length=10, unique=True)
+
+    def __str__(self):
+        return self.name
+
+
 class Team(BaseModel):
     short_name = models.CharField("name", max_length=40)
     description = models.CharField("description", max_length=1000)
@@ -115,11 +123,21 @@ class VolunteerProfile(BaseModel):
     mastodon_url = models.CharField(max_length=100, blank=True, null=True)
     x_username = models.CharField(max_length=100, blank=True, null=True)
     linkedin_url = models.CharField(max_length=100, blank=True, null=True)
+    # This field is being deprecated in favor of the language m2m field
     languages_spoken = ChoiceArrayField(
-        models.CharField(max_length=32, blank=True, choices=LANGUAGES)
+        models.CharField(
+            max_length=32, blank=True, choices=LANGUAGES, null=True, default=None
+        ),
+        blank=True,
+        null=True,
     )
     teams = models.ManyToManyField(
         "volunteer.Team", verbose_name="members", related_name="members", blank=True
+    )
+    language = models.ManyToManyField(
+        "volunteer.Language",
+        verbose_name="languages",
+        related_name="volunteer_profile",
     )
     additional_comments = models.CharField(max_length=1000, blank=True, null=True)
     availability_hours_per_week = models.PositiveIntegerField(default=1)
