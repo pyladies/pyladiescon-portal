@@ -15,9 +15,8 @@ from django_tables2.views import SingleTableMixin
 from common.mixins import AdminRequiredMixin
 
 from .forms import VolunteerProfileForm, VolunteerProfileReviewForm
-from .models import (
+from .models import (  # Language,
     ApplicationStatus,
-    Language,
     Team,
     VolunteerProfile,
     send_volunteer_onboarding_email,
@@ -42,22 +41,18 @@ class VolunteerAdminRequiredMixin(AdminRequiredMixin):
     """
 
 
-language_choices = [
-    (lang.code, lang.name)
-    for lang in Language.objects.filter(volunteer_profile__isnull=False).distinct()
-]
-
-
 class VolunteerProfileFilter(django_filters.FilterSet):
+
     search = django_filters.CharFilter(
         label="Search by username, first name, or last name", method="search_fulltext"
     )
-    language = django_filters.ChoiceFilter(
-        method="filter_language",
-        label="Language",
-        field_name="language",
-        choices=language_choices,
-    )
+    # temporarily disable the language filter
+    # language = django_filters.ChoiceFilter(
+    #     method="filter_language",
+    #     label="Language",
+    #     field_name="language",
+    #     choices=language_choices,
+    # )
 
     class Meta:
         model = VolunteerProfile
@@ -70,9 +65,9 @@ class VolunteerProfileFilter(django_filters.FilterSet):
             search=SearchVector("user__username", "user__first_name", "user__last_name")
         ).filter(search=SearchQuery(value))
 
-    def filter_language(self, queryset, name, value):
-        """Custom filtering for the languages field."""
-        return queryset.filter(language__code=value)
+    # def filter_language(self, queryset, name, value):
+    #     """Custom filtering for the languages field."""
+    #     return queryset.filter(language__code=value)
 
 
 class VolunteerProfileTable(tables.Table):
