@@ -13,6 +13,10 @@ class SponsorshipTierAdmin(admin.ModelAdmin):
 
 
 class SponsorshipProfileResource(resources.ModelResource):
+    def before_save_instance(self, instance, row, **kwargs):
+        # during 'confirm' step, dry_run is True
+        instance.from_import_export = True
+
     class Meta:
         model = SponsorshipProfile
         fields = (
