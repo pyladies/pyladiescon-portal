@@ -8,20 +8,42 @@ from sponsorship.models import (
     SponsorshipTier,
 )
 from sponsorship.views import SponsorshipProfileFilter, SponsorshipProfileTable
+from volunteer.constants import ApplicationStatus
+from volunteer.models import LANGUAGES, VolunteerProfile
 
 
 @pytest.mark.django_db
 class TestSponsorshipViews:
-    def test_sponsors_list_view_forbidden_if_not_superuser(
-        self, client, portal_user, language
+    def test_sponsors_list_view_forbidden_if_not_approved_volunteer(
+        self, client, portal_user
     ):
         client.force_login(portal_user)
+        response = client.get(reverse("sponsorship:sponsorship_list"))
+        assert response.status_code == 403
+
+        # create the volunteer profile but is not approved
+        profile = VolunteerProfile(user=portal_user)
+        profile.languages_spoken = [LANGUAGES[0]]
+        profile.save()
+
         response = client.get(reverse("sponsorship:sponsorship_list"))
         assert response.status_code == 403
 
     def test_sponsors_list_view_is_superuser(self, client, admin_user):
 
         client.force_login(admin_user)
+        url = reverse("sponsorship:sponsorship_list")
+        response = client.get(url)
+        assert response.status_code == 200
+
+    def test_sponsors_list_view_is_approved_volunteer(self, client, portal_user):
+        profile = VolunteerProfile(
+            user=portal_user, application_status=ApplicationStatus.APPROVED
+        )
+        profile.languages_spoken = [LANGUAGES[0]]
+        profile.save()
+
+        client.force_login(portal_user)
         url = reverse("sponsorship:sponsorship_list")
         response = client.get(url)
         assert response.status_code == 200
@@ -55,6 +77,61 @@ class TestSponsorshipViews:
         sponsors_table = response.context["table"]
         progress_status_render = sponsors_table.render_progress_status(status)
         assert css_class in progress_status_render
+
+    @pytest.mark.parametrize(
+        "status,css_class,is_visible",
+        [
+            (SponsorshipProgressStatus.NOT_CONTACTED, "bg-dark", False),
+            (SponsorshipProgressStatus.CANCELLED, "bg-dark", False),
+            (SponsorshipProgressStatus.REJECTED, "bg-danger", False),
+            (SponsorshipProgressStatus.ACCEPTED, "bg-info", True),
+            (SponsorshipProgressStatus.INVOICED, "bg-info", True),
+            (SponsorshipProgressStatus.APPROVED, "bg-success", True),
+            (SponsorshipProgressStatus.PAID, "bg-success", True),
+            (SponsorshipProgressStatus.AGREEMENT_SENT, "bg-primary", True),
+            (SponsorshipProgressStatus.AGREEMENT_SIGNED, "bg-primary", True),
+            (SponsorshipProgressStatus.AWAITING_RESPONSE, "bg-warning", False),
+        ],
+    )
+    def test_sponsors_table_render_progress_status_for_approved_volunteer(
+        self, client, portal_user, status, css_class, is_visible
+    ):
+        """Volunteer can only view Committed sponsors.
+
+        Paid, approved, accepted, invoiced, agreement sent and signed.
+        Volunteer cannot see pending/cancelled/rejected sponsors.
+
+        """
+
+        tier = SponsorshipTier.objects.create(
+            name="Gold", amount=5000.00, description="Gold tier sponsorship"
+        )
+
+        SponsorshipProfile.objects.create(
+            organization_name="Override Corp",
+            sponsorship_tier=tier,
+            progress_status=status,
+        )
+
+        profile = VolunteerProfile(
+            user=portal_user, application_status=ApplicationStatus.APPROVED
+        )
+        profile.languages_spoken = [LANGUAGES[0]]
+        profile.save()
+
+        client.force_login(portal_user)
+        url = reverse("sponsorship:sponsorship_list")
+        response = client.get(url)
+        assert response.status_code == 200
+        assert isinstance(response.context["table"], SponsorshipProfileTable)
+
+        sponsors_table = response.context["table"]
+        if is_visible:
+            # There is one row because the status is in one of the approved status
+            assert len(sponsors_table.rows) == 1
+        else:
+            # No rows in the table because the status is not approved
+            assert len(sponsors_table.rows) == 0
 
     def test_sponsors_table_render_amount_without_override(self, client, admin_user):
 
