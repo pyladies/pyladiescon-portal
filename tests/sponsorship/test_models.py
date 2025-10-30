@@ -9,7 +9,6 @@ from sponsorship.models import (
     SponsorshipTier,
 )
 from volunteer.constants import Region, RoleTypes
-from volunteer.languages import LANGUAGES
 from volunteer.models import (
     Role,
     VolunteerProfile,

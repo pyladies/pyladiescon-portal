@@ -23,7 +23,7 @@ from portal.constants import (
 )
 from sponsorship.models import SponsorshipProfile, SponsorshipProgressStatus
 from volunteer.constants import ApplicationStatus
-from volunteer.models import Language, Team, VolunteerProfile
+from volunteer.models import Team, VolunteerProfile
 
 
 def get_stats_cached_values():

@@ -8,8 +8,6 @@ from sponsorship.models import (
     SponsorshipTier,
 )
 from sponsorship.views import SponsorshipProfileFilter, SponsorshipProfileTable
-from volunteer.constants import ApplicationStatus
-from volunteer.models import VolunteerProfile
 
 
 @pytest.mark.django_db
