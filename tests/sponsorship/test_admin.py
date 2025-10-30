@@ -6,14 +6,7 @@ from tablib import Dataset
 
 from sponsorship.admin import SponsorshipProfileResource
 from sponsorship.models import (
-    SponsorshipProfile,
     SponsorshipProgressStatus,
-    SponsorshipTier,
-)
-from volunteer.constants import Region, RoleTypes
-from volunteer.models import (
-    Role,
-    VolunteerProfile,
 )
 
 
