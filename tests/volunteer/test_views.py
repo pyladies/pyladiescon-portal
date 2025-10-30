@@ -455,7 +455,6 @@ class TestManageVolunteers:
         # importing here inline instead of top of the file because it needs the mark.django_db decorator
         from volunteer.views import VolunteerProfileFilter
 
-
         language = Language.objects.create(code="en", name="English")
 
         profile = VolunteerProfile(user=portal_user)
