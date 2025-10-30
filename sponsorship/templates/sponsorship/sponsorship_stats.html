@@ -80,4 +80,10 @@
             </div>
         </div>
     </div>
+    <div class="row">
+        {% for breakdown in stats.sponsorship_breakdown %}
+            <div class="col-6" id="{{ breakdown.chart_id }}">
+            </div>
+        {% endfor %}
+    </div>
 </div>

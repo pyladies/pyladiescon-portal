@@ -28,7 +28,6 @@ Thank you for your understanding and for your interest in volunteering with us!
 - **LinkedIn URL:** {{ profile.linkedin_url }}
 - **PyLadies Chapter:** {{ profile.chapter }}
 - **Region:** {{ profile.region }}
-- **Languages spoken:** {{ profile.languages_spoken|join:", " }}
 - **Additional Comments:** {{ profile.additional_comments }}
 
 If you would like to review or update your application at any time, go to your [Volunteer Dashboard](https://{{ current_site.domain }}{% url 'volunteer:index' %}).

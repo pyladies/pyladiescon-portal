@@ -12,7 +12,9 @@ from sponsorship.views import SponsorshipProfileFilter, SponsorshipProfileTable
 
 @pytest.mark.django_db
 class TestSponsorshipViews:
-    def test_sponsors_list_view_forbidden_if_not_superuser(self, client, portal_user):
+    def test_sponsors_list_view_forbidden_if_not_superuser(
+        self, client, portal_user, language
+    ):
         client.force_login(portal_user)
         response = client.get(reverse("sponsorship:sponsorship_list"))
         assert response.status_code == 403

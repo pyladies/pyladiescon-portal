@@ -15,8 +15,7 @@ from django_tables2.views import SingleTableMixin
 from common.mixins import AdminRequiredMixin
 
 from .forms import VolunteerProfileForm, VolunteerProfileReviewForm
-from .languages import LANGUAGES
-from .models import (
+from .models import (  # Language,
     ApplicationStatus,
     Team,
     VolunteerProfile,
@@ -43,15 +42,17 @@ class VolunteerAdminRequiredMixin(AdminRequiredMixin):
 
 
 class VolunteerProfileFilter(django_filters.FilterSet):
+
     search = django_filters.CharFilter(
         label="Search by username, first name, or last name", method="search_fulltext"
     )
-    languages_spoken = django_filters.ChoiceFilter(
-        method="filter_languages_spoken",
-        choices=LANGUAGES,
-        label="Languages Spoken",
-        field_name="languages_spoken",
-    )
+    # temporarily disable the language filter
+    # language = django_filters.ChoiceFilter(
+    #     method="filter_language",
+    #     label="Language",
+    #     field_name="language",
+    #     choices=language_choices,
+    # )
 
     class Meta:
         model = VolunteerProfile
@@ -64,9 +65,9 @@ class VolunteerProfileFilter(django_filters.FilterSet):
             search=SearchVector("user__username", "user__first_name", "user__last_name")
         ).filter(search=SearchQuery(value))
 
-    def filter_languages_spoken(self, queryset, name, value):
-        """Custom filtering for the languages_spoken field."""
-        return queryset.filter(languages_spoken__contains=[value])
+    # def filter_language(self, queryset, name, value):
+    #     """Custom filtering for the languages field."""
+    #     return queryset.filter(language__code=value)
 
 
 class VolunteerProfileTable(tables.Table):

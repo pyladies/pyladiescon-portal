@@ -87,15 +87,15 @@
                         </div>
                         <!-- Languages spoken with autocomplete -->
                         <div class="mb-3">
-                            <label class="form-label" for="{{ form.languages_spoken.id_for_label }}">
-                                Languages Spoken*
+                            <label class="form-label" for="{{ form.language.id_for_label }}">
+                                Languages*
                             </label>
-                            {{ form.languages_spoken }}
+                            {{ form.language }}
                             <div class="form-text mb-2">
                                 Start typing to select languages you're comfortable communicating in
                             </div>
-                            {% if form.languages_spoken.errors %}
-                                {% for error in form.languages_spoken.errors %}
+                            {% if form.language.errors %}
+                                {% for error in form.language.errors %}
                                     <div class="invalid-feedback d-block">
                                         {{ error }}
                                     </div>

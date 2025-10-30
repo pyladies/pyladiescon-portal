@@ -3,7 +3,7 @@ from import_export import resources
 from import_export.admin import ImportExportModelAdmin
 
 from .constants import ApplicationStatus
-from .models import PyladiesChapter, Role, Team, VolunteerProfile
+from .models import Language, PyladiesChapter, Role, Team, VolunteerProfile
 
 
 @admin.action(description="Mark selected Volunteers as waitlisted")
@@ -66,3 +66,4 @@ class PyladiesChapterAdmin(ImportExportModelAdmin):
 admin.site.register(Role)
 admin.site.register(Team)
 admin.site.register(VolunteerProfile, VolunteerProfileAdmin)
+admin.site.register(Language)

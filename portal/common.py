@@ -1,7 +1,8 @@
 from django.core.cache import cache
-from django.db.models import Sum
+from django.db.models import Count, Sum
 
 from portal.constants import (
+    CACHE_KEY_SPONSORSHIP_BREAKDOWN,
     CACHE_KEY_SPONSORSHIP_COMMITTED,
     CACHE_KEY_SPONSORSHIP_COMMITTED_COUNT,
     CACHE_KEY_SPONSORSHIP_PAID,
@@ -12,6 +13,7 @@ from portal.constants import (
     CACHE_KEY_SPONSORSHIP_TOWARDS_GOAL_PERCENT,
     CACHE_KEY_TEAMS_COUNT,
     CACHE_KEY_TOTAL_SPONSORSHIPS,
+    CACHE_KEY_VOLUNTEER_BREAKDOWN,
     CACHE_KEY_VOLUNTEER_LANGUAGES,
     CACHE_KEY_VOLUNTEER_ONBOARDED_COUNT,
     CACHE_KEY_VOLUNTEER_PYLADIES_CHAPTERS,
@@ -28,6 +30,14 @@ def get_stats_cached_values():
     """Collect some stats and return them in a dictionary."""
     stats_dict = {}
 
+    stats_dict.update(get_volunteer_stats_dict())
+
+    stats_dict.update(get_sponsorships_stats_dict())
+    return stats_dict
+
+
+def get_volunteer_stats_dict():
+    stats_dict = {}
     stats_dict[CACHE_KEY_VOLUNTEER_SIGNUPS_COUNT] = get_volunteer_signup_stat_cache()
     stats_dict[CACHE_KEY_VOLUNTEER_ONBOARDED_COUNT] = (
         get_volunteer_onboarded_stat_cache()
@@ -37,8 +47,7 @@ def get_stats_cached_values():
     stats_dict[CACHE_KEY_VOLUNTEER_PYLADIES_CHAPTERS] = (
         get_volunteer_pyladies_chapters_stat_cache()
     )
-
-    stats_dict.update(get_sponsorships_stats_dict())
+    stats_dict[CACHE_KEY_VOLUNTEER_BREAKDOWN] = get_volunteer_breakdown()
     return stats_dict
 
 
@@ -68,6 +77,7 @@ def get_sponsorships_stats_dict():
     stats_dict[CACHE_KEY_SPONSORSHIP_COMMITTED_COUNT] = (
         get_sponsorship_committed_count_stats_cache()
     )
+    stats_dict[CACHE_KEY_SPONSORSHIP_BREAKDOWN] = get_sponsorship_breakdown()
 
     return stats_dict
 
@@ -117,17 +127,14 @@ def get_volunteer_languages_stat_cache():
     """Returns the cached count of volunteer languages."""
     volunteer_languages_count = cache.get(CACHE_KEY_VOLUNTEER_LANGUAGES)
     if not volunteer_languages_count:
-        volunteer_languages_qs = VolunteerProfile.objects.values_list(
-            "languages_spoken", flat=True
+        volunteer_languages_qs = (
+            VolunteerProfile.objects.filter(language__isnull=False)
+            .distinct()
+            .select_related("language")
         )
-        languages = [
-            language_code
-            for sublist in volunteer_languages_qs
-            for language_code in sublist
-            if sublist
-        ]
-
-        volunteer_languages_count = len(set(languages))
+        volunteer_languages_count = volunteer_languages_qs.values_list(
+            "language__id"
+        ).count()
         cache.set(
             CACHE_KEY_VOLUNTEER_LANGUAGES,
             volunteer_languages_count,
@@ -171,7 +178,9 @@ def get_sponsorship_total_count_stats_cache():
     """Returns total sponsorship count"""
     sponsorship_count = cache.get(CACHE_KEY_TOTAL_SPONSORSHIPS)
     if not sponsorship_count:
-        sponsorship_count = SponsorshipProfile.objects.count()
+        sponsorship_count = SponsorshipProfile.objects.filter(
+            progress_status__gt=SponsorshipProgressStatus.NOT_CONTACTED
+        ).count()
         cache.set(CACHE_KEY_TOTAL_SPONSORSHIPS, sponsorship_count, STATS_CACHE_TIMEOUT)
     return sponsorship_count
 
@@ -367,3 +376,125 @@ def get_sponsorship_paid_percent_cache():
             STATS_CACHE_TIMEOUT,
         )
     return sponsorship_paid_percent
+
+
+def get_sponsorship_breakdown():
+    sponsorship_breakdown = cache.get(CACHE_KEY_SPONSORSHIP_BREAKDOWN)
+    if not sponsorship_breakdown:
+        sponsorship_breakdown = []
+
+        # Breakdown by Status
+        sponsors = SponsorshipProfile.objects.filter(
+            progress_status__gt=SponsorshipProgressStatus.NOT_CONTACTED
+        ).select_related("sponsorship_tier")
+        sponsors_by_status = sponsors.values("progress_status").annotate(
+            count=Count("id")
+        )
+        result = [
+            [SponsorshipProgressStatus(data["progress_status"]).label, data["count"]]
+            for data in sponsors_by_status
+        ]
+        sponsorship_breakdown.append(
+            {
+                "title": "Sponsors By Status",
+                "columns": [["string", "Progress"], ["number", "Count"]],
+                "data": result,
+                "chart_id": "sponsorship_by_status",
+            }
+        )
+
+        # breakdown by Tier
+        sponsors_by_tier = (
+            sponsors.filter(sponsorship_tier__isnull=False)
+            .values("sponsorship_tier__name")
+            .annotate(count=Count("id"))
+        )
+        result = [
+            [data["sponsorship_tier__name"], data["count"]] for data in sponsors_by_tier
+        ]
+        sponsorship_breakdown.append(
+            {
+                "title": "Sponsors By Tier",
+                "columns": [["string", "Sponsorship Tier"], ["number", "Count"]],
+                "data": result,
+                "chart_id": "sponsorship_by_tier",
+            }
+        )
+
+        cache.set(
+            CACHE_KEY_SPONSORSHIP_BREAKDOWN,
+            sponsorship_breakdown,
+            STATS_CACHE_TIMEOUT,
+        )
+    return sponsorship_breakdown
+
+
+def get_volunteer_breakdown():
+    """Returns the volunteer breakdown stats"""
+    volunteer_breakdown = cache.get(CACHE_KEY_VOLUNTEER_BREAKDOWN)
+
+    if not volunteer_breakdown:
+        volunteer_breakdown = []
+
+        # Breakdown by chapter
+        volunteers = VolunteerProfile.objects.all().select_related(
+            "chapter", "region", "language"
+        )
+        volunteers_by_chapter = (
+            volunteers.filter(chapter__isnull=False)
+            .values("chapter__chapter_description")
+            .annotate(count=Count("id"))
+        )
+        result = [
+            [data["chapter__chapter_description"], data["count"]]
+            for data in volunteers_by_chapter
+        ]
+        volunteer_breakdown.append(
+            {
+                "title": "Volunteers By Chapter",
+                "columns": ["Chapter", "Volunteers"],
+                "data": result,
+                "chart_id": "volunteer_by_chapter",
+            }
+        )
+
+        # Breakdown by region
+        volunteers_by_region = (
+            volunteers.filter(region__isnull=False)
+            .values("region")
+            .annotate(count=Count("id"))
+        )
+        result = [[data["region"], data["count"]] for data in volunteers_by_region]
+        volunteer_breakdown.append(
+            {
+                "title": "Volunteers By Region",
+                "columns": ["Region", "Volunteers"],
+                "data": result,
+                "chart_id": "volunteers_by_region",
+            }
+        )
+
+        # Breakdown by languages
+        volunteers_by_languages = (
+            volunteers.filter(language__isnull=False)
+            .values("language__name")
+            .annotate(count=Count("id"))
+        )
+        result = [
+            [data["language__name"], data["count"]] for data in volunteers_by_languages
+        ]
+        volunteer_breakdown.append(
+            {
+                "title": "Volunteers By Languages",
+                "columns": ["Language", "Volunteers"],
+                "data": result,
+                "chart_id": "volunteers_by_languages",
+            }
+        )
+
+        cache.set(
+            CACHE_KEY_VOLUNTEER_BREAKDOWN,
+            volunteer_breakdown,
+            STATS_CACHE_TIMEOUT,
+        )
+    return volunteer_breakdown

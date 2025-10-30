@@ -17,7 +17,6 @@ class VolunteerProfileSocialMediaValidationTests(TestCase):
         self.profile = VolunteerProfile(
             user=self.user,
             region=Region.NORTH_AMERICA,
-            languages_spoken=["en"],
             discord_username="discorduser",
         )
 

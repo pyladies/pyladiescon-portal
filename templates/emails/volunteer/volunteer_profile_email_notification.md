@@ -24,9 +24,10 @@ Your current volunteer application status: **{{ profile.application_status }}**.
 - **LinkedIn URL:** {{ profile.linkedin_url }}
 - **PyLadies Chapter:** {{ profile.chapter }}
 - **Region:** {{ profile.region }}
-- **Languages spoken:** {{ profile.languages_spoken|join:", " }}
 - **Additional Comments:** {{ profile.additional_comments }}
 
-If you would like to review or update your application at any time, go to your Volunteer Dashboard at https://{{ current_site.domain }}{% url 'volunteer:index' %}.
+If you would like to review or update your application at any time, go to your [Volunteer Dashboard](https://{{ current_site.domain }}{% url 'volunteer:index' %}).
+
+Be sure to join our [Discord server](https://discord.com/invite/2fUN4ddVfP). All of our volunteers are required to join the server to communicate and collaborate with the rest of the team.
 
 {% endblock content %}
