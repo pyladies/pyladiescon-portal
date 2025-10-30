@@ -84,8 +84,13 @@ def send_internal_sponsor_progress_update_email(instance):
 
 @receiver(post_save, sender=SponsorshipProfile)
 def sponsorship_profile_signal(sender, instance, created, **kwargs):
-    """Send emails when sponsorship profile is created or updated."""
-    if created:
-        send_internal_sponsor_onboarding_email(instance)
+    """Send emails when sponsorship profile is created or updated.
+    Do not send emails if the instance was created via import/export. (too noisy).
+    """
+    if hasattr(instance, "from_import_export"):
+        return
     else:
-        send_internal_sponsor_progress_update_email(instance)
+        if created:
+            send_internal_sponsor_onboarding_email(instance)
+        else:
+            send_internal_sponsor_progress_update_email(instance)
