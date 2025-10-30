@@ -37,13 +37,16 @@ class SponsorshipProfileTable(tables.Table):
     )
     updated_date = tables.Column(accessor="modified_date", verbose_name="Last Updated")
     amount = tables.Column(accessor="sponsorship_tier__amount", verbose_name="Amount")
-    # actions = tables.Column(accessor="id", verbose_name="Actions")
+    actions = tables.Column(accessor="id", verbose_name="Actions")
+    tier_name = tables.Column(
+        accessor="sponsorship_tier__name", verbose_name="Sponsorship Tier"
+    )
 
     class Meta:
         model = SponsorshipProfile
         fields = (
             "organization_name",
-            "sponsorship_tier__name",
+            "tier_name",
             "amount",
             "progress_status",
             "creation_date",
@@ -94,6 +97,16 @@ class SponsorshipProfileTable(tables.Table):
         else:
             amount = value
         return f"${amount:,.2f}" if amount else ""
+
+    def render_actions(self, value, record):
+        """Render action buttons for each sponsorship profile."""
+        edit_url = reverse_lazy(
+            "admin:sponsorship_sponsorshipprofile_change", args=[record.pk]
+        )
+        return format_html(
+            '<a href="{}" class="btn btn-sm btn-primary me-1">Update</a>',
+            edit_url,
+        )
 
 
 class SponsorshipProfileFilter(django_filters.FilterSet):

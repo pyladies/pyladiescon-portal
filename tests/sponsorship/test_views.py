@@ -105,6 +105,21 @@ class TestSponsorshipViews:
         amount_render = sponsors_table.render_amount("", profile)
         assert amount_render == ""
 
+    def test_sponsors_table_render_actions(self, client, admin_user):
+
+        profile = SponsorshipProfile.objects.create(
+            organization_name="Override Corp",
+        )
+
+        client.force_login(admin_user)
+        url = reverse("sponsorship:sponsorship_list")
+
+        response = client.get(url)
+        sponsors_table = response.context["table"]
+        action_button = sponsors_table.render_actions("", profile)
+        assert "btn-primary" in action_button
+        assert "Update" in action_button
+
 
 @pytest.mark.django_db
 class TestSponsorshipCreateViews:
