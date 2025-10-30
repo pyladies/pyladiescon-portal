@@ -191,4 +191,6 @@ class SponsorshipProfileList(CanViewSponsorship, SingleTableMixin, FilterView):
         context["volunteer_profile"] = volunteer_profile
         context["title"] = "Sponsorship Profiles"
         context["stats"] = get_sponsorships_stats_dict()
+        if not self.request.user.is_superuser and not self.request.user.is_staff:
+            context["table"].exclude = "actions"
         return context

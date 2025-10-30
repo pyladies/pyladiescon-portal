@@ -14,7 +14,9 @@ from volunteer.models import LANGUAGES, VolunteerProfile
 
 @pytest.mark.django_db
 class TestSponsorshipViews:
-    def test_sponsors_list_view_forbidden_if_not_approved_volunteer(self, client, portal_user):
+    def test_sponsors_list_view_forbidden_if_not_approved_volunteer(
+        self, client, portal_user
+    ):
         client.force_login(portal_user)
         response = client.get(reverse("sponsorship:sponsorship_list"))
         assert response.status_code == 403
