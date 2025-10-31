@@ -1,12 +1,22 @@
-# Volunteer Template Tags
+# Template Tags
 
-This document describes the template tags available for rendering volunteer-related content.
+This document describes the custom template tags available across the PyLadiesCon Portal application.
 
-## volunteer_tags
+## Overview
+
+Template tags provide reusable functionality that can be used across different templates to maintain consistency and eliminate code duplication. The portal currently includes:
+
+- [Volunteer Template Tags](#volunteer-template-tags) - For rendering volunteer-related content
+
+*Future sections will include sponsorship template tags, portal template tags, and other categories as they are developed.*
+
+## Volunteer Template Tags
+
+### volunteer_tags
 
 The `volunteer_tags` module provides template tags for rendering volunteer profile information.
 
-### Usage
+#### Usage
 
 Load the template tags in your template:
 
@@ -14,9 +24,9 @@ Load the template tags in your template:
 {% load volunteer_tags %}
 ```
 
-### Available Tags
+#### Available Tags
 
-#### `volunteer_languages_badges`
+##### `volunteer_languages_badges`
 
 An inclusion tag that renders volunteer languages as Bootstrap badges.
 
@@ -45,7 +55,7 @@ An inclusion tag that renders volunteer languages as Bootstrap badges.
 </div>
 ```
 
-#### `render_volunteer_languages`
+##### `render_volunteer_languages`
 
 A simple tag that returns volunteer languages as HTML badges.
 
@@ -73,22 +83,22 @@ A simple tag that returns volunteer languages as HTML badges.
 </div>
 ```
 
-## Migration from Manual Rendering
+#### Migration from Manual Rendering
 
-### Before (duplicated code):
+##### Before (duplicated code):
 ```html
 {% for language in object.language.all %}
     <span class="badge bg-info text-dark me-1">{{ language.name }}</span>
 {% endfor %}
 ```
 
-### After (using template tag):
+##### After (using template tag):
 ```html
 {% load volunteer_tags %}
 {% volunteer_languages_badges object %}
 ```
 
-## Benefits
+#### Benefits
 
 1. **DRY Principle**: Eliminates code duplication across templates
 2. **Consistency**: Ensures consistent styling and structure
