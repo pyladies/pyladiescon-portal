@@ -319,29 +319,30 @@ class TestVolunteerModel:
     def test_discord_username_ending_with_underscore(self, portal_user):
         """Test that Discord usernames ending with underscore are valid (issue #150)."""
         profile = VolunteerProfile(
-            user=portal_user,
-            region=Region.NORTH_AMERICA,
-            discord_username="username_"
+            user=portal_user, region=Region.NORTH_AMERICA, discord_username="username_"
         )
-        
+
         # This should not raise ValidationError
         profile.full_clean()
 
-    @pytest.mark.parametrize("username,description", [
-        ("username_", "Username ending with underscore"),
-        ("_username", "Username starting with underscore"),  
-        ("user_name_", "Username with multiple underscores"),
-        ("user.name_", "Username with period and ending underscore"),
-        ("valid_user123_", "Username with numbers and ending underscore"),
-    ])
-    def test_discord_username_underscore_variations(self, portal_user, username, description):
+    @pytest.mark.parametrize(
+        "username,description",
+        [
+            ("username_", "Username ending with underscore"),
+            ("_username", "Username starting with underscore"),
+            ("user_name_", "Username with multiple underscores"),
+            ("user.name_", "Username with period and ending underscore"),
+            ("valid_user123_", "Username with numbers and ending underscore"),
+        ],
+    )
+    def test_discord_username_underscore_variations(
+        self, portal_user, username, description
+    ):
         """Test various underscore patterns in Discord usernames (issue #150)."""
         profile = VolunteerProfile(
-            user=portal_user,
-            region=Region.NORTH_AMERICA,
-            discord_username=username
+            user=portal_user, region=Region.NORTH_AMERICA, discord_username=username
         )
-        
+
         # This should not raise ValidationError
         profile.full_clean()
 
