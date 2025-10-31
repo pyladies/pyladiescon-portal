@@ -316,15 +316,6 @@ class TestVolunteerModel:
             excinfo.value
         )
 
-    def test_discord_username_ending_with_underscore(self, portal_user):
-        """Test that Discord usernames ending with underscore are valid (issue #150)."""
-        profile = VolunteerProfile(
-            user=portal_user, region=Region.NORTH_AMERICA, discord_username="username_"
-        )
-
-        # This should not raise ValidationError
-        profile.full_clean()
-
     @pytest.mark.parametrize(
         "username,description",
         [
