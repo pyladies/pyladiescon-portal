@@ -36,12 +36,23 @@ If you need any help, have questions, or no longer able to volunteer, please rea
 
 - **Learn the [Volunteer Roles and Responsibilities Documentation](https://conference.pyladies.com/docs/roles_and_responsibilities/)** to understand the expectations.
 
+{% if not profile.github_username %}
+- **⚠️ Update your GitHub username:** Your GitHub profile is currently missing. You will be added to the [@pyladies/pyladiescon-volunteers](https://github.com/orgs/pyladies/teams/pyladiescon-volunteers) GitHub team to access our repositories. Please update your GitHub username on the portal through your [Volunteer Dashboard](https://{{ current_site.domain }}{% url 'volunteer:index' %}) and let your team lead know after you've done that.
+{% else %}
+- **GitHub Access:** You will be added to the [@pyladies/pyladiescon-volunteers](https://github.com/orgs/pyladies/teams/pyladiescon-volunteers) GitHub team using your GitHub username: **{{ profile.github_username }}**. This will give you access to the PyLadiesCon repositories.
+{% endif %}
+
 {% if admin_onboarding %}
 ## Core Organizer Access
 
 Since you've been added as a core organizing team (as a team lead, a staff, or admin), we will also be granting you additional privileges and access, such as:
 
 - The Organizer Role on Discord
+{% if not profile.github_username %}
+- Access to the [@pyladies/global-conference-organizers](https://github.com/orgs/pyladies/teams/global-conference-organizers) GitHub team (**⚠️ Please update your GitHub username on the portal first**)
+{% else %}
+- Access to the [@pyladies/global-conference-organizers](https://github.com/orgs/pyladies/teams/global-conference-organizers) GitHub team
+{% endif %}
 - Access to the PyLadiesCon GDrive ({{ GDRIVE_FOLDER_ID }})
 - Invitation to [Jelly](https://letsjelly.com/)
 - Invitation to the PyLadiesCon Regular Meeting Calendar
