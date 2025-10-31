@@ -1,25 +1,27 @@
 {% for breakdown in stats.volunteer_breakdown %}
-    var data = google.visualization.arrayToDataTable([
-    ['{{ breakdown.columns.0 }}', '{{ breakdown.columns.1 }}'],
-    {% for data in breakdown.data %}
-        ['{{ data.0 }}', {{ data.1 }},],
-    {% endfor %}
-    ]);
-    var paddingHeight = 80; // Adjust as needed for titles, legends, etc.
-    var rowHeight = 30; // Height per bar/row in pixels
-    var chartHeight = (data.getNumberOfRows() * rowHeight) + paddingHeight;
-    var options = {
-    chart: {
-    'title':'{{ breakdown.title }}',
-    hAxis: {title: '{{ breakdown.columns.0 }}', format:'0'},
-    vAxis: {title: '{{ breakdown.columns.1 }}'},
-    height: chartHeight,
-    chartArea: {
-    height: rowHeight,
-    },
-    },
-    bars: 'horizontal'
-    };
-    var chart = new google.charts.Bar(document.getElementById('{{ breakdown.chart_id }}'));
-    chart.draw(data, google.charts.Bar.convertOptions(options));
+var data = google.visualization.arrayToDataTable([
+['{{ breakdown.columns.0 }}', '{{ breakdown.columns.1 }}'],
+{% for data in breakdown.data %}
+['{{ data.0 }}', {{ data.1 }},],
+{% endfor %}
+]);
+var paddingHeight = 120;
+var rowHeight = 40;
+var chartHeight = Math.max(500, (data.getNumberOfRows() * rowHeight) + paddingHeight);
+document.getElementById('{{ breakdown.chart_id }}').style.height = chartHeight + 'px';
+var options = {
+chart: {
+'title':'{{ breakdown.title }}'
+},
+hAxis: {title: '{{ breakdown.columns.1 }}', minValue: 0, format:'0'},
+vAxis: {title: '{{ breakdown.columns.0 }}'},
+height: chartHeight,
+chartArea: {
+width: '75%',
+height: '85%'
+},
+bars: 'horizontal'
+};
+var chart = new google.charts.Bar(document.getElementById('{{ breakdown.chart_id }}'));
+chart.draw(data, google.charts.Bar.convertOptions(options));
 {% endfor %}
