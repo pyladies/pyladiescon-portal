@@ -15,4 +15,14 @@ urlpatterns = [
         views.SponsorshipProfileList.as_view(),
         name="sponsorship_list",
     ),
+    path(
+        "<int:pk>/",
+        views.SponsorshipProfileDetail.as_view(),
+        name="sponsorship_profile_detail",
+    ),
+    path(
+        "<int:pk>/send-invoice/",
+        views.SponsorshipProfileSendInvoice.as_view(),
+        name="sponsorship_send_invoice",
+    ),
 ]

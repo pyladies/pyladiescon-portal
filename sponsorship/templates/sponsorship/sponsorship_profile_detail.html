@@ -1,0 +1,125 @@
+{% extends "portal/base.html" %}
+{% load allauth i18n %}
+{% load django_bootstrap5 %}
+{% block content %}
+    <div class="container">
+        <div class="row">
+            <div class="col-12">
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb">
+                        <li class="breadcrumb-item">
+                            <a href="{% url 'sponsorship:sponsorship_list' %}">Sponsors</a>
+                        </li>
+                        <li class="breadcrumb-item active" aria-current="page">
+                            {{ profile.organization_name }}
+                        </li>
+                    </ol>
+                </nav>
+                <h1 class="display-5">
+                    {{ profile.organization_name }}
+                </h1>
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            Sponsorship Details
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h6>
+                                    Organization Information
+                                </h6>
+                                <p>
+                                    <strong>Name:</strong> {{ profile.organization_name }}
+                                </p>
+                                {% if profile.company_description %}
+                                    <p>
+                                        <strong>Description:</strong> {{ profile.company_description }}
+                                    </p>
+                                {% endif %}
+                                {% if profile.organization_address %}
+                                    <p>
+                                        <strong>Address:</strong>
+                                        <br>
+                                        {{ profile.organization_address|linebreaks }}
+                                    </p>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-6">
+                                <h6>
+                                    Sponsorship Information
+                                </h6>
+                                {% if profile.sponsorship_tier %}
+                                    <p>
+                                        <strong>Tier:</strong> {{ profile.sponsorship_tier.name }} (${{ profile.sponsorship_tier.amount }})
+                                    </p>
+                                {% endif %}
+                                {% if profile.sponsorship_override_amount %}
+                                    <p>
+                                        <strong>Override Amount:</strong> ${{ profile.sponsorship_override_amount }}
+                                    </p>
+                                {% endif %}
+                                <p>
+                                    <strong>Status:</strong>
+                                    <span class="badge {% if profile.progress_status == 5 %}bg-success {% elif profile.progress_status == 6 %}bg-warning {% elif profile.progress_status == 7 %}bg-info {% elif profile.progress_status == 8 %}bg-primary {% elif profile.progress_status == 9 %}bg-success {% else %}bg-secondary{% endif %}">
+                                        {{ profile.get_progress_status_display }}
+                                    </span>
+                                </p>
+                            </div>
+                        </div>
+                        <div class="row mt-3">
+                            <div class="col-md-6">
+                                <h6>
+                                    Contact Information
+                                </h6>
+                                {% if profile.sponsor_contact_name %}
+                                    <p>
+                                        <strong>Contact Name:</strong> {{ profile.sponsor_contact_name }}
+                                    </p>
+                                {% endif %}
+                                {% if profile.sponsors_contact_email %}
+                                    <p>
+                                        <strong>Contact Email:</strong> {{ profile.sponsors_contact_email }}
+                                    </p>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-6">
+                                <h6>
+                                    System Information
+                                </h6>
+                                <p>
+                                    <strong>Created:</strong> {{ profile.created_at|date:"M d, Y" }}
+                                </p>
+                                <p>
+                                    <strong>Last Updated:</strong> {{ profile.updated_at|date:"M d, Y" }}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% if can_send_invoice %}
+                    <div class="card mb-4">
+                        <div class="card-body">
+                            <h5>
+                                Send Invoice Request
+                            </h5>
+                            <p>
+                                Send an email to the PSF accounting team to prepare the sponsorship contract.
+                            </p>
+                            <form method="post"
+                                  action="{% url 'sponsorship:sponsorship_send_invoice' profile.pk %}">
+                                {% csrf_token %}
+                                <button type="submit"
+                                        class="btn btn-primary"
+                                        onclick="return confirm('Are you sure you want to send the invoice request to PSF accounting?')">
+                                    <i class="fas fa-envelope"></i> Send Invoice Request
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+{% endblock content %}

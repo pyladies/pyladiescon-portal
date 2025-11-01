@@ -30,17 +30,21 @@ def send_sponsorship_status_emails(profile):
     )
 
 
-def send_sponsorship_profile_email(user, profile, is_update=False):
-    subject = "Sponsorship Profile Submission Received"
+def send_psf_invoice_request_email(profile):
+    """Send email to PSF accounting team requesting sponsorship contract preparation."""
+    subject = f"PyLadiesCon Sponsorship Contract Request: {profile.organization_name}"
     message = render_to_string(
-        "sponsorship/email/sponsor_status_update.txt",
-        {"user": user, "profile": profile, "is_update": is_update},
+        "sponsorship/email/psf_invoice_request.txt",
+        {"profile": profile},
     )
+
+    # TODO: Replace with actual PSF accounting email addresses
+    psf_accounting_emails = ["accounting@python.org", "sponsorship@python.org"]
 
     send_mail(
         subject,
         message,
         settings.DEFAULT_FROM_EMAIL,
-        [user.email],
+        psf_accounting_emails,
         fail_silently=False,
     )
