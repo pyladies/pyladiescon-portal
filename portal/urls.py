@@ -26,6 +26,8 @@ from volunteer import views as volunteer_view
 urlpatterns = [
     path("", views.index, name="index"),
     path("volunteer/", include("volunteer.urls", namespace="volunteer")),
+    path("speaker/", include("speaker.urls", namespace="speaker")),
+    path("event/", include("event.urls", namespace="event")),
     path("admin/", admin.site.urls),
     path("accounts/", include("allauth.urls")),
     path("sponsorship/", include("sponsorship.urls", namespace="sponsorship")),
