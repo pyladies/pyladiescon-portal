@@ -1,0 +1,17 @@
+Dear PSF Accounting Team,
+
+We have an approved sponsorship from {{ profile.organization_name }} for PyLadiesCon.
+
+Please prepare the sponsorship contract for:
+- Organization: {{ profile.organization_name }}
+- Sponsorship Tier: {{ profile.sponsorship_tier.name }}
+- Amount: ${{ profile.sponsorship_tier.amount }}{% if profile.sponsorship_override_amount %} (override: ${{ profile.sponsorship_override_amount }}){% endif %}
+- Contact: {{ profile.sponsor_contact_name }}
+- Email: {{ profile.sponsors_contact_email }}
+
+The sponsorship profile has been updated to "Pending Invoice" status.
+
+Please let us know if you need any additional information.
+
+Best regards,
+PyLadiesCon Team
