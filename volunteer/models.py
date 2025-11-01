@@ -394,6 +394,39 @@ def send_internal_notification_email(instance):
     )
 
 
+def send_volunteer_cancelled_emails(instance, teams_before_cancel, roles_before_cancel):
+    """Send email notifications when a volunteer is cancelled.
+
+    Send email to the volunteer, and send emails to the team leads.
+    """
+    context = {
+        "profile": instance,
+        "teams_removed": teams_before_cancel,
+        "roles_removed": roles_before_cancel,
+    }
+    send_email(
+        subject=f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} Volunteer Application Cancelled",
+        recipient_list=[instance.user.email],
+        markdown_template="emails/volunteer/volunteer_cancellation_confirmation.md",
+        context=context,
+    )
+
+    # Send notification to team leads
+    for team in teams_before_cancel:
+        team_leads_emails = [lead.user.email for lead in team.team_leads.all()]
+        if team_leads_emails:
+            context = {
+                "profile": instance,
+                "team": team,
+            }
+            send_email(
+                subject=f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} Team Member Cancelled: {instance.user.get_full_name() or instance.user.username}",
+                recipient_list=team_leads_emails,
+                markdown_template="emails/volunteer/team_lead_cancellation_notification.md",
+                context=context,
+            )
+
+
 @receiver(post_save, sender=VolunteerProfile)
 def volunteer_profile_signal(sender, instance, created, **kwargs):
     """Things to do whenever a volunteer profile is created or updated.

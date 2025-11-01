@@ -47,4 +47,9 @@ urlpatterns = [
         views.ResendOnboardingEmailView.as_view(),
         name="resend_onboarding_email",
     ),
+    path(
+        "cancel/<int:pk>/",
+        login_required(views.CancelVolunteeringView.as_view()),
+        name="cancel_volunteering",
+    ),
 ]
