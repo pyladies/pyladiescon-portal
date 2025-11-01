@@ -11,16 +11,23 @@
                 <i class="fa-brands fa-github"></i> GitHub Username Required
             </h4>
             <p>
-                Your GitHub username is currently missing. You will be added to the 
-                <a href="https://github.com/orgs/pyladies/teams/pyladiescon-volunteers" target="_blank" class="alert-link">@pyladies/pyladiescon-volunteers</a> 
+                Your GitHub username is currently missing. You will be added to the
+                <a href="https://github.com/orgs/pyladies/teams/pyladiescon-volunteers"
+                   target="_blank"
+                   class="alert-link">@pyladies/pyladiescon-volunteers</a>
                 GitHub team to access our repositories.
             </p>
             <hr>
             <p class="mb-0">
-                Please <a href="{% url 'volunteer:volunteer_profile_edit' profile.id %}" class="alert-link"><strong>update your profile</strong></a> 
+                Please <a href="{% url 'volunteer:volunteer_profile_edit' profile.id %}"
+    class="alert-link"><strong>update your profile</strong></a>
                 with your GitHub username and let your team lead know after you've done that.
             </p>
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            <button type="button"
+                    class="btn-close"
+                    data-bs-dismiss="alert"
+                    aria-label="Close">
+            </button>
         </div>
     {% endif %}
     {% if user.is_superuser %}
