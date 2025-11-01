@@ -127,7 +127,6 @@ class TestVolunteer:
             username="other",
         )
         another_profile = VolunteerProfile(user=another_user)
-        another_profile.languages_spoken = [LANGUAGES[0]]
         another_profile.region = Region.NORTH_AMERICA
         another_profile.save()
 
@@ -768,7 +767,6 @@ class TestCancelVolunteering:
     ):
         """Test that volunteers can cancel their own application."""
         profile = VolunteerProfile(user=portal_user)
-        profile.languages_spoken = [LANGUAGES[0]]
         profile.application_status = ApplicationStatus.APPROVED
         profile.save()
 
@@ -802,7 +800,6 @@ class TestCancelVolunteering:
         """Test that staff can cancel volunteer applications."""
         volunteer_user = django_user_model.objects.create_user(username="volunteer")
         profile = VolunteerProfile(user=volunteer_user)
-        profile.languages_spoken = [LANGUAGES[0]]
         profile.application_status = ApplicationStatus.APPROVED
         profile.save()
 
@@ -834,7 +831,6 @@ class TestCancelVolunteering:
         """Test that users cannot cancel other users' applications without permission."""
         volunteer_user = django_user_model.objects.create_user(username="volunteer")
         profile = VolunteerProfile(user=volunteer_user)
-        profile.languages_spoken = [LANGUAGES[0]]
         profile.application_status = ApplicationStatus.APPROVED
         profile.save()
 
@@ -842,26 +838,15 @@ class TestCancelVolunteering:
         response = client.post(
             reverse("volunteer:cancel_volunteering", kwargs={"pk": profile.id})
         )
-
-        # Check redirect to index with error
-        assertRedirects(response, reverse("volunteer:index"))
+        assert response.status_code == 403
 
         # Check profile was NOT updated
         profile.refresh_from_db()
         assert profile.application_status == ApplicationStatus.APPROVED
 
-        # Check error message
-        messages = list(get_messages(response.wsgi_request))
-        assert len(messages) == 1
-        assert (
-            "You don't have permission to cancel this volunteer application."
-            in messages[0].message
-        )
-
     def test_cancel_already_cancelled_application(self, client, portal_user):
         """Test that cancelling an already cancelled application shows warning."""
         profile = VolunteerProfile(user=portal_user)
-        profile.languages_spoken = [LANGUAGES[0]]
         profile.application_status = ApplicationStatus.CANCELLED
         profile.save()
 
@@ -887,14 +872,7 @@ class TestCancelVolunteering:
         response = client.post(
             reverse("volunteer:cancel_volunteering", kwargs={"pk": 99999})
         )
-
-        # Check redirect to index with error
-        assertRedirects(response, reverse("volunteer:index"))
-
-        # Check error message
-        messages = list(get_messages(response.wsgi_request))
-        assert len(messages) == 1
-        assert "Volunteer profile not found." in messages[0].message
+        assert response.status_code == 403
 
     def test_cancel_volunteering_with_team_leads(
         self, client, portal_user, django_user_model
@@ -902,7 +880,6 @@ class TestCancelVolunteering:
         """Test that cancelling volunteering sends notifications to team leads."""
         # Create volunteer
         profile = VolunteerProfile(user=portal_user)
-        profile.languages_spoken = [LANGUAGES[0]]
         profile.application_status = ApplicationStatus.APPROVED
         profile.save()
 
@@ -911,7 +888,6 @@ class TestCancelVolunteering:
             username="teamlead", email="teamlead@example.com"
         )
         team_lead_profile = VolunteerProfile(user=team_lead_user)
-        team_lead_profile.languages_spoken = [LANGUAGES[0]]
         team_lead_profile.save()
 
         # Create team with lead
@@ -928,54 +904,11 @@ class TestCancelVolunteering:
         assert profile.application_status == ApplicationStatus.CANCELLED
         assert profile.teams.count() == 0
 
-    def test_volunteer_list_excludes_cancelled(
-        self, client, portal_user, django_user_model
-    ):
-        """Test that cancelled applications are excluded from the volunteer list."""
-        # Create profiles with different statuses
-        approved_user = django_user_model.objects.create_user(username="approved")
-        approved_profile = VolunteerProfile(user=approved_user)
-        approved_profile.languages_spoken = [LANGUAGES[0]]
-        approved_profile.application_status = ApplicationStatus.APPROVED
-        approved_profile.save()
-
-        cancelled_user = django_user_model.objects.create_user(username="cancelled")
-        cancelled_profile = VolunteerProfile(user=cancelled_user)
-        cancelled_profile.languages_spoken = [LANGUAGES[0]]
-        cancelled_profile.application_status = ApplicationStatus.CANCELLED
-        cancelled_profile.save()
-
-        pending_user = django_user_model.objects.create_user(username="pending")
-        pending_profile = VolunteerProfile(user=pending_user)
-        pending_profile.languages_spoken = [LANGUAGES[0]]
-        pending_profile.application_status = ApplicationStatus.PENDING
-        pending_profile.save()
-
-        # Make portal_user staff to access the list
-        portal_user.is_staff = True
-        portal_user.save()
-
-        client.force_login(portal_user)
-        response = client.get(reverse("volunteer:volunteer_profile_list"))
-
-        assert response.status_code == 200
-
-        # Get the queryset from the table
-        table = response.context["table"]
-        profiles_in_table = [item for item in table.data]
-
-        # Check that cancelled profile is not in the list
-        profile_ids = [profile.id for profile in profiles_in_table]
-        assert approved_profile.id in profile_ids
-        assert pending_profile.id in profile_ids
-        assert cancelled_profile.id not in profile_ids
-
     def test_cancel_volunteering_generic_exception(
         self, client, portal_user, monkeypatch
     ):
         """Test the generic exception handler in cancel volunteering."""
         profile = VolunteerProfile(user=portal_user)
-        profile.languages_spoken = [LANGUAGES[0]]
         profile.application_status = ApplicationStatus.APPROVED
         profile.save()
 
@@ -1014,7 +947,6 @@ class TestCancelVolunteering:
             username=f"testuser_{uuid.uuid4().hex[:8]}"
         )
         profile = VolunteerProfile(user=another_user)
-        profile.languages_spoken = [LANGUAGES[0]]
         profile.application_status = ApplicationStatus.APPROVED
         profile.save()
 
@@ -1046,7 +978,6 @@ class TestCancelVolunteering:
             username=f"user_rejected_{uuid.uuid4().hex[:8]}"
         )
         profile1 = VolunteerProfile(user=user1)
-        profile1.languages_spoken = [LANGUAGES[0]]
         profile1.application_status = ApplicationStatus.REJECTED
         profile1.save()
 
@@ -1058,7 +989,6 @@ class TestCancelVolunteering:
             username=f"user_cancelled_{uuid.uuid4().hex[:8]}"
         )
         profile2 = VolunteerProfile(user=user2)
-        profile2.languages_spoken = [LANGUAGES[0]]
         profile2.application_status = ApplicationStatus.CANCELLED
         profile2.save()
 

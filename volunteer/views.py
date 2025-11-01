@@ -1,6 +1,5 @@
 import django_filters
 import django_tables2 as tables
-from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.postgres.search import SearchQuery, SearchVector
@@ -14,13 +13,14 @@ from django.views.generic.edit import CreateView, DeleteView, UpdateView
 from django_filters.views import FilterView
 from django_tables2.views import SingleTableMixin
 
-from common.mixins import AdminRequiredMixin
+from common.mixins import AdminRequiredMixin, VolunteerOrAdminRequiredMixin
 
 from .forms import VolunteerProfileForm, VolunteerProfileReviewForm
 from .models import (  # Language,
     ApplicationStatus,
     Team,
     VolunteerProfile,
+    send_volunteer_cancelled_emails,
     send_volunteer_onboarding_email,
 )
 
@@ -189,14 +189,6 @@ class VolunteerProfileList(VolunteerAdminRequiredMixin, SingleTableMixin, Filter
     table_class = VolunteerProfileTable
     filterset_class = VolunteerProfileFilter
 
-    def get_queryset(self):
-        """Filter out cancelled applications by default."""
-        return (
-            super()
-            .get_queryset()
-            .exclude(application_status=ApplicationStatus.CANCELLED)
-        )
-
 
 class VolunteerProfileView(DetailView):
     model = VolunteerProfile
@@ -329,25 +321,14 @@ class ResendOnboardingEmailView(VolunteerAdminRequiredMixin, View):
         return redirect("volunteer:volunteer_profile_manage", pk=pk)
 
 
-class CancelVolunteeringView(View):
+class CancelVolunteeringView(VolunteerOrAdminRequiredMixin, View):
     """View to handle volunteer application cancellation."""
 
     def post(self, request, pk):
         try:
             profile = VolunteerProfile.objects.get(pk=pk)
 
-            # Check permissions - only the volunteer themselves or staff can cancel
-            if profile.user != request.user and not (
-                request.user.is_staff or request.user.is_superuser
-            ):
-                messages.add_message(
-                    request,
-                    messages.ERROR,
-                    "You don't have permission to cancel this volunteer application.",
-                )
-                return redirect("volunteer:index")
-
-            # Check if already cancelled
+            # Check if already canceled
             if profile.application_status == ApplicationStatus.CANCELLED:
                 messages.add_message(
                     request,
@@ -356,44 +337,18 @@ class CancelVolunteeringView(View):
                 )
                 return redirect("volunteer:volunteer_profile_detail", pk=pk)
 
-            # Store team information before clearing for email notifications
+            # Store team and role information before clearing for email notifications
             teams_before_cancel = list(profile.teams.all())
-
+            roles_before_cancel = list(profile.roles.all())
             # Update the volunteer profile
             profile.application_status = ApplicationStatus.CANCELLED
             profile.teams.clear()  # Remove from all teams
+            profile.roles.clear()  # Remove from all roles
             profile.save()
 
-            # Send confirmation email to volunteer
-            from .models import _send_email
-
-            context = {
-                "profile": profile,
-                "teams_removed": teams_before_cancel,
-            }
-            _send_email(
-                subject=f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} Volunteer Application Cancelled",
-                recipient_list=[profile.user.email],
-                html_template="volunteer/email/volunteer_cancellation_confirmation.html",
-                text_template="volunteer/email/volunteer_cancellation_confirmation.txt",
-                context=context,
+            send_volunteer_cancelled_emails(
+                profile, teams_before_cancel, roles_before_cancel
             )
-
-            # Send notification to team leads
-            for team in teams_before_cancel:
-                team_leads_emails = [lead.user.email for lead in team.team_leads.all()]
-                if team_leads_emails:
-                    context = {
-                        "profile": profile,
-                        "team": team,
-                    }
-                    _send_email(
-                        subject=f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} Team Member Cancelled: {profile.user.get_full_name() or profile.user.username}",
-                        recipient_list=team_leads_emails,
-                        html_template="volunteer/email/team_lead_cancellation_notification.html",
-                        text_template="volunteer/email/team_lead_cancellation_notification.txt",
-                        context=context,
-                    )
 
             messages.add_message(
                 request,
@@ -407,11 +362,6 @@ class CancelVolunteeringView(View):
             else:
                 return redirect("volunteer:index")
 
-        except VolunteerProfile.DoesNotExist:
-            messages.add_message(
-                request, messages.ERROR, "Volunteer profile not found."
-            )
-            return redirect("volunteer:index")
         except Exception as e:
             messages.add_message(
                 request, messages.ERROR, f"An error occurred while cancelling: {str(e)}"
