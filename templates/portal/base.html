@@ -1,5 +1,6 @@
 {% load i18n %}
 {% load django_bootstrap5 %}
+{% load static %}
 <!DOCTYPE html>
 <html lang="en">
     <head>
@@ -24,12 +25,13 @@
               content="{% block og_image_alt %}PyLadiesCon logo{% endblock og_image_alt %}">
         <meta property="og:site_name" content="PyLadiesCon Portal" />
         <meta property="og:locale" content="en_US">
-        {% block extra_head %}
-            <script src="https://kit.fontawesome.com/8774ceef9d.js"
-                    crossorigin="anonymous"></script>
-        {% endblock extra_head %}
-        {% bootstrap_css %}
-        {% bootstrap_javascript %}
+    {% block extra_head %}
+        <script src="https://kit.fontawesome.com/8774ceef9d.js"
+            crossorigin="anonymous"></script>
+    {% endblock extra_head %}
+    {% bootstrap_css %}
+    <link rel="stylesheet" href="{% static 'css/custom.css' %}">
+    {% bootstrap_javascript %}
         {# Display django.contrib.messages as Bootstrap alerts #}
         {% bootstrap_messages %}
     </head>
