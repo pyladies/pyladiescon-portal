@@ -16,7 +16,7 @@ from django.conf import settings
 from django.contrib.auth.models import User
 from django.core.management.base import BaseCommand, CommandError
 
-from volunteer.models import PyladiesChapter
+from volunteer.models import PyladiesChapter, Role, Team
 
 
 class Command(BaseCommand):
@@ -46,6 +46,8 @@ class Command(BaseCommand):
         # Generate data
         self._generate_users()
         self._generate_pyladies_chapters()
+        self._generate_roles()
+        self._generate_teams()
 
         self.stdout.write(
             self.style.SUCCESS(
@@ -238,4 +240,120 @@ class Command(BaseCommand):
 
         self.stdout.write(
             self.style.SUCCESS(f"Created {created_count} new PyLadies chapters\n")
+        )
+
+    def _generate_roles(self):
+        """Generate sample volunteer roles."""
+        self.stdout.write("Generating volunteer roles...")
+
+        roles_data = [
+            {
+                "short_name": "Frontend Developer",
+                "description": "Build and maintain frontend features using modern web technologies",
+            },
+            {
+                "short_name": "Backend Developer",
+                "description": "Develop and maintain backend services and APIs",
+            },
+            {
+                "short_name": "Content Writer",
+                "description": "Create and edit content for blog posts, documentation, and social media",
+            },
+            {
+                "short_name": "Social Media Manager",
+                "description": "Manage social media accounts and create engaging content",
+            },
+            {
+                "short_name": "Designer",
+                "description": "Create visual assets, graphics, and UI/UX designs",
+            },
+            {
+                "short_name": "Reviewer",
+                "description": "Review proposals, applications, and other submissions",
+            },
+            {
+                "short_name": "Event Coordinator",
+                "description": "Help organize and coordinate conference events and activities",
+            },
+        ]
+
+        created_count = 0
+        for role_data in roles_data:
+            role, created = Role.objects.get_or_create(
+                short_name=role_data["short_name"],
+                defaults={"description": role_data["description"]},
+            )
+            if created:
+                created_count += 1
+                self.stdout.write(
+                    self.style.SUCCESS(f"  ✓ Created role: {role.short_name}")
+                )
+            else:
+                self.stdout.write(
+                    self.style.WARNING(f"  ~ Role already exists: {role.short_name}")
+                )
+
+        self.stdout.write(
+            self.style.SUCCESS(f"Created {created_count} new roles\n")
+        )
+
+    def _generate_teams(self):
+        """Generate sample volunteer teams."""
+        self.stdout.write("Generating volunteer teams...")
+
+        teams_data = [
+            {
+                "short_name": "Website Team",
+                "description": "Responsible for developing and maintaining the conference website",
+                "open_to_new_members": True,
+            },
+            {
+                "short_name": "Social Media Team",
+                "description": "Manages social media presence and content creation",
+                "open_to_new_members": True,
+            },
+            {
+                "short_name": "Content Team",
+                "description": "Creates blog posts, documentation, and other written content",
+                "open_to_new_members": True,
+            },
+            {
+                "short_name": "Design Team",
+                "description": "Creates visual assets and designs for the conference",
+                "open_to_new_members": True,
+            },
+            {
+                "short_name": "Program Committee",
+                "description": "Reviews and selects talks and proposals for the conference",
+                "open_to_new_members": False,
+            },
+            {
+                "short_name": "Sponsorship Team",
+                "description": "Manages sponsor relationships and benefits",
+                "open_to_new_members": False,
+            },
+        ]
+
+        created_count = 0
+        for team_data in teams_data:
+            team, created = Team.objects.get_or_create(
+                short_name=team_data["short_name"],
+                defaults={
+                    "description": team_data["description"],
+                    "open_to_new_members": team_data["open_to_new_members"],
+                },
+            )
+            if created:
+                created_count += 1
+                status = "open" if team.open_to_new_members else "closed"
+                self.stdout.write(
+                    self.style.SUCCESS(f"  ✓ Created team: {team.short_name} ({status})")
+                )
+            else:
+                self.stdout.write(
+                    self.style.WARNING(f"  ~ Team already exists: {team.short_name}")
+                )
+
+        self.stdout.write(
+            self.style.SUCCESS(f"Created {created_count} new teams\n")
         )
