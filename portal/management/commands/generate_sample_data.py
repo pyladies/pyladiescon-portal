@@ -182,7 +182,7 @@ class Command(BaseCommand):
 
         chapters_data = [
             {
-                "chapter_name": "PyLadies San Francisco",
+                "chapter_name": "San Francisco",
                 "chapter_description": "PyLadies SF - San Francisco Bay Area",
                 "chapter_email": "sf@pyladies.com",
                 "chapter_website": "https://www.meetup.com/pyladies-sf/",
