@@ -1,5 +1,6 @@
 {% load i18n %}
 {% load django_bootstrap5 %}
+{% load static %}
 <!DOCTYPE html>
 <html lang="en">
     <head>
@@ -10,6 +11,10 @@
             {% block head_title %}
             {% endblock head_title %}
         </title>
+        <link rel="icon" type="image/png" href="{% static 'favicon.png' %}" />
+        <link rel="apple-touch-icon"
+              type="image/png"
+              href="{% static 'favicon.png' %}" />
         <meta property="og:title"
               content="{% block og_title %}PyLadiesCon Portal{% endblock og_title %}" />
         <meta property="og:description"
