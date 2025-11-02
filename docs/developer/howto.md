@@ -15,47 +15,47 @@ docker-compose logs -f
 
 ## Creating Migration Files
 
-With docker:
+=== "With Docker"
 
-```
-make manage makemigrations
-```
+    ```
+    make manage makemigrations
+    ```
 
-Without Docker
+=== "Without Docker"
 
-```
-python manage.py makemigrations
-```
+    ```
+    python manage.py makemigrations
+    ```
 
 ## Running Migrations
 
-With docker:
+=== "With Docker"
 
-```
-make manage migrate
-```
+    ```
+    make manage migrate
+    ```
 
-Without Docker
+=== "Without Docker"
 
-```
-python manage.py migrate
-```
+    ```
+    python manage.py migrate
+    ```
 
 ## Emails in local env
 
 When you sign up you'll receive an email with a code to verify your account. In Development those emails don't leave your machine so here's the steps to get the code.
 
-### With Docker
+=== "With Docker"
 
-The docker compose development environment includes a
-[maildev](https://maildev.github.io/maildev/)
-instance for previewing emails locally.
+    The docker compose development environment includes a
+    [maildev](https://maildev.github.io/maildev/)
+    instance for previewing emails locally.
 
-It is accessible at <http://localhost:1080> and will show all emails sent by the application.
+    It is accessible at <http://localhost:1080> and will show all emails sent by the application.
 
-### Without Docker
+=== "Without Docker"
 
-Check your terminal, the email will be printed out for you.
+    Check your terminal, the email will be printed out for you.
 
 ## Set up your Account as a Staff user
 
@@ -66,17 +66,17 @@ Check your terminal, the email will be printed out for you.
 5. Your account is now verified.
 6. On the terminal, go to Django shell:
 
-With Docker:
+=== "With Docker"
 
-```
-make manage shell
-```
+    ```
+    make manage shell
+    ```
 
-Without Docker
+=== "Without Docker"
 
-```
-python manage.py shell
-```
+    ```
+    python manage.py shell
+    ```
 
 7. Set your account as a staff and superuser:
 
@@ -147,39 +147,45 @@ LANGUAGES = (
 ```
 
 2. Then you should run the `makemessages` command:
-    1. With Docker:
-        ```
-        make create_translations LANG=<locale-code>
-        ```
 
-        For example for Brazilian Portuguese:
+=== "With Docker"
 
-        ```
-        make create_translations LANG=pt_BR
-        ```
+    ```
+    make create_translations LANG=<locale-code>
+    ```
 
-    2. Without Docker:
-        ```
-        python manage.py makemessages -l <locale-code>
-        ```
+    For example for Brazilian Portuguese:
 
-        For example for Brazilian Portuguese:
+    ```
+    make create_translations LANG=pt_BR
+    ```
 
-        ```
-        python manage.py makemessages -l pt_BR
-        ```
+=== "Without Docker"
+
+    ```
+    python manage.py makemessages -l <locale-code>
+    ```
+
+    For example for Brazilian Portuguese:
+
+    ```
+    python manage.py makemessages -l pt_BR
+    ```
 
 Note that for the creation of new languages we use ISO/IEC 15897 for formatting the language tag.
 
 3. Translate a couple of messages in the generated `.po` file;
 
-4. Then complile the translations:
-    1. With Docker:
+4. Then compile the translations:
+
+=== "With Docker"
+
     ```
     make compile_translations
     ```
 
-    2. Without Docker:
+=== "Without Docker"
+
     ```
     python manage.py compilemessages
     ```
