@@ -192,7 +192,7 @@ For local development and testing, you can generate sample data to populate your
 === "With Docker"
 
     ```sh
-    docker compose run --rm web python manage.py generate_sample_data
+    make manage generate_sample_data
     ```
 
 === "Without Docker"
