@@ -85,9 +85,9 @@ class TestGenerateSampleDataCommand:
 
         assert PyladiesChapter.objects.count() > initial_count
         assert PyladiesChapter.objects.filter(
-            chapter_name="PyLadies San Francisco"
+            chapter_name="San Francisco"
         ).exists()
-        assert PyladiesChapter.objects.filter(chapter_name="PyLadies Tokyo").exists()
+        assert PyladiesChapter.objects.filter(chapter_name="Tokyo").exists()
 
     def test_generates_roles(self, settings):
         """Test that volunteer roles are created."""
