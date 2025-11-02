@@ -200,7 +200,7 @@ class Command(BaseCommand):
                 "chapter_website": "https://www.meetup.com/pyladies-london/",
             },
             {
-                "chapter_name": "PyLadies Berlin",
+                "chapter_name": "Berlin",
                 "chapter_description": "PyLadies Berlin - Germany",
                 "chapter_email": "berlin@pyladies.com",
                 "chapter_website": "https://www.meetup.com/pyladies-berlin/",
