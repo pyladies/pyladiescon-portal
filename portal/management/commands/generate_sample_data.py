@@ -224,7 +224,7 @@ class Command(BaseCommand):
                 "chapter_website": "https://www.meetup.com/pyladies-lagos/",
             },
             {
-                "chapter_name": "PyLadies Sydney",
+                "chapter_name": "Sydney",
                 "chapter_description": "PyLadies Sydney - Australia",
                 "chapter_email": "sydney@pyladies.com",
                 "chapter_website": "https://www.meetup.com/pyladies-sydney/",
