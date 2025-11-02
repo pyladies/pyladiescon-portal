@@ -238,7 +238,10 @@ class TestGenerateSampleDataCommand:
         def mock_filter(*args, **kwargs):
             result = original_filter(*args, **kwargs)
             # If filtering for volunteers, return empty queryset
-            if "username__startswith" in kwargs and kwargs["username__startswith"] == "volunteer":
+            if (
+                "username__startswith" in kwargs
+                and kwargs["username__startswith"] == "volunteer"
+            ):
                 return User.objects.none()
             return result
 
@@ -260,7 +263,10 @@ class TestGenerateSampleDataCommand:
         def mock_filter(*args, **kwargs):
             result = original_filter(*args, **kwargs)
             # If filtering for sponsor contacts, return empty queryset
-            if "username__startswith" in kwargs and kwargs["username__startswith"] == "sponsor_contact":
+            if (
+                "username__startswith" in kwargs
+                and kwargs["username__startswith"] == "sponsor_contact"
+            ):
                 return User.objects.none()
             return result
 
