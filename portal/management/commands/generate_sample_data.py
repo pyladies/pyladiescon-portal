@@ -212,7 +212,7 @@ class Command(BaseCommand):
                 "chapter_website": "https://www.meetup.com/pyladies-tokyo/",
             },
             {
-                "chapter_name": "PyLadies São Paulo",
+                "chapter_name": "São Paulo",
                 "chapter_description": "PyLadies SP - São Paulo, Brazil",
                 "chapter_email": "sp@pyladies.com",
                 "chapter_website": "https://www.meetup.com/pyladies-sp/",
