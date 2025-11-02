@@ -1,3 +1,0 @@
-[console_scripts]
-pip-audit=pip_audit._cli:audit
-
