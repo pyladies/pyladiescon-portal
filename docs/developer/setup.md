@@ -201,7 +201,7 @@ For local development and testing, you can generate sample data to populate your
     python manage.py generate_sample_data
     ```
 
-All generated users have the password: `password123`
+All generated users have the password: `password123`.
 
 The command is idempotent, meaning you can run it multiple times without creating duplicate data.
 
