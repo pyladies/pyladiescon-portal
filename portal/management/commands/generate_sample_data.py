@@ -17,10 +17,20 @@ from django.contrib.auth.models import User
 from django.core.management.base import BaseCommand, CommandError
 from django.db.models.signals import post_save
 
-from sponsorship.models import SponsorshipProfile, SponsorshipProgressStatus, SponsorshipTier
+from sponsorship.models import (
+    SponsorshipProfile,
+    SponsorshipProgressStatus,
+    SponsorshipTier,
+)
 from sponsorship.signals import sponsorship_profile_signal
 from volunteer.constants import ApplicationStatus, Region
-from volunteer.models import PyladiesChapter, Role, Team, VolunteerProfile, volunteer_profile_signal
+from volunteer.models import (
+    PyladiesChapter,
+    Role,
+    Team,
+    VolunteerProfile,
+    volunteer_profile_signal,
+)
 
 
 class Command(BaseCommand):
@@ -57,9 +67,7 @@ class Command(BaseCommand):
         self._generate_sponsorship_profiles()
 
         self.stdout.write(
-            self.style.SUCCESS(
-                "Sample data generation completed successfully!"
-            )
+            self.style.SUCCESS("Sample data generation completed successfully!")
         )
 
     def _generate_users(self):
@@ -166,9 +174,7 @@ class Command(BaseCommand):
                     self.style.WARNING(f"  ~ User already exists: {user.username}")
                 )
 
-        self.stdout.write(
-            self.style.SUCCESS(f"Created {created_count} new users\n")
-        )
+        self.stdout.write(self.style.SUCCESS(f"Created {created_count} new users\n"))
 
     def _generate_pyladies_chapters(self):
         """Generate sample PyLadies chapters."""
@@ -242,7 +248,9 @@ class Command(BaseCommand):
                 )
             else:
                 self.stdout.write(
-                    self.style.WARNING(f"  ~ Chapter already exists: {chapter.chapter_name}")
+                    self.style.WARNING(
+                        f"  ~ Chapter already exists: {chapter.chapter_name}"
+                    )
                 )
 
         self.stdout.write(
@@ -300,9 +308,7 @@ class Command(BaseCommand):
                     self.style.WARNING(f"  ~ Role already exists: {role.short_name}")
                 )
 
-        self.stdout.write(
-            self.style.SUCCESS(f"Created {created_count} new roles\n")
-        )
+        self.stdout.write(self.style.SUCCESS(f"Created {created_count} new roles\n"))
 
     def _generate_teams(self):
         """Generate sample volunteer teams."""
@@ -354,16 +360,16 @@ class Command(BaseCommand):
                 created_count += 1
                 status = "open" if team.open_to_new_members else "closed"
                 self.stdout.write(
-                    self.style.SUCCESS(f"  ✓ Created team: {team.short_name} ({status})")
+                    self.style.SUCCESS(
+                        f"  ✓ Created team: {team.short_name} ({status})"
+                    )
                 )
             else:
                 self.stdout.write(
                     self.style.WARNING(f"  ~ Team already exists: {team.short_name}")
                 )
 
-        self.stdout.write(
-            self.style.SUCCESS(f"Created {created_count} new teams\n")
-        )
+        self.stdout.write(self.style.SUCCESS(f"Created {created_count} new teams\n"))
 
     def _generate_volunteer_profiles(self):
         """Generate sample volunteer profiles with various statuses."""
@@ -371,7 +377,7 @@ class Command(BaseCommand):
 
         # Temporarily disable the post_save signal to avoid sending emails during data generation
         post_save.disconnect(volunteer_profile_signal, sender=VolunteerProfile)
-        
+
         try:
             self._create_volunteer_profiles()
         finally:
@@ -382,18 +388,20 @@ class Command(BaseCommand):
         """Create the actual volunteer profiles."""
         # Get the volunteers (non-staff users)
         volunteers = User.objects.filter(username__startswith="volunteer")
-        
+
         # Get teams, roles, and chapters for assignment
         teams = list(Team.objects.all())
         roles = list(Role.objects.all())
         chapters = list(PyladiesChapter.objects.all())
-        
+
         if not volunteers.exists():
             self.stdout.write(
-                self.style.WARNING("  ! No volunteer users found. Skipping profile generation.\n")
+                self.style.WARNING(
+                    "  ! No volunteer users found. Skipping profile generation.\n"
+                )
             )
             return
-        
+
         profiles_data = [
             {
                 "user": volunteers[0],  # volunteer1
@@ -402,7 +410,9 @@ class Command(BaseCommand):
                 "github_username": "alice-volunteer",
                 "region": Region.NORTH_AMERICA,
                 "availability_hours_per_week": 10,
-                "teams": teams[:2] if len(teams) >= 2 else teams,  # Website & Social Media
+                "teams": (
+                    teams[:2] if len(teams) >= 2 else teams
+                ),  # Website & Social Media
                 "roles": roles[:2] if len(roles) >= 2 else roles,  # Frontend & Backend
                 "chapter": chapters[0] if chapters else None,  # San Francisco
             },
@@ -413,7 +423,9 @@ class Command(BaseCommand):
                 "instagram_username": "bob_pyladies",
                 "region": Region.EUROPE,
                 "availability_hours_per_week": 5,
-                "teams": teams[1:3] if len(teams) >= 3 else teams,  # Social Media & Content
+                "teams": (
+                    teams[1:3] if len(teams) >= 3 else teams
+                ),  # Social Media & Content
                 "roles": [roles[3]] if len(roles) >= 4 else [],  # Social Media Manager
                 "chapter": chapters[2] if len(chapters) >= 3 else None,  # London
             },
@@ -451,7 +463,7 @@ class Command(BaseCommand):
                 "chapter": chapters[6] if len(chapters) >= 7 else None,  # Lagos
             },
         ]
-        
+
         created_count = 0
         for profile_data in profiles_data:
             profile, created = VolunteerProfile.objects.get_or_create(
@@ -464,18 +476,20 @@ class Command(BaseCommand):
                     "bluesky_username": profile_data.get("bluesky_username", ""),
                     "x_username": profile_data.get("x_username", ""),
                     "region": profile_data["region"],
-                    "availability_hours_per_week": profile_data["availability_hours_per_week"],
+                    "availability_hours_per_week": profile_data[
+                        "availability_hours_per_week"
+                    ],
                     "chapter": profile_data["chapter"],
                 },
             )
-            
+
             if created:
                 # Add many-to-many relationships
                 if profile_data["teams"]:
                     profile.teams.set(profile_data["teams"])
                 if profile_data["roles"]:
                     profile.roles.set(profile_data["roles"])
-                
+
                 created_count += 1
                 self.stdout.write(
                     self.style.SUCCESS(
@@ -488,7 +502,7 @@ class Command(BaseCommand):
                         f"  ~ Profile already exists for {profile.user.username}"
                     )
                 )
-        
+
         self.stdout.write(
             self.style.SUCCESS(f"Created {created_count} new volunteer profiles\n")
         )
@@ -537,7 +551,9 @@ class Command(BaseCommand):
             if created:
                 created_count += 1
                 self.stdout.write(
-                    self.style.SUCCESS(f"  ✓ Created tier: {tier.name} (${tier.amount})")
+                    self.style.SUCCESS(
+                        f"  ✓ Created tier: {tier.name} (${tier.amount})"
+                    )
                 )
             else:
                 self.stdout.write(
@@ -554,7 +570,7 @@ class Command(BaseCommand):
 
         # Temporarily disable the post_save signal to avoid sending emails during data generation
         post_save.disconnect(sponsorship_profile_signal, sender=SponsorshipProfile)
-        
+
         try:
             self._create_sponsorship_profiles()
         finally:
@@ -565,22 +581,26 @@ class Command(BaseCommand):
         """Create the actual sponsorship profiles."""
         # Get sponsor contact users
         sponsor_users = User.objects.filter(username__startswith="sponsor_contact")
-        
+
         # Get sponsorship tiers
         tiers = list(SponsorshipTier.objects.all())
-        
+
         if not sponsor_users.exists():
             self.stdout.write(
-                self.style.WARNING("  ! No sponsor contact users found. Skipping sponsorship profile generation.\n")
+                self.style.WARNING(
+                    "  ! No sponsor contact users found. Skipping sponsorship profile generation.\n"
+                )
             )
             return
-        
+
         if not tiers:
             self.stdout.write(
-                self.style.WARNING("  ! No sponsorship tiers found. Skipping sponsorship profile generation.\n")
+                self.style.WARNING(
+                    "  ! No sponsorship tiers found. Skipping sponsorship profile generation.\n"
+                )
             )
             return
-        
+
         profiles_data = [
             {
                 "organization_name": "TechCorp International",
@@ -594,7 +614,9 @@ class Command(BaseCommand):
             },
             {
                 "organization_name": "Innovate Solutions LLC",
-                "main_contact_user": sponsor_users[1] if len(sponsor_users) > 1 else sponsor_users[0],
+                "main_contact_user": (
+                    sponsor_users[1] if len(sponsor_users) > 1 else sponsor_users[0]
+                ),
                 "tier": tiers[2] if len(tiers) > 2 else tiers[0],  # Supporter
                 "progress_status": SponsorshipProgressStatus.INVOICED,
                 "sponsor_contact_name": "Jane Corporate",
@@ -614,7 +636,9 @@ class Command(BaseCommand):
             },
             {
                 "organization_name": "PyTools Foundation",
-                "main_contact_user": sponsor_users[1] if len(sponsor_users) > 1 else sponsor_users[0],
+                "main_contact_user": (
+                    sponsor_users[1] if len(sponsor_users) > 1 else sponsor_users[0]
+                ),
                 "tier": tiers[3] if len(tiers) > 3 else None,  # Contributor
                 "progress_status": SponsorshipProgressStatus.APPROVED,
                 "sponsor_contact_name": "Alice Pythonista",
@@ -633,7 +657,7 @@ class Command(BaseCommand):
                 "organization_address": "555 Cloud Lane, Denver, CO 80202, USA",
             },
         ]
-        
+
         created_count = 0
         for profile_data in profiles_data:
             profile, created = SponsorshipProfile.objects.get_or_create(
@@ -662,7 +686,7 @@ class Command(BaseCommand):
                         f"  ~ Sponsorship already exists: {profile.organization_name}"
                     )
                 )
-        
+
         self.stdout.write(
             self.style.SUCCESS(f"Created {created_count} new sponsorship profiles\n")
         )
