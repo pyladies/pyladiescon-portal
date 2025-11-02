@@ -9,7 +9,7 @@ from sponsorship.models import (
 )
 from sponsorship.views import SponsorshipProfileFilter, SponsorshipProfileTable
 from volunteer.constants import ApplicationStatus
-from volunteer.models import LANGUAGES, VolunteerProfile
+from volunteer.models import VolunteerProfile
 
 
 @pytest.mark.django_db
@@ -23,7 +23,6 @@ class TestSponsorshipViews:
 
         # create the volunteer profile but is not approved
         profile = VolunteerProfile(user=portal_user)
-        profile.languages_spoken = [LANGUAGES[0]]
         profile.save()
 
         response = client.get(reverse("sponsorship:sponsorship_list"))
@@ -40,7 +39,6 @@ class TestSponsorshipViews:
         profile = VolunteerProfile(
             user=portal_user, application_status=ApplicationStatus.APPROVED
         )
-        profile.languages_spoken = [LANGUAGES[0]]
         profile.save()
 
         client.force_login(portal_user)
@@ -116,7 +114,6 @@ class TestSponsorshipViews:
         profile = VolunteerProfile(
             user=portal_user, application_status=ApplicationStatus.APPROVED
         )
-        profile.languages_spoken = [LANGUAGES[0]]
         profile.save()
 
         client.force_login(portal_user)

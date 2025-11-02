@@ -316,6 +316,27 @@ class TestVolunteerModel:
             excinfo.value
         )
 
+    @pytest.mark.parametrize(
+        "username,description",
+        [
+            ("username_", "Username ending with underscore"),
+            ("_username", "Username starting with underscore"),
+            ("user_name_", "Username with multiple underscores"),
+            ("user.name_", "Username with period and ending underscore"),
+            ("valid_user123_", "Username with numbers and ending underscore"),
+        ],
+    )
+    def test_discord_username_underscore_variations(
+        self, portal_user, username, description
+    ):
+        """Test various underscore patterns in Discord usernames (issue #150)."""
+        profile = VolunteerProfile(
+            user=portal_user, region=Region.NORTH_AMERICA, discord_username=username
+        )
+
+        # This should not raise ValidationError
+        profile.full_clean()
+
     def test_email_is_sent_after_saved(self, portal_user):
         # set up an admin account to receive internal notification email
         admin_role = Role.objects.create(
