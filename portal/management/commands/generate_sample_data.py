@@ -17,6 +17,8 @@ from django.contrib.auth.models import User
 from django.core.management.base import BaseCommand, CommandError
 from django.db.models.signals import post_save
 
+from sponsorship.models import SponsorshipProfile, SponsorshipProgressStatus, SponsorshipTier
+from sponsorship.signals import sponsorship_profile_signal
 from volunteer.constants import ApplicationStatus, Region
 from volunteer.models import PyladiesChapter, Role, Team, VolunteerProfile, volunteer_profile_signal
 
@@ -51,6 +53,8 @@ class Command(BaseCommand):
         self._generate_roles()
         self._generate_teams()
         self._generate_volunteer_profiles()
+        self._generate_sponsorship_tiers()
+        self._generate_sponsorship_profiles()
 
         self.stdout.write(
             self.style.SUCCESS(
@@ -487,4 +491,178 @@ class Command(BaseCommand):
         
         self.stdout.write(
             self.style.SUCCESS(f"Created {created_count} new volunteer profiles\n")
+        )
+
+    def _generate_sponsorship_tiers(self):
+        """Generate sample sponsorship tiers."""
+        self.stdout.write("Generating sponsorship tiers...")
+
+        tiers_data = [
+            {
+                "name": "Championship",
+                "amount": 25000.00,
+                "description": "Premier sponsorship tier with maximum visibility and benefits",
+            },
+            {
+                "name": "Elite",
+                "amount": 15000.00,
+                "description": "High-level sponsorship with prominent branding opportunities",
+            },
+            {
+                "name": "Supporter",
+                "amount": 10000.00,
+                "description": "Strong support tier with significant conference presence",
+            },
+            {
+                "name": "Contributor",
+                "amount": 5000.00,
+                "description": "Mid-level sponsorship with good visibility",
+            },
+            {
+                "name": "Community",
+                "amount": 2500.00,
+                "description": "Entry-level sponsorship for community supporters",
+            },
+        ]
+
+        created_count = 0
+        for tier_data in tiers_data:
+            tier, created = SponsorshipTier.objects.get_or_create(
+                name=tier_data["name"],
+                defaults={
+                    "amount": tier_data["amount"],
+                    "description": tier_data["description"],
+                },
+            )
+            if created:
+                created_count += 1
+                self.stdout.write(
+                    self.style.SUCCESS(f"  ✓ Created tier: {tier.name} (${tier.amount})")
+                )
+            else:
+                self.stdout.write(
+                    self.style.WARNING(f"  ~ Tier already exists: {tier.name}")
+                )
+
+        self.stdout.write(
+            self.style.SUCCESS(f"Created {created_count} new sponsorship tiers\n")
+        )
+
+    def _generate_sponsorship_profiles(self):
+        """Generate sample sponsorship profiles."""
+        self.stdout.write("Generating sponsorship profiles...")
+
+        # Temporarily disable the post_save signal to avoid sending emails during data generation
+        post_save.disconnect(sponsorship_profile_signal, sender=SponsorshipProfile)
+        
+        try:
+            self._create_sponsorship_profiles()
+        finally:
+            # Re-enable the signal
+            post_save.connect(sponsorship_profile_signal, sender=SponsorshipProfile)
+
+    def _create_sponsorship_profiles(self):
+        """Create the actual sponsorship profiles."""
+        # Get sponsor contact users
+        sponsor_users = User.objects.filter(username__startswith="sponsor_contact")
+        
+        # Get sponsorship tiers
+        tiers = list(SponsorshipTier.objects.all())
+        
+        if not sponsor_users.exists():
+            self.stdout.write(
+                self.style.WARNING("  ! No sponsor contact users found. Skipping sponsorship profile generation.\n")
+            )
+            return
+        
+        if not tiers:
+            self.stdout.write(
+                self.style.WARNING("  ! No sponsorship tiers found. Skipping sponsorship profile generation.\n")
+            )
+            return
+        
+        profiles_data = [
+            {
+                "organization_name": "TechCorp International",
+                "main_contact_user": sponsor_users[0],
+                "tier": tiers[0] if len(tiers) > 0 else None,  # Championship
+                "progress_status": SponsorshipProgressStatus.PAID,
+                "sponsor_contact_name": "John Sponsor",
+                "sponsors_contact_email": "sponsor1@techcorp.com",
+                "company_description": "Leading technology company specializing in cloud services and AI",
+                "organization_address": "123 Tech Street, San Francisco, CA 94105, USA",
+            },
+            {
+                "organization_name": "Innovate Solutions LLC",
+                "main_contact_user": sponsor_users[1] if len(sponsor_users) > 1 else sponsor_users[0],
+                "tier": tiers[2] if len(tiers) > 2 else tiers[0],  # Supporter
+                "progress_status": SponsorshipProgressStatus.INVOICED,
+                "sponsor_contact_name": "Jane Corporate",
+                "sponsors_contact_email": "sponsor2@innovate.com",
+                "company_description": "Innovative software solutions for modern businesses",
+                "organization_address": "456 Innovation Ave, Austin, TX 78701, USA",
+            },
+            {
+                "organization_name": "DataWorks Inc",
+                "main_contact_user": sponsor_users[0],
+                "tier": tiers[1] if len(tiers) > 1 else None,  # Elite
+                "progress_status": SponsorshipProgressStatus.AGREEMENT_SIGNED,
+                "sponsor_contact_name": "Bob DataExpert",
+                "sponsors_contact_email": "bob@dataworks.com",
+                "company_description": "Data analytics and business intelligence platform",
+                "organization_address": "789 Data Blvd, Seattle, WA 98101, USA",
+            },
+            {
+                "organization_name": "PyTools Foundation",
+                "main_contact_user": sponsor_users[1] if len(sponsor_users) > 1 else sponsor_users[0],
+                "tier": tiers[3] if len(tiers) > 3 else None,  # Contributor
+                "progress_status": SponsorshipProgressStatus.APPROVED,
+                "sponsor_contact_name": "Alice Pythonista",
+                "sponsors_contact_email": "alice@pytools.org",
+                "company_description": "Non-profit organization supporting Python development tools",
+                "organization_address": "321 Python Way, Portland, OR 97201, USA",
+            },
+            {
+                "organization_name": "CloudNative Systems",
+                "main_contact_user": sponsor_users[0],
+                "tier": tiers[4] if len(tiers) > 4 else None,  # Community
+                "progress_status": SponsorshipProgressStatus.AWAITING_RESPONSE,
+                "sponsor_contact_name": "Chris Clouder",
+                "sponsors_contact_email": "chris@cloudnative.io",
+                "company_description": "Cloud-native infrastructure and DevOps solutions",
+                "organization_address": "555 Cloud Lane, Denver, CO 80202, USA",
+            },
+        ]
+        
+        created_count = 0
+        for profile_data in profiles_data:
+            profile, created = SponsorshipProfile.objects.get_or_create(
+                organization_name=profile_data["organization_name"],
+                defaults={
+                    "main_contact_user": profile_data["main_contact_user"],
+                    "sponsorship_tier": profile_data["tier"],
+                    "progress_status": profile_data["progress_status"],
+                    "sponsor_contact_name": profile_data["sponsor_contact_name"],
+                    "sponsors_contact_email": profile_data["sponsors_contact_email"],
+                    "company_description": profile_data["company_description"],
+                    "organization_address": profile_data["organization_address"],
+                },
+            )
+            if created:
+                created_count += 1
+                status_label = SponsorshipProgressStatus(profile.progress_status).label
+                self.stdout.write(
+                    self.style.SUCCESS(
+                        f"  ✓ Created sponsorship: {profile.organization_name} ({status_label})"
+                    )
+                )
+            else:
+                self.stdout.write(
+                    self.style.WARNING(
+                        f"  ~ Sponsorship already exists: {profile.organization_name}"
+                    )
+                )
+        
+        self.stdout.write(
+            self.style.SUCCESS(f"Created {created_count} new sponsorship profiles\n")
         )
