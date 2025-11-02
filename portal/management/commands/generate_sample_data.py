@@ -15,8 +15,10 @@ to run in production environments.
 from django.conf import settings
 from django.contrib.auth.models import User
 from django.core.management.base import BaseCommand, CommandError
+from django.db.models.signals import post_save
 
-from volunteer.models import PyladiesChapter, Role, Team
+from volunteer.constants import ApplicationStatus, Region
+from volunteer.models import PyladiesChapter, Role, Team, VolunteerProfile, volunteer_profile_signal
 
 
 class Command(BaseCommand):
@@ -48,6 +50,7 @@ class Command(BaseCommand):
         self._generate_pyladies_chapters()
         self._generate_roles()
         self._generate_teams()
+        self._generate_volunteer_profiles()
 
         self.stdout.write(
             self.style.SUCCESS(
@@ -356,4 +359,132 @@ class Command(BaseCommand):
 
         self.stdout.write(
             self.style.SUCCESS(f"Created {created_count} new teams\n")
+        )
+
+    def _generate_volunteer_profiles(self):
+        """Generate sample volunteer profiles with various statuses."""
+        self.stdout.write("Generating volunteer profiles...")
+
+        # Temporarily disable the post_save signal to avoid sending emails during data generation
+        post_save.disconnect(volunteer_profile_signal, sender=VolunteerProfile)
+        
+        try:
+            self._create_volunteer_profiles()
+        finally:
+            # Re-enable the signal
+            post_save.connect(volunteer_profile_signal, sender=VolunteerProfile)
+
+    def _create_volunteer_profiles(self):
+        """Create the actual volunteer profiles."""
+        # Get the volunteers (non-staff users)
+        volunteers = User.objects.filter(username__startswith="volunteer")
+        
+        # Get teams, roles, and chapters for assignment
+        teams = list(Team.objects.all())
+        roles = list(Role.objects.all())
+        chapters = list(PyladiesChapter.objects.all())
+        
+        if not volunteers.exists():
+            self.stdout.write(
+                self.style.WARNING("  ! No volunteer users found. Skipping profile generation.\n")
+            )
+            return
+        
+        profiles_data = [
+            {
+                "user": volunteers[0],  # volunteer1
+                "status": ApplicationStatus.APPROVED,
+                "discord_username": "alice_vol",
+                "github_username": "alice-volunteer",
+                "region": Region.NORTH_AMERICA,
+                "availability_hours_per_week": 10,
+                "teams": teams[:2] if len(teams) >= 2 else teams,  # Website & Social Media
+                "roles": roles[:2] if len(roles) >= 2 else roles,  # Frontend & Backend
+                "chapter": chapters[0] if chapters else None,  # San Francisco
+            },
+            {
+                "user": volunteers[1],  # volunteer2
+                "status": ApplicationStatus.APPROVED,
+                "discord_username": "bob_helper",
+                "instagram_username": "bob_pyladies",
+                "region": Region.EUROPE,
+                "availability_hours_per_week": 5,
+                "teams": teams[1:3] if len(teams) >= 3 else teams,  # Social Media & Content
+                "roles": [roles[3]] if len(roles) >= 4 else [],  # Social Media Manager
+                "chapter": chapters[2] if len(chapters) >= 3 else None,  # London
+            },
+            {
+                "user": volunteers[2],  # volunteer3
+                "status": ApplicationStatus.PENDING,
+                "discord_username": "carol_smith",
+                "github_username": "carol-codes",
+                "region": Region.ASIA,
+                "availability_hours_per_week": 8,
+                "teams": [],  # No team assignment yet (pending)
+                "roles": [roles[2]] if len(roles) >= 3 else [],  # Content Writer
+                "chapter": chapters[4] if len(chapters) >= 5 else None,  # Tokyo
+            },
+            {
+                "user": volunteers[3],  # volunteer4
+                "status": ApplicationStatus.WAITLISTED,
+                "discord_username": "diana_jones",
+                "bluesky_username": "diana.bsky.social",
+                "region": Region.SOUTH_AMERICA,
+                "availability_hours_per_week": 3,
+                "teams": [],  # No team assignment (waitlisted)
+                "roles": [roles[4]] if len(roles) >= 5 else [],  # Designer
+                "chapter": chapters[5] if len(chapters) >= 6 else None,  # São Paulo
+            },
+            {
+                "user": volunteers[4],  # volunteer5
+                "status": ApplicationStatus.REJECTED,
+                "discord_username": "eve_brown",
+                "x_username": "eve_pyladies",
+                "region": Region.AFRICA,
+                "availability_hours_per_week": 2,
+                "teams": [],  # No team assignment (rejected)
+                "roles": [],  # No roles assigned
+                "chapter": chapters[6] if len(chapters) >= 7 else None,  # Lagos
+            },
+        ]
+        
+        created_count = 0
+        for profile_data in profiles_data:
+            profile, created = VolunteerProfile.objects.get_or_create(
+                user=profile_data["user"],
+                defaults={
+                    "application_status": profile_data["status"],
+                    "discord_username": profile_data["discord_username"],
+                    "github_username": profile_data.get("github_username", ""),
+                    "instagram_username": profile_data.get("instagram_username", ""),
+                    "bluesky_username": profile_data.get("bluesky_username", ""),
+                    "x_username": profile_data.get("x_username", ""),
+                    "region": profile_data["region"],
+                    "availability_hours_per_week": profile_data["availability_hours_per_week"],
+                    "chapter": profile_data["chapter"],
+                },
+            )
+            
+            if created:
+                # Add many-to-many relationships
+                if profile_data["teams"]:
+                    profile.teams.set(profile_data["teams"])
+                if profile_data["roles"]:
+                    profile.roles.set(profile_data["roles"])
+                
+                created_count += 1
+                self.stdout.write(
+                    self.style.SUCCESS(
+                        f"  ✓ Created profile for {profile.user.username} ({profile.application_status})"
+                    )
+                )
+            else:
+                self.stdout.write(
+                    self.style.WARNING(
+                        f"  ~ Profile already exists for {profile.user.username}"
+                    )
+                )
+        
+        self.stdout.write(
+            self.style.SUCCESS(f"Created {created_count} new volunteer profiles\n")
         )
