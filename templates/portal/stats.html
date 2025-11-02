@@ -2,26 +2,51 @@
 {% load allauth i18n %}
 {% load django_bootstrap5 %}
 {% block extra_head %}
-    {{ block.super }}
-    <!--Google Charts-->
-    <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
-    <script type="text/javascript">
-      google.charts.load('current', {'packages':['corechart', 'bar']});
-      google.charts.setOnLoadCallback(drawChart);
-      function drawChart() {
+{{ block.super }}
+<!--Google Charts-->
+<script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+<script type="text/javascript">
+    google.charts.load('current', { 'packages': ['corechart', 'bar'] });
+    google.charts.setOnLoadCallback(drawChart);
+    function drawChart() {
         {% include "sponsorship/sponsorship_charts.html" %}
         {% include "volunteer/volunteer_charts.html" %}
     }
-    </script>
+</script>
 {% endblock extra_head %}
 {% block body %}
 {% endblock body %}
 {% block content %}
-    <div class="container px-4 py-3" id="featured-3">
-        <h2 class="pb-2 border-bottom">
-            PyLadiesCon Stats and Numbers
-        </h2>
-        {% include "sponsorship/sponsorship_stats.html" %}
-        {% include "volunteer/volunteer_stats.html" %}
+<div class="container px-4 py-3" id="featured-3">
+    <h2 class="pb-2 border-bottom">
+        PyLadiesCon Stats and Numbers
+    </h2>
+    {% include "sponsorship/sponsorship_stats.html" %}
+    <!-- Sponsor/Donate Callout -->
+    <div class="container border rounded-3 p-4 mb-4 bg-light">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <h3 class="mb-2">
+                    Support PyLadiesCon!
+                </h3>
+                <p class="mb-0 text-muted">
+                    Help us make PyLadiesCon possible by becoming a sponsor or making a donation.
+                    Your support enables us to create an inclusive and accessible conference for the global PyLadies
+                    community.
+                </p>
+            </div>
+            <div class="col-md-4 text-md-end mt-3 mt-md-0">
+                <a href="https://2025.conference.pyladies.com/en/sponsors/" target="_blank" rel="noopener noreferrer"
+                    class="btn btn-primary btn-lg me-2 mb-2">
+                    <i class="bi bi-building"></i> Sponsor Us
+                </a>
+                <a href="https://psfmember.org/civicrm/contribute/transact/?reset=1&id=53" target="_blank"
+                    rel="noopener noreferrer" class="btn btn-success btn-lg mb-2">
+                    <i class="bi bi-heart-fill"></i> Donate
+                </a>
+            </div>
+        </div>
     </div>
+    {% include "volunteer/volunteer_stats.html" %}
+</div>
 {% endblock content %}
