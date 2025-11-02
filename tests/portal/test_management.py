@@ -84,9 +84,7 @@ class TestGenerateSampleDataCommand:
         call_command("generate_sample_data", stdout=StringIO())
 
         assert PyladiesChapter.objects.count() > initial_count
-        assert PyladiesChapter.objects.filter(
-            chapter_name="San Francisco"
-        ).exists()
+        assert PyladiesChapter.objects.filter(chapter_name="San Francisco").exists()
         assert PyladiesChapter.objects.filter(chapter_name="Tokyo").exists()
 
     def test_generates_roles(self, settings):
