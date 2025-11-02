@@ -9,7 +9,8 @@ from sponsorship.models import (
 )
 from sponsorship.views import SponsorshipProfileFilter, SponsorshipProfileTable
 from volunteer.constants import ApplicationStatus
-from volunteer.models import LANGUAGES, VolunteerProfile
+from volunteer.languages import LANGUAGES
+from volunteer.models import VolunteerProfile
 
 
 @pytest.mark.django_db
