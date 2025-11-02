@@ -39,7 +39,7 @@ def send_psf_invoice_request_email(profile):
     )
 
     # TODO: Replace with actual PSF accounting email addresses
-    psf_accounting_emails = ["accounting@python.org", "sponsorship@python.org"]
+    psf_accounting_emails = ["accounting@python.org", "sponsors@pyladies.com"]
 
     send_mail(
         subject,
