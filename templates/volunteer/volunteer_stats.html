@@ -43,9 +43,13 @@
             </div>
         </div>
     </div>
-    <div class="row">
+    <div class="row mt-4">
         {% for breakdown in stats.volunteer_breakdown %}
-            <div id="{{ breakdown.chart_id }}">
+            <div class="col-12 mb-4">
+                {# djlint:off H021 #}
+                <div id="{{ breakdown.chart_id }}" style="width: 100%; min-height: 500px">
+                </div>
+                {# djlint:on H021 #}
             </div>
         {% endfor %}
     </div>
