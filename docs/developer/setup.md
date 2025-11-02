@@ -175,7 +175,31 @@ Now is time to create the database to store all the information:
 python manage.py migrate
 ```
 
-### Generate Sample Data (Optional)
+### Run the server
+
+Add the other enviroment variables:
+
+=== "MacOS and Linux"
+
+    ```sh
+    export SECRET_KEY=deadbeefcafe
+    export DJANGO_ALLOWED_HOSTS="localhost,127.0.0.1"
+    ```
+
+=== "Windows"
+
+    ```sh
+    set SECRET_KEY=deadbeefcafe
+    set DJANGO_ALLOWED_HOSTS="localhost,127.0.0.1"
+    ```
+
+Then run the server:
+
+```sh
+python manage.py runserver
+```
+
+## Generate Sample Data (Optional)
 
 For local development and testing, you can generate sample data to populate your database with realistic test content. This command creates:
 
@@ -204,30 +228,6 @@ For local development and testing, you can generate sample data to populate your
 All generated users have the password: `password123`.
 
 The command is idempotent, meaning you can run it multiple times without creating duplicate data.
-
-### Run the server
-
-Add the other enviroment variables:
-
-=== "MacOS and Linux"
-
-    ```sh
-    export SECRET_KEY=deadbeefcafe
-    export DJANGO_ALLOWED_HOSTS="localhost,127.0.0.1"
-    ```
-
-=== "Windows"
-
-    ```sh
-    set SECRET_KEY=deadbeefcafe
-    set DJANGO_ALLOWED_HOSTS="localhost,127.0.0.1"
-    ```
-
-Then run the server:
-
-```sh
-python manage.py runserver
-```
 
 ## Documentation Setup
 
