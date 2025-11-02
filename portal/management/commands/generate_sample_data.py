@@ -16,6 +16,8 @@ from django.conf import settings
 from django.contrib.auth.models import User
 from django.core.management.base import BaseCommand, CommandError
 
+from volunteer.models import PyladiesChapter
+
 
 class Command(BaseCommand):
     help = "Generate sample data for local development environment"
@@ -43,6 +45,7 @@ class Command(BaseCommand):
 
         # Generate data
         self._generate_users()
+        self._generate_pyladies_chapters()
 
         self.stdout.write(
             self.style.SUCCESS(
@@ -156,4 +159,83 @@ class Command(BaseCommand):
 
         self.stdout.write(
             self.style.SUCCESS(f"Created {created_count} new users\n")
+        )
+
+    def _generate_pyladies_chapters(self):
+        """Generate sample PyLadies chapters."""
+        self.stdout.write("Generating PyLadies chapters...")
+
+        chapters_data = [
+            {
+                "chapter_name": "PyLadies San Francisco",
+                "chapter_description": "PyLadies SF - San Francisco Bay Area",
+                "chapter_email": "sf@pyladies.com",
+                "chapter_website": "https://www.meetup.com/pyladies-sf/",
+            },
+            {
+                "chapter_name": "PyLadies New York",
+                "chapter_description": "PyLadies NYC - New York City",
+                "chapter_email": "nyc@pyladies.com",
+                "chapter_website": "https://www.meetup.com/pyladies-nyc/",
+            },
+            {
+                "chapter_name": "PyLadies London",
+                "chapter_description": "PyLadies London - United Kingdom",
+                "chapter_email": "london@pyladies.com",
+                "chapter_website": "https://www.meetup.com/pyladies-london/",
+            },
+            {
+                "chapter_name": "PyLadies Berlin",
+                "chapter_description": "PyLadies Berlin - Germany",
+                "chapter_email": "berlin@pyladies.com",
+                "chapter_website": "https://www.meetup.com/pyladies-berlin/",
+            },
+            {
+                "chapter_name": "PyLadies Tokyo",
+                "chapter_description": "PyLadies Tokyo - Japan",
+                "chapter_email": "tokyo@pyladies.com",
+                "chapter_website": "https://www.meetup.com/pyladies-tokyo/",
+            },
+            {
+                "chapter_name": "PyLadies São Paulo",
+                "chapter_description": "PyLadies SP - São Paulo, Brazil",
+                "chapter_email": "sp@pyladies.com",
+                "chapter_website": "https://www.meetup.com/pyladies-sp/",
+            },
+            {
+                "chapter_name": "PyLadies Lagos",
+                "chapter_description": "PyLadies Lagos - Nigeria",
+                "chapter_email": "lagos@pyladies.com",
+                "chapter_website": "https://www.meetup.com/pyladies-lagos/",
+            },
+            {
+                "chapter_name": "PyLadies Sydney",
+                "chapter_description": "PyLadies Sydney - Australia",
+                "chapter_email": "sydney@pyladies.com",
+                "chapter_website": "https://www.meetup.com/pyladies-sydney/",
+            },
+        ]
+
+        created_count = 0
+        for chapter_data in chapters_data:
+            chapter, created = PyladiesChapter.objects.get_or_create(
+                chapter_name=chapter_data["chapter_name"],
+                defaults={
+                    "chapter_description": chapter_data["chapter_description"],
+                    "chapter_email": chapter_data["chapter_email"],
+                    "chapter_website": chapter_data["chapter_website"],
+                },
+            )
+            if created:
+                created_count += 1
+                self.stdout.write(
+                    self.style.SUCCESS(f"  ✓ Created chapter: {chapter.chapter_name}")
+                )
+            else:
+                self.stdout.write(
+                    self.style.WARNING(f"  ~ Chapter already exists: {chapter.chapter_name}")
+                )
+
+        self.stdout.write(
+            self.style.SUCCESS(f"Created {created_count} new PyLadies chapters\n")
         )
