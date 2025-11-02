@@ -40,11 +40,13 @@ class SponsorshipProfileAdmin(ImportExportModelAdmin):
         "sponsorship_tier",
         "progress_status",
         "sponsorship_override_amount",
+        "is_individual_donation",
         "main_contact_user",
     )
     list_filter = (
         "progress_status",
         "sponsorship_tier",
+        "is_individual_donation",
     )
     search_fields = ("organization_name",)
     fields = (
@@ -57,6 +59,7 @@ class SponsorshipProfileAdmin(ImportExportModelAdmin):
         "logo",
         "company_description",
         "progress_status",
+        "is_individual_donation",
         "main_contact_user",
     )
     resource_classes = [SponsorshipProfileResource]

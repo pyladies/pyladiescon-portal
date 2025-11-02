@@ -17,6 +17,13 @@ CACHE_KEY_SPONSORSHIP_PAID_PERCENT = "sponsorship_paid_percent"
 CACHE_KEY_SPONSORSHIP_TOWARDS_GOAL_PERCENT = "sponsorship_towards_goal_percent"
 CACHE_KEY_SPONSORSHIP_BREAKDOWN = "sponsorship_breakdown"
 
+# Individual Donations (separate from corporate sponsorships)
+CACHE_KEY_INDIVIDUAL_DONATIONS_COUNT = "individual_donations_count"
+CACHE_KEY_INDIVIDUAL_DONATIONS_AMOUNT = "individual_donations_amount"
+CACHE_KEY_CORPORATE_SPONSORS_COUNT = "corporate_sponsors_count"
+CACHE_KEY_CORPORATE_SPONSORS_AMOUNT = "corporate_sponsors_amount"
+CACHE_KEY_TOTAL_FUNDS_RAISED = "total_funds_raised"
+
 CACHE_KEY_VOLUNTEER_BREAKDOWN = "volunteer_breakdown"
 
 SPONSORSHIP_GOAL_AMOUNT = 15000
