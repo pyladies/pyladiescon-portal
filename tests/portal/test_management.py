@@ -226,3 +226,63 @@ class TestGenerateSampleDataCommand:
         assert sponsorship is not None
         assert sponsorship.sponsorship_tier is not None
         assert sponsorship.main_contact_user is not None
+
+    def test_skips_volunteer_profiles_without_volunteers(self, settings, monkeypatch):
+        """Test that volunteer profile generation is skipped when no volunteers exist."""
+        settings.DEBUG = True
+        out = StringIO()
+
+        # Mock the User queryset to return no volunteers
+        original_filter = User.objects.filter
+
+        def mock_filter(*args, **kwargs):
+            result = original_filter(*args, **kwargs)
+            # If filtering for volunteers, return empty queryset
+            if "username__startswith" in kwargs and kwargs["username__startswith"] == "volunteer":
+                return User.objects.none()
+            return result
+
+        monkeypatch.setattr(User.objects, "filter", mock_filter)
+
+        call_command("generate_sample_data", stdout=out)
+        output = out.getvalue()
+
+        assert "No volunteer users found" in output
+
+    def test_skips_sponsorship_profiles_without_sponsors(self, settings, monkeypatch):
+        """Test that sponsorship profile generation is skipped when no sponsor contacts exist."""
+        settings.DEBUG = True
+        out = StringIO()
+
+        # Mock the User queryset to return no sponsor contacts
+        original_filter = User.objects.filter
+
+        def mock_filter(*args, **kwargs):
+            result = original_filter(*args, **kwargs)
+            # If filtering for sponsor contacts, return empty queryset
+            if "username__startswith" in kwargs and kwargs["username__startswith"] == "sponsor_contact":
+                return User.objects.none()
+            return result
+
+        monkeypatch.setattr(User.objects, "filter", mock_filter)
+
+        call_command("generate_sample_data", stdout=out)
+        output = out.getvalue()
+
+        assert "No sponsor contact users found" in output
+
+    def test_skips_sponsorship_profiles_without_tiers(self, settings, monkeypatch):
+        """Test that sponsorship profile generation is skipped when no tiers exist."""
+        settings.DEBUG = True
+        out = StringIO()
+
+        # Mock SponsorshipTier.objects.all() to return empty queryset
+        def mock_all():
+            return SponsorshipTier.objects.none()
+
+        monkeypatch.setattr(SponsorshipTier.objects, "all", mock_all)
+
+        call_command("generate_sample_data", stdout=out)
+        output = out.getvalue()
+
+        assert "No sponsorship tiers found" in output
