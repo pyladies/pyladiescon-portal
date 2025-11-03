@@ -61,7 +61,7 @@ To run locally _without_ Docker these are the steps.
 
 Have these installed first before continuing further.
 
-- Use Python 3.13+
+- Use Python 3.14+
 - You can install [different versions of Python using pyenv](https://github.com/pyenv/pyenv).
 - You'll also need PostgreSQL (you can find the instructions here).
 

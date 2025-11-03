@@ -1,4 +1,4 @@
-FROM python:3.13-bookworm AS base
+FROM python:3.14-bookworm AS base
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1
 RUN mkdir /code
@@ -30,7 +30,7 @@ COPY requirements-dev.txt /code/
 RUN --mount=type=cache,target=/root/.cache/pip \
     pip install -r requirements-dev.txt
 
-RUN chown -R user /usr/local/lib/python3.13/site-packages
+RUN chown -R user /usr/local/lib/python3.14/site-packages
 
 USER user
 ENV PATH="${PATH}:/home/user/.local/bin"
@@ -41,7 +41,7 @@ ENV PATH="${PATH}:/home/user/.local/bin"
 ###############################################################################
 FROM base
 
-RUN  chown -R nobody /usr/local/lib/python3.13/site-packages
+RUN  chown -R nobody /usr/local/lib/python3.14/site-packages
 
 COPY . /code/
 
