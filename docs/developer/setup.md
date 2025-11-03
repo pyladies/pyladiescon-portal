@@ -199,6 +199,36 @@ Then run the server:
 python manage.py runserver
 ```
 
+## Generate Sample Data (Optional)
+
+For local development and testing, you can generate sample data to populate your database with realistic test content. This command creates:
+
+- **9 Users**: 1 admin, 1 staff member, 5 volunteers, and 2 sponsor contacts
+- **8 PyLadies Chapters**: Chapters from different regions globally (San Francisco, NYC, London, Berlin, Tokyo, São Paulo, Lagos, Sydney)
+- **7 Volunteer Roles**: Frontend Dev, Backend Dev, Content Writer, Social Media Manager, Designer, Reviewer, Event Coordinator
+- **6 Teams**: Website, Social Media, Content, Design, Program Committee, Sponsorship
+- **5 Volunteer Profiles**: With various application statuses (approved, pending, waitlisted, rejected)
+- **5 Sponsorship Tiers**: Ranging from $2,500 to $25,000
+- **5 Sponsorship Profiles**: With different progress statuses
+
+**Important**: This command only works when `DEBUG=True` in your settings to prevent accidental use in production environments.
+
+=== "With Docker"
+
+    ```sh
+    make manage generate_sample_data
+    ```
+
+=== "Without Docker"
+
+    ```sh
+    python manage.py generate_sample_data
+    ```
+
+All generated users have the password: `password123`.
+
+The command is idempotent, meaning you can run it multiple times without creating duplicate data.
+
 ## Documentation Setup
 
 The documentation is built using [MKDocs](https://www.mkdocs.org/) and markdown.
