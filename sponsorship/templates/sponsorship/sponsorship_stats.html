@@ -11,18 +11,15 @@
             <div class="card border-0 bg-light">
                 <div class="card-body">
                     <h5 class="card-title">
-                        Individual Donations
+                        Corporate Sponsors
                     </h5>
-                    <h2 class="display-6 text-info">
-                        {{ stats.individual_donations_count }}
+                    <h2 class="display-6 text-primary">
+                        {{ stats.corporate_sponsors_amount| as_currency }}
                     </h2>
                     <p class="text-muted mb-0">
-                        donors
+                        from {{ stats.corporate_sponsors_count }} sponsors
                     </p>
-                    <h3 class="mt-2 text-info">
-                        {{ stats.individual_donations_amount| as_currency }}
-                    </h3>
-                    <small class="text-muted">raised from individuals</small>
+                    <small class="text-muted">raised from sponsors</small>
                 </div>
             </div>
         </div>
@@ -30,18 +27,15 @@
             <div class="card border-0 bg-light">
                 <div class="card-body">
                     <h5 class="card-title">
-                        Corporate Sponsors
+                        Individual Donations
                     </h5>
-                    <h2 class="display-6 text-primary">
-                        {{ stats.corporate_sponsors_count }}
+                    <h2 class="display-6 text-info">
+                        {{ stats.individual_donations_amount| as_currency }}
                     </h2>
                     <p class="text-muted mb-0">
-                        sponsors
+                        from {{ stats.individual_donations_count }} donors
                     </p>
-                    <h3 class="mt-2 text-primary">
-                        {{ stats.corporate_sponsors_amount| as_currency }}
-                    </h3>
-                    <small class="text-muted">raised from sponsors</small>
+                    <small class="text-muted">raised from individuals</small>
                 </div>
             </div>
         </div>
@@ -131,21 +125,7 @@
             </div>
         </div>
     </div>
-    <div class="row">
-        <div class="col-sm-3">
-            <div class="card border-0">
-                <div class="card-body">
-                    <h5 class="card-title">
-                        We've raised
-                    </h5>
-                    <h1 class="display-4 text-success">
-                        {{ stats.sponsorship_towards_goal_percent|floatformat:0 }}%
-                    </h1>
-                    <span class="text-muted">towards our goal of $15,000</span>
-                </div>
-            </div>
-        </div>
-    </div>
+    
     <div class="row">
         <div class="progress">
             <div class="progress-bar bg-success" role="progressbar"
