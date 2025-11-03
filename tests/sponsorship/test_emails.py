@@ -80,7 +80,8 @@ class TestSponsorshipEmails:
 
         # Check recipients
         assert "accounting@python.org" in email.to
-        assert "sponsorship@python.org" in email.to
+        # Ensure the project recipients include our sponsors contact
+        assert "sponsors@pyladies.com" in email.to
 
         # Check email body contains expected content
         assert "Test Corp" in email.body

@@ -108,10 +108,7 @@ class SponsorshipProfileTable(tables.Table):
                 | SponsorshipProgressStatus.AGREEMENT_SIGNED.label
             ):
                 css_class = "bg-primary"
-            case (
-                SponsorshipProgressStatus.AWAITING_RESPONSE.label
-                | _
-            ):
+            case SponsorshipProgressStatus.AWAITING_RESPONSE.label | _:
                 css_class = "bg-warning"
         return format_html('<span class="badge {}">{}</span>', css_class, value)
 
