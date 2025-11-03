@@ -110,7 +110,6 @@ class SponsorshipProfileTable(tables.Table):
                 css_class = "bg-primary"
             case (
                 SponsorshipProgressStatus.AWAITING_RESPONSE.label
-                | SponsorshipProgressStatus.PENDING_INVOICE.label
                 | _
             ):
                 css_class = "bg-warning"
@@ -226,10 +225,6 @@ class SponsorshipProfileDetail(CanViewSponsorship, DetailView):
 class SponsorshipProfileSendInvoice(AdminRequiredMixin, View):
     def post(self, request, pk):
         profile = get_object_or_404(SponsorshipProfile, pk=pk)
-
-        # Update status to pending invoice
-        profile.progress_status = SponsorshipProgressStatus.PENDING_INVOICE
-        profile.save()
 
         # Send email to PSF accounting team
         send_psf_invoice_request_email(profile)

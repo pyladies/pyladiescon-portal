@@ -32,19 +32,16 @@ def send_sponsorship_status_emails(profile):
 
 def send_psf_invoice_request_email(profile):
     """Send email to PSF accounting team requesting sponsorship contract preparation."""
+    from common.markdown_emails import send_markdown_email
+
     subject = f"PyLadiesCon Sponsorship Contract Request: {profile.organization_name}"
-    message = render_to_string(
-        "sponsorship/email/psf_invoice_request.txt",
-        {"profile": profile},
-    )
 
     # TODO: Replace with actual PSF accounting email addresses
     psf_accounting_emails = ["accounting@python.org", "sponsors@pyladies.com"]
 
-    send_mail(
-        subject,
-        message,
-        settings.DEFAULT_FROM_EMAIL,
-        psf_accounting_emails,
-        fail_silently=False,
+    send_markdown_email(
+        subject=subject,
+        recipient_list=psf_accounting_emails,
+        markdown_template="sponsorship/email/psf_invoice_request.md",
+        context={"profile": profile},
     )

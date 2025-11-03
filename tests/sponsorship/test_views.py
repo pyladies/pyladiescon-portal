@@ -414,11 +414,11 @@ class TestSponsorshipCreateViews:
         )
         assert response.url == expected_url
 
-        # Check that status was updated
+        # Check that status remains APPROVED (no status change)
         profile.refresh_from_db()
-        assert profile.progress_status == SponsorshipProgressStatus.PENDING_INVOICE
+        assert profile.progress_status == SponsorshipProgressStatus.APPROVED
 
-        # Check that emails were sent (PSF invoice + internal update notification)
+        # Check that emails were sent
         assert len(mail.outbox) >= 1
         # Find the PSF invoice email
         psf_email = None

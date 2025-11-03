@@ -12,12 +12,11 @@ class SponsorshipProgressStatus(models.IntegerChoices):
     REJECTED = 3, "Rejected"
     ACCEPTED = 4, "Accepted"
     APPROVED = 5, "Approved"
-    PENDING_INVOICE = 6, "Pending Invoice"
-    AGREEMENT_SENT = 7, "Agreement Sent"
-    AGREEMENT_SIGNED = 8, "Agreement Signed"
-    INVOICED = 9, "Invoiced"
-    PAID = 10, "Paid"
-    CANCELLED = 11, "Cancelled"
+    AGREEMENT_SENT = 6, "Agreement Sent"
+    AGREEMENT_SIGNED = 7, "Agreement Signed"
+    INVOICED = 8, "Invoiced"
+    PAID = 9, "Paid"
+    CANCELLED = 10, "Cancelled"
 
 
 class SponsorshipTier(BaseModel):
