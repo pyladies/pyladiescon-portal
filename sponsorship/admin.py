@@ -27,6 +27,7 @@ class SponsorshipProfileResource(resources.ModelResource):
             "sponsorship_tier",
             "progress_status",
             "sponsorship_override_amount",
+            "po_number",
             "main_contact_user",
         )
 
@@ -40,6 +41,7 @@ class SponsorshipProfileAdmin(ImportExportModelAdmin):
         "sponsorship_tier",
         "progress_status",
         "sponsorship_override_amount",
+        "po_number",
         "main_contact_user",
     )
     list_filter = (
@@ -53,6 +55,7 @@ class SponsorshipProfileAdmin(ImportExportModelAdmin):
         "sponsors_contact_email",
         "sponsorship_tier",
         "sponsorship_override_amount",
+        "po_number",
         "organization_address",
         "logo",
         "company_description",
