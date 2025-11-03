@@ -3,6 +3,7 @@ import django_tables2 as tables
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.postgres.search import SearchQuery, SearchVector
+from django.http import Http404
 from django.shortcuts import redirect, render
 from django.urls import reverse, reverse_lazy
 from django.utils.html import format_html
@@ -12,13 +13,14 @@ from django.views.generic.edit import CreateView, DeleteView, UpdateView
 from django_filters.views import FilterView
 from django_tables2.views import SingleTableMixin
 
-from common.mixins import AdminRequiredMixin
+from common.mixins import AdminRequiredMixin, VolunteerOrAdminRequiredMixin
 
 from .forms import VolunteerProfileForm, VolunteerProfileReviewForm
 from .models import (  # Language,
     ApplicationStatus,
     Team,
     VolunteerProfile,
+    send_volunteer_cancelled_emails,
     send_volunteer_onboarding_email,
 )
 
@@ -192,7 +194,10 @@ class VolunteerProfileView(DetailView):
     model = VolunteerProfile
 
     def get(self, request, *args, **kwargs):
-        self.object = self.get_object()
+        try:
+            self.object = self.get_object()
+        except Http404:
+            return redirect("volunteer:index")
         if (
             not self.object
             or self.object.user != request.user
@@ -244,7 +249,10 @@ class VolunteerProfileUpdate(UpdateView):
     form_class = VolunteerProfileForm
 
     def get(self, request, *args, **kwargs):
-        self.object = self.get_object()
+        try:
+            self.object = self.get_object()
+        except Http404:
+            return redirect("volunteer:index")
         if not self.object or self.object.user != request.user:
             return redirect("volunteer:index")
         return super(VolunteerProfileUpdate, self).get(request, *args, **kwargs)
@@ -311,3 +319,51 @@ class ResendOnboardingEmailView(VolunteerAdminRequiredMixin, View):
             )
 
         return redirect("volunteer:volunteer_profile_manage", pk=pk)
+
+
+class CancelVolunteeringView(VolunteerOrAdminRequiredMixin, View):
+    """View to handle volunteer application cancellation."""
+
+    def post(self, request, pk):
+        try:
+            profile = VolunteerProfile.objects.get(pk=pk)
+
+            # Check if already canceled
+            if profile.application_status == ApplicationStatus.CANCELLED:
+                messages.add_message(
+                    request,
+                    messages.WARNING,
+                    "This volunteer application is already cancelled.",
+                )
+                return redirect("volunteer:volunteer_profile_detail", pk=pk)
+
+            # Store team and role information before clearing for email notifications
+            teams_before_cancel = list(profile.teams.all())
+            roles_before_cancel = list(profile.roles.all())
+            # Update the volunteer profile
+            profile.application_status = ApplicationStatus.CANCELLED
+            profile.teams.clear()  # Remove from all teams
+            profile.roles.clear()  # Remove from all roles
+            profile.save()
+
+            send_volunteer_cancelled_emails(
+                profile, teams_before_cancel, roles_before_cancel
+            )
+
+            messages.add_message(
+                request,
+                messages.SUCCESS,
+                "Your volunteer application has been cancelled successfully.",
+            )
+
+            # Redirect based on user type
+            if request.user.is_staff or request.user.is_superuser:
+                return redirect("volunteer:volunteer_profile_list")
+            else:
+                return redirect("volunteer:index")
+
+        except Exception as e:
+            messages.add_message(
+                request, messages.ERROR, f"An error occurred while cancelling: {str(e)}"
+            )
+            return redirect("volunteer:volunteer_profile_detail", pk=pk)
