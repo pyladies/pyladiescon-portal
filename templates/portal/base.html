@@ -14,33 +14,25 @@
     </title>
     <link rel="icon" type="image/png" href="{% static 'favicon.png' %}" />
     <link rel="apple-touch-icon" type="image/png" href="{% static 'favicon.png' %}" />
-    {# Standard meta description for search engines and social preview fallbacks #}
-    <meta name="description"
-        content="{% block meta_description %}PyLadiesCon volunteer portal and conference management system{% endblock meta_description %}" />
-
-    {# Open Graph tags (can be overridden per-page) #}
     <meta property="og:title" content="{% block og_title %}PyLadiesCon Portal{% endblock og_title %}" />
     <meta property="og:description"
         content="{% block og_description %}PyLadiesCon volunteer portal and conference management system{% endblock og_description %}" />
     <meta property="og:type" content="{% block og_type %}website{% endblock og_type %}" />
-    <link rel="canonical" href="{% block og_url %}{{ request.build_absolute_uri }}{% endblock og_url %}" />
     <meta property="og:url" content="{% block og_url %}{{ request.build_absolute_uri }}{% endblock og_url %}" />
     <meta property="og:image"
         content="{% block og_image %}https://conference.pyladies.com/img/banner.png{% endblock og_image %}" />
     <meta property="og:image:alt" content="{% block og_image_alt %}PyLadiesCon logo{% endblock og_image_alt %}">
     <meta property="og:site_name" content="PyLadiesCon Portal" />
     <meta property="og:locale" content="en_US">
-
-    {# Twitter Card tags for better previews on Twitter #}
     <meta name="twitter:card" content="{% block twitter_card %}summary_large_image{% endblock twitter_card %}" />
-    {# Twitter site handle (optional) - override on site-level if desired #}
-    <meta name="twitter:site" content="{% block twitter_site %}@pyladies{% endblock twitter_site %}" />
-    <meta name="twitter:title" content="{% block og_title %}PyLadiesCon Portal{% endblock og_title %}" />
+    <meta name="twitter:title"
+        content="{% block twitter_title %}{% block og_title_twitter %}PyLadiesCon Portal{% endblock og_title_twitter %}{% endblock twitter_title %}" />
     <meta name="twitter:description"
-        content="{% block og_description %}PyLadiesCon volunteer portal and conference management system{% endblock og_description %}" />
+        content="{% block twitter_description %}{% block og_description_twitter %}PyLadiesCon volunteer portal and conference management system{% endblock og_description_twitter %}{% endblock twitter_description %}" />
     <meta name="twitter:image"
-        content="{% block og_image %}https://conference.pyladies.com/img/banner.png{% endblock og_image %}" />
-    <meta name="twitter:image:alt" content="{% block og_image_alt %}PyLadiesCon logo{% endblock og_image_alt %}" />
+        content="{% block twitter_image %}{% block og_image_twitter %}https://conference.pyladies.com/img/banner.png{% endblock og_image_twitter %}{% endblock twitter_image %}" />
+    <meta name="twitter:image:alt"
+        content="{% block twitter_image_alt %}{% block og_image_alt_twitter %}PyLadiesCon logo{% endblock og_image_alt_twitter %}{% endblock twitter_image_alt %}" />
     {% block extra_head %}
     <script src="https://kit.fontawesome.com/8774ceef9d.js" crossorigin="anonymous"></script>
     {% endblock extra_head %}
