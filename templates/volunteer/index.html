@@ -3,113 +3,123 @@
 {% load django_bootstrap5 %}
 {% load portal_extras %}
 {% block head_title %}
-PyLadiesCon Portal - Volunteer
+    PyLadiesCon Portal - Volunteer
 {% endblock head_title %}
 {% block og_title %}
-PyLadiesCon Portal - Volunteer
+    PyLadiesCon Portal - Volunteer
 {% endblock og_title %}
 {% block og_description %}
-Join the PyLadiesCon volunteer team! Manage your volunteer profile, availability, and contribute to making the
-conference a success.
+    Join the PyLadiesCon volunteer team! Manage your volunteer profile, availability, and contribute to making the
+    conference a success.
 {% endblock og_description %}
 {% block body %}
 {% endblock body %}
 {% block content %}
-{% if profile and profile.is_approved and not profile.github_username %}
-<div class="alert alert-warning alert-dismissible fade show" role="alert">
-    <h4 class="alert-heading">
-        <i class="fa-brands fa-github"></i> GitHub Username Required
-    </h4>
-    <p>
-        Your GitHub username is currently missing. You will be added to the
-        <a href="https://github.com/orgs/pyladies/teams/pyladiescon-volunteers" target="_blank"
-            class="alert-link">@pyladies/pyladiescon-volunteers</a>
-        GitHub team to access our repositories.
-    </p>
-    <hr>
-    <p class="mb-0">
-        Please <a href="{% url 'volunteer:volunteer_profile_edit' profile.id %}" class="alert-link"><strong>update your
-                profile</strong></a>
-        with your GitHub username and let your team lead know after you've done that.
-    </p>
-    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close">
-    </button>
-</div>
+    {% if profile and profile.is_approved and not profile.github_username %}
+        <div class="alert alert-warning alert-dismissible fade show" role="alert">
+            <h4 class="alert-heading">
+                <i class="fa-brands fa-github"></i> GitHub Username Required
+            </h4>
+            <p>
+                Your GitHub username is currently missing. You will be added to the
+                <a href="https://github.com/orgs/pyladies/teams/pyladiescon-volunteers"
+                   target="_blank"
+                   class="alert-link">@pyladies/pyladiescon-volunteers</a>
+                GitHub team to access our repositories.
+            </p>
+            <hr>
+            <p class="mb-0">
+                Please <a href="{% url 'volunteer:volunteer_profile_edit' profile.id %}"
+    class="alert-link"><strong>update your
+            profile</strong></a>
+            with your GitHub username and let your team lead know after you've done that.
+        </p>
+        <button type="button"
+                class="btn-close"
+                data-bs-dismiss="alert"
+                aria-label="Close">
+        </button>
+    </div>
 {% endif %}
 {% if user.is_superuser %}
-<h1 class="display-5">
-    Manage Volunteers
-</h1>
-<p>
-    Review volunteer applications and manage team members.
-</p>
-<ul class="list-unstyled ps-8">
-    <li>
-        <a href="{% url 'volunteer:volunteers_list' %}" class="icon-link">
-            {% translate "Manage Volunteers" %}
-            <i class="fa-solid fa-chevron-right"></i>
-        </a>
-    </li>
-</ul>
+    <h1 class="display-5">
+        Manage Volunteers
+    </h1>
+    <p>
+        Review volunteer applications and manage team members.
+    </p>
+    <ul class="list-unstyled ps-8">
+        <li>
+            <a href="{% url 'volunteer:volunteers_list' %}" class="icon-link">
+                {% translate "Manage Volunteers" %}
+                <i class="fa-solid fa-chevron-right"></i>
+            </a>
+        </li>
+    </ul>
 {% endif %}
 <h1 class="display-5">
     {% trans "Volunteer Profile" %}
 </h1>
 {% if profile %}
-<div>
-    <a class="btn btn-primary btn-lg" role="button"
-        href="{% url 'volunteer:volunteer_profile_detail' profile.id %}">View my Profile</a>
-    <a class="btn btn-secondary btn-lg" role="button"
-        href="{% url 'volunteer:volunteer_profile_edit' profile.id %}">Edit Profile</a>
-</div>
+    <div>
+        <a class="btn btn-primary btn-lg"
+           role="button"
+           href="{% url 'volunteer:volunteer_profile_detail' profile.id %}">View my Profile</a>
+        <a class="btn btn-secondary btn-lg"
+           role="button"
+           href="{% url 'volunteer:volunteer_profile_edit' profile.id %}">Edit Profile</a>
+    </div>
 {% else %}
-<p class="col-md-8 fs-4">
-    {% blocktranslate %}You have not created your Volunteer Profile yet. Once you created your profile, our team will
+    <p class="col-md-8 fs-4">
+        {% blocktranslate %}You have not created your Volunteer Profile yet. Once you created your profile, our team will
     review it.
     We will then assign you to the appropriate team that needs help so you can get set up with the
     necessary access.{% endblocktranslate %}
-</p>
-<a class="btn btn-primary btn-lg" role="button" href="{% url 'volunteer:volunteer_profile_new' %}">{% trans "Create my
+    </p>
+    <a class="btn btn-primary btn-lg"
+       role="button"
+       href="{% url 'volunteer:volunteer_profile_new' %}">{% trans "Create my
     Profile" %}</a>
 {% endif %}
 <p>
-<h2>
-    Links and Resources
-</h2>
-<ul class="list-unstyled ps-8">
-    {% if profile.id %}
-    <li>
-        <a href="{% url 'volunteer:index' %}" class="icon-link">
-            Manage your volunteer profile
-            <i class="fa-solid fa-chevron-right"></i>
-        </a>
-    </li>
-    {% else %}
-    <li>
-        <a href="{% url 'volunteer:volunteer_profile_new' %}" class="icon-link">
-            Volunteer Now
-            <i class="fa-solid fa-chevron-right"></i>
-        </a>
-    </li>
-    {% endif %}
-    <li>
-        <a href="https://conference.pyladies.com/docs/" class="icon-link">
-            Team Descriptions
-            <i class="fa-solid fa-chevron-right"></i>
-        </a> Learn about the different teams and their roles.
-    </li>
-    <li>
-        <a href="https://conference.pyladies.com/docs/roles_and_responsibilities/" class="icon-link">
-            Volunteer Responsibilities
-            <i class="fa-solid fa-chevron-right"></i>
-        </a> Understand the expectations and responsibilities of a volunteer.
-    </li>
-    <li>
-        <a href="https://discord.com/invite/2fUN4ddVfP" class="icon-link">
-            Join our Discord
-            <i class="fa-brands fa-discord"></i>
-        </a> All of our volunteers are required to be in our Discord server.
-    </li>
-</ul>
+    <h2>
+        Links and Resources
+    </h2>
+    <ul class="list-unstyled ps-8">
+        {% if profile.id %}
+            <li>
+                <a href="{% url 'volunteer:index' %}" class="icon-link">
+                    Manage your volunteer profile
+                    <i class="fa-solid fa-chevron-right"></i>
+                </a>
+            </li>
+        {% else %}
+            <li>
+                <a href="{% url 'volunteer:volunteer_profile_new' %}" class="icon-link">
+                    Volunteer Now
+                    <i class="fa-solid fa-chevron-right"></i>
+                </a>
+            </li>
+        {% endif %}
+        <li>
+            <a href="https://conference.pyladies.com/docs/" class="icon-link">
+                Team Descriptions
+                <i class="fa-solid fa-chevron-right"></i>
+            </a> Learn about the different teams and their roles.
+        </li>
+        <li>
+            <a href="https://conference.pyladies.com/docs/roles_and_responsibilities/"
+               class="icon-link">
+                Volunteer Responsibilities
+                <i class="fa-solid fa-chevron-right"></i>
+            </a> Understand the expectations and responsibilities of a volunteer.
+        </li>
+        <li>
+            <a href="https://discord.com/invite/2fUN4ddVfP" class="icon-link">
+                Join our Discord
+                <i class="fa-brands fa-discord"></i>
+            </a> All of our volunteers are required to be in our Discord server.
+        </li>
+    </ul>
 </p>
 {% endblock content %}
