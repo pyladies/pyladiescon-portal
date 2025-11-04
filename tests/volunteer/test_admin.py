@@ -1,9 +1,12 @@
 import pytest
 from django.conf import settings
+from django.contrib.admin.sites import AdminSite
 from django.core import mail
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
 
-from volunteer.models import ApplicationStatus, VolunteerProfile
+from volunteer.admin import PyladiesChapterAdmin
+from volunteer.models import ApplicationStatus, PyladiesChapter, VolunteerProfile
 
 
 @pytest.mark.django_db
@@ -43,3 +46,30 @@ class TestAdminActions:
         assert "We are placing you on a waitlist" in str(mail.outbox[0].body)
         profile.refresh_from_db()
         assert profile.application_status == ApplicationStatus.WAITLISTED
+
+
+@pytest.mark.django_db
+class TestPyLadiesChapterAdmin:
+
+    def test_pyladies_chapter_admin_view(self):
+        pyladies_chapter_admin = PyladiesChapterAdmin(
+            model=PyladiesChapter, admin_site=AdminSite
+        )
+
+        chapter = PyladiesChapter.objects.create(
+            chapter_name="vancouver",
+            chapter_description="Vancouver, Canada",
+            chapter_website="https://vancouver.pyladies.com/",
+        )
+
+        has_logo_field = pyladies_chapter_admin.has_logo(chapter)
+        assert has_logo_field is False
+
+        chapter.logo = SimpleUploadedFile(
+            name="test_image.jpg",
+            content=open("./tests/sponsorship/test_img.png", "rb").read(),
+            content_type="image/jpeg",
+        )
+        has_logo_field = pyladies_chapter_admin.has_logo(chapter)
+
+        assert has_logo_field is True
