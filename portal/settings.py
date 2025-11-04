@@ -163,10 +163,12 @@ MEDIA_URL = "/media/"
 USE_SPACES = os.getenv("USE_SPACES")
 
 STORAGES = {
+    "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
     "staticfiles": {
         "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
     },
 }
+
 
 if USE_SPACES == "true":
     STORAGES = {

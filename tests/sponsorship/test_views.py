@@ -1,4 +1,5 @@
 import pytest
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
 from pytest_django.asserts import assertRedirects
 
@@ -75,6 +76,65 @@ class TestSponsorshipViews:
         sponsors_table = response.context["table"]
         progress_status_render = sponsors_table.render_progress_status(status)
         assert css_class in progress_status_render
+
+    def test_sponsors_table_render_logo(
+        self,
+        client,
+        admin_user,
+    ):
+        tier = SponsorshipTier.objects.create(
+            name="Gold", amount=5000.00, description="Gold tier sponsorship"
+        )
+
+        profile = SponsorshipProfile.objects.create(
+            organization_name="Override Corp",
+            sponsorship_tier=tier,
+            progress_status=SponsorshipProgressStatus.PAID,
+        )
+
+        profile.logo = SimpleUploadedFile(
+            name="test_image.jpg",
+            content=open("./tests/sponsorship/test_img.png", "rb").read(),
+            content_type="image/jpeg",
+        )
+        profile.save()
+        client.force_login(admin_user)
+        url = reverse("sponsorship:sponsorship_list")
+        response = client.get(url)
+
+        assert response.status_code == 200
+        assert isinstance(response.context["table"], SponsorshipProfileTable)
+
+        sponsors_table = response.context["table"]
+        logo_render = sponsors_table.render_logo(profile.logo, profile)
+        assert profile.logo.url in logo_render
+        assert f'alt="Logo of {profile.organization_name}"' in logo_render
+
+    def test_sponsors_table_render_no_logo(
+        self,
+        client,
+        admin_user,
+    ):
+        tier = SponsorshipTier.objects.create(
+            name="Gold", amount=5000.00, description="Gold tier sponsorship"
+        )
+
+        profile = SponsorshipProfile.objects.create(
+            organization_name="Override Corp",
+            sponsorship_tier=tier,
+            progress_status=SponsorshipProgressStatus.PAID,
+        )
+
+        client.force_login(admin_user)
+        url = reverse("sponsorship:sponsorship_list")
+        response = client.get(url)
+
+        assert response.status_code == 200
+        assert isinstance(response.context["table"], SponsorshipProfileTable)
+
+        sponsors_table = response.context["table"]
+        logo_render = sponsors_table.render_logo(profile.logo, profile)
+        assert logo_render == ""
 
     @pytest.mark.parametrize(
         "status,css_class,is_visible",
