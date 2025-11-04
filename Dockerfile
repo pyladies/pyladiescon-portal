@@ -50,5 +50,5 @@ RUN \
     DJANGO_SECRET_KEY=deadbeefcafe \
     DATABASE_URL=postgres://localhost:5432/db \
     DJANGO_SETTINGS_MODULE=portal.settings \
-    python manage.py collectstatic --noinput
+    python manage.py collectstatic --noinput --clear
 
