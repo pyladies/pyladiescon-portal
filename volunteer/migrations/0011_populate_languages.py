@@ -2,7 +2,10 @@
 
 from django.db import migrations
 
-from volunteer.management.commands.migrate_volunteer_language import populate_language_choices
+from volunteer.management.commands.migrate_volunteer_language import (
+    populate_language_choices,
+)
+
 
 def populate_languages(apps, schema_editor):
     populate_language_choices()
@@ -14,6 +17,4 @@ class Migration(migrations.Migration):
         ("volunteer", "0010_language_alter_volunteerprofile_languages_spoken_and_more"),
     ]
 
-    operations = [
-        migrations.RunPython(populate_languages, migrations.RunPython.noop)
-    ]
+    operations = [migrations.RunPython(populate_languages, migrations.RunPython.noop)]
