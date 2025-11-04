@@ -2,28 +2,27 @@
 {% load i18n %}
 {% load allauth account %}
 {% block head_title %}
-    {% trans "Sign In" %}
+{% trans "Sign In" %}
 {% endblock head_title %}
 {% block og_title %}
-    PyLadiesCon Portal - Sign In
+PyLadiesCon Portal - Sign In
 {% endblock og_title %}
 {% block og_description %}
-    Sign in to PyLadiesCon Portal to manage your volunteer profile, sponsorships, and contribute to the conference.
+Sign in to PyLadiesCon Portal to manage your volunteer profile, sponsorships, and contribute to the conference.
 {% endblock og_description %}
 {% block content %}
-    {% element h1 %}
-    {% trans "Sign In" %}
+{% element h1 %}
+{% trans "Sign In" %}
 {% endelement %}
 {% if not SOCIALACCOUNT_ONLY %}
-    {% setvar link %}
-    <a href="{{ signup_url }}">
+{% setvar link %}
+<a href="{{ signup_url }}">
     {% endsetvar %}
     {% setvar end_link %}
 </a>
 {% endsetvar %}
 {% element p %}
-{% blocktranslate %}
-If you have not created an account yet, then please {{ link }}sign up{{ end_link }} first.{%
+{% blocktranslate %}If you have not created an account yet, then please {{ link }}sign up{{ end_link }} first.{%
 endblocktranslate %}
 {% endelement %}
 {% url 'account_login' as login_url %}
