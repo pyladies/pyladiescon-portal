@@ -36,7 +36,6 @@ def send_psf_invoice_request_email(profile):
 
     subject = f"PyLadiesCon Sponsorship Contract Request: {profile.organization_name}"
 
-    # TODO: Replace with actual PSF accounting email addresses
     psf_accounting_emails = ["accounting@python.org", "sponsors@pyladies.com"]
 
     send_markdown_email(
