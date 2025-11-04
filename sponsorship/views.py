@@ -65,11 +65,13 @@ class SponsorshipProfileTable(tables.Table):
     tier_name = tables.Column(
         accessor="sponsorship_tier__name", verbose_name="Sponsorship Tier"
     )
+    logo = tables.Column(accessor="logo", verbose_name="Logo")
 
     class Meta:
         model = SponsorshipProfile
         fields = (
             "organization_name",
+            "logo",
             "tier_name",
             "amount",
             "progress_status",
@@ -81,6 +83,17 @@ class SponsorshipProfileTable(tables.Table):
             "class": "table table-hover table-bordered table-sm",
             "thead": {"class": "table-light"},
         }
+
+    def render_logo(self, value, record):
+        """Render the logo as a small image with link to the full image."""
+        if value:
+            return format_html(
+                '<a href="{value}"><img src="{value}" alt="Logo of {name}" class="img-fluid" width="100px"></a>',
+                value=value.url,
+                name=record.organization_name,
+            )
+        else:
+            return ""
 
     def render_progress_status(self, value):
         """Render the progress status with a badge."""
