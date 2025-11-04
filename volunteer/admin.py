@@ -61,6 +61,7 @@ class PyladiesChapterAdmin(ImportExportModelAdmin):
         "chapter_website",
     )
     resource_classes = [PyladiesChapterResource]
+    search_fields = ["chapter_name", "chapter_description", "chapter_email"]
 
 
 admin.site.register(Role)
