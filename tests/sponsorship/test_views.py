@@ -97,7 +97,7 @@ class TestSponsorshipViews:
             content=open("./tests/sponsorship/test_img.png", "rb").read(),
             content_type="image/jpeg",
         )
-        profile.save()
+
         client.force_login(admin_user)
         url = reverse("sponsorship:sponsorship_list")
         response = client.get(url)
