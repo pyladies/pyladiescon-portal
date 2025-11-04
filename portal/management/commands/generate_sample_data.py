@@ -17,6 +17,7 @@ from django.contrib.auth.models import User
 from django.core.management.base import BaseCommand, CommandError
 from django.db.models.signals import post_save
 
+from portal_account.models import PortalProfile
 from sponsorship.models import (
     SponsorshipProfile,
     SponsorshipProgressStatus,
@@ -173,6 +174,10 @@ class Command(BaseCommand):
                 self.stdout.write(
                     self.style.WARNING(f"  ~ User already exists: {user.username}")
                 )
+            portal_profile, _ = PortalProfile.objects.get_or_create(user=user)
+            portal_profile.tos_agreement = True
+            portal_profile.coc_agreement = True
+            portal_profile.save()
 
         self.stdout.write(self.style.SUCCESS(f"Created {created_count} new users\n"))
 
