@@ -2,6 +2,8 @@ from django.conf import settings
 from django.core.mail import send_mail
 from django.template.loader import render_to_string
 
+from sponsorship.constants import PSF_ACCOUNTING_EMAIL, SPONSORSHIP_COMMITTEE_EMAIL
+
 
 def send_sponsorship_status_emails(profile):
     user = profile.user
@@ -36,7 +38,7 @@ def send_psf_invoice_request_email(profile):
 
     subject = f"PyLadiesCon Sponsorship Contract Request: {profile.organization_name}"
 
-    psf_accounting_emails = ["accounting@python.org", "sponsors@pyladies.com"]
+    psf_accounting_emails = [PSF_ACCOUNTING_EMAIL, SPONSORSHIP_COMMITTEE_EMAIL]
 
     send_markdown_email(
         subject=subject,

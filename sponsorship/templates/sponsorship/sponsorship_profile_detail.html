@@ -15,9 +15,29 @@
                         </li>
                     </ol>
                 </nav>
-                <h1 class="display-5">
-                    {{ profile.organization_name }}
-                </h1>
+                <div class="row g-0">
+                    <div class="col-md-8">
+                        <div class="card-body">
+                            <h5 class="card-title">
+                                {{ profile.organization_name }}
+                            </h5>
+                            <p class="card-text">
+                                {{ profile.company_description }}
+                            </p>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        {% if profile.logo %}
+                            <a href="{{ profile.logo.url }}">
+                                <img src="{{ profile.logo.url }}"
+                                     class="img-fluid rounded-start"
+                                     alt="Logo of {{ profile.organization_name }}"
+                                     width="100"
+                                     height="100">
+                            </a>
+                        {% endif %}
+                    </div>
+                </div>
                 <div class="card mb-4">
                     <div class="card-header">
                         <h5 class="mb-0">
@@ -33,11 +53,6 @@
                                 <p>
                                     <strong>Name:</strong> {{ profile.organization_name }}
                                 </p>
-                                {% if profile.company_description %}
-                                    <p>
-                                        <strong>Description:</strong> {{ profile.company_description }}
-                                    </p>
-                                {% endif %}
                                 {% if profile.organization_address %}
                                     <p>
                                         <strong>Address:</strong>
@@ -92,7 +107,7 @@
                                     <strong>Created:</strong> {{ profile.creation_date }}
                                 </p>
                                 <p>
-                                    <strong>Last Updated:</strong> {{ profile.modified_date}}
+                                    <strong>Last Updated:</strong> {{ profile.modified_date }}
                                 </p>
                             </div>
                         </div>

@@ -84,11 +84,18 @@ class SponsorshipProfileTable(tables.Table):
             "thead": {"class": "table-light"},
         }
 
+    def render_organization_name(self, value, record):
+        """Render the organization name as a link to the detail view."""
+        detail_url = reverse_lazy(
+            "sponsorship:sponsorship_profile_detail", args=[record.pk]
+        )
+        return format_html('<a href="{}">{}</a>', detail_url, value)
+
     def render_logo(self, value, record):
         """Render the logo as a small image with link to the full image."""
         if value:
             return format_html(
-                '<a href="{value}"><img src="{value}" alt="Logo of {name}" class="img-fluid" width="100px"></a>',
+                '<a href="{value}"><img src="{value}" alt="Logo of {name}" class="img-fluid" width="100" height="100"></a>',
                 value=value.url,
                 name=record.organization_name,
             )
@@ -137,16 +144,12 @@ class SponsorshipProfileTable(tables.Table):
 
     def render_actions(self, value, record):
         """Render action buttons for each sponsorship profile."""
-        detail_url = reverse_lazy(
-            "sponsorship:sponsorship_profile_detail", args=[record.pk]
-        )
+
         edit_url = reverse_lazy(
             "admin:sponsorship_sponsorshipprofile_change", args=[record.pk]
         )
         return format_html(
-            '<a href="{}" class="btn btn-sm btn-outline-primary me-1">View</a>'
             '<a href="{}" class="btn btn-sm btn-primary">Update</a>',
-            detail_url,
             edit_url,
         )
 
@@ -214,8 +217,6 @@ class SponsorshipProfileList(CanViewSponsorship, SingleTableMixin, FilterView):
         context["volunteer_profile"] = volunteer_profile
         context["title"] = "Sponsorship Profiles"
         context["stats"] = get_sponsorships_stats_dict()
-        if not self.request.user.is_superuser and not self.request.user.is_staff:
-            context["table"].exclude = "actions"
         return context
 
 

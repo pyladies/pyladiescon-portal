@@ -2,6 +2,7 @@ import pytest
 from django.contrib.auth.models import User
 from django.core import mail
 
+from sponsorship.constants import PSF_ACCOUNTING_EMAIL, SPONSORSHIP_COMMITTEE_EMAIL
 from sponsorship.emails import (
     send_psf_invoice_request_email,
     send_sponsorship_status_emails,
@@ -79,9 +80,9 @@ class TestSponsorshipEmails:
         assert "PyLadiesCon Sponsorship Contract Request: Test Corp" in email.subject
 
         # Check recipients
-        assert "accounting@python.org" in email.to
+        assert PSF_ACCOUNTING_EMAIL in email.to
         # Ensure the project recipients include our sponsors contact
-        assert "sponsors@pyladies.com" in email.to
+        assert SPONSORSHIP_COMMITTEE_EMAIL in email.to
 
         # Check email body contains expected content
         assert "Test Corp" in email.body
