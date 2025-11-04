@@ -39,6 +39,11 @@ urlpatterns = [
         name="teams",
     ),
     path(
+        "chapters/",
+        volunteer_view.PyladiesChaptersList.as_view(),
+        name="chapters",
+    ),
+    path(
         "teams/<int:pk>",
         volunteer_view.TeamView.as_view(),
         name="team_detail",

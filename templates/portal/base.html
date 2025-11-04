@@ -136,6 +136,11 @@
                         {% if change_password_url_ %}
                         <li>
                             <a class="dropdown-item" href="{{ change_password_url_ }}">{% trans "Change Password" %}</a>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{% url 'chapters' %}">PyLadies Chapters</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="https://pyladiescon-portal-docs.netlify.app/">Documentation</a>
                         </li>
                         {% endif %}
                         <li>
