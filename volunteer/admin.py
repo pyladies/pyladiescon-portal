@@ -71,7 +71,7 @@ class PyladiesChapterAdmin(ImportExportModelAdmin):
         else:
             return False
 
-    has_logo.boolean = True  #  Render the has_logo column with a check icon
+    has_logo.boolean = True  # Render the has_logo column with a check icon
     has_logo.short_description = "Has Logo"
 
 
