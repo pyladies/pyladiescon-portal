@@ -88,7 +88,7 @@ class TestVolunteer:
         response = client.get(reverse("volunteer:volunteer_profile_new"))
         assert response.status_code == 200
 
-        assert team.short_name in response.content
+        assert team.short_name in str(response.content)
 
     def test_volunteer_profile_teams_not_available(self, client, portal_user):
         """Display a warning message that we are on waitlist mode.
@@ -109,8 +109,8 @@ class TestVolunteer:
         response = client.get(reverse("volunteer:volunteer_profile_new"))
         assert response.status_code == 200
 
-        assert team.short_name not in response.content
-        assert "You will be waitlisted." in response.content
+        assert team.short_name not in str(response.content)
+        assert "You will be waitlisted." in str(response.content)
 
     def test_volunteer_profile_cannot_create_if_exists(self, client, portal_user):
         profile = VolunteerProfile(user=portal_user)
