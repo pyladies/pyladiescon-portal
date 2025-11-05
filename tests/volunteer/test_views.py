@@ -74,6 +74,55 @@ class TestVolunteer:
         response = client.get(reverse("volunteer:volunteer_profile_new"))
         assert response.status_code == 200
 
+    def test_volunteer_profile_teams_available(self, client, portal_user):
+        """Display team list if there are teams that are still accepting new members."""
+
+        profile = VolunteerProfile(user=portal_user)
+        profile.save()
+        portal_user.is_superuser = True
+        portal_user.save()
+
+        team = Team(
+            short_name="Test Team",
+            description="Test Description",
+            open_to_new_members=True,
+        )
+        team.save()
+        team.team_leads.add(profile)
+
+        client.force_login(portal_user)
+        response = client.get(reverse("volunteer:volunteer_profile_new"))
+        assert response.status_code == 200
+
+        assert team.short_name in response.content
+
+    def test_volunteer_profile_teams_not_available(self, client, portal_user):
+        """Display a warning message that we are on waitlist mode.
+
+        If there is a team but is not accepting new member, then the team is not available.
+        If there is no teams at all, or all the teams are not accepting new members,
+        then display the warning message.
+        """
+        profile = VolunteerProfile(user=portal_user)
+        profile.save()
+        portal_user.is_superuser = True
+        portal_user.save()
+
+        team = Team(
+            short_name="Test Team",
+            description="Test Description",
+            open_to_new_members=True,
+        )
+        team.save()
+        team.team_leads.add(profile)
+
+        client.force_login(portal_user)
+        response = client.get(reverse("volunteer:volunteer_profile_new"))
+        assert response.status_code == 200
+
+        assert team.short_name not in response.content
+        assert "You will be waitlisted." in response.content
+
     def test_volunteer_profile_cannot_create_if_exists(self, client, portal_user):
         profile = VolunteerProfile(user=portal_user)
         profile.region = Region.NORTH_AMERICA
