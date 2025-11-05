@@ -58,5 +58,5 @@ urlpatterns = [
         "stats.json",
         views.stats_json,
         name="portal_stats_json",
-    )
+    ),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

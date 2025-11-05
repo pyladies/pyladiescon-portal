@@ -1,12 +1,11 @@
 from django.contrib.auth import get_user
+from django.http import JsonResponse
 from django.shortcuts import redirect, render
 
 from portal.common import get_stats_cached_values
 from portal_account.models import PortalProfile
 from volunteer.languages import LANGUAGES
 from volunteer.models import VolunteerProfile
-
-from django.http import JsonResponse
 
 
 def index(request):
@@ -45,6 +44,7 @@ def stats(request):
     context["stats"] = get_stats_cached_values()
 
     return render(request, "portal/stats.html", context)
+
 
 def stats_json(request):
     """

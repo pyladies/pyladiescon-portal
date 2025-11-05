@@ -72,6 +72,7 @@ class TestPyladiesChapters:
         assert chapter_2.chapter_description in response.content.decode()
         assert chapter_1.chapter_website in response.content.decode()
 
+
 @pytest.mark.django_db
 class TestStatsJSON:
 
