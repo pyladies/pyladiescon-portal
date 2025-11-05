@@ -6,6 +6,8 @@ from portal_account.models import PortalProfile
 from volunteer.languages import LANGUAGES
 from volunteer.models import VolunteerProfile
 
+from django.http import JsonResponse
+
 
 def index(request):
     """
@@ -41,7 +43,15 @@ def stats(request):
     context = {}
 
     context["stats"] = get_stats_cached_values()
-    lang_dict = dict(LANGUAGES)
-    context["lang_dict"] = lang_dict
 
     return render(request, "portal/stats.html", context)
+
+def stats_json(request):
+    """
+    Return the stats as a JSON response
+    """
+    context = {}
+
+    context["stats"] = get_stats_cached_values()
+
+    return JsonResponse(context)
