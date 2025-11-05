@@ -29,9 +29,6 @@ def index(request):
 
         context["stats"] = get_stats_cached_values()
 
-    lang_dict = dict(LANGUAGES)
-    context["lang_dict"] = lang_dict
-
     return render(request, "portal/index.html", context)
 
 
