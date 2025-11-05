@@ -4,7 +4,6 @@ from django.shortcuts import redirect, render
 
 from portal.common import get_stats_cached_values
 from portal_account.models import PortalProfile
-from volunteer.languages import LANGUAGES
 from volunteer.models import VolunteerProfile
 
 
