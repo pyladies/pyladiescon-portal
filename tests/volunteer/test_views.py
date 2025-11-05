@@ -77,18 +77,12 @@ class TestVolunteer:
     def test_volunteer_profile_teams_available(self, client, portal_user):
         """Display team list if there are teams that are still accepting new members."""
 
-        profile = VolunteerProfile(user=portal_user)
-        profile.save()
-        portal_user.is_superuser = True
-        portal_user.save()
-
         team = Team(
             short_name="Test Team",
             description="Test Description",
             open_to_new_members=True,
         )
         team.save()
-        team.team_leads.add(profile)
 
         client.force_login(portal_user)
         response = client.get(reverse("volunteer:volunteer_profile_new"))
@@ -103,10 +97,6 @@ class TestVolunteer:
         If there is no teams at all, or all the teams are not accepting new members,
         then display the warning message.
         """
-        profile = VolunteerProfile(user=portal_user)
-        profile.save()
-        portal_user.is_superuser = True
-        portal_user.save()
 
         team = Team(
             short_name="Test Team",
@@ -114,7 +104,6 @@ class TestVolunteer:
             open_to_new_members=True,
         )
         team.save()
-        team.team_leads.add(profile)
 
         client.force_login(portal_user)
         response = client.get(reverse("volunteer:volunteer_profile_new"))
