@@ -101,7 +101,7 @@ class TestVolunteer:
         team = Team(
             short_name="Test Team",
             description="Test Description",
-            open_to_new_members=True,
+            open_to_new_members=False,
         )
         team.save()
 
