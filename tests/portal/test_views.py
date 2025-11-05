@@ -71,3 +71,18 @@ class TestPyladiesChapters:
         assert chapter_1.chapter_description in response.content.decode()
         assert chapter_2.chapter_description in response.content.decode()
         assert chapter_1.chapter_website in response.content.decode()
+
+
+@pytest.mark.django_db
+class TestStatsJSON:
+
+    def test_stats_json_endpoint(self, client):
+        """Test that the stats JSON endpoint returns the expected data.
+
+        Actual stats values are tested in test_common.py.
+        This is just testing that the endpoint is reachable and returns a JSON response.
+        """
+        response = client.get(reverse("portal_stats_json"))
+        assert response.status_code == 200
+        data = response.json()
+        assert "stats" in data
