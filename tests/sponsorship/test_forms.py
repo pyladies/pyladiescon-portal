@@ -119,3 +119,4 @@ class TestSponsorshipProfileForm:
         assert profile.organization_address == form_data["organization_address"]
         assert profile.company_description == form_data["company_description"]
         assert profile.progress_status == form_data["progress_status"]
+        assert profile.po_number == form_data["po_number"]
