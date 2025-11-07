@@ -63,6 +63,10 @@ class SponsorshipProfile(BaseModel):
     sponsorship_override_amount = models.DecimalField(
         max_digits=10, decimal_places=2, blank=True, null=True
     )
+    is_individual_donation = models.BooleanField(
+        default=False,
+        help_text="Check if this is an individual donation (not a corporate sponsorship)",
+    )
 
     def __str__(self):
         return self.organization_name

@@ -1,6 +1,78 @@
 {% load portal_extras %}
 <div class="container  border rounded-3 p-3 mb-4">
+    <!-- New: Breakdown of Individual Donations vs Corporate Sponsors -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <h4 class="mb-3">
+                Fundraising Breakdown
+            </h4>
+        </div>
+        <div class="col-sm-3">
+            <div class="card border-0 bg-light">
+                <div class="card-body">
+                    <h5 class="card-title">
+                        Corporate Sponsors
+                    </h5>
+                    <h2 class="display-6 text-primary">
+                        {{ stats.corporate_sponsors_amount| as_currency }}
+                    </h2>
+                    <p class="text-muted mb-0">
+                        from {{ stats.corporate_sponsors_count }} sponsors
+                    </p>
+                    <small class="text-muted">raised from sponsors</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-sm-3">
+            <div class="card border-0 bg-light">
+                <div class="card-body">
+                    <h5 class="card-title">
+                        Individual Donations
+                    </h5>
+                    <h2 class="display-6 text-info">
+                        {{ stats.individual_donations_amount| as_currency }}
+                    </h2>
+                    <p class="text-muted mb-0">
+                        from {{ stats.individual_donations_count }} donors
+                    </p>
+                    <small class="text-muted">raised from individuals</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-sm-3">
+            <div class="card border-0 bg-success text-white">
+                <div class="card-body">
+                    <h5 class="card-title">
+                        Total Funds Raised
+                    </h5>
+                    <h1 class="display-5">
+                        {{ stats.total_funds_raised| as_currency }}
+                    </h1>
+                    <small>= Corporate + Individual</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-sm-3">
+            <div class="card border-0 bg-light">
+                <div class="card-body">
+                    <h5 class="card-title">
+                        Progress to Goal
+                    </h5>
+                    <h1 class="display-5 text-success">
+                        {{ stats.sponsorship_towards_goal_percent|floatformat:0 }}%
+                    </h1>
+                    <small class="text-muted">of $15,000 goal</small>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- Original: Detailed Sponsorship Stats -->
     <div class="row">
+        <div class="col-12">
+            <h4 class="mb-3">
+                Sponsorship Pipeline
+            </h4>
+        </div>
         <div class="col-sm-3">
             <div class="card border-0">
                 <div class="card-body">
@@ -49,21 +121,6 @@
                     <h1 class="display-4 text-success">
                         {{ stats.sponsorship_committed_amount| as_currency }}
                     </h1>
-                </div>
-            </div>
-        </div>
-    </div>
-    <div class="row">
-        <div class="col-sm-3">
-            <div class="card border-0">
-                <div class="card-body">
-                    <h5 class="card-title">
-                        We've raised
-                    </h5>
-                    <h1 class="display-4 text-success">
-                        {{ stats.sponsorship_towards_goal_percent|floatformat:0 }}%
-                    </h1>
-                    <span class="text-muted">towards our goal of $15,000</span>
                 </div>
             </div>
         </div>

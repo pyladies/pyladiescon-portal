@@ -2,6 +2,10 @@ from django.core.cache import cache
 from django.db.models import Count, Sum
 
 from portal.constants import (
+    CACHE_KEY_CORPORATE_SPONSORS_AMOUNT,
+    CACHE_KEY_CORPORATE_SPONSORS_COUNT,
+    CACHE_KEY_INDIVIDUAL_DONATIONS_AMOUNT,
+    CACHE_KEY_INDIVIDUAL_DONATIONS_COUNT,
     CACHE_KEY_SPONSORSHIP_BREAKDOWN,
     CACHE_KEY_SPONSORSHIP_COMMITTED,
     CACHE_KEY_SPONSORSHIP_COMMITTED_COUNT,
@@ -12,6 +16,7 @@ from portal.constants import (
     CACHE_KEY_SPONSORSHIP_PENDING_COUNT,
     CACHE_KEY_SPONSORSHIP_TOWARDS_GOAL_PERCENT,
     CACHE_KEY_TEAMS_COUNT,
+    CACHE_KEY_TOTAL_FUNDS_RAISED,
     CACHE_KEY_TOTAL_SPONSORSHIPS,
     CACHE_KEY_VOLUNTEER_BREAKDOWN,
     CACHE_KEY_VOLUNTEER_LANGUAGES,
@@ -78,6 +83,21 @@ def get_sponsorships_stats_dict():
         get_sponsorship_committed_count_stats_cache()
     )
     stats_dict[CACHE_KEY_SPONSORSHIP_BREAKDOWN] = get_sponsorship_breakdown()
+
+    # Individual Donations and Corporate Sponsors (separate breakdown)
+    stats_dict[CACHE_KEY_INDIVIDUAL_DONATIONS_COUNT] = (
+        get_individual_donations_count_cache()
+    )
+    stats_dict[CACHE_KEY_INDIVIDUAL_DONATIONS_AMOUNT] = (
+        get_individual_donations_amount_cache()
+    )
+    stats_dict[CACHE_KEY_CORPORATE_SPONSORS_COUNT] = (
+        get_corporate_sponsors_count_cache()
+    )
+    stats_dict[CACHE_KEY_CORPORATE_SPONSORS_AMOUNT] = (
+        get_corporate_sponsors_amount_cache()
+    )
+    stats_dict[CACHE_KEY_TOTAL_FUNDS_RAISED] = get_total_funds_raised_cache()
 
     return stats_dict
 
@@ -376,6 +396,125 @@ def get_sponsorship_paid_percent_cache():
             STATS_CACHE_TIMEOUT,
         )
     return sponsorship_paid_percent
+
+
+def get_individual_donations_count_cache():
+    """Returns count of individual donations (paid only)"""
+    individual_donations_count = cache.get(CACHE_KEY_INDIVIDUAL_DONATIONS_COUNT)
+    if not individual_donations_count:
+        individual_donations_count = SponsorshipProfile.objects.filter(
+            progress_status=SponsorshipProgressStatus.PAID, is_individual_donation=True
+        ).count()
+        cache.set(
+            CACHE_KEY_INDIVIDUAL_DONATIONS_COUNT,
+            individual_donations_count,
+            STATS_CACHE_TIMEOUT,
+        )
+    return individual_donations_count
+
+
+def get_individual_donations_amount_cache():
+    """Returns total amount from individual donations (paid only)"""
+    individual_donations_amount = cache.get(CACHE_KEY_INDIVIDUAL_DONATIONS_AMOUNT)
+    if not individual_donations_amount:
+        individual_donations = SponsorshipProfile.objects.filter(
+            progress_status=SponsorshipProgressStatus.PAID, is_individual_donation=True
+        )
+
+        # Calculate donations with no override (using tier amount)
+        donations_no_override_qs = individual_donations.filter(
+            sponsorship_override_amount__isnull=True, sponsorship_tier__isnull=False
+        )
+        if donations_no_override_qs:
+            donations_no_override = donations_no_override_qs.aggregate(
+                Sum("sponsorship_tier__amount")
+            )["sponsorship_tier__amount__sum"]
+        else:
+            donations_no_override = 0
+
+        # Calculate donations with override amount
+        donations_with_override_qs = individual_donations.filter(
+            sponsorship_override_amount__isnull=False
+        )
+        if donations_with_override_qs:
+            donations_with_override = donations_with_override_qs.aggregate(
+                Sum("sponsorship_override_amount")
+            )["sponsorship_override_amount__sum"]
+        else:
+            donations_with_override = 0
+
+        individual_donations_amount = donations_no_override + donations_with_override
+        cache.set(
+            CACHE_KEY_INDIVIDUAL_DONATIONS_AMOUNT,
+            individual_donations_amount,
+            STATS_CACHE_TIMEOUT,
+        )
+    return individual_donations_amount
+
+
+def get_corporate_sponsors_count_cache():
+    """Returns count of corporate sponsors (paid only, excludes individual donations)"""
+    corporate_sponsors_count = cache.get(CACHE_KEY_CORPORATE_SPONSORS_COUNT)
+    if not corporate_sponsors_count:
+        corporate_sponsors_count = SponsorshipProfile.objects.filter(
+            progress_status=SponsorshipProgressStatus.PAID, is_individual_donation=False
+        ).count()
+        cache.set(
+            CACHE_KEY_CORPORATE_SPONSORS_COUNT,
+            corporate_sponsors_count,
+            STATS_CACHE_TIMEOUT,
+        )
+    return corporate_sponsors_count
+
+
+def get_corporate_sponsors_amount_cache():
+    """Returns total amount from corporate sponsors (paid only, excludes individual donations)"""
+    corporate_sponsors_amount = cache.get(CACHE_KEY_CORPORATE_SPONSORS_AMOUNT)
+    if not corporate_sponsors_amount:
+        corporate_sponsors = SponsorshipProfile.objects.filter(
+            progress_status=SponsorshipProgressStatus.PAID, is_individual_donation=False
+        )
+
+        # Calculate sponsors with no override (using tier amount)
+        sponsors_no_override_qs = corporate_sponsors.filter(
+            sponsorship_override_amount__isnull=True, sponsorship_tier__isnull=False
+        )
+        if sponsors_no_override_qs:
+            sponsors_no_override = sponsors_no_override_qs.aggregate(
+                Sum("sponsorship_tier__amount")
+            )["sponsorship_tier__amount__sum"]
+        else:
+            sponsors_no_override = 0
+
+        # Calculate sponsors with override amount
+        sponsors_with_override_qs = corporate_sponsors.filter(
+            sponsorship_override_amount__isnull=False
+        )
+        if sponsors_with_override_qs:
+            sponsors_with_override = sponsors_with_override_qs.aggregate(
+                Sum("sponsorship_override_amount")
+            )["sponsorship_override_amount__sum"]
+        else:
+            sponsors_with_override = 0
+
+        corporate_sponsors_amount = sponsors_no_override + sponsors_with_override
+        cache.set(
+            CACHE_KEY_CORPORATE_SPONSORS_AMOUNT,
+            corporate_sponsors_amount,
+            STATS_CACHE_TIMEOUT,
+        )
+    return corporate_sponsors_amount
+
+
+def get_total_funds_raised_cache():
+    """Returns total funds raised (corporate sponsors + individual donations)"""
+    total_funds_raised = cache.get(CACHE_KEY_TOTAL_FUNDS_RAISED)
+    if not total_funds_raised:
+        corporate_amount = get_corporate_sponsors_amount_cache()
+        individual_amount = get_individual_donations_amount_cache()
+        total_funds_raised = corporate_amount + individual_amount
+        cache.set(CACHE_KEY_TOTAL_FUNDS_RAISED, total_funds_raised, STATS_CACHE_TIMEOUT)
+    return total_funds_raised
 
 
 def get_sponsorship_breakdown():

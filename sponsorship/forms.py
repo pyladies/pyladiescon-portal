@@ -25,6 +25,7 @@ class SponsorshipProfileForm(forms.ModelForm):
             "logo",
             "company_description",
             "progress_status",
+            "is_individual_donation",
         ]
         widgets = {
             "company_description": forms.Textarea(

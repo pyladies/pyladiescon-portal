@@ -269,3 +269,75 @@ class TestGetStatsCachedValues:
 
         result = get_sponsorship_to_goal_percent_cache()
         assert result == 20
+
+    def test_individual_donations_stats(self):
+        """Test individual donations count and amount calculation"""
+        from portal.common import (
+            get_corporate_sponsors_amount_cache,
+            get_corporate_sponsors_count_cache,
+            get_individual_donations_amount_cache,
+            get_individual_donations_count_cache,
+            get_total_funds_raised_cache,
+        )
+        from portal.constants import (
+            CACHE_KEY_CORPORATE_SPONSORS_AMOUNT,
+            CACHE_KEY_CORPORATE_SPONSORS_COUNT,
+            CACHE_KEY_INDIVIDUAL_DONATIONS_AMOUNT,
+            CACHE_KEY_INDIVIDUAL_DONATIONS_COUNT,
+            CACHE_KEY_TOTAL_FUNDS_RAISED,
+        )
+
+        # Clear caches
+        cache.delete(CACHE_KEY_INDIVIDUAL_DONATIONS_COUNT)
+        cache.delete(CACHE_KEY_INDIVIDUAL_DONATIONS_AMOUNT)
+        cache.delete(CACHE_KEY_CORPORATE_SPONSORS_COUNT)
+        cache.delete(CACHE_KEY_CORPORATE_SPONSORS_AMOUNT)
+        cache.delete(CACHE_KEY_TOTAL_FUNDS_RAISED)
+
+        # Create tier
+        tier = SponsorshipTier.objects.create(
+            name="Individual Tier", amount=100, description="For individuals"
+        )
+
+        # Create individual donations (paid)
+        SponsorshipProfile.objects.create(
+            organization_name="John Doe",
+            sponsorship_tier=tier,
+            progress_status=SponsorshipProgressStatus.PAID,
+            is_individual_donation=True,
+        )
+        SponsorshipProfile.objects.create(
+            organization_name="Jane Smith",
+            sponsorship_override_amount=50,
+            progress_status=SponsorshipProgressStatus.PAID,
+            is_individual_donation=True,
+        )
+
+        # Create corporate sponsor (paid)
+        corporate_tier = SponsorshipTier.objects.create(
+            name="Gold", amount=5000, description="Gold sponsor"
+        )
+        SponsorshipProfile.objects.create(
+            organization_name="Corp Inc",
+            sponsorship_tier=corporate_tier,
+            progress_status=SponsorshipProgressStatus.PAID,
+            is_individual_donation=False,
+        )
+
+        # Test individual donations
+        individual_count = get_individual_donations_count_cache()
+        assert individual_count == 2
+
+        individual_amount = get_individual_donations_amount_cache()
+        assert individual_amount == 150  # 100 + 50
+
+        # Test corporate sponsors
+        corporate_count = get_corporate_sponsors_count_cache()
+        assert corporate_count == 1
+
+        corporate_amount = get_corporate_sponsors_amount_cache()
+        assert corporate_amount == 5000
+
+        # Test total funds
+        total_funds = get_total_funds_raised_cache()
+        assert total_funds == 5150  # 150 + 5000
