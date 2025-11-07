@@ -1,5 +1,5 @@
 asgiref==3.8.1
-Django==5.2.7
+Django==5.2.8
 django-allauth==65.11.2
 django-filter==25.1
 django-tables2==2.7.5
@@ -17,3 +17,4 @@ pillow==11.3.0
 django-import-export[all]==4.3.12
 markdown==3.7
 bleach==6.3.0
+sentry-sdk[django]==2.43.0

@@ -1,0 +1,39 @@
+{% extends "portal/base.html" %}
+{% load allauth i18n %}
+{% load django_bootstrap5 %}
+{% block body %}
+{% endblock body %}
+{% block content %}
+    <div class="container px-4 py-5" id="featured-3">
+        <h1 class="pb-2 border-bottom">
+            {% trans "PyLadies Chapters" %}
+        </h1>
+        <div class="row pt-2 row-cols-1 row-cols-md-3 g-4">
+            {% for chapter in pyladies_chapters %}
+                <div class="card-group">
+                    <div class="card text-center">
+                        {% if chapter.logo %}
+                            <img class="rounded mx-auto d-block"
+                                 src="{{ chapter.logo.url }}"
+                                 alt="{{ chapter.chapter_name }}"
+                                 width="100"
+                                 height="100">
+                        {% endif %}
+                        <div class="card-body">
+                            <h5 class="card-title">
+                                {% if chapter.chapter_website %}
+                                    <a href="{{ chapter.chapter_website }}">{{ chapter.chapter_name }}</a>
+                                {% else %}
+                                    {{ chapter.chapter_name }}
+                                {% endif %}
+                            </h5>
+                            <p class="card-text">
+                                {{ chapter.chapter_description }}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+{% endblock content %}

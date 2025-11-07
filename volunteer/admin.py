@@ -59,8 +59,20 @@ class PyladiesChapterAdmin(ImportExportModelAdmin):
         "chapter_description",
         "chapter_email",
         "chapter_website",
+        "has_logo",
     )
     resource_classes = [PyladiesChapterResource]
+    search_fields = ["chapter_name", "chapter_description", "chapter_email"]
+
+    def has_logo(self, obj):
+        """Returns True if the chapter has a logo uploaded."""
+        if obj.logo:
+            return True
+        else:
+            return False
+
+    has_logo.boolean = True  # Render the has_logo column with a check icon
+    has_logo.short_description = "Has Logo"
 
 
 admin.site.register(Role)

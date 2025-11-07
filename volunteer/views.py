@@ -18,6 +18,7 @@ from common.mixins import AdminRequiredMixin, VolunteerOrAdminRequiredMixin
 from .forms import VolunteerProfileForm, VolunteerProfileReviewForm
 from .models import (  # Language,
     ApplicationStatus,
+    PyladiesChapter,
     Team,
     VolunteerProfile,
     send_volunteer_cancelled_emails,
@@ -367,3 +368,11 @@ class CancelVolunteeringView(VolunteerOrAdminRequiredMixin, View):
                 request, messages.ERROR, f"An error occurred while cancelling: {str(e)}"
             )
             return redirect("volunteer:volunteer_profile_detail", pk=pk)
+
+
+class PyladiesChaptersList(ListView):
+    """View to display all the PyLadies Chapters we have in the System."""
+
+    model = PyladiesChapter
+    template_name = "pyladies_chapter/index.html"
+    context_object_name = "pyladies_chapters"
