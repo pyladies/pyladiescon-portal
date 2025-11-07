@@ -1,4 +1,5 @@
 import pytest
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
 from pytest_django.asserts import assertRedirects
 
@@ -9,6 +10,7 @@ from sponsorship.models import (
 )
 from sponsorship.views import SponsorshipProfileFilter, SponsorshipProfileTable
 from volunteer.constants import ApplicationStatus
+from volunteer.languages import LANGUAGES
 from volunteer.models import VolunteerProfile
 
 
@@ -75,6 +77,65 @@ class TestSponsorshipViews:
         sponsors_table = response.context["table"]
         progress_status_render = sponsors_table.render_progress_status(status)
         assert css_class in progress_status_render
+
+    def test_sponsors_table_render_logo(
+        self,
+        client,
+        admin_user,
+    ):
+        tier = SponsorshipTier.objects.create(
+            name="Gold", amount=5000.00, description="Gold tier sponsorship"
+        )
+
+        profile = SponsorshipProfile.objects.create(
+            organization_name="Override Corp",
+            sponsorship_tier=tier,
+            progress_status=SponsorshipProgressStatus.PAID,
+        )
+
+        profile.logo = SimpleUploadedFile(
+            name="test_image.jpg",
+            content=open("./tests/sponsorship/test_img.png", "rb").read(),
+            content_type="image/jpeg",
+        )
+
+        client.force_login(admin_user)
+        url = reverse("sponsorship:sponsorship_list")
+        response = client.get(url)
+
+        assert response.status_code == 200
+        assert isinstance(response.context["table"], SponsorshipProfileTable)
+
+        sponsors_table = response.context["table"]
+        logo_render = sponsors_table.render_logo(profile.logo, profile)
+        assert profile.logo.url in logo_render
+        assert f'alt="Logo of {profile.organization_name}"' in logo_render
+
+    def test_sponsors_table_render_no_logo(
+        self,
+        client,
+        admin_user,
+    ):
+        tier = SponsorshipTier.objects.create(
+            name="Gold", amount=5000.00, description="Gold tier sponsorship"
+        )
+
+        profile = SponsorshipProfile.objects.create(
+            organization_name="Override Corp",
+            sponsorship_tier=tier,
+            progress_status=SponsorshipProgressStatus.PAID,
+        )
+
+        client.force_login(admin_user)
+        url = reverse("sponsorship:sponsorship_list")
+        response = client.get(url)
+
+        assert response.status_code == 200
+        assert isinstance(response.context["table"], SponsorshipProfileTable)
+
+        sponsors_table = response.context["table"]
+        logo_render = sponsors_table.render_logo(profile.logo, profile)
+        assert logo_render == ""
 
     @pytest.mark.parametrize(
         "status,css_class,is_visible",
@@ -303,3 +364,133 @@ class TestSponsorshipCreateViews:
             filter_queryset, "", SponsorshipProgressStatus.INVOICED
         )
         assert qs.count() == 0  # No sponsors with INVOICED status
+
+    def test_sponsorship_profile_detail_view_for_approved_volunteer(
+        self, client, portal_user
+    ):
+        """Test that approved volunteers can view sponsorship details."""
+        tier = SponsorshipTier.objects.create(
+            name="Gold", amount=5000.00, description="Gold tier sponsorship"
+        )
+
+        profile = SponsorshipProfile.objects.create(
+            organization_name="Test Corp",
+            sponsorship_tier=tier,
+            progress_status=SponsorshipProgressStatus.APPROVED,
+        )
+
+        # Create approved volunteer profile
+        volunteer_profile = VolunteerProfile(
+            user=portal_user, application_status=ApplicationStatus.APPROVED
+        )
+        volunteer_profile.languages_spoken = [LANGUAGES[0]]
+        volunteer_profile.save()
+
+        client.force_login(portal_user)
+        url = reverse(
+            "sponsorship:sponsorship_profile_detail", kwargs={"pk": profile.pk}
+        )
+        response = client.get(url)
+
+        assert response.status_code == 200
+        assert response.context["profile"] == profile
+        # Approved volunteers should not see send invoice button
+        assert not response.context["can_send_invoice"]
+
+    def test_sponsorship_profile_detail_view_for_admin_shows_send_invoice_button(
+        self, client, admin_user
+    ):
+        """Test that admins can see the send invoice button for approved sponsors."""
+        tier = SponsorshipTier.objects.create(
+            name="Gold", amount=5000.00, description="Gold tier sponsorship"
+        )
+
+        profile = SponsorshipProfile.objects.create(
+            organization_name="Test Corp",
+            sponsorship_tier=tier,
+            progress_status=SponsorshipProgressStatus.APPROVED,
+        )
+
+        client.force_login(admin_user)
+        url = reverse(
+            "sponsorship:sponsorship_profile_detail", kwargs={"pk": profile.pk}
+        )
+        response = client.get(url)
+
+        assert response.status_code == 200
+        assert response.context["profile"] == profile
+        # Admins should see send invoice button for approved sponsors
+        assert response.context["can_send_invoice"]
+
+    def test_sponsorship_profile_detail_view_admin_no_button_for_non_approved(
+        self, client, admin_user
+    ):
+        """Test that send invoice button is not shown for non-approved sponsors."""
+        tier = SponsorshipTier.objects.create(
+            name="Gold", amount=5000.00, description="Gold tier sponsorship"
+        )
+
+        profile = SponsorshipProfile.objects.create(
+            organization_name="Test Corp",
+            sponsorship_tier=tier,
+            progress_status=SponsorshipProgressStatus.PAID,  # Not approved
+        )
+
+        client.force_login(admin_user)
+        url = reverse(
+            "sponsorship:sponsorship_profile_detail", kwargs={"pk": profile.pk}
+        )
+        response = client.get(url)
+
+        assert response.status_code == 200
+        # Should not show send invoice button for non-approved sponsors
+        assert not response.context["can_send_invoice"]
+
+    def test_send_invoice_view_updates_status_and_sends_email(self, client, admin_user):
+        """Test that send invoice view updates status and sends email."""
+        from django.core import mail
+
+        tier = SponsorshipTier.objects.create(
+            name="Gold", amount=5000.00, description="Gold tier sponsorship"
+        )
+
+        profile = SponsorshipProfile.objects.create(
+            organization_name="Test Corp",
+            sponsorship_tier=tier,
+            progress_status=SponsorshipProgressStatus.APPROVED,
+        )
+
+        # Clear the mail outbox
+        mail.outbox = []
+
+        client.force_login(admin_user)
+        url = reverse("sponsorship:sponsorship_send_invoice", kwargs={"pk": profile.pk})
+        response = client.post(url)
+
+        # Should redirect back to detail view
+        assert response.status_code == 302
+        expected_url = reverse(
+            "sponsorship:sponsorship_profile_detail", kwargs={"pk": profile.pk}
+        )
+        assert response.url == expected_url
+
+        # Check that status remains APPROVED (no status change)
+        profile.refresh_from_db()
+        assert profile.progress_status == SponsorshipProgressStatus.APPROVED
+
+        # Check that emails were sent
+        assert len(mail.outbox) >= 1
+        # Find the PSF invoice email
+        psf_email = None
+        for email in mail.outbox:
+            if "PyLadiesCon Sponsorship Contract Request: Test Corp" in email.subject:
+                psf_email = email
+                break
+        assert psf_email is not None
+
+        # Check success message
+        messages = list(response.wsgi_request._messages)
+        assert len(messages) == 1
+        assert "Invoice request sent to PSF accounting team for Test Corp" in str(
+            messages[0].message
+        )

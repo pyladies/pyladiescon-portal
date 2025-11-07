@@ -1,9 +1,13 @@
 import django_filters
 import django_tables2 as tables
+from django.contrib import messages
 from django.contrib.auth.mixins import UserPassesTestMixin
 from django.contrib.postgres.search import SearchQuery, SearchVector
+from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse_lazy
 from django.utils.html import format_html
+from django.views.generic import DetailView
+from django.views.generic.base import View
 from django.views.generic.edit import CreateView
 from django_filters.views import FilterView
 from django_tables2.views import SingleTableMixin
@@ -13,6 +17,7 @@ from portal.common import get_sponsorships_stats_dict
 from volunteer.constants import ApplicationStatus
 from volunteer.models import VolunteerProfile
 
+from .emails import send_psf_invoice_request_email
 from .forms import SponsorshipProfileForm
 from .models import SponsorshipProfile, SponsorshipProgressStatus, SponsorshipTier
 
@@ -60,22 +65,42 @@ class SponsorshipProfileTable(tables.Table):
     tier_name = tables.Column(
         accessor="sponsorship_tier__name", verbose_name="Sponsorship Tier"
     )
+    logo = tables.Column(accessor="logo", verbose_name="Logo")
 
     class Meta:
         model = SponsorshipProfile
         fields = (
             "organization_name",
+            "logo",
             "tier_name",
             "amount",
             "progress_status",
             "creation_date",
             "updated_date",
-            # "actions",
+            "actions",
         )
         attrs = {
             "class": "table table-hover table-bordered table-sm",
             "thead": {"class": "table-light"},
         }
+
+    def render_organization_name(self, value, record):
+        """Render the organization name as a link to the detail view."""
+        detail_url = reverse_lazy(
+            "sponsorship:sponsorship_profile_detail", args=[record.pk]
+        )
+        return format_html('<a href="{}">{}</a>', detail_url, value)
+
+    def render_logo(self, value, record):
+        """Render the logo as a small image with link to the full image."""
+        if value:
+            return format_html(
+                '<a href="{value}"><img src="{value}" alt="Logo of {name}" class="img-fluid" width="100" height="100"></a>',
+                value=value.url,
+                name=record.organization_name,
+            )
+        else:
+            return ""
 
     def render_progress_status(self, value):
         """Render the progress status with a badge."""
@@ -119,11 +144,12 @@ class SponsorshipProfileTable(tables.Table):
 
     def render_actions(self, value, record):
         """Render action buttons for each sponsorship profile."""
+
         edit_url = reverse_lazy(
             "admin:sponsorship_sponsorshipprofile_change", args=[record.pk]
         )
         return format_html(
-            '<a href="{}" class="btn btn-sm btn-primary me-1">Update</a>',
+            '<a href="{}" class="btn btn-sm btn-primary">Update</a>',
             edit_url,
         )
 
@@ -191,6 +217,32 @@ class SponsorshipProfileList(CanViewSponsorship, SingleTableMixin, FilterView):
         context["volunteer_profile"] = volunteer_profile
         context["title"] = "Sponsorship Profiles"
         context["stats"] = get_sponsorships_stats_dict()
-        if not self.request.user.is_superuser and not self.request.user.is_staff:
-            context["table"].exclude = "actions"
         return context
+
+
+class SponsorshipProfileDetail(CanViewSponsorship, DetailView):
+    model = SponsorshipProfile
+    template_name = "sponsorship/sponsorship_profile_detail.html"
+    context_object_name = "profile"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["can_send_invoice"] = (
+            self.request.user.is_superuser or self.request.user.is_staff
+        ) and self.object.progress_status == SponsorshipProgressStatus.APPROVED
+        return context
+
+
+class SponsorshipProfileSendInvoice(AdminRequiredMixin, View):
+    def post(self, request, pk):
+        profile = get_object_or_404(SponsorshipProfile, pk=pk)
+
+        # Send email to PSF accounting team
+        send_psf_invoice_request_email(profile)
+
+        messages.success(
+            request,
+            f"Invoice request sent to PSF accounting team for {profile.organization_name}",
+        )
+
+        return redirect("sponsorship:sponsorship_profile_detail", pk=pk)

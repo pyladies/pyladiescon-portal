@@ -3,6 +3,7 @@ from django.urls import reverse
 from pytest_django.asserts import assertRedirects
 
 from portal_account.models import PortalProfile
+from volunteer.models import PyladiesChapter
 
 
 @pytest.mark.django_db
@@ -43,3 +44,45 @@ class TestPortalStats:
         response = client.get(reverse("portal_stats"))
         assert response.status_code == 200
         assert "PyLadiesCon Stats" in response.content.decode()
+
+
+@pytest.mark.django_db
+class TestPyladiesChapters:
+
+    def test_view_pyladies_chapters_is_public(self, client):
+        response = client.get(reverse("chapters"))
+        assert response.status_code == 200
+        assert "PyLadies Chapters" in response.content.decode()
+
+    def test_view_pyladies_chapters_displays_chapters(self, client):
+        chapter_1 = PyladiesChapter.objects.create(
+            chapter_name="vancouver",
+            chapter_description="Vancouver, Canada",
+            chapter_website="https://vancouver.pyladies.com/",
+        )
+        chapter_2 = PyladiesChapter.objects.create(
+            chapter_name="berlin", chapter_description="Berlin, Germany"
+        )
+
+        response = client.get(reverse("chapters"))
+        assert response.status_code == 200
+        assert chapter_1.chapter_name in response.content.decode()
+        assert chapter_2.chapter_name in response.content.decode()
+        assert chapter_1.chapter_description in response.content.decode()
+        assert chapter_2.chapter_description in response.content.decode()
+        assert chapter_1.chapter_website in response.content.decode()
+
+
+@pytest.mark.django_db
+class TestStatsJSON:
+
+    def test_stats_json_endpoint(self, client):
+        """Test that the stats JSON endpoint returns the expected data.
+
+        Actual stats values are tested in test_common.py.
+        This is just testing that the endpoint is reachable and returns a JSON response.
+        """
+        response = client.get(reverse("portal_stats_json"))
+        assert response.status_code == 200
+        data = response.json()
+        assert "stats" in data

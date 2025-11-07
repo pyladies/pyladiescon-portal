@@ -87,6 +87,7 @@ class PyladiesChapter(BaseModel):
     chapter_description = models.CharField(max_length=100)
     chapter_email = models.EmailField(blank=True, max_length=254, null=True)
     chapter_website = models.URLField(max_length=200, blank=True, null=True)
+    logo = models.ImageField(upload_to="chapter_logos/", null=True, blank=True)
 
     class Meta:
         constraints = [

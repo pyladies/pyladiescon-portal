@@ -39,6 +39,11 @@ urlpatterns = [
         name="teams",
     ),
     path(
+        "chapters/",
+        volunteer_view.PyladiesChaptersList.as_view(),
+        name="chapters",
+    ),
+    path(
         "teams/<int:pk>",
         volunteer_view.TeamView.as_view(),
         name="team_detail",
@@ -48,5 +53,10 @@ urlpatterns = [
         "stats/",
         views.stats,
         name="portal_stats",
+    ),
+    path(
+        "stats.json",
+        views.stats_json,
+        name="portal_stats_json",
     ),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
