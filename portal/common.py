@@ -529,7 +529,7 @@ def get_total_donations_amount_cache():
             or 0
         )
     cache.set(
-        CACHE_KEY_SPONSORSHIP_PAID_PERCENT,
+        CACHE_KEY_DONATIONS_TOTAL_AMOUNT,
         total_donations,
         STATS_CACHE_TIMEOUT,
     )
@@ -545,7 +545,7 @@ def get_donors_count_cache():
             IndividualDonation.objects.values("donor_email").distinct().count()
         )
     cache.set(
-        CACHE_KEY_SPONSORSHIP_PAID_PERCENT,
+        CACHE_KEY_DONORS_COUNT,
         donors_count,
         STATS_CACHE_TIMEOUT,
     )
