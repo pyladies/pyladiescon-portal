@@ -2,7 +2,21 @@ from django.contrib import admin
 from import_export import resources
 from import_export.admin import ImportExportModelAdmin
 
-from .models import SponsorshipProfile, SponsorshipTier
+from .models import IndividualDonation, SponsorshipProfile, SponsorshipTier
+
+
+@admin.register(IndividualDonation)
+class IndividualDonationAdmin(admin.ModelAdmin):
+    list_display = (
+        "transaction_id",
+        "donor_name",
+        "donor_email",
+        "donation_amount",
+        "transaction_date",
+        "is_anonymous",
+    )
+    list_filter = ("is_anonymous",)
+    search_fields = ("donor_name", "donor_email", "transaction_id")
 
 
 @admin.register(SponsorshipTier)

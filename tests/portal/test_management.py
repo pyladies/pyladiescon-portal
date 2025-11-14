@@ -4,7 +4,7 @@ import pytest
 from django.contrib.auth.models import User
 from django.core.management import CommandError, call_command
 
-from sponsorship.models import SponsorshipProfile, SponsorshipTier
+from sponsorship.models import IndividualDonation, SponsorshipProfile, SponsorshipTier
 from volunteer.models import PyladiesChapter, Role, Team, VolunteerProfile
 
 
@@ -182,6 +182,7 @@ class TestGenerateSampleDataCommand:
             "profiles": VolunteerProfile.objects.count(),
             "tiers": SponsorshipTier.objects.count(),
             "sponsorships": SponsorshipProfile.objects.count(),
+            "donations": IndividualDonation.objects.count(),
         }
 
         call_command("generate_sample_data", stdout=StringIO())
@@ -193,6 +194,7 @@ class TestGenerateSampleDataCommand:
             "profiles": VolunteerProfile.objects.count(),
             "tiers": SponsorshipTier.objects.count(),
             "sponsorships": SponsorshipProfile.objects.count(),
+            "donations": IndividualDonation.objects.count(),
         }
 
         # Counts should be the same
@@ -290,3 +292,13 @@ class TestGenerateSampleDataCommand:
         output = out.getvalue()
 
         assert "No sponsorship tiers found" in output
+
+    def test_generates_donations(self, settings):
+        """Test that Donations are generated are associated with tiers."""
+        settings.DEBUG = True
+
+        assert IndividualDonation.objects.count() == 0
+
+        call_command("generate_sample_data", stdout=StringIO())
+
+        assert IndividualDonation.objects.count() == 5
