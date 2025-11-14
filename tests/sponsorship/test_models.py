@@ -35,6 +35,17 @@ class TestSponsorshipModel:
         tier.save()
         assert str(tier) == f"{tier.name} (${tier.amount:.2f})"
 
+    def test_donation_str_representation(self):
+        """Test string representation of IndividualDonation."""
+        from sponsorship.models import IndividualDonation
+
+        donation = IndividualDonation(transaction_id="TX12345", donation_amount=150.00)
+        donation.save()
+        assert (
+            str(donation)
+            == f"{donation.transaction_id}: ${donation.donation_amount:.2f}"
+        )
+
     def test_tier_relationships(self, admin_user):
         """Test tier relationships with sponsorship."""
         tier = SponsorshipTier.objects.create(

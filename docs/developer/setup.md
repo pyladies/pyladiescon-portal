@@ -210,6 +210,7 @@ For local development and testing, you can generate sample data to populate your
 - **5 Volunteer Profiles**: With various application statuses (approved, pending, waitlisted, rejected)
 - **5 Sponsorship Tiers**: Ranging from $2,500 to $25,000
 - **5 Sponsorship Profiles**: With different progress statuses
+- **5 Individual Donations**: Random amounts between $5 and $300
 
 **Important**: This command only works when `DEBUG=True` in your settings to prevent accidental use in production environments.
 
