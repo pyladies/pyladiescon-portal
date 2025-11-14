@@ -24,6 +24,8 @@ from portal.constants import (
     CACHE_KEY_VOLUNTEER_PYLADIES_CHAPTERS,
     CACHE_KEY_VOLUNTEER_SIGNUPS_COUNT,
     DONATION_GOAL_AMOUNT,
+    DONATIONS_GOAL,
+    SPONSORSHIP_GOAL,
     SPONSORSHIP_GOAL_AMOUNT,
     STATS_CACHE_TIMEOUT,
 )
@@ -64,6 +66,7 @@ def get_volunteer_stats_dict():
 
 def get_sponsorships_stats_dict():
     stats_dict = {}
+    stats_dict[SPONSORSHIP_GOAL] = SPONSORSHIP_GOAL_AMOUNT
     stats_dict[CACHE_KEY_TOTAL_SPONSORSHIPS] = get_sponsorship_total_count_stats_cache()
     stats_dict[CACHE_KEY_SPONSORSHIP_PAID] = get_sponsorship_paid_amount_stats_cache()
     stats_dict[CACHE_KEY_SPONSORSHIP_PAID_PERCENT] = (
@@ -569,6 +572,7 @@ def get_donation_to_goal_percent_cache():
 
 def get_donations_stats_dict():
     stats_dict = {}
+    stats_dict[DONATIONS_GOAL] = DONATION_GOAL_AMOUNT
     stats_dict[CACHE_KEY_DONATION_BREAKDOWN] = {
         "total_donations_amount": get_total_donations_amount_cache(),
         "donors_count": get_donors_count_cache(),
