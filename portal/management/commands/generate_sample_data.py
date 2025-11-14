@@ -714,7 +714,7 @@ class Command(BaseCommand):
                 defaults={
                     "donor_name": f"Donor {i+1}",
                     "donor_email": f"donor{i+1}@example.com",
-                    "donation_amount": random.randint(5, 200),
+                    "donation_amount": random.randint(5, 300),
                     "transaction_date": timezone.now()
                     - timedelta(days=random.randint(1, 30)),
                 },
