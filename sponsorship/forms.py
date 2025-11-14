@@ -21,6 +21,7 @@ class SponsorshipProfileForm(forms.ModelForm):
             "sponsors_contact_email",
             "sponsorship_tier",
             "sponsorship_override_amount",
+            "po_number",
             "organization_address",
             "logo",
             "company_description",

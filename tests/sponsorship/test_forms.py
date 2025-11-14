@@ -96,6 +96,7 @@ class TestSponsorshipProfileForm:
                 "sponsors_contact_email": "test2@example.com",
                 "sponsorship_tier": tier.id,
                 "sponsorship_override_amount": 4500,
+                "po_number": "PO-12345",
                 "organization_address": "123 Test St, Test City",
                 "company_description": "We are a test company.",
                 "progress_status": SponsorshipProgressStatus.ACCEPTED.value,
@@ -114,6 +115,8 @@ class TestSponsorshipProfileForm:
             profile.sponsorship_override_amount
             == form_data["sponsorship_override_amount"]
         )
+        assert profile.po_number == form_data["po_number"]
         assert profile.organization_address == form_data["organization_address"]
         assert profile.company_description == form_data["company_description"]
         assert profile.progress_status == form_data["progress_status"]
+        assert profile.po_number == form_data["po_number"]

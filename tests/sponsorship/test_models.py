@@ -159,3 +159,39 @@ class TestSponsorshipModel:
         assert profile.company_description in body
         assert profile.organization_address in body
         assert str(profile.sponsorship_override_amount) in body
+
+    def test_po_number_field_is_saved(self, admin_user):
+        """Test that the PO Number field is saved correctly."""
+        tier = SponsorshipTier.objects.create(
+            name="Gold", amount=3000.00, description="Test Description"
+        )
+        profile = SponsorshipProfile(
+            main_contact_user=admin_user,
+            organization_name="Test Company",
+            progress_status=SponsorshipProgressStatus.AWAITING_RESPONSE.value,
+            sponsorship_tier=tier,
+            po_number="PO-2024-12345",
+        )
+        profile.save()
+
+        # Retrieve the profile from the database to verify it was saved
+        saved_profile = SponsorshipProfile.objects.get(id=profile.id)
+        assert saved_profile.po_number == "PO-2024-12345"
+
+    def test_po_number_field_can_be_empty(self, admin_user):
+        """Test that the PO Number field can be left empty (optional)."""
+        tier = SponsorshipTier.objects.create(
+            name="Silver", amount=2000.00, description="Test Description"
+        )
+        profile = SponsorshipProfile(
+            main_contact_user=admin_user,
+            organization_name="Test Company Without PO",
+            progress_status=SponsorshipProgressStatus.AWAITING_RESPONSE.value,
+            sponsorship_tier=tier,
+            po_number=None,
+        )
+        profile.save()
+
+        # Retrieve the profile from the database to verify it was saved
+        saved_profile = SponsorshipProfile.objects.get(id=profile.id)
+        assert saved_profile.po_number is None

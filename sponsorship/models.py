@@ -63,6 +63,12 @@ class SponsorshipProfile(BaseModel):
     sponsorship_override_amount = models.DecimalField(
         max_digits=10, decimal_places=2, blank=True, null=True
     )
+    po_number = models.CharField(
+        max_length=100,
+        blank=True,
+        null=True,
+        help_text="Purchase Order number for the sponsorship contract and invoice",
+    )
 
     def __str__(self):
         return self.organization_name
