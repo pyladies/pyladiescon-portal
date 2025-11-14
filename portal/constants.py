@@ -21,10 +21,13 @@ SPONSORSHIP_GOAL_AMOUNT = 15000
 
 CACHE_KEY_VOLUNTEER_BREAKDOWN = "volunteer_breakdown"
 
-DONATION_GOAL_AMOUNT = 1000
+DONATION_GOAL_AMOUNT = 2500
 CACHE_KEY_DONATION_BREAKDOWN = "donation_breakdown"
 CACHE_KEY_DONATIONS_TOTAL_AMOUNT = "donations_total_amount"
 CACHE_KEY_DONORS_COUNT = "donors_count"
 CACHE_KEY_DONATION_TOWARDS_GOAL_PERCENT = "donation_towards_goal_percent"
 
 CACHE_KEY_TOTAL_FUNDS_RAISED = "total_funds_raised"
+
+DONATIONS_GOAL = "donations_goal"
+SPONSORSHIP_GOAL = "sponsorship_goal"
