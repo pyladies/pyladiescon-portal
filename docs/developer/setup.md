@@ -61,7 +61,7 @@ To run locally _without_ Docker these are the steps.
 
 Have these installed first before continuing further.
 
-- Use Python 3.13+
+- Use Python 3.14+
 - You can install [different versions of Python using pyenv](https://github.com/pyenv/pyenv).
 - You'll also need PostgreSQL (you can find the instructions here).
 
@@ -210,6 +210,7 @@ For local development and testing, you can generate sample data to populate your
 - **5 Volunteer Profiles**: With various application statuses (approved, pending, waitlisted, rejected)
 - **5 Sponsorship Tiers**: Ranging from $2,500 to $25,000
 - **5 Sponsorship Profiles**: With different progress statuses
+- **5 Individual Donations**: Random amounts between $5 and $300
 
 **Important**: This command only works when `DEBUG=True` in your settings to prevent accidental use in production environments.
 

@@ -128,6 +128,15 @@
                             </div>
                         </div>
                         {% bootstrap_field form.teams %}
+                        {% if not objects.teams %}
+                            <div class="alert alert-warning" role="alert">
+                                <h4 class="alert-heading">
+                                    You will be waitlisted.
+                                </h4>
+                                At this moment, all of our teams are full, and you will be placed on a waitlist.
+                                We will notify you via email when a spot becomes available.
+                            </div>
+                        {% endif %}
                     </div>
                 </div>
                 <!-- Enhanced social media section from modified version -->

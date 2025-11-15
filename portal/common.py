@@ -2,6 +2,10 @@ from django.core.cache import cache
 from django.db.models import Count, Sum
 
 from portal.constants import (
+    CACHE_KEY_DONATION_BREAKDOWN,
+    CACHE_KEY_DONATION_TOWARDS_GOAL_PERCENT,
+    CACHE_KEY_DONATIONS_TOTAL_AMOUNT,
+    CACHE_KEY_DONORS_COUNT,
     CACHE_KEY_SPONSORSHIP_BREAKDOWN,
     CACHE_KEY_SPONSORSHIP_COMMITTED,
     CACHE_KEY_SPONSORSHIP_COMMITTED_COUNT,
@@ -12,16 +16,24 @@ from portal.constants import (
     CACHE_KEY_SPONSORSHIP_PENDING_COUNT,
     CACHE_KEY_SPONSORSHIP_TOWARDS_GOAL_PERCENT,
     CACHE_KEY_TEAMS_COUNT,
+    CACHE_KEY_TOTAL_FUNDS_RAISED,
     CACHE_KEY_TOTAL_SPONSORSHIPS,
     CACHE_KEY_VOLUNTEER_BREAKDOWN,
     CACHE_KEY_VOLUNTEER_LANGUAGES,
     CACHE_KEY_VOLUNTEER_ONBOARDED_COUNT,
     CACHE_KEY_VOLUNTEER_PYLADIES_CHAPTERS,
     CACHE_KEY_VOLUNTEER_SIGNUPS_COUNT,
+    DONATION_GOAL_AMOUNT,
+    DONATIONS_GOAL,
+    SPONSORSHIP_GOAL,
     SPONSORSHIP_GOAL_AMOUNT,
     STATS_CACHE_TIMEOUT,
 )
-from sponsorship.models import SponsorshipProfile, SponsorshipProgressStatus
+from sponsorship.models import (
+    IndividualDonation,
+    SponsorshipProfile,
+    SponsorshipProgressStatus,
+)
 from volunteer.constants import ApplicationStatus
 from volunteer.models import Team, VolunteerProfile
 
@@ -33,6 +45,7 @@ def get_stats_cached_values():
     stats_dict.update(get_volunteer_stats_dict())
 
     stats_dict.update(get_sponsorships_stats_dict())
+    stats_dict.update(get_donations_stats_dict())
     return stats_dict
 
 
@@ -53,6 +66,7 @@ def get_volunteer_stats_dict():
 
 def get_sponsorships_stats_dict():
     stats_dict = {}
+    stats_dict[SPONSORSHIP_GOAL] = SPONSORSHIP_GOAL_AMOUNT
     stats_dict[CACHE_KEY_TOTAL_SPONSORSHIPS] = get_sponsorship_total_count_stats_cache()
     stats_dict[CACHE_KEY_SPONSORSHIP_PAID] = get_sponsorship_paid_amount_stats_cache()
     stats_dict[CACHE_KEY_SPONSORSHIP_PAID_PERCENT] = (
@@ -78,7 +92,10 @@ def get_sponsorships_stats_dict():
         get_sponsorship_committed_count_stats_cache()
     )
     stats_dict[CACHE_KEY_SPONSORSHIP_BREAKDOWN] = get_sponsorship_breakdown()
-
+    stats_dict[CACHE_KEY_TOTAL_FUNDS_RAISED] = (
+        get_total_donations_amount_cache()
+        + get_sponsorship_committed_amount_stats_cache()
+    )
     return stats_dict
 
 
@@ -498,3 +515,67 @@ def get_volunteer_breakdown():
             STATS_CACHE_TIMEOUT,
         )
     return volunteer_breakdown
+
+
+def get_total_donations_amount_cache():
+    """Returns the donations amount"""
+    total_donations = cache.get(CACHE_KEY_DONATIONS_TOTAL_AMOUNT)
+    if not total_donations:
+
+        total_donations = (
+            IndividualDonation.objects.aggregate(Sum("donation_amount"))[
+                "donation_amount__sum"
+            ]
+            or 0
+        )
+    cache.set(
+        CACHE_KEY_DONATIONS_TOTAL_AMOUNT,
+        total_donations,
+        STATS_CACHE_TIMEOUT,
+    )
+    return total_donations
+
+
+def get_donors_count_cache():
+    """Returns the number of unique donors"""
+    donors_count = cache.get(CACHE_KEY_DONORS_COUNT)
+    if not donors_count:
+
+        donors_count = (
+            IndividualDonation.objects.values("donor_email").distinct().count()
+        )
+    cache.set(
+        CACHE_KEY_DONORS_COUNT,
+        donors_count,
+        STATS_CACHE_TIMEOUT,
+    )
+    return donors_count
+
+
+def get_donation_to_goal_percent_cache():
+    """Returns donation towards goal percent"""
+    donation_towards_goal_percent = cache.get(CACHE_KEY_DONATION_TOWARDS_GOAL_PERCENT)
+    if not donation_towards_goal_percent:
+        total_donations = get_total_donations_amount_cache()
+        donation_towards_goal_percent = (
+            (total_donations / DONATION_GOAL_AMOUNT) * 100
+            if DONATION_GOAL_AMOUNT > 0
+            else 0
+        )
+        cache.set(
+            CACHE_KEY_DONATION_TOWARDS_GOAL_PERCENT,
+            donation_towards_goal_percent,
+            STATS_CACHE_TIMEOUT,
+        )
+    return donation_towards_goal_percent
+
+
+def get_donations_stats_dict():
+    stats_dict = {}
+    stats_dict[DONATIONS_GOAL] = DONATION_GOAL_AMOUNT
+    stats_dict[CACHE_KEY_DONATION_BREAKDOWN] = {
+        "total_donations_amount": get_total_donations_amount_cache(),
+        "donors_count": get_donors_count_cache(),
+        "donation_towards_goal_percent": get_donation_to_goal_percent_cache(),
+    }
+    return stats_dict
