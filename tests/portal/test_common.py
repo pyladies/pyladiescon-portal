@@ -12,6 +12,7 @@ from portal.common import (
     get_sponsorship_to_goal_percent_cache,
     get_sponsorship_total_count_stats_cache,
     get_stats_cached_values,
+    get_volunteer_breakdown,
     get_volunteer_signup_stat_cache,
 )
 from portal.constants import (
@@ -269,3 +270,43 @@ class TestGetStatsCachedValues:
 
         result = get_sponsorship_to_goal_percent_cache()
         assert result == 20
+
+
+@pytest.mark.django_db
+class TestGetVolunteerBreakdown:
+
+    def test_get_volunteer_breakdown_includes_chart_type(self):
+        """Test that volunteer breakdown includes chart_type field."""
+        from portal.constants import CACHE_KEY_VOLUNTEER_BREAKDOWN
+
+        cache.delete(CACHE_KEY_VOLUNTEER_BREAKDOWN)
+
+        result = get_volunteer_breakdown()
+
+        # Should have 3 breakdowns: chapter, region, and languages
+        assert len(result) == 3
+
+        # Find the region breakdown
+        region_breakdown = next(
+            (b for b in result if b["chart_id"] == "volunteers_by_region"), None
+        )
+        assert region_breakdown is not None
+        assert region_breakdown["chart_type"] == "geo"
+        assert region_breakdown["title"] == "Volunteers By Region"
+        assert region_breakdown["columns"] == ["Region", "Volunteers"]
+
+        # Find the chapter breakdown
+        chapter_breakdown = next(
+            (b for b in result if b["chart_id"] == "volunteer_by_chapter"), None
+        )
+        assert chapter_breakdown is not None
+        assert chapter_breakdown["chart_type"] == "bar"
+        assert chapter_breakdown["title"] == "Volunteers By Chapter"
+
+        # Find the languages breakdown
+        languages_breakdown = next(
+            (b for b in result if b["chart_id"] == "volunteers_by_languages"), None
+        )
+        assert languages_breakdown is not None
+        assert languages_breakdown["chart_type"] == "bar"
+        assert languages_breakdown["title"] == "Volunteers By Languages"
