@@ -53,9 +53,39 @@
             </div>
         </div>
     </div>
+    {% if stats.donation_breakdown %}
+        <div class="row">
+            <div class="col-sm-6">
+                <div class="card border-0">
+                    <div class="card-body">
+                        <h5 class="card-title">
+                            Total Donations Received
+                        </h5>
+                        <h1 class="display-4 text-info">
+                            {{ stats.donation_breakdown.total_donations_amount | as_currency }}
+                        </h1>
+                        <span class="text-muted">from {{ stats.donation_breakdown.donors_count }} individual donors</span>
+                    </div>
+                </div>
+            </div>
+            <div class="col-sm-6">
+                <div class="card border-0">
+                    <div class="card-body">
+                        <h5 class="card-title">
+                            Donation Progress
+                        </h5>
+                        <h1 class="display-4 text-success">
+                            {{ stats.donation_breakdown.donation_towards_goal_percent|floatformat:0 }}%
+                        </h1>
+                        <span class="text-muted">towards our donations goal of {{ stats.donations_goal| as_currency }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    {% endif %}
     <div class="row">
-        <div class="col-sm-3">
-            <div class="card border-0">
+        <div class="col-sm-6">
+            <div class="card border-0 ">
                 <div class="card-body">
                     <h5 class="card-title">
                         We've raised
@@ -63,7 +93,20 @@
                     <h1 class="display-4 text-success">
                         {{ stats.sponsorship_towards_goal_percent|floatformat:0 }}%
                     </h1>
-                    <span class="text-muted">towards our goal of $15,000</span>
+                    <span class="text-muted">towards our sponsorship goal of {{ stats.sponsorship_goal| as_currency }}</span>
+                </div>
+            </div>
+        </div>
+        <div class="col-sm-6">
+            <div class="card border-0 text-bg-warning">
+                <div class="card-body">
+                    <h5 class="card-title">
+                        Total Funds Raised
+                    </h5>
+                    <h1 class="display-4 text-success">
+                        {{ stats.total_funds_raised| as_currency }}
+                    </h1>
+                    <span class="text-muted">from sponsorships and donations</span>
                 </div>
             </div>
         </div>

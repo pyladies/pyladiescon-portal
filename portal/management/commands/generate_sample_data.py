@@ -7,18 +7,24 @@ This command creates sample data for testing and development purposes:
 - Volunteer Profiles in various states
 - PyLadies Chapters
 - Sponsorship Tiers and Profiles
+- Individual Donations
 
 This command ONLY runs in development mode (DEBUG=True) and will refuse
 to run in production environments.
 """
 
+import random
+from datetime import timedelta
+
 from django.conf import settings
 from django.contrib.auth.models import User
 from django.core.management.base import BaseCommand, CommandError
 from django.db.models.signals import post_save
+from django.utils import timezone
 
 from portal_account.models import PortalProfile
 from sponsorship.models import (
+    IndividualDonation,
     SponsorshipProfile,
     SponsorshipProgressStatus,
     SponsorshipTier,
@@ -66,6 +72,7 @@ class Command(BaseCommand):
         self._generate_volunteer_profiles()
         self._generate_sponsorship_tiers()
         self._generate_sponsorship_profiles()
+        self._generate_donations()
 
         self.stdout.write(
             self.style.SUCCESS("Sample data generation completed successfully!")
@@ -694,4 +701,39 @@ class Command(BaseCommand):
 
         self.stdout.write(
             self.style.SUCCESS(f"Created {created_count} new sponsorship profiles\n")
+        )
+
+    def _generate_donations(self):
+        """Generate sample individual donations."""
+        self.stdout.write("Generating individual donations...")
+
+        created_count = 0
+        for i in range(5):
+            donation, created = IndividualDonation.objects.get_or_create(
+                transaction_id=f"transaction-{i+1}",
+                defaults={
+                    "donor_name": f"Donor {i+1}",
+                    "donor_email": f"donor{i+1}@example.com",
+                    "donation_amount": random.randint(5, 300),
+                    "transaction_date": timezone.now()
+                    - timedelta(days=random.randint(1, 30)),
+                },
+            )
+
+            if created:
+                created_count += 1
+                self.stdout.write(
+                    self.style.SUCCESS(
+                        f"  ✓ Created donation: {donation.donor_name} (${donation.donation_amount})"
+                    )
+                )
+            else:
+                self.stdout.write(
+                    self.style.WARNING(
+                        f"  ~ Donation already exists: {donation.donor_name}"
+                    )
+                )
+
+        self.stdout.write(
+            self.style.SUCCESS(f"Created {created_count} new individual donations\n")
         )
