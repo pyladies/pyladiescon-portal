@@ -63,6 +63,28 @@ class SponsorshipProfile(BaseModel):
     sponsorship_override_amount = models.DecimalField(
         max_digits=10, decimal_places=2, blank=True, null=True
     )
+    po_number = models.CharField(
+        max_length=100,
+        blank=True,
+        null=True,
+        help_text="Purchase Order number for the sponsorship contract and invoice",
+    )
 
     def __str__(self):
         return self.organization_name
+
+
+class IndividualDonation(BaseModel):
+    """Representation of Individual Donations coming in from PSF CivicCRM platform."""
+
+    transaction_id = models.CharField(max_length=100, unique=True)
+    donor_name = models.CharField(
+        max_length=255, null=True, blank=True
+    )  # Optional, only needed if > 50$
+    transaction_date = models.DateTimeField(null=True, blank=True)
+    donation_amount = models.DecimalField(max_digits=10, decimal_places=2)
+    donor_email = models.EmailField()  # required
+    is_anonymous = models.BooleanField(default=False)
+
+    def __str__(self):
+        return f"{self.transaction_id}: ${self.donation_amount:.2f}"

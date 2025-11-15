@@ -39,6 +39,7 @@
                         {% bootstrap_field form.organization_name %}
                         {% bootstrap_field form.sponsor_contact_name %}
                         {% bootstrap_field form.sponsors_contact_email %}
+                        {% bootstrap_field form.po_number %}
                         {% bootstrap_field form.sponsorship_tier %}
                         {% bootstrap_field form.sponsorship_override_amount %}
                         {% bootstrap_field form.organization_address %}
@@ -55,12 +56,12 @@
                             Create Profile
                         {% endif %}
                     </button>
-                    {#                    {% if object.pk %}#}
-                    {#                        <a href="{% url 'sponsorship:volunteer_profile_detail' object.pk %}"#}
-                    {#                           class="btn btn-secondary">Cancel</a>#}
-                    {#                    {% else %}#}
-                    {#                        <a href="{% url 'volunteer:index' %}" class="btn btn-secondary">Cancel</a>#}
-                    {#                    {% endif %}#}
+                    {# {% if object.pk %}#}
+                    {# <a href="{% url 'sponsorship:volunteer_profile_detail' object.pk %}" #}
+                    {# class="btn btn-secondary">Cancel</a>#}
+                    {# {% else %}#}
+                    {# <a href="{% url 'volunteer:index' %}" class="btn btn-secondary">Cancel</a>#}
+                    {# {% endif %}#}
                 </div>
             </form>
         </div>
