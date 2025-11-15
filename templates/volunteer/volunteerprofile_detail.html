@@ -1,6 +1,7 @@
 {% extends "portal/base.html" %}
 {% load allauth i18n %}
 {% load django_bootstrap5 %}
+{% load volunteer_tags %}
 {% block body %}
 {% endblock body %}
 {% block content %}
@@ -72,9 +73,7 @@
                     Languages:
                 </div>
                 <div class="col-md-9">
-                    {% for language in object.language.all %}
-                        <span class="badge bg-info text-dark me-1">{{ language.name }}</span>
-                    {% endfor %}
+                    {% volunteer_languages_badges object %}
                 </div>
             </div>
         </div>
