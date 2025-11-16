@@ -16,7 +16,6 @@ CACHE_KEY_SPONSORSHIP_COMMITTED_COUNT = "sponsorship_committed_count"
 CACHE_KEY_SPONSORSHIP_PAID_PERCENT = "sponsorship_paid_percent"
 CACHE_KEY_SPONSORSHIP_TOWARDS_GOAL_PERCENT = "sponsorship_towards_goal_percent"
 CACHE_KEY_SPONSORSHIP_BREAKDOWN = "sponsorship_breakdown"
-
 SPONSORSHIP_GOAL_AMOUNT = 15000
 
 CACHE_KEY_VOLUNTEER_BREAKDOWN = "volunteer_breakdown"
@@ -29,7 +28,10 @@ CACHE_KEY_DONATION_TOWARDS_GOAL_PERCENT = "donation_towards_goal_percent"
 
 CACHE_KEY_TOTAL_FUNDS_RAISED = "total_funds_raised"
 
+
 DONATIONS_GOAL = "donations_goal"
 SPONSORSHIP_GOAL = "sponsorship_goal"
+
+CACHE_KEY_ATTENDEE_COUNT = "attendee_count"
 
 BASE_PRETIX_URL = "https://pretix.eu/api/v1/"

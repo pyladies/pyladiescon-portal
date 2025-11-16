@@ -3,6 +3,7 @@ from django.db.models import Count, Sum
 
 from attendee.models import PretixOrder
 from portal.constants import (
+    CACHE_KEY_ATTENDEE_COUNT,
     CACHE_KEY_DONATION_BREAKDOWN,
     CACHE_KEY_DONATION_TOWARDS_GOAL_PERCENT,
     CACHE_KEY_DONATIONS_TOTAL_AMOUNT,
@@ -47,6 +48,7 @@ def get_stats_cached_values():
 
     stats_dict.update(get_sponsorships_stats_dict())
     stats_dict.update(get_donations_stats_dict())
+    stats_dict.update(get_attendee_stats_dict())
     return stats_dict
 
 
@@ -588,4 +590,23 @@ def get_donations_stats_dict():
         "donors_count": get_donors_count_cache(),
         "donation_towards_goal_percent": get_donation_to_goal_percent_cache(),
     }
+    return stats_dict
+
+
+def get_attendee_count_cache():
+    """Returns the attendee count"""
+    attendee_count = cache.get(CACHE_KEY_ATTENDEE_COUNT)
+    if not attendee_count:
+        attendee_count = PretixOrder.objects.filter(status="p").count()
+        cache.set(
+            CACHE_KEY_ATTENDEE_COUNT,
+            attendee_count,
+            STATS_CACHE_TIMEOUT,
+        )
+    return attendee_count
+
+
+def get_attendee_stats_dict():
+    stats_dict = {}
+    stats_dict[CACHE_KEY_ATTENDEE_COUNT] = get_attendee_count_cache()
     return stats_dict
