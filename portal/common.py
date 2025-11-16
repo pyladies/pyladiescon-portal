@@ -1,6 +1,7 @@
 from django.core.cache import cache
 from django.db.models import Count, Sum
 
+from attendee.models import PretixOrder
 from portal.constants import (
     CACHE_KEY_DONATION_BREAKDOWN,
     CACHE_KEY_DONATION_TOWARDS_GOAL_PERCENT,
@@ -522,12 +523,17 @@ def get_total_donations_amount_cache():
     total_donations = cache.get(CACHE_KEY_DONATIONS_TOTAL_AMOUNT)
     if not total_donations:
 
-        total_donations = (
+        individual_donations = (
             IndividualDonation.objects.aggregate(Sum("donation_amount"))[
                 "donation_amount__sum"
             ]
             or 0
         )
+        donations_from_pretix = (
+            PretixOrder.objects.filter(status="p").aggregate(Sum("total"))["total__sum"]
+            or 0
+        )
+        total_donations = individual_donations + donations_from_pretix
     cache.set(
         CACHE_KEY_DONATIONS_TOTAL_AMOUNT,
         total_donations,
@@ -541,9 +547,13 @@ def get_donors_count_cache():
     donors_count = cache.get(CACHE_KEY_DONORS_COUNT)
     if not donors_count:
 
-        donors_count = (
+        individual_donors_count = (
             IndividualDonation.objects.values("donor_email").distinct().count()
         )
+        pretix_donors_count = PretixOrder.objects.filter(
+            status="p", total__gt=0
+        ).count()
+        donors_count = individual_donors_count + pretix_donors_count
     cache.set(
         CACHE_KEY_DONORS_COUNT,
         donors_count,

@@ -31,3 +31,5 @@ CACHE_KEY_TOTAL_FUNDS_RAISED = "total_funds_raised"
 
 DONATIONS_GOAL = "donations_goal"
 SPONSORSHIP_GOAL = "sponsorship_goal"
+
+BASE_PRETIX_URL = "https://pretix.eu/api/v1/"
