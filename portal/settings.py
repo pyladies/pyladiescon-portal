@@ -78,6 +78,7 @@ INSTALLED_APPS = [
     "portal_account",
     "widget_tweaks",
     "sponsorship",
+    "attendee",
 ]
 DJANGO_TABLES2_TEMPLATE = "portal/base-tables-responsive.html"
 
@@ -331,3 +332,6 @@ CACHES = {
         "LOCATION": "stats_cache_table",
     }
 }
+
+PRETIX_API_TOKEN = os.getenv("PRETIX_API_TOKEN")
+PRETIX_WEBHOOK_SECRET = os.getenv("PRETIX_WEBHOOK_SECRET")

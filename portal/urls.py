@@ -29,6 +29,7 @@ urlpatterns = [
     path("admin/", admin.site.urls),
     path("accounts/", include("allauth.urls")),
     path("sponsorship/", include("sponsorship.urls", namespace="sponsorship")),
+    path("webhooks/", include("webhooks.urls", namespace="webhooks")),
     path(
         "portal_account/",
         include("portal_account.urls", namespace="portal_account"),
