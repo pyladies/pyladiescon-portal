@@ -19,6 +19,7 @@ from common.pretix_wrapper import (
 
 @pytest.mark.django_db
 @override_settings(PRETIX_WEBHOOK_SECRET="supersecret")
+@override_settings(PRETIX_API_TOKEN="test_token")
 class TestPretixWebhook(TestCase):
     @pytest.fixture(autouse=True)
     def pretix_order_data(self):

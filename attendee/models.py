@@ -6,7 +6,10 @@ from portal.models import BaseModel
 
 
 class PretixOrderstatus(StrEnum):
-    """Application status for the volunteer."""
+    """Order status from Pretix.
+
+    We only care about the ones canceled or paid.
+    """
 
     CANCELLED = "c"
     PAID = "p"
