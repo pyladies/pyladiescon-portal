@@ -1,4 +1,3 @@
-import json
 from unittest.mock import patch
 
 import pytest
@@ -72,16 +71,6 @@ class TestPretixWebhook(TestCase):
         assert "Unauthorized" in str(response.content)
 
     def test_pretix_webhook_endpoint_invalid_payload(self):
-        payload = {}
-        # not JSON
-        response = self.client.post(
-            self.url,
-            query_params={"secret": "supersecret"},
-            data=payload,
-        )
-        assert response.status_code == 400
-        assert response.content == b"Invalid JSON payload"
-
         # wrong action
         payload = {
             "notification_id": 123,
@@ -93,8 +82,7 @@ class TestPretixWebhook(TestCase):
         response = self.client.post(
             f"{self.url}",
             query_params={"secret": "supersecret"},
-            data=json.dumps(payload),
-            content_type="application/json",
+            data=payload,
         )
         assert response.status_code == 400
         assert response.content == b"Unsupported pretix action"
@@ -110,8 +98,7 @@ class TestPretixWebhook(TestCase):
         response = self.client.post(
             f"{self.url}",
             query_params={"secret": "supersecret"},
-            data=json.dumps(payload),
-            content_type="application/json",
+            data=payload,
         )
         assert response.status_code == 400
         assert response.content == b"Invalid organizer"
@@ -127,8 +114,7 @@ class TestPretixWebhook(TestCase):
         response = self.client.post(
             f"{self.url}",
             query_params={"secret": "supersecret"},
-            data=json.dumps(payload),
-            content_type="application/json",
+            data=payload,
         )
         assert response.status_code == 400
         assert response.content == b"Invalid event slug"
@@ -138,8 +124,7 @@ class TestPretixWebhook(TestCase):
         response = self.client.post(
             f"{self.url}",
             query_params={"secret": "supersecret"},
-            data=json.dumps(payload),
-            content_type="application/json",
+            data=payload,
         )
         assert response.status_code == 400
         assert response.content == b"Invalid pretix payload structure"
@@ -161,8 +146,7 @@ class TestPretixWebhook(TestCase):
             response = self.client.post(
                 f"{self.url}",
                 query_params={"secret": "supersecret"},
-                data=json.dumps(payload),
-                content_type="application/json",
+                data=payload,
             )
             assert response.status_code == 200
             assert mock_get_order.call_count == 1
@@ -198,8 +182,7 @@ class TestPretixWebhook(TestCase):
             response = self.client.post(
                 f"{self.url}",
                 query_params={"secret": "supersecret"},
-                data=json.dumps(payload),
-                content_type="application/json",
+                data=payload,
             )
             assert response.status_code == 200
             assert mock_get_order.call_count == 1

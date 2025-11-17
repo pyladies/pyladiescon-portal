@@ -1,8 +1,8 @@
-import json
 from functools import wraps
 
 from django.conf import settings
 from django.http import HttpResponse, HttpResponseBadRequest, JsonResponse
+from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
 from attendee.models import PretixOrder
@@ -46,10 +46,7 @@ def require_pretix_payload():
     def decorator(view_func):
         @wraps(view_func)
         def _wrapped_view(request, *args, **kwargs):
-            try:
-                event_json = json.loads(request.body)
-            except json.JSONDecodeError:
-                return HttpResponseBadRequest("Invalid JSON payload")
+            event_json = request.POST.dict()
             # Basic validation of pretix payload structure
             required_keys = {"notification_id", "organizer", "event", "code", "action"}
             if not required_keys.issubset(event_json.keys()):
@@ -67,6 +64,7 @@ def require_pretix_payload():
     return decorator
 
 
+@csrf_exempt
 @require_POST
 @require_webhook_secret("secret")
 @require_pretix_payload()
@@ -77,7 +75,7 @@ def pretix_webhook(request):
     """
     context = {}
     pretix_wrapper = PretixWrapper(PRETIX_ORG, PRETIX_EVENT_SLUG)
-    order_code = json.loads(request.body)["code"]
+    order_code = request.POST.dict()["code"]
     order_data = pretix_wrapper.get_order_by_code(order_code)
     order_instance, _ = PretixOrder.objects.get_or_create(order_code=order_code)
     order_instance.from_pretix_data(order_data)
