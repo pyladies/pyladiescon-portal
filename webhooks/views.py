@@ -1,3 +1,4 @@
+import json
 import logging
 from functools import wraps
 
@@ -49,7 +50,7 @@ def require_pretix_payload():
     def decorator(view_func):
         @wraps(view_func)
         def _wrapped_view(request, *args, **kwargs):
-            event_json = request.POST.dict()
+            event_json = json.loads(request.body.decode("utf-8"))
             logger.info(f"Pretix webhook payload: {event_json}")
             # Basic validation of pretix payload structure
             required_keys = {"notification_id", "organizer", "event", "code", "action"}
@@ -83,7 +84,8 @@ def pretix_webhook(request):
     """
     context = {}
     pretix_wrapper = PretixWrapper(PRETIX_ORG, PRETIX_EVENT_SLUG)
-    order_code = request.POST.dict()["code"]
+    event_json = json.loads(request.body.decode("utf-8"))
+    order_code = event_json["code"]
     order_data = pretix_wrapper.get_order_by_code(order_code)
     order_instance, _ = PretixOrder.objects.get_or_create(order_code=order_code)
     order_instance.from_pretix_data(order_data)
