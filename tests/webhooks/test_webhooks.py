@@ -1,3 +1,4 @@
+import json
 from unittest.mock import patch
 
 import pytest
@@ -82,7 +83,8 @@ class TestPretixWebhook(TestCase):
         response = self.client.post(
             f"{self.url}",
             query_params={"secret": "supersecret"},
-            data=payload,
+            data=json.dumps(payload),
+            content_type="application/json",
         )
         assert response.status_code == 400
         assert response.content == b"Unsupported pretix action"
@@ -98,7 +100,8 @@ class TestPretixWebhook(TestCase):
         response = self.client.post(
             f"{self.url}",
             query_params={"secret": "supersecret"},
-            data=payload,
+            data=json.dumps(payload),
+            content_type="application/json",
         )
         assert response.status_code == 400
         assert response.content == b"Invalid organizer"
@@ -114,7 +117,8 @@ class TestPretixWebhook(TestCase):
         response = self.client.post(
             f"{self.url}",
             query_params={"secret": "supersecret"},
-            data=payload,
+            data=json.dumps(payload),
+            content_type="application/json",
         )
         assert response.status_code == 400
         assert response.content == b"Invalid event slug"
@@ -124,7 +128,8 @@ class TestPretixWebhook(TestCase):
         response = self.client.post(
             f"{self.url}",
             query_params={"secret": "supersecret"},
-            data=payload,
+            data=json.dumps(payload),
+            content_type="application/json",
         )
         assert response.status_code == 400
         assert response.content == b"Invalid pretix payload structure"
@@ -146,7 +151,8 @@ class TestPretixWebhook(TestCase):
             response = self.client.post(
                 f"{self.url}",
                 query_params={"secret": "supersecret"},
-                data=payload,
+                data=json.dumps(payload),
+                content_type="application/json",
             )
             assert response.status_code == 200
             assert mock_get_order.call_count == 1
@@ -182,7 +188,8 @@ class TestPretixWebhook(TestCase):
             response = self.client.post(
                 f"{self.url}",
                 query_params={"secret": "supersecret"},
-                data=payload,
+                data=json.dumps(payload),
+                content_type="application/json",
             )
             assert response.status_code == 200
             assert mock_get_order.call_count == 1
