@@ -1,3 +1,4 @@
+import logging
 from functools import wraps
 
 from django.conf import settings
@@ -12,6 +13,8 @@ from common.pretix_wrapper import (
     PRETIX_ORG,
     PretixWrapper,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def require_webhook_secret(param_name):
@@ -47,15 +50,20 @@ def require_pretix_payload():
         @wraps(view_func)
         def _wrapped_view(request, *args, **kwargs):
             event_json = request.POST.dict()
+            logger.info(f"Pretix webhook payload: {event_json}")
             # Basic validation of pretix payload structure
             required_keys = {"notification_id", "organizer", "event", "code", "action"}
             if not required_keys.issubset(event_json.keys()):
+                logger.exception("Invalid pretix payload structure, %s", event_json)
                 return HttpResponseBadRequest("Invalid pretix payload structure")
             if event_json["action"] not in PRETIX_ALLOWED_WEBHOOK_ACTIONS:
+                logger.exception("Unsupported pretix action, %s", event_json)
                 return HttpResponseBadRequest("Unsupported pretix action")
             if event_json["organizer"] != PRETIX_ORG:
+                logger.exception("Invalid organizer, %s", event_json)
                 return HttpResponseBadRequest("Invalid organizer")
             if event_json["event"] != PRETIX_EVENT_SLUG:
+                logger.exception("Invalid event slug, %s", event_json)
                 return HttpResponseBadRequest("Invalid event slug")
             return view_func(request, *args, **kwargs)
 
