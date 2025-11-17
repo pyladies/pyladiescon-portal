@@ -1,5 +1,6 @@
 import json
 import logging
+
 from functools import wraps
 
 from django.conf import settings
@@ -51,6 +52,7 @@ def require_pretix_payload():
         @wraps(view_func)
         def _wrapped_view(request, *args, **kwargs):
             event_json = json.loads(request.body.decode("utf-8"))
+            logger.info(f"Pretix webhook payload: {event_json}")
             # Basic validation of pretix payload structure
             required_keys = {"notification_id", "organizer", "event", "code", "action"}
             if not required_keys.issubset(event_json.keys()):
