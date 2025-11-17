@@ -1,6 +1,5 @@
 import json
 import logging
-
 from functools import wraps
 
 from django.conf import settings
