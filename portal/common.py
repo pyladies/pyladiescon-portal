@@ -536,11 +536,11 @@ def get_total_donations_amount_cache():
             or 0
         )
         total_donations = individual_donations + donations_from_pretix
-    cache.set(
-        CACHE_KEY_DONATIONS_TOTAL_AMOUNT,
-        total_donations,
-        STATS_CACHE_TIMEOUT,
-    )
+        cache.set(
+            CACHE_KEY_DONATIONS_TOTAL_AMOUNT,
+            total_donations,
+            STATS_CACHE_TIMEOUT,
+        )
     return total_donations
 
 
@@ -556,11 +556,11 @@ def get_donors_count_cache():
             status="p", total__gt=0
         ).count()
         donors_count = individual_donors_count + pretix_donors_count
-    cache.set(
-        CACHE_KEY_DONORS_COUNT,
-        donors_count,
-        STATS_CACHE_TIMEOUT,
-    )
+        cache.set(
+            CACHE_KEY_DONORS_COUNT,
+            donors_count,
+            STATS_CACHE_TIMEOUT,
+        )
     return donors_count
 
 
