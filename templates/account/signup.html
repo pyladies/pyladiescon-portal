@@ -1,96 +1,148 @@
 {% extends "account/base_entrance.html" %}
 {% load allauth i18n %}
 {% load django_bootstrap5 %}
+{% load static %}
+
 {% block head_title %}
-    {% trans "Signup" %}
+  {% trans "Signup" %}
 {% endblock head_title %}
+
 {% block content %}
-    {% element h1 %}
-    {% trans "Sign Up" %}
-{% endelement %}
-{% setvar link %}
-<a href="{{ login_url }}">
-{% endsetvar %}
-{% setvar end_link %}
-</a>
-{% endsetvar %}
-{% element p %}
-{% blocktranslate %}Already have an account? Then please {{ link }}sign in{{ end_link }}.{% endblocktranslate %}
-{% endelement %}
-{% if not SOCIALACCOUNT_ONLY %}
-    {% url 'account_signup' as action_url %}
-    <form method="post" action="{{ action_url }}" class="entrance signup">
-        {% csrf_token %}
-        <h3 class="mb-3">
-            Personal Information
-        </h3>
-        {% bootstrap_field form.username %}
-        {% bootstrap_field form.email %}
-        {% bootstrap_field form.first_name %}
-        {% bootstrap_field form.last_name %}
-        <h3 class="mb-3">
-            Password
-        </h3>
-        {% bootstrap_field form.password1 %}
-        {% bootstrap_field form.password2 %}
-        <h3 class="mb-3">
-            Agreements
-        </h3>
-        <div class="card mb-3">
-            <div class="card-body">
-                <p>
-                    By creating an account, you are agreeing to our terms and conditions.
-                </p>
-                <div class="form-check mb-3">
-                    {{ form.coc_agreement }}
-                    <label class="form-check-label" for="{{ form.coc_agreement.id_for_label }}">
-                        I agree to the <a href="https://2025.conference.pyladies.com/en/coc/"
-    target="_blank"
-    rel="noopener noreferrer">Code of Conduct</a>
-                    </label>
-                    {% if form.coc_agreement.errors %}
-                        <div class="invalid-feedback d-block">
-                            {{ form.coc_agreement.errors }}
-                        </div>
-                    {% endif %}
-                    <div class="form-text">
-                        {{ form.coc_agreement.help_text }}
-                    </div>
-                </div>
-                <div class="form-check">
-                    {{ form.tos_agreement }}
-                    <label class="form-check-label" for="{{ form.tos_agreement.id_for_label }}">
-                        I agree to the <a href="https://pyladiescon-portal-docs.netlify.app/policies/terms_of_use/"
-    target="_blank"
-    rel="noopener noreferrer">Terms of Service</a>
-                    </label>
-                    {% if form.tos_agreement.errors %}
-                        <div class="invalid-feedback d-block">
-                            {{ form.tos_agreement.errors }}
-                        </div>
-                    {% endif %}
-                    <div class="form-text">
-                        {{ form.tos_agreement.help_text }}
-                    </div>
-                </div>
-            </div>
+<link rel="stylesheet" href="{% static 'css/custom-login.css' %}">
+
+<div class="login-bg">
+  <div class="container entrance-container" role="main" aria-labelledby="sign-up-title">
+    <div class="entrance-card card mx-auto shadow-sm">
+      <header class="card-header text-center py-4 bg-transparent border-0">
+        <div class="brand d-flex justify-content-center mb-3" aria-hidden="true">
+          <!-- inline SVG logo -->
+          <svg width="64" height="64" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" class="logo">
+            <rect x="0" y="0" width="24" height="24" rx="6" fill="#0d6efd"/>
+            <path d="M6 14L10 9l4 6 4-8" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
         </div>
-        {{ redirect_field }}
-        <div class="d-grid gap-2">
-            <button class="btn btn-primary btn-lg" type="submit">
-                {% trans "Sign Up" %}
-            </button>
+        {% element h1 id="sign-up-title" class="h4 mb-1 fw-semibold text-dark" %}
+          {% trans "Create your account" %}
+        {% endelement %}
+        {% element p class="muted small mt-2 mb-0" %}
+          {% trans "Join the community — create an account to register for events, manage your profile, and more." %}
+        {% endelement %}
+      </header>
+
+      <div class="card-body p-4">
+        <div class="row g-4 align-items-start">
+          <div class="col-12 col-lg-5 left-column">
+            {% setvar link %}<a href="{{ login_url }}" class="link-primary text-decoration-none">{% endsetvar %}
+            {% setvar end_link %}</a>{% endsetvar %}
+            {% element p class="text-secondary mb-3" %}
+              {% blocktranslate %}Already have an account? Then please {{ link }}sign in{{ end_link }}.{% endblocktranslate %}
+            {% endelement %}
+
+            {% if PASSKEY_SIGNUP_ENABLED %}
+              <div class="mb-3">
+                {% element button href=signup_by_passkey_url tags="prominent,signup,outline,primary" class="btn btn-outline-secondary w-100 mb-2" %}
+                  {% trans "Sign up using a passkey" %}
+                {% endelement %}
+              </div>
+            {% endif %}
+
+            {% if SOCIALACCOUNT_ENABLED %}
+              <div class="mb-3">
+                {% include "socialaccount/snippets/login.html" with page_layout="entrance" %}
+              </div>
+            {% endif %}
+
+            <p class="small text-muted mb-0">{% trans "By signing up you agree to the Code of Conduct and Terms of Service." %}</p>
+          </div>
+
+          <div>
+            {% if not SOCIALACCOUNT_ONLY %}
+              {% url 'account_signup' as action_url %}
+              <form method="post" action="{{ action_url }}" class="entrance signup needs-validation form-compact" novalidate>
+                {% csrf_token %}
+
+                <div class="card border-0 mb-3">
+                  <div class="card-body p-3">
+                    <h3 class="h6 fw-semibold mb-3 text-dark">Personal Information</h3>
+                    <div class="row g-3">
+                      <div class="col-12 col-md-6">
+                        {% bootstrap_field form.username form_group_class="mb-0" placeholder=None show_help=True show_label=True %}
+                      </div>
+                      <div class="col-12 col-md-6">
+                        {% bootstrap_field form.email form_group_class="mb-0" placeholder=None show_help=True show_label=True %}
+                      </div>
+                      <div class="col-12 col-md-6">
+                        {% bootstrap_field form.first_name form_group_class="mb-0" placeholder=None show_help=True show_label=True %}
+                      </div>
+                      <div class="col-12 col-md-6">
+                        {% bootstrap_field form.last_name form_group_class="mb-0" placeholder=None show_help=True show_label=True %}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="card border-0 mb-3">
+                  <div class="card-body p-3">
+                    <h3 class="h6 fw-semibold mb-3 text-dark">Password</h3>
+                    <div class="row g-3">
+                      <div class="col-12 col-md-6">
+                        {% bootstrap_field form.password1 form_group_class="mb-0" placeholder=None show_help=True show_label=True %}
+                      </div>
+                      <div class="col-12 col-md-6">
+                        {% bootstrap_field form.password2 form_group_class="mb-0" placeholder=None show_help=True show_label=True %}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="card border-0 mb-3">
+                  <div class="card-body p-3">
+                    <h3 class="h6 fw-semibold mb-3 text-dark">Agreements</h3>
+                    <div class="form-check mb-3">
+                      {{ form.coc_agreement }}
+                      <label class="form-check-label" for="{{ form.coc_agreement.id_for_label }}">
+                        {% trans "I agree to the" %} <a href="https://2025.conference.pyladies.com/en/coc/" target="_blank" rel="noopener noreferrer" class="link-primary text-decoration-none">Code of Conduct</a>
+                      </label>
+                      {% if form.coc_agreement.errors %}
+                        <div class="invalid-feedback d-block">
+                          {{ form.coc_agreement.errors }}
+                        </div>
+                      {% endif %}
+                      <div class="form-text">{{ form.coc_agreement.help_text }}</div>
+                    </div>
+
+                    <div class="form-check">
+                      {{ form.tos_agreement }}
+                      <label class="form-check-label" for="{{ form.tos_agreement.id_for_label }}">
+                        {% trans "I agree to the" %} <a href="https://pyladiescon-portal-docs.netlify.app/policies/terms_of_use/" target="_blank" rel="noopener noreferrer" class="link-primary text-decoration-none">Terms of Service</a>
+                      </label>
+                      {% if form.tos_agreement.errors %}
+                        <div class="invalid-feedback d-block">
+                          {{ form.tos_agreement.errors }}
+                        </div>
+                      {% endif %}
+                      <div class="form-text">{{ form.tos_agreement.help_text }}</div>
+                    </div>
+                  </div>
+                </div>
+
+                {{ redirect_field }}
+
+                <div class="d-grid gap-2">
+                  <button class="btn btn-primary btn-lg" type="submit">
+                    {% trans "Sign Up" %}
+                  </button>
+                </div>
+              </form>
+            {% endif %}
+          </div>
         </div>
-    </form>
-{% endif %}
-{% if PASSKEY_SIGNUP_ENABLED %}
-    {% element hr %}
-{% endelement %}
-{% element button href=signup_by_passkey_url tags="prominent,signup,outline,primary" %}
-{% trans "Sign up using a passkey" %}
-{% endelement %}
-{% endif %}
-{% if SOCIALACCOUNT_ENABLED %}
-    {% include "socialaccount/snippets/login.html" with page_layout="entrance" %}
-{% endif %}
+      </div>
+
+      <footer class="card-footer bg-transparent text-center py-3 border-0">
+        <p class="small muted mb-0">{% trans "Need help? Contact support or check the documentation." %}</p>
+      </footer>
+    </div>
+  </div>
+</div>
 {% endblock content %}
