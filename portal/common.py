@@ -8,6 +8,7 @@ from portal.constants import (
     CACHE_KEY_DONATION_TOWARDS_GOAL_PERCENT,
     CACHE_KEY_DONATIONS_TOTAL_AMOUNT,
     CACHE_KEY_DONORS_COUNT,
+    CACHE_KEY_HISTORICAL_COMPARISON,
     CACHE_KEY_SPONSORSHIP_BREAKDOWN,
     CACHE_KEY_SPONSORSHIP_COMMITTED,
     CACHE_KEY_SPONSORSHIP_COMMITTED_COUNT,
@@ -27,6 +28,7 @@ from portal.constants import (
     CACHE_KEY_VOLUNTEER_SIGNUPS_COUNT,
     DONATION_GOAL_AMOUNT,
     DONATIONS_GOAL,
+    HISTORICAL_STATS,
     SPONSORSHIP_GOAL,
     SPONSORSHIP_GOAL_AMOUNT,
     STATS_CACHE_TIMEOUT,
@@ -49,6 +51,7 @@ def get_stats_cached_values():
     stats_dict.update(get_sponsorships_stats_dict())
     stats_dict.update(get_donations_stats_dict())
     stats_dict.update(get_attendee_stats_dict())
+    stats_dict[CACHE_KEY_HISTORICAL_COMPARISON] = get_historical_comparison_data()
     return stats_dict
 
 
@@ -610,3 +613,146 @@ def get_attendee_stats_dict():
     stats_dict = {}
     stats_dict[CACHE_KEY_ATTENDEE_COUNT] = get_attendee_count_cache()
     return stats_dict
+
+
+def get_historical_comparison_data():
+    """
+    Returns historical comparison data for charts showing progress over the years.
+    Combines hardcoded historical data with current year's data.
+    """
+    historical_comparison = cache.get(CACHE_KEY_HISTORICAL_COMPARISON)
+    if not historical_comparison:
+        # Get current year data
+        current_registrations = get_attendee_count_cache()
+        current_sponsors = get_sponsorship_total_count_stats_cache()
+        current_sponsorship_amount = get_sponsorship_committed_amount_stats_cache()
+        current_donors = get_donors_count_cache()
+        current_donation_amount = get_total_donations_amount_cache()
+
+        # Proposals count would need to come from a proposals model if it exists
+        # For now, we'll use 0 as a placeholder for 2025
+        current_proposals = 0  # TODO: Get from proposals model when available
+
+        # Build comparison data structure
+        historical_comparison = []
+
+        # Registrations comparison
+        historical_comparison.append(
+            {
+                "title": "Registrations Over the Years",
+                "columns": [["string", "Year"], ["number", "Registrations"]],
+                "data": [
+                    ["2023", HISTORICAL_STATS["2023"]["registrations"]],
+                    ["2024", HISTORICAL_STATS["2024"]["registrations"]],
+                    ["2025", current_registrations],
+                ],
+                "chart_id": "registrations_comparison",
+                "chart_type": "bar",
+            }
+        )
+
+        # Proposals comparison
+        historical_comparison.append(
+            {
+                "title": "Proposals Over the Years",
+                "columns": [["string", "Year"], ["number", "Proposals"]],
+                "data": [
+                    ["2023", HISTORICAL_STATS["2023"]["proposals"]],
+                    ["2024", HISTORICAL_STATS["2024"]["proposals"]],
+                    ["2025", current_proposals],
+                ],
+                "chart_id": "proposals_comparison",
+                "chart_type": "bar",
+            }
+        )
+
+        # Sponsors comparison
+        historical_comparison.append(
+            {
+                "title": "Number of Sponsors Over the Years",
+                "columns": [["string", "Year"], ["number", "Sponsors"]],
+                "data": [
+                    ["2023", HISTORICAL_STATS["2023"]["sponsors"]],
+                    ["2024", HISTORICAL_STATS["2024"]["sponsors"]],
+                    ["2025", current_sponsors],
+                ],
+                "chart_id": "sponsors_comparison",
+                "chart_type": "bar",
+            }
+        )
+
+        # Sponsorship amount comparison
+        historical_comparison.append(
+            {
+                "title": "Sponsorship Amount Over the Years",
+                "columns": [["string", "Year"], ["number", "Amount (USD)"]],
+                "data": [
+                    ["2023", HISTORICAL_STATS["2023"]["sponsorship_amount"]],
+                    ["2024", HISTORICAL_STATS["2024"]["sponsorship_amount"]],
+                    ["2025", current_sponsorship_amount],
+                ],
+                "chart_id": "sponsorship_amount_comparison",
+                "chart_type": "bar",
+            }
+        )
+
+        # Individual donations comparison
+        historical_comparison.append(
+            {
+                "title": "Number of Individual Donors Over the Years",
+                "columns": [["string", "Year"], ["number", "Donors"]],
+                "data": [
+                    ["2023", HISTORICAL_STATS["2023"]["donors"]],
+                    ["2024", HISTORICAL_STATS["2024"]["donors"]],
+                    ["2025", current_donors],
+                ],
+                "chart_id": "donors_comparison",
+                "chart_type": "bar",
+            }
+        )
+
+        # Donation amount comparison
+        historical_comparison.append(
+            {
+                "title": "Donation Amount Over the Years",
+                "columns": [["string", "Year"], ["number", "Amount (USD)"]],
+                "data": [
+                    ["2023", HISTORICAL_STATS["2023"]["donation_amount"]],
+                    ["2024", HISTORICAL_STATS["2024"]["donation_amount"]],
+                    ["2025", current_donation_amount],
+                ],
+                "chart_id": "donation_amount_comparison",
+                "chart_type": "bar",
+            }
+        )
+
+        # Total proceeds comparison
+        historical_comparison.append(
+            {
+                "title": "Total Proceeds Over the Years",
+                "columns": [["string", "Year"], ["number", "Amount (USD)"]],
+                "data": [
+                    [
+                        "2023",
+                        HISTORICAL_STATS["2023"]["sponsorship_amount"]
+                        + HISTORICAL_STATS["2023"]["donation_amount"],
+                    ],
+                    [
+                        "2024",
+                        HISTORICAL_STATS["2024"]["sponsorship_amount"]
+                        + HISTORICAL_STATS["2024"]["donation_amount"],
+                    ],
+                    ["2025", current_sponsorship_amount + current_donation_amount],
+                ],
+                "chart_id": "proceeds_comparison",
+                "chart_type": "bar",
+            }
+        )
+
+        cache.set(
+            CACHE_KEY_HISTORICAL_COMPARISON,
+            historical_comparison,
+            STATS_CACHE_TIMEOUT,
+        )
+
+    return historical_comparison
