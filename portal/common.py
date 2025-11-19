@@ -25,10 +25,8 @@ from portal.constants import (
     CACHE_KEY_VOLUNTEER_ONBOARDED_COUNT,
     CACHE_KEY_VOLUNTEER_PYLADIES_CHAPTERS,
     CACHE_KEY_VOLUNTEER_SIGNUPS_COUNT,
-    DONATION_GOAL_AMOUNT,
     DONATIONS_GOAL,
     SPONSORSHIP_GOAL,
-    SPONSORSHIP_GOAL_AMOUNT,
     STATS_CACHE_TIMEOUT,
 )
 from sponsorship.models import (
@@ -38,6 +36,26 @@ from sponsorship.models import (
 )
 from volunteer.constants import ApplicationStatus
 from volunteer.models import Team, VolunteerProfile
+
+
+def get_fundraising_goal_amount(goal_type):
+    """
+    Get the fundraising goal amount from database.
+
+    Args:
+        goal_type: Either 'donation' or 'sponsorship'
+
+    Returns:
+        Decimal: The target amount for the specified goal type
+    """
+    from portal.models import FundraisingGoal
+
+    try:
+        goal = FundraisingGoal.objects.get(goal_type=goal_type, is_active=True)
+        return goal.target_amount
+    except FundraisingGoal.DoesNotExist:
+        # Fallback to default values if not in database
+        return 2500 if goal_type == "donation" else 15000
 
 
 def get_stats_cached_values():
@@ -69,14 +87,15 @@ def get_volunteer_stats_dict():
 
 def get_sponsorships_stats_dict():
     stats_dict = {}
-    stats_dict[SPONSORSHIP_GOAL] = SPONSORSHIP_GOAL_AMOUNT
+    sponsorship_goal_amount = get_fundraising_goal_amount("sponsorship")
+    stats_dict[SPONSORSHIP_GOAL] = sponsorship_goal_amount
     stats_dict[CACHE_KEY_TOTAL_SPONSORSHIPS] = get_sponsorship_total_count_stats_cache()
     stats_dict[CACHE_KEY_SPONSORSHIP_PAID] = get_sponsorship_paid_amount_stats_cache()
     stats_dict[CACHE_KEY_SPONSORSHIP_PAID_PERCENT] = (
         get_sponsorship_paid_percent_cache()
     )
     stats_dict[CACHE_KEY_SPONSORSHIP_TOWARDS_GOAL_PERCENT] = (
-        get_sponsorship_to_goal_percent_cache()
+        get_sponsorship_to_goal_percent_cache(sponsorship_goal_amount)
     )
 
     stats_dict[CACHE_KEY_SPONSORSHIP_PENDING] = (
@@ -359,16 +378,19 @@ def get_sponsorship_committed_count_stats_cache():
     return sponsorship_committed_count
 
 
-def get_sponsorship_to_goal_percent_cache():
+def get_sponsorship_to_goal_percent_cache(sponsorship_goal_amount=None):
     """Returns sponsorship towards goal percent"""
+    if sponsorship_goal_amount is None:
+        sponsorship_goal_amount = get_fundraising_goal_amount("sponsorship")
+
     sponsorship_towards_goal_percent = cache.get(
         CACHE_KEY_SPONSORSHIP_TOWARDS_GOAL_PERCENT
     )
     if not sponsorship_towards_goal_percent:
         total_paid = get_sponsorship_paid_amount_stats_cache()
         sponsorship_towards_goal_percent = (
-            (total_paid / SPONSORSHIP_GOAL_AMOUNT) * 100
-            if SPONSORSHIP_GOAL_AMOUNT > 0
+            (total_paid / sponsorship_goal_amount) * 100
+            if sponsorship_goal_amount > 0
             else 0
         )
         cache.set(
@@ -566,12 +588,14 @@ def get_donors_count_cache():
 
 def get_donation_to_goal_percent_cache():
     """Returns donation towards goal percent"""
+    donation_goal_amount = get_fundraising_goal_amount("donation")
+
     donation_towards_goal_percent = cache.get(CACHE_KEY_DONATION_TOWARDS_GOAL_PERCENT)
     if not donation_towards_goal_percent:
         total_donations = get_total_donations_amount_cache()
         donation_towards_goal_percent = (
-            (total_donations / DONATION_GOAL_AMOUNT) * 100
-            if DONATION_GOAL_AMOUNT > 0
+            (total_donations / donation_goal_amount) * 100
+            if donation_goal_amount > 0
             else 0
         )
         cache.set(
@@ -584,7 +608,8 @@ def get_donation_to_goal_percent_cache():
 
 def get_donations_stats_dict():
     stats_dict = {}
-    stats_dict[DONATIONS_GOAL] = DONATION_GOAL_AMOUNT
+    donation_goal_amount = get_fundraising_goal_amount("donation")
+    stats_dict[DONATIONS_GOAL] = donation_goal_amount
     stats_dict[CACHE_KEY_DONATION_BREAKDOWN] = {
         "total_donations_amount": get_total_donations_amount_cache(),
         "donors_count": get_donors_count_cache(),
