@@ -29,6 +29,7 @@ from portal.constants import (
     DONATION_GOAL_AMOUNT,
     DONATIONS_GOAL,
     HISTORICAL_STATS,
+    PROPOSALS_2025_COUNT,
     SPONSORSHIP_GOAL,
     SPONSORSHIP_GOAL_AMOUNT,
     STATS_CACHE_TIMEOUT,
@@ -629,10 +630,6 @@ def get_historical_comparison_data():
         current_donors = get_donors_count_cache()
         current_donation_amount = get_total_donations_amount_cache()
 
-        # Proposals count would need to come from a proposals model if it exists
-        # For now, we'll use 0 as a placeholder for 2025
-        current_proposals = 0  # TODO: Get from proposals model when available
-
         # Build comparison data structure
         historical_comparison = []
 
@@ -659,7 +656,7 @@ def get_historical_comparison_data():
                 "data": [
                     ["2023", HISTORICAL_STATS["2023"]["proposals"]],
                     ["2024", HISTORICAL_STATS["2024"]["proposals"]],
-                    ["2025", current_proposals],
+                    ["2025", PROPOSALS_2025_COUNT],
                 ],
                 "chart_id": "proposals_comparison",
                 "chart_type": "bar",

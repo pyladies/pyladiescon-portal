@@ -58,4 +58,7 @@ HISTORICAL_STATS = {
     },
 }
 
+# Current year proposals count (not stored in database)
+PROPOSALS_2025_COUNT = 194
+
 BASE_PRETIX_URL = "https://pretix.eu/api/v1/"
