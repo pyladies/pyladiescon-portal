@@ -7,7 +7,7 @@ from django.http import HttpResponse, HttpResponseBadRequest, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
-from attendee.models import PretixOrder
+from attendee.models import AttendeeProfile, PretixOrder
 from common.pretix_wrapper import (
     PRETIX_ALLOWED_WEBHOOK_ACTIONS,
     PRETIX_EVENT_SLUG,
@@ -90,5 +90,14 @@ def pretix_webhook(request):
     order_instance, _ = PretixOrder.objects.get_or_create(order_code=order_code)
     order_instance.from_pretix_data(order_data)
     order_instance.save()
+
+    # Create or update attendee profile for paid orders
+    if order_instance.status == "p":  # Paid status
+        profile, created = AttendeeProfile.objects.get_or_create(order=order_instance)
+        profile.populate_from_pretix_data(order_data)
+        profile.save()
+        logger.info(
+            f"{'Created' if created else 'Updated'} attendee profile for order {order_code}"
+        )
 
     return JsonResponse(context)

@@ -1,0 +1,40 @@
+<div class="container border rounded-3 p-3 mb-4">
+    <div class="row">
+        <div class="col-sm-4">
+            <div class="card border-0">
+                <div class="card-body">
+                    <h5 class="card-title">
+                        Attendees Registered
+                    </h5>
+                    <h1 class="display-4 text-primary">
+                        {{ stats.attendee_count }}
+                    </h1>
+                    <span class="text-muted">confirmed registrations</span>
+                </div>
+            </div>
+        </div>
+        <div class="col-sm-8">
+            <div class="card border-0">
+                <div class="card-body">
+                    <h5 class="card-title">
+                        Attendee Demographics
+                    </h5>
+                    <p class="text-muted">
+                        Anonymized statistics from registration forms showing the diverse backgrounds
+                        and experiences of our PyLadiesCon attendees.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="row mt-4">
+        {% for breakdown in stats.attendee_breakdown %}
+            <div class="col-12 mb-4">
+                {# djlint:off H021 #}
+                <div id="{{ breakdown.chart_id }}" style="width: 100%; min-height: 500px">
+                </div>
+                {# djlint:on H021 #}
+            </div>
+        {% endfor %}
+    </div>
+</div>

@@ -8,6 +8,7 @@ from django.urls import reverse
 from attendee.models import (
     PRETIX_ANONYMOUS_DONATION_QUESTION_IDENTIFIER,
     PRETIX_NOT_ANONYMOUS_ANSWER_IDENTIFIER,
+    AttendeeProfile,
     PretixOrder,
 )
 from common.pretix_wrapper import (
@@ -201,3 +202,115 @@ class TestPretixWebhook(TestCase):
             assert order.total == float(self._pretix_order_data["total"])
             assert order.url == self._pretix_order_data["url"]
             assert order.raw_data == self._pretix_order_data
+
+    def test_pretix_webhook_creates_attendee_profile_for_paid_order(self):
+        """Test that webhook creates AttendeeProfile for paid orders."""
+        order_code = "PAID_ORDER_123"
+        paid_order_data = {
+            "code": order_code,
+            "event": "2025",
+            "status": "p",  # Paid status
+            "testmode": False,
+            "email": "attendee@example.com",
+            "datetime": "2025-11-13T17:12:03.989259+01:00",
+            "total": "50.00",
+            "positions": [
+                {
+                    "attendee_name": "Jane Developer",
+                    "answers": [
+                        {"question_identifier": "ROLE", "answer": "Software Engineer"},
+                        {"question_identifier": "COUNTRY", "answer": "Canada"},
+                        {
+                            "option_identifiers": [
+                                PRETIX_NOT_ANONYMOUS_ANSWER_IDENTIFIER
+                            ],
+                            "question_identifier": PRETIX_ANONYMOUS_DONATION_QUESTION_IDENTIFIER,
+                        },
+                    ],
+                }
+            ],
+            "last_modified": "2025-11-13T17:12:07.002602+01:00",
+            "url": "https://someurl/",
+            "cancellation_date": None,
+        }
+
+        payload = {
+            "notification_id": 456,
+            "organizer": PRETIX_ORG,
+            "event": PRETIX_EVENT_SLUG,
+            "code": order_code,
+            "action": "pretix.event.order.paid",
+        }
+
+        with patch(
+            "common.pretix_wrapper.PretixWrapper.get_order_by_code"
+        ) as mock_get_order:
+            mock_get_order.return_value = paid_order_data
+            response = self.client.post(
+                f"{self.url}",
+                query_params={"secret": "supersecret"},
+                data=json.dumps(payload),
+                content_type="application/json",
+            )
+            assert response.status_code == 200
+
+            # Verify order was created
+            order = PretixOrder.objects.get(order_code=order_code)
+            assert order.status == "p"
+
+            # Verify attendee profile was created
+            assert AttendeeProfile.objects.filter(order=order).exists()
+            profile = AttendeeProfile.objects.get(order=order)
+            assert profile.job_role == "Software Engineer"
+            assert profile.country == "Canada"
+
+    def test_pretix_webhook_does_not_create_profile_for_cancelled_order(self):
+        """Test that webhook does not create AttendeeProfile for cancelled orders."""
+        order_code = "CANCELLED_ORDER_123"
+        cancelled_order_data = {
+            "code": order_code,
+            "event": "2025",
+            "status": "c",  # Cancelled status
+            "testmode": False,
+            "email": "cancelled@example.com",
+            "datetime": "2025-11-13T17:12:03.989259+01:00",
+            "total": "50.00",
+            "positions": [
+                {
+                    "attendee_name": "Cancelled User",
+                    "answers": [
+                        {"question_identifier": "ROLE", "answer": "Data Scientist"},
+                    ],
+                }
+            ],
+            "last_modified": "2025-11-13T17:12:07.002602+01:00",
+            "url": "https://someurl/",
+            "cancellation_date": "2025-11-14T10:00:00.000000+01:00",
+        }
+
+        payload = {
+            "notification_id": 789,
+            "organizer": PRETIX_ORG,
+            "event": PRETIX_EVENT_SLUG,
+            "code": order_code,
+            "action": PRETIX_WEBHOOK_ORDER_CANCELLED,
+        }
+
+        with patch(
+            "common.pretix_wrapper.PretixWrapper.get_order_by_code"
+        ) as mock_get_order:
+            mock_get_order.return_value = cancelled_order_data
+            response = self.client.post(
+                f"{self.url}",
+                query_params={"secret": "supersecret"},
+                data=json.dumps(payload),
+                content_type="application/json",
+            )
+            assert response.status_code == 200
+
+            # Verify order was created
+            order = PretixOrder.objects.get(order_code=order_code)
+            assert order.status == "c"
+
+            # Verify attendee profile was NOT created for cancelled order
+            assert not AttendeeProfile.objects.filter(order=order).exists()

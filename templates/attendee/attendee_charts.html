@@ -1,0 +1,27 @@
+{% for breakdown in stats.attendee_breakdown %}
+    var data_{{ breakdown.chart_id }} = google.visualization.arrayToDataTable([
+    {{ breakdown.columns }},
+    {% for data in breakdown.data %}
+        ['{{ data.0 }}', {{ data.1 }}],
+    {% endfor %}
+    ]);
+    var paddingHeight = 120;
+    var rowHeight = 40;
+    var chartHeight = Math.max(500, (data_{{ breakdown.chart_id }}.getNumberOfRows() * rowHeight) + paddingHeight);
+    document.getElementById('{{ breakdown.chart_id }}').style.height = chartHeight + 'px';
+    var options_{{ breakdown.chart_id }} = {
+    chart: {
+    'title':'{{ breakdown.title }}'
+    },
+    hAxis: {title: '{{ breakdown.columns.1.1 }}', minValue: 0, format:'0'},
+    vAxis: {title: '{{ breakdown.columns.0.1 }}'},
+    height: chartHeight,
+    chartArea: {
+    width: '75%',
+    height: '85%'
+    },
+    bars: 'horizontal'
+    };
+    var chart_{{ breakdown.chart_id }} = new google.charts.Bar(document.getElementById('{{ breakdown.chart_id }}'));
+    chart_{{ breakdown.chart_id }}.draw(data_{{ breakdown.chart_id }}, google.charts.Bar.convertOptions(options_{{ breakdown.chart_id }}));
+{% endfor %}
