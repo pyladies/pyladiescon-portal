@@ -1,5 +1,6 @@
 from enum import StrEnum
 
+from django.contrib.postgres.fields import ArrayField
 from django.db import models
 
 from portal.models import BaseModel
@@ -83,3 +84,101 @@ class PretixOrder(BaseModel):
                         in answer["option_identifiers"]
                     )
                     return
+
+
+class AttendeeProfile(BaseModel):
+    """
+    Model to store anonymized attendee demographic data.
+    This data is collected from pretix registration forms.
+    """
+
+    order = models.OneToOneField(
+        PretixOrder, on_delete=models.CASCADE, related_name="profile"
+    )
+
+    # Demographics - all fields are nullable as responses are optional
+    job_role = models.CharField(
+        max_length=255, null=True, blank=True, help_text="Professional role/occupation"
+    )
+    job_title = models.CharField(max_length=255, null=True, blank=True)
+    country = models.CharField(
+        max_length=100, null=True, blank=True, help_text="Country of residence"
+    )
+    region = models.CharField(
+        max_length=100, null=True, blank=True, help_text="Geographic region"
+    )
+    experience_level = models.CharField(
+        max_length=100,
+        null=True,
+        blank=True,
+        help_text="Python/programming experience level",
+    )
+    languages = ArrayField(
+        models.CharField(max_length=50),
+        null=True,
+        blank=True,
+        help_text="Spoken languages",
+    )
+    industry = models.CharField(max_length=255, null=True, blank=True)
+    company_size = models.CharField(max_length=100, null=True, blank=True)
+    heard_about = models.CharField(
+        max_length=255,
+        null=True,
+        blank=True,
+        help_text="How they heard about PyLadiesCon",
+    )
+
+    # Store raw answers from pretix in case we need additional data
+    raw_answers = models.JSONField(null=True, blank=True)
+
+    class Meta:
+        verbose_name = "Attendee Profile"
+        verbose_name_plural = "Attendee Profiles"
+
+    def __str__(self):
+        return f"Profile for {self.order.order_code}"
+
+    def populate_from_pretix_data(self, pretix_data):
+        """
+        Extract attendee demographic data from pretix order data.
+        This method maps pretix question identifiers to model fields.
+        """
+        # Store all answers for reference
+        all_answers = []
+
+        for position in pretix_data.get("positions", []):
+            answers = position.get("answers", [])
+            all_answers.extend(answers)
+
+            # Map pretix question identifiers to our fields
+            # These identifiers should be configured based on the actual pretix form
+            for answer in answers:
+                question_id = answer.get("question_identifier")
+                answer_value = answer.get("answer")
+
+                # Map based on question identifiers (these are examples and should be updated)
+                if question_id == "ROLE":
+                    self.job_role = answer_value
+                elif question_id == "JOB_TITLE":
+                    self.job_title = answer_value
+                elif question_id == "COUNTRY":
+                    self.country = answer_value
+                elif question_id == "REGION":
+                    self.region = answer_value
+                elif question_id == "EXPERIENCE":
+                    self.experience_level = answer_value
+                elif question_id == "LANGUAGES":
+                    # Handle multi-select language field
+                    if answer_value:
+                        self.languages = [
+                            lang.strip() for lang in answer_value.split(",")
+                        ]
+                elif question_id == "INDUSTRY":
+                    self.industry = answer_value
+                elif question_id == "COMPANY_SIZE":
+                    self.company_size = answer_value
+                elif question_id == "HEARD_ABOUT":
+                    self.heard_about = answer_value
+
+        self.raw_answers = all_answers
+        return self

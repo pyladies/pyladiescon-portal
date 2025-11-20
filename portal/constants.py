@@ -33,5 +33,11 @@ DONATIONS_GOAL = "donations_goal"
 SPONSORSHIP_GOAL = "sponsorship_goal"
 
 CACHE_KEY_ATTENDEE_COUNT = "attendee_count"
+CACHE_KEY_ATTENDEE_BREAKDOWN = "attendee_breakdown"
+CACHE_KEY_ATTENDEE_BY_ROLE = "attendee_by_role"
+CACHE_KEY_ATTENDEE_BY_COUNTRY = "attendee_by_country"
+CACHE_KEY_ATTENDEE_BY_EXPERIENCE = "attendee_by_experience"
+CACHE_KEY_ATTENDEE_BY_INDUSTRY = "attendee_by_industry"
+CACHE_KEY_ATTENDEE_BY_REGION = "attendee_by_region"
 
 BASE_PRETIX_URL = "https://pretix.eu/api/v1/"

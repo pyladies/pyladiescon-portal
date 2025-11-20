@@ -2,6 +2,7 @@ import pytest
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
 
+from attendee.models import AttendeeProfile, PretixOrder
 from portal.common import (
     get_sponsorship_committed_amount_stats_cache,
     get_sponsorship_committed_count_stats_cache,
@@ -269,3 +270,73 @@ class TestGetStatsCachedValues:
 
         result = get_sponsorship_to_goal_percent_cache()
         assert result == 20
+
+
+@pytest.mark.django_db
+class TestAttendeeStats:
+    """Test attendee statistics functions."""
+
+    def test_attendee_breakdown_with_profiles(self):
+        """Test attendee breakdown with various demographic data."""
+        from portal.common import get_attendee_breakdown
+
+        # Create paid orders with profiles
+        order1 = PretixOrder.objects.create(
+            order_code="ORDER1", status="p", email="test1@example.com"
+        )
+        profile1 = AttendeeProfile.objects.create(
+            order=order1,
+            job_role="Software Engineer",
+            country="United States",
+            region="North America",
+            experience_level="Intermediate",
+            industry="Technology",
+            company_size="100-500",
+        )
+
+        order2 = PretixOrder.objects.create(
+            order_code="ORDER2", status="p", email="test2@example.com"
+        )
+        profile2 = AttendeeProfile.objects.create(
+            order=order2,
+            job_role="Data Scientist",
+            country="Canada",
+            region="North America",
+            experience_level="Advanced",
+            industry="Technology",
+            company_size="1000+",
+        )
+
+        order3 = PretixOrder.objects.create(
+            order_code="ORDER3", status="p", email="test3@example.com"
+        )
+        profile3 = AttendeeProfile.objects.create(
+            order=order3,
+            job_role="Software Engineer",
+            country="United States",
+            region="North America",
+            experience_level="Beginner",
+            industry="Finance",
+            company_size="100-500",
+        )
+
+        breakdown = get_attendee_breakdown()
+
+        # Should have multiple charts
+        assert len(breakdown) > 0
+
+        # Check that breakdown contains expected charts
+        chart_ids = [chart["chart_id"] for chart in breakdown]
+        assert "attendee_by_role" in chart_ids
+        assert "attendee_by_country" in chart_ids
+        assert "attendee_by_region" in chart_ids
+        assert "attendee_by_experience" in chart_ids
+        assert "attendee_by_industry" in chart_ids
+
+    def test_attendee_breakdown_with_no_profiles(self):
+        """Test attendee breakdown returns empty when no profiles exist."""
+        from portal.common import get_attendee_breakdown
+
+        cache.clear()
+        breakdown = get_attendee_breakdown()
+        assert breakdown == []

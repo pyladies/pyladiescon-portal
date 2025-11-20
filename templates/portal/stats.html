@@ -11,6 +11,7 @@
     function drawChart() {
         {% include "sponsorship/sponsorship_charts.html" %}
         {% include "volunteer/volunteer_charts.html" %}
+        {% include "attendee/attendee_charts.html" %}
     }
     </script>
 {% endblock extra_head %}
@@ -53,5 +54,6 @@
             </div>
         </div>
         {% include "volunteer/volunteer_stats.html" %}
+        {% include "attendee/attendee_stats.html" %}
     </div>
 {% endblock content %}
