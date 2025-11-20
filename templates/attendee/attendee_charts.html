@@ -1,6 +1,6 @@
 {% for breakdown in stats.attendee_breakdown %}
     var data_{{ breakdown.chart_id }} = google.visualization.arrayToDataTable([
-    {{ breakdown.columns }},
+    ['{{ breakdown.columns.0.1 }}', '{{ breakdown.columns.1.1 }}'],
     {% for data in breakdown.data %}
         ['{{ data.0 }}', {{ data.1 }}],
     {% endfor %}
