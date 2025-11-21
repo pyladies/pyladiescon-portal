@@ -34,4 +34,31 @@ SPONSORSHIP_GOAL = "sponsorship_goal"
 
 CACHE_KEY_ATTENDEE_COUNT = "attendee_count"
 
+# Historical data for comparison charts
+CACHE_KEY_HISTORICAL_COMPARISON = "historical_comparison"
+
+# Historical data from past PyLadiesCon events
+# Data source: https://conference.pyladies.com/2024-pyladiescon-ends/
+HISTORICAL_STATS = {
+    "2023": {
+        "registrations": 600,
+        "proposals": 164,
+        "sponsors": 8,
+        "sponsorship_amount": 10500,
+        "donors": 58,
+        "donation_amount": 650,
+    },
+    "2024": {
+        "registrations": 732,
+        "proposals": 192,
+        "sponsors": 11,
+        "sponsorship_amount": 10000,
+        "donors": 105,
+        "donation_amount": 1520,
+    },
+}
+
+# Current year proposals count (not stored in database)
+PROPOSALS_2025_COUNT = 194
+
 BASE_PRETIX_URL = "https://pretix.eu/api/v1/"
