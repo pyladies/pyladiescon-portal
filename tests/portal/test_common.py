@@ -3,6 +3,7 @@ from django.contrib.auth import get_user_model
 from django.core.cache import cache
 
 from portal.common import (
+    get_fundraising_goal_amount,
     get_sponsorship_committed_amount_stats_cache,
     get_sponsorship_committed_count_stats_cache,
     get_sponsorship_paid_amount_stats_cache,
@@ -269,3 +270,50 @@ class TestGetStatsCachedValues:
 
         result = get_sponsorship_to_goal_percent_cache()
         assert result == 20
+
+
+@pytest.mark.django_db
+class TestFundraisingGoal:
+    def test_get_fundraising_goal_amount_donation(self):
+        """Test that donation goal is fetched from database."""
+        from decimal import Decimal
+
+        from portal.models import FundraisingGoal
+
+        # First ensure there's a goal to test with
+        FundraisingGoal.objects.filter(goal_type="donation").delete()
+        goal = FundraisingGoal.objects.create(
+            goal_type="donation", target_amount=Decimal("3000"), is_active=True
+        )
+
+        # Test with existing goal
+        result = get_fundraising_goal_amount("donation")
+        assert result == goal.target_amount
+        assert result == Decimal("3000")
+
+        # Test fallback when no goal exists
+        FundraisingGoal.objects.filter(goal_type="donation").delete()
+        result = get_fundraising_goal_amount("donation")
+        assert result == 2500
+
+    def test_get_fundraising_goal_amount_sponsorship(self):
+        """Test that sponsorship goal is fetched from database."""
+        from decimal import Decimal
+
+        from portal.models import FundraisingGoal
+
+        # First ensure there's a goal to test with
+        FundraisingGoal.objects.filter(goal_type="sponsorship").delete()
+        goal = FundraisingGoal.objects.create(
+            goal_type="sponsorship", target_amount=Decimal("20000"), is_active=True
+        )
+
+        # Test with existing goal
+        result = get_fundraising_goal_amount("sponsorship")
+        assert result == goal.target_amount
+        assert result == Decimal("20000")
+
+        # Test fallback when no goal exists
+        FundraisingGoal.objects.filter(goal_type="sponsorship").delete()
+        result = get_fundraising_goal_amount("sponsorship")
+        assert result == 15000
