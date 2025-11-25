@@ -1,27 +1,49 @@
 {% for breakdown in stats.volunteer_breakdown %}
-    var data = google.visualization.arrayToDataTable([
-    ['{{ breakdown.columns.0 }}', '{{ breakdown.columns.1 }}'],
-    {% for data in breakdown.data %}
-        ['{{ data.0 }}', {{ data.1 }},],
-    {% endfor %}
-    ]);
-    var paddingHeight = 120;
-    var rowHeight = 40;
-    var chartHeight = Math.max(500, (data.getNumberOfRows() * rowHeight) + paddingHeight);
-    document.getElementById('{{ breakdown.chart_id }}').style.height = chartHeight + 'px';
-    var options = {
-    chart: {
-    'title':'{{ breakdown.title }}'
-    },
-    hAxis: {title: '{{ breakdown.columns.1 }}', minValue: 0, format:'0'},
-    vAxis: {title: '{{ breakdown.columns.0 }}'},
-    height: chartHeight,
-    chartArea: {
-    width: '75%',
-    height: '85%'
-    },
-    bars: 'horizontal'
-    };
-    var chart = new google.charts.Bar(document.getElementById('{{ breakdown.chart_id }}'));
-    chart.draw(data, google.charts.Bar.convertOptions(options));
+    {% if breakdown.chart_type == 'geo' %}
+        {# GeoChart for regional data #}
+        var data_{{ breakdown.chart_id }} = google.visualization.arrayToDataTable([
+        ['{{ breakdown.columns.0 }}', '{{ breakdown.columns.1 }}'],
+        {% for data in breakdown.data %}
+            ['{{ data.0 }}', {{ data.1 }},],
+        {% endfor %}
+        ]);
+        var options_{{ breakdown.chart_id }} = {
+        title: '{{ breakdown.title }}',
+        colorAxis: {colors: ['#e8f4f8', '#0d6efd']},
+        backgroundColor: '#f8f9fa',
+        datalessRegionColor: '#e9ecef',
+        defaultColor: '#f5c6cb',
+        legend: 'none',
+        tooltip: {textStyle: {fontSize: 12}},
+        };
+        var chart_{{ breakdown.chart_id }} = new google.visualization.GeoChart(document.getElementById('{{ breakdown.chart_id }}'));
+        chart_{{ breakdown.chart_id }}.draw(data_{{ breakdown.chart_id }}, options_{{ breakdown.chart_id }});
+    {% else %}
+        {# Bar chart for other data #}
+        var data_{{ breakdown.chart_id }} = google.visualization.arrayToDataTable([
+        ['{{ breakdown.columns.0 }}', '{{ breakdown.columns.1 }}'],
+        {% for data in breakdown.data %}
+            ['{{ data.0 }}', {{ data.1 }},],
+        {% endfor %}
+        ]);
+        var paddingHeight = 120;
+        var rowHeight = 40;
+        var chartHeight = Math.max(500, (data_{{ breakdown.chart_id }}.getNumberOfRows() * rowHeight) + paddingHeight);
+        document.getElementById('{{ breakdown.chart_id }}').style.height = chartHeight + 'px';
+        var options_{{ breakdown.chart_id }} = {
+        chart: {
+        'title':'{{ breakdown.title }}'
+        },
+        hAxis: {title: '{{ breakdown.columns.1 }}', minValue: 0, format:'0'},
+        vAxis: {title: '{{ breakdown.columns.0 }}'},
+        height: chartHeight,
+        chartArea: {
+        width: '75%',
+        height: '85%'
+        },
+        bars: 'horizontal'
+        };
+        var chart_{{ breakdown.chart_id }} = new google.charts.Bar(document.getElementById('{{ breakdown.chart_id }}'));
+        chart_{{ breakdown.chart_id }}.draw(data_{{ breakdown.chart_id }}, google.charts.Bar.convertOptions(options_{{ breakdown.chart_id }}));
+    {% endif %}
 {% endfor %}
