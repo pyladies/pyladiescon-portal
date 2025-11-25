@@ -13,7 +13,7 @@ Our conference is free to attend, and attendees can optionally donate to our con
 
 ## Support PyLadiesCon
 
-🫶 Support us by contributing to our project, [donating](https://psfmember.org/civicrm/contribute/transact/?reset=1&id=53), or by sponsoring the [conference](https://conference.pyladies.com).
+🫶 Support us by contributing to our project, [donating](https://2025.conference.pyladies.com/en/donate/), or by sponsoring the [conference](https://conference.pyladies.com).
 
 We have many contribution opportunities, including code, testing, and documentations. All forms of contributions are welcome and appreciated.
 

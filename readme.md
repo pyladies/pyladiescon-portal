@@ -2,7 +2,7 @@
 
 PyLadiesCon online conference management tool.
 
-:moneybag: Support the development of this project by [donating to PyLadiesCon](https://psfmember.org/civicrm/contribute/transact/?reset=1&id=53).
+:moneybag: Support the development of this project by [donating to PyLadiesCon](https://2025.conference.pyladies.com/en/donate/).
 
 ## About PyLadiesCon
 
@@ -48,7 +48,7 @@ Check the Local Dev Setup section below to learn how to set this up on your loca
 - Project: https://github.com/orgs/pyladies/projects/11
 - Milestone with due dates and goals: https://github.com/pyladies/pyladiescon-portal/milestones
 
-[Donate to PyLadiesCon](https://psfmember.org/civicrm/contribute/transact/?reset=1&id=53).
+[Donate to PyLadiesCon](https://2025.conference.pyladies.com/en/donate/).
 In addition to developing this web portal, we have plans to further improve our conference by hiring more professional services, investing in tools and automations.
 Your donations and sponsorship can help make our wishes a reality, so that we can focus on fulfilling the PyLadies mission of helping more women become active leaders
 and participants in the Python open source community.
