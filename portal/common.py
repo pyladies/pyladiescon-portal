@@ -625,7 +625,7 @@ def get_historical_comparison_data():
     if not historical_comparison:
         # Get current year data
         current_registrations = get_attendee_count_cache()
-        current_sponsors = get_sponsorship_total_count_stats_cache()
+        current_sponsors = get_sponsorship_committed_count_stats_cache()
         current_sponsorship_amount = get_sponsorship_committed_amount_stats_cache()
         current_donors = get_donors_count_cache()
         current_donation_amount = get_total_donations_amount_cache()
