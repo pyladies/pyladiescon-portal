@@ -2,27 +2,37 @@
 {% load allauth i18n %}
 {% load django_bootstrap5 %}
 {% load render_table from django_tables2 %}
+{% block head_title %}
+    PyLadiesCon Portal - Sponsorship
+{% endblock head_title %}
+{% block og_title %}
+    PyLadiesCon Portal - Sponsorship
+{% endblock og_title %}
+{% block og_description %}
+    View and manage sponsorships for PyLadiesCon. Support the global PyLadies conference by becoming a sponsor.
+{% endblock og_description %}
 {% block body %}
 {% endblock body %}
 {% block content %}
     <h1 class="display-5">
         {% if request.user.is_superuser %}
             Manage Sponsors <a class="btn btn-primary"
-    href="{% url 'sponsorship:sponsorship_profile_new' %}">Add New Sponsor</a>
-        {% else %}
-            View Sponsors
-        {% endif %}
-    </h1>
-    {% include "sponsorship/sponsorship_stats.html" %}
-    {% if filter %}
-        <form action="" method="get" class="form">
-            {% bootstrap_form filter.form %}
-            {% bootstrap_button 'Search' %}
-            {% if filter.form.is_bound %}
-                <a href="{% url 'sponsorship:sponsorship_list' %}"
-                   class="btn btn-secondary">Reset Filters</a>
-            {% endif %}
-        </form>
+    href="{% url 'sponsorship:sponsorship_profile_new' %}">Add New
+        Sponsor</a>
+    {% else %}
+        View Sponsors
     {% endif %}
-    {% render_table table %}
+</h1>
+{% include "sponsorship/sponsorship_stats.html" %}
+{% if filter %}
+    <form action="" method="get" class="form">
+        {% bootstrap_form filter.form %}
+        {% bootstrap_button 'Search' %}
+        {% if filter.form.is_bound %}
+            <a href="{% url 'sponsorship:sponsorship_list' %}"
+               class="btn btn-secondary">Reset Filters</a>
+        {% endif %}
+    </form>
+{% endif %}
+{% render_table table %}
 {% endblock content %}
