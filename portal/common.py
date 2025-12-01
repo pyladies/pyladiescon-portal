@@ -1,8 +1,9 @@
 from django.core.cache import cache
 from django.db.models import Count, Sum
 
-from attendee.models import PretixOrder
+from attendee.models import AttendeeProfile, PretixOrder, PretixOrderstatus
 from portal.constants import (
+    CACHE_KEY_ATTENDEE_BREAKDOWN,
     CACHE_KEY_ATTENDEE_COUNT,
     CACHE_KEY_DONATION_BREAKDOWN,
     CACHE_KEY_DONATION_TOWARDS_GOAL_PERCENT,
@@ -536,7 +537,9 @@ def get_total_donations_amount_cache():
             or 0
         )
         donations_from_pretix = (
-            PretixOrder.objects.filter(status="p").aggregate(Sum("total"))["total__sum"]
+            PretixOrder.objects.filter(status=PretixOrderstatus.PAID).aggregate(
+                Sum("total")
+            )["total__sum"]
             or 0
         )
         total_donations = individual_donations + donations_from_pretix
@@ -557,7 +560,7 @@ def get_donors_count_cache():
             IndividualDonation.objects.values("donor_email").distinct().count()
         )
         pretix_donors_count = PretixOrder.objects.filter(
-            status="p", total__gt=0
+            status=PretixOrderstatus.PAID, total__gt=0
         ).count()
         donors_count = individual_donors_count + pretix_donors_count
         cache.set(
@@ -601,7 +604,9 @@ def get_attendee_count_cache():
     """Returns the attendee count"""
     attendee_count = cache.get(CACHE_KEY_ATTENDEE_COUNT)
     if not attendee_count:
-        attendee_count = PretixOrder.objects.filter(status="p").count()
+        attendee_count = PretixOrder.objects.filter(
+            status=PretixOrderstatus.PAID
+        ).count()
         cache.set(
             CACHE_KEY_ATTENDEE_COUNT,
             attendee_count,
@@ -613,7 +618,72 @@ def get_attendee_count_cache():
 def get_attendee_stats_dict():
     stats_dict = {}
     stats_dict[CACHE_KEY_ATTENDEE_COUNT] = get_attendee_count_cache()
+    stats_dict[CACHE_KEY_ATTENDEE_BREAKDOWN] = get_attendee_breakdown()
     return stats_dict
+
+
+def get_attendee_experience_breakdown(attendee_profiles):
+    """Returns the attendee experience level breakdown stats."""
+    experience_breakdown = []
+    attendees_by_experience = (
+        attendee_profiles.filter(experience_level__isnull=False)
+        .values("experience_level")
+        .annotate(count=Count("id"))
+    )
+    for data in attendees_by_experience:
+        experience_breakdown.append([data["experience_level"], data["count"]])
+    return experience_breakdown
+
+
+def get_attendee_current_position_breakdown(attendee_profiles):
+    """Returns the attendee current position breakdown stats."""
+    attendees_by_current_position = (
+        attendee_profiles.filter(current_position__isnull=False)
+        .values("current_position")
+        .annotate(count=Count("id"))
+    )
+    current_positions = {}
+    for data in attendees_by_current_position:
+        for current_position in data["current_position"]:
+            current_position = current_position.strip()
+            if current_positions.get(current_position) is None:
+                current_positions[current_position] = 0
+            current_positions[current_position] = (
+                current_positions[current_position] + data["count"]
+            )
+    current_position_breakdown = [
+        [curren_position, count] for curren_position, count in current_positions.items()
+    ]
+    return current_position_breakdown
+
+
+def get_attendee_breakdown():
+    """Returns the attendee demographic breakdown stats."""
+    attendee_breakdown = cache.get(CACHE_KEY_ATTENDEE_BREAKDOWN)
+    if not attendee_breakdown:
+        attendee_breakdown = []
+        attendee_profiles = AttendeeProfile.objects.filter(
+            order__status=PretixOrderstatus.PAID,
+        )
+        attendee_breakdown.append(
+            {
+                "title": "Experience Level",
+                "data": get_attendee_experience_breakdown(attendee_profiles),
+            }
+        )
+        attendee_breakdown.append(
+            {
+                "title": "Current Position",
+                "data": get_attendee_current_position_breakdown(attendee_profiles),
+            }
+        )
+
+        cache.set(
+            CACHE_KEY_ATTENDEE_BREAKDOWN,
+            attendee_breakdown,
+            STATS_CACHE_TIMEOUT,
+        )
+    return attendee_breakdown
 
 
 def get_historical_comparison_data():
