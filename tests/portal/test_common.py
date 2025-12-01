@@ -342,17 +342,19 @@ class TestAttendeeStats:
         )
 
         breakdown = get_attendee_breakdown()
-
-        assert breakdown["attendee_current_position_breakdown"] == [
-            ["Director", 1],
-            ["Intern", 1],
-            ["Manager", 1],
-        ]
-        assert breakdown["attendee_experience_breakdown"] == [
-            ["Expert", 1],
-            ["Intermediate", 1],
-            ["Junior", 1],
-        ]
+        for b in breakdown:
+            if b["title"] == "Current Position":
+                assert b["data"] == [
+                    ["Director", 1],
+                    ["Intern", 1],
+                    ["Manager", 1],
+                ]
+            elif b["title"] == "Experience Level":
+                assert b["data"] == [
+                    ["Expert", 1],
+                    ["Intermediate", 1],
+                    ["Junior", 1],
+                ]
 
     def test_attendee_breakdown_with_no_profiles(self):
         """Test attendee breakdown returns empty when no profiles exist."""
@@ -360,5 +362,5 @@ class TestAttendeeStats:
 
         cache.clear()
         breakdown = get_attendee_breakdown()
-        assert breakdown["attendee_current_position_breakdown"] == []
-        assert breakdown["attendee_experience_breakdown"] == []
+        for b in breakdown:
+            assert b["data"] == []

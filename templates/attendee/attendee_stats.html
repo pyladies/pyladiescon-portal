@@ -1,59 +1,32 @@
 <h3 id="attendee_demographic">
     Attendee Demographic
 </h3>
-<div class="container border rounded-3 p-3 mb-4">
-    <div class="row">
-        <table class="table">
-            <thead>
-                <tr>
-                    <th scope="col">
-                        Experience Level
-                    </th>
-                    <th scope="col">
-                        # attendees
-                    </th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for data in stats.attendee_breakdown.attendee_experience_breakdown %}
+{% for breakdown in stats.attendee_breakdown %}
+    <div class="container border rounded-3 p-3 mb-4">
+        <div class="row">
+            <table class="table">
+                <thead>
                     <tr>
-                        <td>
-                            {{ data.0 }}
-                        </td>
-                        <td>
-                            {{ data.1 }}
-                        </td>
+                        <th scope="col">
+                            {{ breakdown.title }}
+                        </th>
+                        <th scope="col">
+                            # attendees
+                        </th>
                     </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+                </thead>
+                <tbody>
+                    {% for data in breakdown.data %}
+                        <tr>
+                            {% for col in data %}
+                                <td>
+                                    {{ col }}
+                                </td>
+                            {% endfor %}
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
     </div>
-</div>
-<div class="container border rounded-3 p-3 mb-4">
-    <div class="row">
-        <table class="table">
-            <thead>
-                <tr>
-                    <th scope="col">
-                        Current Position
-                    </th>
-                    <th scope="col">
-                        # attendees
-                    </th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for data in stats.attendee_breakdown.attendee_current_position_breakdown %}
-                    <tr>
-                        <td>
-                            {{ data.0 }}
-                        </td>
-                        <td>
-                            {{ data.1 }}
-                        </td>
-                    </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-</div>
+{% endfor %}

@@ -661,15 +661,21 @@ def get_attendee_breakdown():
     """Returns the attendee demographic breakdown stats."""
     attendee_breakdown = cache.get(CACHE_KEY_ATTENDEE_BREAKDOWN)
     if not attendee_breakdown:
-        attendee_breakdown = {}
+        attendee_breakdown = []
         attendee_profiles = AttendeeProfile.objects.filter(
             order__status=PretixOrderstatus.PAID,
         )
-        attendee_breakdown["attendee_experience_breakdown"] = (
-            get_attendee_experience_breakdown(attendee_profiles)
+        attendee_breakdown.append(
+            {
+                "title": "Experience Level",
+                "data": get_attendee_experience_breakdown(attendee_profiles),
+            }
         )
-        attendee_breakdown["attendee_current_position_breakdown"] = (
-            get_attendee_current_position_breakdown(attendee_profiles)
+        attendee_breakdown.append(
+            {
+                "title": "Current Position",
+                "data": get_attendee_current_position_breakdown(attendee_profiles),
+            }
         )
 
         cache.set(
