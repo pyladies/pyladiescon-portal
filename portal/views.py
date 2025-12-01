@@ -26,7 +26,7 @@ def index(request):
         context["volunteer_profile"] = None
         context["roles"] = []
 
-        context["stats"] = get_stats_cached_values()
+    context["stats"] = get_stats_cached_values()
 
     return render(request, "portal/index.html", context)
 

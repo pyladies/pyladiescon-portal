@@ -1,11 +1,15 @@
 from django.core.cache import cache
 from django.db.models import Count, Sum
 
+from attendee.models import AttendeeProfile, PretixOrder, PretixOrderstatus
 from portal.constants import (
+    CACHE_KEY_ATTENDEE_BREAKDOWN,
+    CACHE_KEY_ATTENDEE_COUNT,
     CACHE_KEY_DONATION_BREAKDOWN,
     CACHE_KEY_DONATION_TOWARDS_GOAL_PERCENT,
     CACHE_KEY_DONATIONS_TOTAL_AMOUNT,
     CACHE_KEY_DONORS_COUNT,
+    CACHE_KEY_HISTORICAL_COMPARISON,
     CACHE_KEY_SPONSORSHIP_BREAKDOWN,
     CACHE_KEY_SPONSORSHIP_COMMITTED,
     CACHE_KEY_SPONSORSHIP_COMMITTED_COUNT,
@@ -25,6 +29,8 @@ from portal.constants import (
     CACHE_KEY_VOLUNTEER_SIGNUPS_COUNT,
     DONATION_GOAL_AMOUNT,
     DONATIONS_GOAL,
+    HISTORICAL_STATS,
+    PROPOSALS_2025_COUNT,
     SPONSORSHIP_GOAL,
     SPONSORSHIP_GOAL_AMOUNT,
     STATS_CACHE_TIMEOUT,
@@ -46,6 +52,8 @@ def get_stats_cached_values():
 
     stats_dict.update(get_sponsorships_stats_dict())
     stats_dict.update(get_donations_stats_dict())
+    stats_dict.update(get_attendee_stats_dict())
+    stats_dict[CACHE_KEY_HISTORICAL_COMPARISON] = get_historical_comparison_data()
     return stats_dict
 
 
@@ -522,17 +530,24 @@ def get_total_donations_amount_cache():
     total_donations = cache.get(CACHE_KEY_DONATIONS_TOTAL_AMOUNT)
     if not total_donations:
 
-        total_donations = (
+        individual_donations = (
             IndividualDonation.objects.aggregate(Sum("donation_amount"))[
                 "donation_amount__sum"
             ]
             or 0
         )
-    cache.set(
-        CACHE_KEY_DONATIONS_TOTAL_AMOUNT,
-        total_donations,
-        STATS_CACHE_TIMEOUT,
-    )
+        donations_from_pretix = (
+            PretixOrder.objects.filter(status=PretixOrderstatus.PAID).aggregate(
+                Sum("total")
+            )["total__sum"]
+            or 0
+        )
+        total_donations = individual_donations + donations_from_pretix
+        cache.set(
+            CACHE_KEY_DONATIONS_TOTAL_AMOUNT,
+            total_donations,
+            STATS_CACHE_TIMEOUT,
+        )
     return total_donations
 
 
@@ -541,14 +556,18 @@ def get_donors_count_cache():
     donors_count = cache.get(CACHE_KEY_DONORS_COUNT)
     if not donors_count:
 
-        donors_count = (
+        individual_donors_count = (
             IndividualDonation.objects.values("donor_email").distinct().count()
         )
-    cache.set(
-        CACHE_KEY_DONORS_COUNT,
-        donors_count,
-        STATS_CACHE_TIMEOUT,
-    )
+        pretix_donors_count = PretixOrder.objects.filter(
+            status=PretixOrderstatus.PAID, total__gt=0
+        ).count()
+        donors_count = individual_donors_count + pretix_donors_count
+        cache.set(
+            CACHE_KEY_DONORS_COUNT,
+            donors_count,
+            STATS_CACHE_TIMEOUT,
+        )
     return donors_count
 
 
@@ -579,3 +598,228 @@ def get_donations_stats_dict():
         "donation_towards_goal_percent": get_donation_to_goal_percent_cache(),
     }
     return stats_dict
+
+
+def get_attendee_count_cache():
+    """Returns the attendee count"""
+    attendee_count = cache.get(CACHE_KEY_ATTENDEE_COUNT)
+    if not attendee_count:
+        attendee_count = PretixOrder.objects.filter(
+            status=PretixOrderstatus.PAID
+        ).count()
+        cache.set(
+            CACHE_KEY_ATTENDEE_COUNT,
+            attendee_count,
+            STATS_CACHE_TIMEOUT,
+        )
+    return attendee_count
+
+
+def get_attendee_stats_dict():
+    stats_dict = {}
+    stats_dict[CACHE_KEY_ATTENDEE_COUNT] = get_attendee_count_cache()
+    stats_dict[CACHE_KEY_ATTENDEE_BREAKDOWN] = get_attendee_breakdown()
+    return stats_dict
+
+
+def get_attendee_experience_breakdown(attendee_profiles):
+    """Returns the attendee experience level breakdown stats."""
+    experience_breakdown = []
+    attendees_by_experience = (
+        attendee_profiles.filter(experience_level__isnull=False)
+        .values("experience_level")
+        .annotate(count=Count("id"))
+    )
+    for data in attendees_by_experience:
+        experience_breakdown.append([data["experience_level"], data["count"]])
+    return experience_breakdown
+
+
+def get_attendee_current_position_breakdown(attendee_profiles):
+    """Returns the attendee current position breakdown stats."""
+    attendees_by_current_position = (
+        attendee_profiles.filter(current_position__isnull=False)
+        .values("current_position")
+        .annotate(count=Count("id"))
+    )
+    current_positions = {}
+    for data in attendees_by_current_position:
+        for current_position in data["current_position"]:
+            current_position = current_position.strip()
+            if current_positions.get(current_position) is None:
+                current_positions[current_position] = 0
+            current_positions[current_position] = (
+                current_positions[current_position] + data["count"]
+            )
+    current_position_breakdown = [
+        [curren_position, count] for curren_position, count in current_positions.items()
+    ]
+    return current_position_breakdown
+
+
+def get_attendee_breakdown():
+    """Returns the attendee demographic breakdown stats."""
+    attendee_breakdown = cache.get(CACHE_KEY_ATTENDEE_BREAKDOWN)
+    if not attendee_breakdown:
+        attendee_breakdown = []
+        attendee_profiles = AttendeeProfile.objects.filter(
+            order__status=PretixOrderstatus.PAID,
+        )
+        attendee_breakdown.append(
+            {
+                "title": "Experience Level",
+                "data": get_attendee_experience_breakdown(attendee_profiles),
+            }
+        )
+        attendee_breakdown.append(
+            {
+                "title": "Current Position",
+                "data": get_attendee_current_position_breakdown(attendee_profiles),
+            }
+        )
+
+        cache.set(
+            CACHE_KEY_ATTENDEE_BREAKDOWN,
+            attendee_breakdown,
+            STATS_CACHE_TIMEOUT,
+        )
+    return attendee_breakdown
+
+
+def get_historical_comparison_data():
+    """
+    Returns historical comparison data for charts showing progress over the years.
+    Combines hardcoded historical data with current year's data.
+    """
+    historical_comparison = cache.get(CACHE_KEY_HISTORICAL_COMPARISON)
+    if not historical_comparison:
+        # Get current year data
+        current_registrations = get_attendee_count_cache()
+        current_sponsors = get_sponsorship_committed_count_stats_cache()
+        current_sponsorship_amount = get_sponsorship_committed_amount_stats_cache()
+        current_donors = get_donors_count_cache()
+        current_donation_amount = get_total_donations_amount_cache()
+
+        # Build comparison data structure
+        historical_comparison = []
+
+        # Registrations comparison
+        historical_comparison.append(
+            {
+                "title": "Registrations Over the Years",
+                "columns": [["string", "Year"], ["number", "Registrations"]],
+                "data": [
+                    ["2023", HISTORICAL_STATS["2023"]["registrations"]],
+                    ["2024", HISTORICAL_STATS["2024"]["registrations"]],
+                    ["2025", current_registrations],
+                ],
+                "chart_id": "registrations_comparison",
+                "chart_type": "bar",
+            }
+        )
+
+        # Proposals comparison
+        historical_comparison.append(
+            {
+                "title": "Proposals Over the Years",
+                "columns": [["string", "Year"], ["number", "Proposals"]],
+                "data": [
+                    ["2023", HISTORICAL_STATS["2023"]["proposals"]],
+                    ["2024", HISTORICAL_STATS["2024"]["proposals"]],
+                    ["2025", PROPOSALS_2025_COUNT],
+                ],
+                "chart_id": "proposals_comparison",
+                "chart_type": "bar",
+            }
+        )
+
+        # Sponsors comparison
+        historical_comparison.append(
+            {
+                "title": "Number of Sponsors Over the Years",
+                "columns": [["string", "Year"], ["number", "Sponsors"]],
+                "data": [
+                    ["2023", HISTORICAL_STATS["2023"]["sponsors"]],
+                    ["2024", HISTORICAL_STATS["2024"]["sponsors"]],
+                    ["2025", current_sponsors],
+                ],
+                "chart_id": "sponsors_comparison",
+                "chart_type": "bar",
+            }
+        )
+
+        # Sponsorship amount comparison
+        historical_comparison.append(
+            {
+                "title": "Sponsorship Amount Over the Years",
+                "columns": [["string", "Year"], ["number", "Amount (USD)"]],
+                "data": [
+                    ["2023", HISTORICAL_STATS["2023"]["sponsorship_amount"]],
+                    ["2024", HISTORICAL_STATS["2024"]["sponsorship_amount"]],
+                    ["2025", current_sponsorship_amount],
+                ],
+                "chart_id": "sponsorship_amount_comparison",
+                "chart_type": "bar",
+            }
+        )
+
+        # Individual donations comparison
+        historical_comparison.append(
+            {
+                "title": "Number of Individual Donors Over the Years",
+                "columns": [["string", "Year"], ["number", "Donors"]],
+                "data": [
+                    ["2023", HISTORICAL_STATS["2023"]["donors"]],
+                    ["2024", HISTORICAL_STATS["2024"]["donors"]],
+                    ["2025", current_donors],
+                ],
+                "chart_id": "donors_comparison",
+                "chart_type": "bar",
+            }
+        )
+
+        # Donation amount comparison
+        historical_comparison.append(
+            {
+                "title": "Donation Amount Over the Years",
+                "columns": [["string", "Year"], ["number", "Amount (USD)"]],
+                "data": [
+                    ["2023", HISTORICAL_STATS["2023"]["donation_amount"]],
+                    ["2024", HISTORICAL_STATS["2024"]["donation_amount"]],
+                    ["2025", current_donation_amount],
+                ],
+                "chart_id": "donation_amount_comparison",
+                "chart_type": "bar",
+            }
+        )
+
+        # Total proceeds comparison
+        historical_comparison.append(
+            {
+                "title": "Total Proceeds Over the Years",
+                "columns": [["string", "Year"], ["number", "Amount (USD)"]],
+                "data": [
+                    [
+                        "2023",
+                        HISTORICAL_STATS["2023"]["sponsorship_amount"]
+                        + HISTORICAL_STATS["2023"]["donation_amount"],
+                    ],
+                    [
+                        "2024",
+                        HISTORICAL_STATS["2024"]["sponsorship_amount"]
+                        + HISTORICAL_STATS["2024"]["donation_amount"],
+                    ],
+                    ["2025", current_sponsorship_amount + current_donation_amount],
+                ],
+                "chart_id": "proceeds_comparison",
+                "chart_type": "bar",
+            }
+        )
+
+        cache.set(
+            CACHE_KEY_HISTORICAL_COMPARISON,
+            historical_comparison,
+            STATS_CACHE_TIMEOUT,
+        )
+
+    return historical_comparison

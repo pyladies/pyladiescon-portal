@@ -11,12 +11,19 @@
     function drawChart() {
         {% include "sponsorship/sponsorship_charts.html" %}
         {% include "volunteer/volunteer_charts.html" %}
-    }
+        {% include "portal/historical_comparison_charts.html" %}
+   }
     </script>
+    <style>
+        .chart-container {
+            height: 300px;
+        }
+    </style>
 {% endblock extra_head %}
 {% block body %}
 {% endblock body %}
 {% block content %}
+    {% include "portal/registration_callout.html" %}
     <div class="container px-4 py-3" id="featured-3">
         <h2 class="pb-2 border-bottom">
             PyLadiesCon Stats and Numbers
@@ -42,7 +49,7 @@
                        class="btn btn-primary btn-lg me-2 mb-2">
                         <i class="bi bi-building"></i> Sponsor Us
                     </a>
-                    <a href="https://psfmember.org/civicrm/contribute/transact/?reset=1&id=53"
+                    <a href="https://2025.conference.pyladies.com/en/donate/"
                        target="_blank"
                        rel="noopener noreferrer"
                        class="btn btn-success btn-lg mb-2">
@@ -52,5 +59,26 @@
             </div>
         </div>
         {% include "volunteer/volunteer_stats.html" %}
+        {% include "attendee/attendee_stats.html" %}
+        <!-- Historical Comparison Section -->
+        <div class="row mt-5">
+            <div class="col-12">
+                <h3 class="pb-2 border-bottom">
+                    <i class="bi bi-graph-up"></i> Historical Comparison
+                </h3>
+            </div>
+        </div>
+        <div class="row g-4 mt-2">
+            {% for comparison in stats.historical_comparison %}
+                <div class="col-md-6">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <div id="{{ comparison.chart_id }}" class="chart-container">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
     </div>
 {% endblock content %}
