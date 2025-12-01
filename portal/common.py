@@ -1,7 +1,7 @@
 from django.core.cache import cache
 from django.db.models import Count, Sum
 
-from attendee.models import AttendeeProfile, PretixOrder
+from attendee.models import AttendeeProfile, PretixOrder, PretixOrderstatus
 from portal.constants import (
     CACHE_KEY_ATTENDEE_BREAKDOWN,
     CACHE_KEY_ATTENDEE_COUNT,
@@ -537,7 +537,9 @@ def get_total_donations_amount_cache():
             or 0
         )
         donations_from_pretix = (
-            PretixOrder.objects.filter(status="p").aggregate(Sum("total"))["total__sum"]
+            PretixOrder.objects.filter(status=PretixOrderstatus.PAID).aggregate(
+                Sum("total")
+            )["total__sum"]
             or 0
         )
         total_donations = individual_donations + donations_from_pretix
@@ -558,7 +560,7 @@ def get_donors_count_cache():
             IndividualDonation.objects.values("donor_email").distinct().count()
         )
         pretix_donors_count = PretixOrder.objects.filter(
-            status="p", total__gt=0
+            status=PretixOrderstatus.PAID, total__gt=0
         ).count()
         donors_count = individual_donors_count + pretix_donors_count
         cache.set(
@@ -602,7 +604,9 @@ def get_attendee_count_cache():
     """Returns the attendee count"""
     attendee_count = cache.get(CACHE_KEY_ATTENDEE_COUNT)
     if not attendee_count:
-        attendee_count = PretixOrder.objects.filter(status="p").count()
+        attendee_count = PretixOrder.objects.filter(
+            status=PretixOrderstatus.PAID
+        ).count()
         cache.set(
             CACHE_KEY_ATTENDEE_COUNT,
             attendee_count,
@@ -618,141 +622,61 @@ def get_attendee_stats_dict():
     return stats_dict
 
 
+def get_attendee_experience_breakdown(attendee_profiles):
+    """Returns the attendee experience level breakdown stats."""
+    experience_breakdown = []
+    attendees_by_experience = (
+        attendee_profiles.filter(experience_level__isnull=False)
+        .values("experience_level")
+        .annotate(count=Count("id"))
+    )
+    for data in attendees_by_experience:
+        experience_breakdown.append([data["experience_level"], data["count"]])
+    return experience_breakdown
+
+
+def get_attendee_current_position_breakdown(attendee_profiles):
+    """Returns the attendee current position breakdown stats."""
+    attendees_by_current_position = (
+        attendee_profiles.filter(current_position__isnull=False)
+        .values("current_position")
+        .annotate(count=Count("id"))
+    )
+    current_positions = {}
+    for data in attendees_by_current_position:
+        for current_position in data["current_position"]:
+            current_position = current_position.strip()
+            if current_positions.get(current_position) is None:
+                current_positions[current_position] = 0
+            current_positions[current_position] = (
+                current_positions[current_position] + data["count"]
+            )
+    current_position_breakdown = [
+        [curren_position, count] for curren_position, count in current_positions.items()
+    ]
+    return current_position_breakdown
+
 
 def get_attendee_breakdown():
     """Returns the attendee demographic breakdown stats."""
     attendee_breakdown = cache.get(CACHE_KEY_ATTENDEE_BREAKDOWN)
-
     if not attendee_breakdown:
-        attendee_breakdown = []
-
-        # Get all paid attendee profiles
-        profiles = AttendeeProfile.objects.filter(order__status="p").select_related(
-            "order"
+        attendee_breakdown = {}
+        attendee_profiles = AttendeeProfile.objects.filter(
+            order__status=PretixOrderstatus.PAID,
         )
-
-        # Breakdown by role
-        profiles_by_role = (
-            profiles.filter(job_role__isnull=False)
-            .values("job_role")
-            .annotate(count=Count("id"))
-            .order_by("-count")
+        attendee_breakdown["attendee_experience_breakdown"] = (
+            get_attendee_experience_breakdown(attendee_profiles)
         )
-        if profiles_by_role.exists():
-            result = [[data["job_role"], data["count"]] for data in profiles_by_role]
-            attendee_breakdown.append(
-                {
-                    "title": "Attendees By Role",
-                    "columns": [["string", "Role"], ["number", "Count"]],
-                    "data": result,
-                    "chart_id": "attendee_by_role",
-                }
-            )
-
-        # Breakdown by country
-        profiles_by_country = (
-            profiles.filter(country__isnull=False)
-            .values("country")
-            .annotate(count=Count("id"))
-            .order_by("-count")
+        attendee_breakdown["attendee_current_position_breakdown"] = (
+            get_attendee_current_position_breakdown(attendee_profiles)
         )
-        if profiles_by_country.exists():
-            result = [[data["country"], data["count"]] for data in profiles_by_country]
-            attendee_breakdown.append(
-                {
-                    "title": "Attendees By Country",
-                    "columns": [["string", "Country"], ["number", "Count"]],
-                    "data": result,
-                    "chart_id": "attendee_by_country",
-                }
-            )
-
-        # Breakdown by region
-        profiles_by_region = (
-            profiles.filter(region__isnull=False)
-            .values("region")
-            .annotate(count=Count("id"))
-            .order_by("-count")
-        )
-        if profiles_by_region.exists():
-            result = [[data["region"], data["count"]] for data in profiles_by_region]
-            attendee_breakdown.append(
-                {
-                    "title": "Attendees By Region",
-                    "columns": [["string", "Region"], ["number", "Count"]],
-                    "data": result,
-                    "chart_id": "attendee_by_region",
-                }
-            )
-
-        # Breakdown by experience level
-        profiles_by_experience = (
-            profiles.filter(experience_level__isnull=False)
-            .values("experience_level")
-            .annotate(count=Count("id"))
-            .order_by("-count")
-        )
-        if profiles_by_experience.exists():
-            result = [
-                [data["experience_level"], data["count"]]
-                for data in profiles_by_experience
-            ]
-            attendee_breakdown.append(
-                {
-                    "title": "Attendees By Experience Level",
-                    "columns": [["string", "Experience Level"], ["number", "Count"]],
-                    "data": result,
-                    "chart_id": "attendee_by_experience",
-                }
-            )
-
-        # Breakdown by industry
-        profiles_by_industry = (
-            profiles.filter(industry__isnull=False)
-            .values("industry")
-            .annotate(count=Count("id"))
-            .order_by("-count")
-        )
-        if profiles_by_industry.exists():
-            result = [
-                [data["industry"], data["count"]] for data in profiles_by_industry
-            ]
-            attendee_breakdown.append(
-                {
-                    "title": "Attendees By Industry",
-                    "columns": [["string", "Industry"], ["number", "Count"]],
-                    "data": result,
-                    "chart_id": "attendee_by_industry",
-                }
-            )
-
-        # Breakdown by company size
-        profiles_by_company_size = (
-            profiles.filter(company_size__isnull=False)
-            .values("company_size")
-            .annotate(count=Count("id"))
-            .order_by("-count")
-        )
-        if profiles_by_company_size.exists():
-            result = [
-                [data["company_size"], data["count"]]
-                for data in profiles_by_company_size
-            ]
-            attendee_breakdown.append(
-                {
-                    "title": "Attendees By Company Size",
-                    "columns": [["string", "Company Size"], ["number", "Count"]],
-                    "data": result,
-                    "chart_id": "attendee_by_company_size",
-                }
-            )
 
         cache.set(
             CACHE_KEY_ATTENDEE_BREAKDOWN,
             attendee_breakdown,
             STATS_CACHE_TIMEOUT,
         )
-
     return attendee_breakdown
 
 

@@ -25,12 +25,26 @@ class PretixOrderAdmin(admin.ModelAdmin):
 class AttendeeProfileAdmin(admin.ModelAdmin):
     list_display = (
         "order",
-        "job_role",
+        "city",
         "country",
-        "region",
+        "current_position",
         "experience_level",
-        "industry",
+        "may_share_email_with_sponsor",
+        "pyladies_chapter",
+        "age_range",
+        "organization_name",
     )
-    list_filter = ("job_role", "country", "region", "experience_level", "industry")
-    search_fields = ("order__order_code", "job_role", "country")
+    list_filter = (
+        "country",
+        "experience_level",
+        "may_share_email_with_sponsor",
+        "age_range",
+    )
+    search_fields = (
+        "order__order_code",
+        "current_position",
+        "country",
+        "city",
+        "participated_in_previous_event",
+    )
     readonly_fields = ("raw_answers",)

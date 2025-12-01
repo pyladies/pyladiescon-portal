@@ -1,6 +1,17 @@
 import pytest
 
 from attendee.models import (
+    PRETIX_ATTENDEE_AGE_RANGE_QUESTION_IDENTIFIER,
+    PRETIX_ATTENDEE_CITY_QUESTION_IDENTIFIER,
+    PRETIX_ATTENDEE_COUNTRY_QUESTION_IDENTIFIER,
+    PRETIX_ATTENDEE_CURRENT_POSITION_QUESTION_IDENTIFIER,
+    PRETIX_ATTENDEE_EXPECTATION_FROM_EVENT_QUESTION_IDENTIFIER,
+    PRETIX_ATTENDEE_EXPERIENCE_LEVEL_QUESTION_IDENTIFIER,
+    PRETIX_ATTENDEE_HEARD_ABOUT_EVENT_QUESTION_IDENTIFIER,
+    PRETIX_ATTENDEE_MAY_SHARE_EMAIL_WITH_SPONSOR_QUESTION_IDENTIFIER,
+    PRETIX_ATTENDEE_ORGANIZATION_NAME_QUESTION_IDENTIFIER,
+    PRETIX_ATTENDEE_PARTICIPATED_IN_PREVIOUS_EVENT_QUESTION_IDENTIFIER,
+    PRETIX_ATTENDEE_PYLADIES_CHAPTER_QUESTION_IDENTIFIER,
     PRETIX_STAY_ANONYMOUS_ANSWER_IDENTIFIER,
     AttendeeProfile,
     PretixOrder,
@@ -70,90 +81,174 @@ class TestAttendeeProfileModel:
             "positions": [
                 {
                     "answers": [
-                        {"question_identifier": "ROLE", "answer": "Software Engineer"},
-                        {"question_identifier": "COUNTRY", "answer": "United States"},
-                        {"question_identifier": "REGION", "answer": "North America"},
                         {
-                            "question_identifier": "EXPERIENCE",
-                            "answer": "Intermediate",
+                            "answer": "Vancouver",
+                            "question_identifier": PRETIX_ATTENDEE_CITY_QUESTION_IDENTIFIER,
                         },
-                        {"question_identifier": "INDUSTRY", "answer": "Technology"},
-                    ]
+                        {
+                            "answer": "United States",
+                            "question_identifier": PRETIX_ATTENDEE_COUNTRY_QUESTION_IDENTIFIER,
+                        },
+                        {
+                            "answer": "Networking, Learn new things, Support community activities",
+                            "question_identifier": PRETIX_ATTENDEE_EXPECTATION_FROM_EVENT_QUESTION_IDENTIFIER,
+                        },
+                        {
+                            "answer": "Social Media, Other",
+                            "question_identifier": PRETIX_ATTENDEE_HEARD_ABOUT_EVENT_QUESTION_IDENTIFIER,
+                        },
+                        {
+                            "answer": "No, this is my first one",
+                            "question_identifier": PRETIX_ATTENDEE_PARTICIPATED_IN_PREVIOUS_EVENT_QUESTION_IDENTIFIER,
+                        },
+                        {
+                            "answer": "San Francisco",
+                            "question_identifier": PRETIX_ATTENDEE_PYLADIES_CHAPTER_QUESTION_IDENTIFIER,
+                        },
+                        {
+                            "answer": "19-25",
+                            "question_identifier": PRETIX_ATTENDEE_AGE_RANGE_QUESTION_IDENTIFIER,
+                        },
+                        {
+                            "answer": "Umbrella Corp",
+                            "question_identifier": PRETIX_ATTENDEE_ORGANIZATION_NAME_QUESTION_IDENTIFIER,
+                        },
+                        {
+                            "answer": "Student/Intern, Other",
+                            "question_identifier": PRETIX_ATTENDEE_CURRENT_POSITION_QUESTION_IDENTIFIER,
+                        },
+                        {
+                            "answer": "Junior",
+                            "question_identifier": PRETIX_ATTENDEE_EXPERIENCE_LEVEL_QUESTION_IDENTIFIER,
+                        },
+                        {
+                            "answer": "Yes, I'm interested",
+                            "question_identifier": PRETIX_ATTENDEE_MAY_SHARE_EMAIL_WITH_SPONSOR_QUESTION_IDENTIFIER,
+                        },
+                    ],
                 }
             ],
         }
 
-        profile.populate_from_pretix_data(pretix_data)
+        profile.from_pretix_data(pretix_data)
 
-        assert profile.job_role == "Software Engineer"
+        assert profile.city == "Vancouver"
         assert profile.country == "United States"
-        assert profile.region == "North America"
-        assert profile.experience_level == "Intermediate"
-        assert profile.industry == "Technology"
+        assert profile.may_share_email_with_sponsor is True
+        assert profile.experience_level == "Junior"
+        assert profile.expectation_from_event == [
+            "Networking",
+            "Learn new things",
+            "Support community activities",
+        ]
+        assert profile.heard_about == ["Social Media", "Other"]
+        assert profile.participated_in_previous_event == ["No this is my first one"]
+        assert profile.pyladies_chapter == "San Francisco"
+        assert profile.age_range == "19-25"
+        assert profile.organization_name == "Umbrella Corp"
+        assert profile.current_position == ["Student/Intern", "Other"]
         assert profile.raw_answers is not None
 
     def test_populate_from_pretix_data_handles_missing_fields(self):
-        """Test that populate_from_pretix_data handles missing fields gracefully."""
+        """Test that from_pretix_data handles missing fields gracefully."""
         order = PretixOrder.objects.create(order_code="ORDER456")
         profile = AttendeeProfile(order=order)
 
         # Pretix data with minimal answers
         pretix_data = {
             "code": "ORDER456",
-            "positions": [
-                {
-                    "answers": [
-                        {"question_identifier": "ROLE", "answer": "Data Scientist"},
-                    ]
-                }
-            ],
+            "positions": [{"answers": []}],
         }
 
-        profile.populate_from_pretix_data(pretix_data)
+        profile.from_pretix_data(pretix_data)
 
-        assert profile.job_role == "Data Scientist"
+        assert profile.city is None
         assert profile.country is None
-        assert profile.region is None
+        assert profile.may_share_email_with_sponsor is None
         assert profile.experience_level is None
+        assert len(profile.expectation_from_event) == 0
+        assert len(profile.heard_about) == 0
+        assert len(profile.participated_in_previous_event) == 0
+        assert profile.pyladies_chapter is None
+        assert profile.age_range is None
+        assert profile.organization_name is None
+        assert len(profile.current_position) == 0
+        assert profile.raw_answers is not None
 
-    def test_populate_from_pretix_data_with_all_fields(self):
+    def test_populate_from_pretix_data_none_value_for_chapter(self):
         """Test populating AttendeeProfile with all demographic fields."""
-        order = PretixOrder.objects.create(order_code="ORDER789")
+        order = PretixOrder.objects.create(order_code="ORDER123")
         profile = AttendeeProfile(order=order)
 
         pretix_data = {
-            "code": "ORDER789",
+            "code": "ORDER123",
             "positions": [
                 {
                     "answers": [
-                        {"question_identifier": "ROLE", "answer": "Data Scientist"},
-                        {"question_identifier": "JOB_TITLE", "answer": "Senior DS"},
-                        {"question_identifier": "COUNTRY", "answer": "Brazil"},
-                        {"question_identifier": "REGION", "answer": "South America"},
-                        {"question_identifier": "EXPERIENCE", "answer": "Advanced"},
                         {
-                            "question_identifier": "LANGUAGES",
-                            "answer": "Portuguese, English, Spanish",
+                            "answer": "Vancouver",
+                            "question_identifier": PRETIX_ATTENDEE_CITY_QUESTION_IDENTIFIER,
                         },
-                        {"question_identifier": "INDUSTRY", "answer": "Finance"},
-                        {"question_identifier": "COMPANY_SIZE", "answer": "1000+"},
                         {
-                            "question_identifier": "HEARD_ABOUT",
-                            "answer": "Social Media",
+                            "answer": "United States",
+                            "question_identifier": PRETIX_ATTENDEE_COUNTRY_QUESTION_IDENTIFIER,
                         },
-                    ]
+                        {
+                            "answer": "Networking, Learn new things, Support community activities",
+                            "question_identifier": PRETIX_ATTENDEE_EXPECTATION_FROM_EVENT_QUESTION_IDENTIFIER,
+                        },
+                        {
+                            "answer": "Social Media, Other",
+                            "question_identifier": PRETIX_ATTENDEE_HEARD_ABOUT_EVENT_QUESTION_IDENTIFIER,
+                        },
+                        {
+                            "answer": "No, this is my first one",
+                            "question_identifier": PRETIX_ATTENDEE_PARTICIPATED_IN_PREVIOUS_EVENT_QUESTION_IDENTIFIER,
+                        },
+                        {
+                            "answer": "None",
+                            "question_identifier": PRETIX_ATTENDEE_PYLADIES_CHAPTER_QUESTION_IDENTIFIER,
+                        },
+                        {
+                            "answer": "19-25",
+                            "question_identifier": PRETIX_ATTENDEE_AGE_RANGE_QUESTION_IDENTIFIER,
+                        },
+                        {
+                            "answer": "Umbrella Corp",
+                            "question_identifier": PRETIX_ATTENDEE_ORGANIZATION_NAME_QUESTION_IDENTIFIER,
+                        },
+                        {
+                            "answer": "Student/Intern, Other",
+                            "question_identifier": PRETIX_ATTENDEE_CURRENT_POSITION_QUESTION_IDENTIFIER,
+                        },
+                        {
+                            "answer": "Junior",
+                            "question_identifier": PRETIX_ATTENDEE_EXPERIENCE_LEVEL_QUESTION_IDENTIFIER,
+                        },
+                        {
+                            "answer": "Yes, I'm interested",
+                            "question_identifier": PRETIX_ATTENDEE_MAY_SHARE_EMAIL_WITH_SPONSOR_QUESTION_IDENTIFIER,
+                        },
+                    ],
                 }
             ],
         }
 
-        profile.populate_from_pretix_data(pretix_data)
+        profile.from_pretix_data(pretix_data)
 
-        assert profile.job_role == "Data Scientist"
-        assert profile.job_title == "Senior DS"
-        assert profile.country == "Brazil"
-        assert profile.region == "South America"
-        assert profile.experience_level == "Advanced"
-        assert profile.languages == ["Portuguese", "English", "Spanish"]
-        assert profile.industry == "Finance"
-        assert profile.company_size == "1000+"
-        assert profile.heard_about == "Social Media"
+        assert profile.city == "Vancouver"
+        assert profile.country == "United States"
+        assert profile.may_share_email_with_sponsor is True
+        assert profile.experience_level == "Junior"
+        assert profile.expectation_from_event == [
+            "Networking",
+            "Learn new things",
+            "Support community activities",
+        ]
+        assert profile.heard_about == ["Social Media", "Other"]
+        assert profile.participated_in_previous_event == ["No this is my first one"]
+        assert profile.pyladies_chapter is None
+        assert profile.age_range == "19-25"
+        assert profile.organization_name == "Umbrella Corp"
+        assert profile.current_position == ["Student/Intern", "Other"]
+        assert profile.raw_answers is not None

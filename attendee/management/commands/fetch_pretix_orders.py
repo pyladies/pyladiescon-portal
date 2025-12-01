@@ -26,20 +26,19 @@ class Command(BaseCommand):
             orders_synced += 1
 
             # Sync attendee profile for paid orders
-            if pretix_order.status == "p":
-                profile, profile_created = AttendeeProfile.objects.get_or_create(
-                    order=pretix_order
-                )
-                profile.populate_from_pretix_data(order)
-                profile.save()
-                profiles_synced += 1
+            profile, profile_created = AttendeeProfile.objects.get_or_create(
+                order=pretix_order
+            )
+            profile.from_pretix_data(order)
+            profile.save()
+            profiles_synced += 1
 
-                if profile_created:
-                    self.stdout.write(
-                        self.style.SUCCESS(
-                            f"Created attendee profile for order {order_code}"
-                        )
+            if profile_created:
+                self.stdout.write(
+                    self.style.SUCCESS(
+                        f"Created attendee profile for order {order_code}"
                     )
+                )
 
         self.stdout.write(
             self.style.SUCCESS(

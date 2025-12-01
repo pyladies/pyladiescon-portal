@@ -10,6 +10,7 @@ from attendee.models import (
     PRETIX_NOT_ANONYMOUS_ANSWER_IDENTIFIER,
     AttendeeProfile,
     PretixOrder,
+    PretixOrderstatus,
 )
 from common.pretix_wrapper import (
     PRETIX_EVENT_SLUG,
@@ -216,15 +217,51 @@ class TestPretixWebhook(TestCase):
             "total": "50.00",
             "positions": [
                 {
-                    "attendee_name": "Jane Developer",
+                    "attendee_name": "Example Attendee",
                     "answers": [
-                        {"question_identifier": "ROLE", "answer": "Software Engineer"},
-                        {"question_identifier": "COUNTRY", "answer": "Canada"},
                         {
-                            "option_identifiers": [
-                                PRETIX_NOT_ANONYMOUS_ANSWER_IDENTIFIER
-                            ],
-                            "question_identifier": PRETIX_ANONYMOUS_DONATION_QUESTION_IDENTIFIER,
+                            "answer": "Vancouver",
+                            "question_identifier": "PMJY8XDM",
+                        },
+                        {
+                            "answer": "United States",
+                            "question_identifier": "LR7T8ARU",
+                        },
+                        {
+                            "answer": "Networking, Learn new things, Support community activities",
+                            "question_identifier": "ZMLKUBDP",
+                        },
+                        {
+                            "answer": "Social Media, Other",
+                            "question_identifier": "MHYVZZWR",
+                        },
+                        {
+                            "answer": "No, this is my first one",
+                            "question_identifier": "BFVYGGR7",
+                        },
+                        {
+                            "answer": "San Francisco",
+                            "question_identifier": "BBW9W7R8",
+                        },
+                        {
+                            "answer": "19-25",
+                            "question_identifier": "7LT7RP37",
+                        },
+                        {
+                            "answer": "Umbrella Corp",
+                            "question_identifier": "YFVMKV3Z",
+                        },
+                        {
+                            "answer": "Student/Intern, Other",
+                            "question_identifier": "AZRBXNA8",
+                        },
+                        {
+                            "answer": "Junior",
+                            "question_identifier": "RH8Y38TD",
+                        },
+                        {
+                            "answer": "Yes, I'm interested",
+                            "question_identifier": "9PTNRCKV",
                         },
                     ],
                 }
@@ -256,13 +293,26 @@ class TestPretixWebhook(TestCase):
 
             # Verify order was created
             order = PretixOrder.objects.get(order_code=order_code)
-            assert order.status == "p"
+            assert order.status == PretixOrderstatus.PAID
 
             # Verify attendee profile was created
             assert AttendeeProfile.objects.filter(order=order).exists()
             profile = AttendeeProfile.objects.get(order=order)
-            assert profile.job_role == "Software Engineer"
-            assert profile.country == "Canada"
+            assert profile.city == "Vancouver"
+            assert profile.country == "United States"
+            assert profile.may_share_email_with_sponsor is True
+            assert profile.experience_level == "Junior"
+            assert profile.expectation_from_event == [
+                "Networking",
+                "Learn new things",
+                "Support community activities",
+            ]
+            assert profile.heard_about == ["Social Media", "Other"]
+            assert profile.participated_in_previous_event == ["No this is my first one"]
+            assert profile.pyladies_chapter == "San Francisco"
+            assert profile.age_range == "19-25"
+            assert profile.organization_name == "Umbrella Corp"
+            assert profile.current_position == ["Student/Intern", "Other"]
 
     def test_pretix_webhook_does_not_create_profile_for_cancelled_order(self):
         """Test that webhook does not create AttendeeProfile for cancelled orders."""
@@ -310,7 +360,7 @@ class TestPretixWebhook(TestCase):
 
             # Verify order was created
             order = PretixOrder.objects.get(order_code=order_code)
-            assert order.status == "c"
+            assert order.status == PretixOrderstatus.CANCELLED
 
             # Verify attendee profile was NOT created for cancelled order
             assert not AttendeeProfile.objects.filter(order=order).exists()

@@ -94,7 +94,7 @@ def pretix_webhook(request):
     # Create or update attendee profile for paid orders
     if order_instance.status == "p":  # Paid status
         profile, created = AttendeeProfile.objects.get_or_create(order=order_instance)
-        profile.populate_from_pretix_data(order_data)
+        profile.from_pretix_data(order_data)
         profile.save()
         logger.info(
             f"{'Created' if created else 'Updated'} attendee profile for order {order_code}"

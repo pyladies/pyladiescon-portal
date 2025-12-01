@@ -2,7 +2,7 @@ import pytest
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
 
-from attendee.models import AttendeeProfile, PretixOrder
+from attendee.models import AttendeeProfile, PretixOrder, PretixOrderstatus
 from portal.common import (
     get_sponsorship_committed_amount_stats_cache,
     get_sponsorship_committed_count_stats_cache,
@@ -282,56 +282,77 @@ class TestAttendeeStats:
 
         # Create paid orders with profiles
         order1 = PretixOrder.objects.create(
-            order_code="ORDER1", status="p", email="test1@example.com"
+            order_code="ORDER1",
+            status=PretixOrderstatus.PAID,
+            email="test1@example.com",
         )
-        profile1 = AttendeeProfile.objects.create(
+        AttendeeProfile.objects.create(
             order=order1,
-            job_role="Software Engineer",
-            country="United States",
-            region="North America",
+            city="Vancouver",
+            country="Canada",
+            may_share_email_with_sponsor=True,
             experience_level="Intermediate",
-            industry="Technology",
-            company_size="100-500",
+            expectation_from_event=["Networking", "Learning"],
+            heard_about=["Social Media"],
+            participated_in_previous_event=["PyLadiesCon 2023"],
+            pyladies_chapter="San Francisco",
+            age_range="19-25",
+            organization_name="Umbrella Corp",
+            current_position=["Intern"],
         )
 
         order2 = PretixOrder.objects.create(
-            order_code="ORDER2", status="p", email="test2@example.com"
+            order_code="ORDER2",
+            status=PretixOrderstatus.PAID,
+            email="test2@example.com",
         )
-        profile2 = AttendeeProfile.objects.create(
+        AttendeeProfile.objects.create(
             order=order2,
-            job_role="Data Scientist",
+            city="New New York",
             country="Canada",
-            region="North America",
-            experience_level="Advanced",
-            industry="Technology",
-            company_size="1000+",
+            may_share_email_with_sponsor=False,
+            experience_level="Junior",
+            expectation_from_event=["Networking", "Speaking"],
+            heard_about=["Meetup"],
+            participated_in_previous_event=["PyLadiesCon 2024"],
+            pyladies_chapter="San Francisco",
+            age_range="19-25",
+            organization_name="Umbrella Corp",
+            current_position=["Director"],
         )
 
         order3 = PretixOrder.objects.create(
-            order_code="ORDER3", status="p", email="test3@example.com"
+            order_code="ORDER3",
+            status=PretixOrderstatus.PAID,
+            email="test3@example.com",
         )
-        profile3 = AttendeeProfile.objects.create(
+        AttendeeProfile.objects.create(
             order=order3,
-            job_role="Software Engineer",
+            city="Raccoon City",
             country="United States",
-            region="North America",
-            experience_level="Beginner",
-            industry="Finance",
-            company_size="100-500",
+            may_share_email_with_sponsor=True,
+            experience_level="Expert",
+            expectation_from_event=["Teaching"],
+            heard_about=["Conference"],
+            participated_in_previous_event=["PyLadiesCon 2023"],
+            pyladies_chapter="San Francisco",
+            age_range="19-25",
+            organization_name="Umbrella Corp",
+            current_position=["Manager"],
         )
 
         breakdown = get_attendee_breakdown()
 
-        # Should have multiple charts
-        assert len(breakdown) > 0
-
-        # Check that breakdown contains expected charts
-        chart_ids = [chart["chart_id"] for chart in breakdown]
-        assert "attendee_by_role" in chart_ids
-        assert "attendee_by_country" in chart_ids
-        assert "attendee_by_region" in chart_ids
-        assert "attendee_by_experience" in chart_ids
-        assert "attendee_by_industry" in chart_ids
+        assert breakdown["attendee_current_position_breakdown"] == [
+            ["Director", 1],
+            ["Intern", 1],
+            ["Manager", 1],
+        ]
+        assert breakdown["attendee_experience_breakdown"] == [
+            ["Expert", 1],
+            ["Intermediate", 1],
+            ["Junior", 1],
+        ]
 
     def test_attendee_breakdown_with_no_profiles(self):
         """Test attendee breakdown returns empty when no profiles exist."""
@@ -339,4 +360,5 @@ class TestAttendeeStats:
 
         cache.clear()
         breakdown = get_attendee_breakdown()
-        assert breakdown == []
+        assert breakdown["attendee_current_position_breakdown"] == []
+        assert breakdown["attendee_experience_breakdown"] == []
