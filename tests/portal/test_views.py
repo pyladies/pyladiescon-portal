@@ -86,3 +86,11 @@ class TestStatsJSON:
         assert response.status_code == 200
         data = response.json()
         assert "stats" in data
+
+
+class TestDashboardGallery:
+
+    def test_dashboard_gallery_is_public(self, client):
+        response = client.get(reverse("dashboard_gallery"))
+        assert response.status_code == 200
+        assert "Dashboard Gallery" in response.content.decode()

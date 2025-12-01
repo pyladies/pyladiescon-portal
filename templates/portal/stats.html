@@ -28,6 +28,21 @@
         <h2 class="pb-2 border-bottom">
             PyLadiesCon Stats and Numbers
         </h2>
+        <div class="alert alert-success" role="alert">
+            <h4 class="alert-heading">
+                Live conference stats*
+            </h4>
+            <p class="mb-0">
+                Our stats are also available as a <a href="{% url 'portal_stats_json' %}">JSON endpoint</a> so that you can come up with your own visualization and dashboard.
+            </p>
+            <p class="mb-0">
+                View the <a href="{% url 'dashboard_gallery' %}">Dashboard Gallery</a> to see what others have built using our data!
+            </p>
+            <hr>
+            <p>
+                <span class="text-muted">*Up to 5 minutes delay.</span>
+            </p>
+        </div>
         {% include "sponsorship/sponsorship_stats.html" %}
         <!-- Sponsor/Donate Callout -->
         <div class="container border rounded-3 p-4 mb-4 bg-light">
