@@ -1,0 +1,32 @@
+<h3 id="attendee_demographic">
+    Attendee Demographic
+</h3>
+{% for breakdown in stats.attendee_breakdown %}
+    <div class="container border rounded-3 p-3 mb-4">
+        <div class="row">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th scope="col">
+                            {{ breakdown.title }}
+                        </th>
+                        <th scope="col">
+                            # attendees
+                        </th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for data in breakdown.data %}
+                        <tr>
+                            {% for col in data %}
+                                <td>
+                                    {{ col }}
+                                </td>
+                            {% endfor %}
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+{% endfor %}

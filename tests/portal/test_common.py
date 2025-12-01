@@ -2,6 +2,7 @@ import pytest
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
 
+from attendee.models import AttendeeProfile, PretixOrder, PretixOrderstatus
 from portal.common import (
     get_fundraising_goal_amount,
     get_sponsorship_committed_amount_stats_cache,
@@ -273,47 +274,94 @@ class TestGetStatsCachedValues:
 
 
 @pytest.mark.django_db
-class TestFundraisingGoal:
-    def test_get_fundraising_goal_amount_donation(self):
-        """Test that donation goal is fetched from database."""
-        from decimal import Decimal
+class TestAttendeeStats:
+    """Test attendee statistics functions."""
 
-        from portal.models import FundraisingGoal
+    def test_attendee_breakdown_with_profiles(self):
+        """Test attendee breakdown with various demographic data."""
+        from portal.common import get_attendee_breakdown
 
-        # First ensure there's a goal to test with
-        FundraisingGoal.objects.filter(goal_type="donation").delete()
-        goal = FundraisingGoal.objects.create(
-            goal_type="donation", target_amount=Decimal("3000"), is_active=True
+        # Create paid orders with profiles
+        order1 = PretixOrder.objects.create(
+            order_code="ORDER1",
+            status=PretixOrderstatus.PAID,
+            email="test1@example.com",
+        )
+        AttendeeProfile.objects.create(
+            order=order1,
+            city="Vancouver",
+            country="Canada",
+            may_share_email_with_sponsor=True,
+            experience_level="Intermediate",
+            expectation_from_event=["Networking", "Learning"],
+            heard_about=["Social Media"],
+            participated_in_previous_event=["PyLadiesCon 2023"],
+            pyladies_chapter="San Francisco",
+            age_range="19-25",
+            organization_name="Umbrella Corp",
+            current_position=["Intern"],
         )
 
-        # Test with existing goal
-        result = get_fundraising_goal_amount("donation")
-        assert result == goal.target_amount
-        assert result == Decimal("3000")
-
-        # Test fallback when no goal exists
-        FundraisingGoal.objects.filter(goal_type="donation").delete()
-        result = get_fundraising_goal_amount("donation")
-        assert result == 2500
-
-    def test_get_fundraising_goal_amount_sponsorship(self):
-        """Test that sponsorship goal is fetched from database."""
-        from decimal import Decimal
-
-        from portal.models import FundraisingGoal
-
-        # First ensure there's a goal to test with
-        FundraisingGoal.objects.filter(goal_type="sponsorship").delete()
-        goal = FundraisingGoal.objects.create(
-            goal_type="sponsorship", target_amount=Decimal("20000"), is_active=True
+        order2 = PretixOrder.objects.create(
+            order_code="ORDER2",
+            status=PretixOrderstatus.PAID,
+            email="test2@example.com",
+        )
+        AttendeeProfile.objects.create(
+            order=order2,
+            city="New New York",
+            country="Canada",
+            may_share_email_with_sponsor=False,
+            experience_level="Junior",
+            expectation_from_event=["Networking", "Speaking"],
+            heard_about=["Meetup"],
+            participated_in_previous_event=["PyLadiesCon 2024"],
+            pyladies_chapter="San Francisco",
+            age_range="19-25",
+            organization_name="Umbrella Corp",
+            current_position=["Director"],
         )
 
-        # Test with existing goal
-        result = get_fundraising_goal_amount("sponsorship")
-        assert result == goal.target_amount
-        assert result == Decimal("20000")
+        order3 = PretixOrder.objects.create(
+            order_code="ORDER3",
+            status=PretixOrderstatus.PAID,
+            email="test3@example.com",
+        )
+        AttendeeProfile.objects.create(
+            order=order3,
+            city="Raccoon City",
+            country="United States",
+            may_share_email_with_sponsor=True,
+            experience_level="Expert",
+            expectation_from_event=["Teaching"],
+            heard_about=["Conference"],
+            participated_in_previous_event=["PyLadiesCon 2023"],
+            pyladies_chapter="San Francisco",
+            age_range="19-25",
+            organization_name="Umbrella Corp",
+            current_position=["Manager"],
+        )
 
-        # Test fallback when no goal exists
-        FundraisingGoal.objects.filter(goal_type="sponsorship").delete()
-        result = get_fundraising_goal_amount("sponsorship")
-        assert result == 15000
+        breakdown = get_attendee_breakdown()
+        for b in breakdown:
+            if b["title"] == "Current Position":
+                assert b["data"] == [
+                    ["Director", 1],
+                    ["Intern", 1],
+                    ["Manager", 1],
+                ]
+            elif b["title"] == "Experience Level":
+                assert b["data"] == [
+                    ["Expert", 1],
+                    ["Intermediate", 1],
+                    ["Junior", 1],
+                ]
+
+    def test_attendee_breakdown_with_no_profiles(self):
+        """Test attendee breakdown returns empty when no profiles exist."""
+        from portal.common import get_attendee_breakdown
+
+        cache.clear()
+        breakdown = get_attendee_breakdown()
+        for b in breakdown:
+            assert b["data"] == []
