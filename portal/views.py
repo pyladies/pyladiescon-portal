@@ -51,3 +51,12 @@ def stats_json(request):
     context["stats"] = get_stats_cached_values()
 
     return JsonResponse(context)
+
+
+def dashboard_gallery(request):
+    """
+    Show a gallery of dashboards.
+    """
+    context = {}
+
+    return render(request, "portal/dashboard_gallery.html", context)
