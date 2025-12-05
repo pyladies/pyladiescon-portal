@@ -66,6 +66,9 @@ class SponsorshipProfileTable(tables.Table):
         accessor="sponsorship_tier__name", verbose_name="Sponsorship Tier"
     )
     logo = tables.Column(accessor="logo", verbose_name="Logo")
+    github_issue_url = tables.Column(
+        accessor="github_issue_url", verbose_name="GitHub Issue"
+    )
 
     class Meta:
         model = SponsorshipProfile
@@ -75,6 +78,7 @@ class SponsorshipProfileTable(tables.Table):
             "tier_name",
             "amount",
             "progress_status",
+            "github_issue_url",
             "creation_date",
             "updated_date",
             "actions",
@@ -152,6 +156,16 @@ class SponsorshipProfileTable(tables.Table):
             '<a href="{}" class="btn btn-sm btn-primary">Update</a>',
             edit_url,
         )
+
+    def render_github_issue_url(self, value, record):
+        """Render the GitHub Issue URL if exists."""
+        if value:
+            return format_html(
+                '<a href="{}" target="_blank"><i class="fa-brands fa-github"></i></a>',
+                value,
+            )
+        else:
+            return ""
 
 
 class SponsorshipProfileFilter(django_filters.FilterSet):
