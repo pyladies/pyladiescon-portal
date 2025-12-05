@@ -1,4 +1,6 @@
 from django.contrib import admin
+from import_export import resources
+from import_export.admin import ImportExportModelAdmin
 
 from .models import AttendeeProfile, PretixOrder
 
@@ -21,8 +23,23 @@ class PretixOrderAdmin(admin.ModelAdmin):
     search_fields = ("order_code", "email", "name")
 
 
+class AttendeeProfileResource(resources.ModelResource):
+    class Meta:
+        model = AttendeeProfile
+        fields = (
+            "order",
+            "order__name",
+            "order__email",
+            "order__status",
+            "may_share_email_with_sponsor",
+            "chapter_description",
+            "chapter_email",
+            "chapter_website",
+        )
+
+
 @admin.register(AttendeeProfile)
-class AttendeeProfileAdmin(admin.ModelAdmin):
+class AttendeeProfileAdmin(ImportExportModelAdmin):
     list_display = (
         "order",
         "city",
@@ -48,3 +65,4 @@ class AttendeeProfileAdmin(admin.ModelAdmin):
         "participated_in_previous_event",
     )
     readonly_fields = ("raw_answers",)
+    resource_classes = [AttendeeProfileResource]

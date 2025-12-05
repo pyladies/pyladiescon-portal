@@ -4,9 +4,11 @@ from django.contrib.admin.sites import AdminSite
 from django.core import mail
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
+from tablib import Dataset
 
-from volunteer.admin import PyladiesChapterAdmin
-from volunteer.models import ApplicationStatus, PyladiesChapter, VolunteerProfile
+from volunteer.admin import PyladiesChapterAdmin, VolunteerProfileResource
+from volunteer.constants import ApplicationStatus
+from volunteer.models import PyladiesChapter, VolunteerProfile
 
 
 @pytest.mark.django_db
@@ -73,3 +75,68 @@ class TestPyLadiesChapterAdmin:
         has_logo_field = pyladies_chapter_admin.has_logo(chapter)
 
         assert has_logo_field is True
+
+
+class TestVolunteerImportExport:
+    def test_export_volunteer_does_not_trigger_email(self, portal_user):
+        dataset = Dataset()
+        dataset.headers = [
+            "id",
+            "user__first_name",
+            "user__last_name",
+            "user__email",
+            "application_status",
+            "github_username",
+            "discord_username",
+            "instagram_username",
+            "bluesky_username",
+            "mastodon_url",
+            "x_username",
+            "linkedin_url",
+            "region",
+            "chapter__chapter_name",
+        ]
+        dataset.append(
+            [
+                portal_user.id,
+                portal_user.first_name,
+                portal_user.last_name,
+                portal_user.email,
+                ApplicationStatus.APPROVED.value,
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "North America",
+                "",
+            ]
+        )
+
+        dataset.append(
+            [
+                portal_user.id,
+                portal_user.first_name,
+                portal_user.last_name,
+                portal_user.email,
+                ApplicationStatus.CANCELLED.value,
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "USA",
+                "",
+            ]
+        )
+
+        resource = VolunteerProfileResource()
+        mail.outbox.clear()
+        resource.import_data(dataset, dry_run=False)
+        assert len(mail.outbox) == 0  # no email
+        resource.import_data(dataset, dry_run=True)
+        assert len(mail.outbox) == 0  # no email

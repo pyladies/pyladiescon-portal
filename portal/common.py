@@ -690,7 +690,6 @@ def get_first_time_attendee_count():
 
 def get_first_time_attendee_percent():
     """Returns the percent of first-time attendees."""
-    cache.clear()
     first_time_attendee_percent = cache.get(CACHE_KEY_ATTENDEE_FIRST_TIME_PERCENT)
     if not first_time_attendee_percent:
         attendee_total_count = get_attendee_count_cache()
