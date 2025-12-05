@@ -1,6 +1,16 @@
 {% extends "portal/base.html" %}
 {% load allauth i18n %}
 {% load django_bootstrap5 %}
+{% block head_title %}
+    PyLadiesCon Portal - Stats and Numbers
+{% endblock head_title %}
+{% block og_title %}
+    PyLadiesCon Portal - Stats and Numbers
+{% endblock og_title %}
+{% block og_description %}
+    View statistics and numbers for PyLadiesCon including volunteer participation, sponsorship levels, and conference
+    metrics.
+{% endblock og_description %}
 {% block extra_head %}
     {{ block.super }}
     <!--Google Charts-->

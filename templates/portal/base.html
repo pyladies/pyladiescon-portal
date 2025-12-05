@@ -29,6 +29,16 @@
               content="{% block og_image_alt %}PyLadiesCon logo{% endblock og_image_alt %}">
         <meta property="og:site_name" content="PyLadiesCon Portal" />
         <meta property="og:locale" content="en_US">
+        <meta name="twitter:card"
+              content="{% block twitter_card %}summary_large_image{% endblock twitter_card %}" />
+        <meta name="twitter:title"
+              content="{% block twitter_title %}{% block og_title_twitter %}PyLadiesCon Portal{% endblock og_title_twitter %}{% endblock twitter_title %}" />
+        <meta name="twitter:description"
+              content="{% block twitter_description %}{% block og_description_twitter %}PyLadiesCon volunteer portal and conference management system{% endblock og_description_twitter %}{% endblock twitter_description %}" />
+        <meta name="twitter:image"
+              content="{% block twitter_image %}{% block og_image_twitter %}https://conference.pyladies.com/img/banner.png{% endblock og_image_twitter %}{% endblock twitter_image %}" />
+        <meta name="twitter:image:alt"
+              content="{% block twitter_image_alt %}{% block og_image_alt_twitter %}PyLadiesCon logo{% endblock og_image_alt_twitter %}{% endblock twitter_image_alt %}" />
         {% block extra_head %}
             <script src="https://kit.fontawesome.com/8774ceef9d.js"
                     crossorigin="anonymous"></script>
@@ -44,7 +54,7 @@
         <nav class="navbar navbar-expand-md navbar-dark bg-dark"
              aria-label="Fourth navbar example">
             <div class="container-fluid">
-                <a class="navbar-brand" href="{% url "index" %}">PyLadiesCon Portal</a>
+                <a class="navbar-brand" href="{% url 'index' %}">PyLadiesCon Portal</a>
                 <button class="navbar-toggler"
                         type="button"
                         data-bs-toggle="collapse"
@@ -57,7 +67,7 @@
                 <div class="collapse navbar-collapse" id="navbarsExample04">
                     <ul class="navbar-nav me-auto mb-2 mb-md-0">
                         <li class="nav-item">
-                            <a class="nav-link active" aria-current="page" href="{% url "index" %}">Home</a>
+                            <a class="nav-link active" aria-current="page" href="{% url 'index' %}">Home</a>
                         </li>
                         {% if user.is_authenticated %}
                             <li class="nav-item">
@@ -75,9 +85,6 @@
                             </li>
                         {% endif %}
                         <li class="nav-item">
-                            <a class="nav-link" href="{% url 'chapters' %}">PyLadies Chapters</a>
-                        </li>
-                        <li class="nav-item">
                             <a class="nav-link" href="https://pyladiescon-portal-docs.netlify.app/">Documentation</a>
                         </li>
                         <li class="nav-item">
@@ -87,10 +94,10 @@
                             <form action="{% url 'set_language' %}" method="post">
                                 {% csrf_token %}
                                 <input name="next" type="hidden" value="{{ redirect_to }}">
+                                {% get_current_language as LANGUAGE_CODE %}
+                                {% get_available_languages as LANGUAGES %}
+                                {% get_language_info_list for LANGUAGES as languages %}
                                 <select name="language">
-                                    {% get_current_language as LANGUAGE_CODE %}
-                                    {% get_available_languages as LANGUAGES %}
-                                    {% get_language_info_list for LANGUAGES as languages %}
                                     {% for language in languages %}
                                         <option value="{{ language.code }}"
                                                 {% if language.code == LANGUAGE_CODE %} selected{% endif %}>
@@ -110,16 +117,15 @@
                                aria-expanded="true">
                                 {% trans "Welcome, " %}{{ user.username }}
                                 {# djlint:off #}
-{#                                <img src="https://github.com/mdo.png" alt="mdo" width="32" height="32" class="rounded-circle">#}
+                        {# <img src="https://github.com/mdo.png" alt="mdo" width="32" height="32"
+                            class="rounded-circle">#}
                                 {# djlint:on #}
                             </a>
                             {# djlint:off #}
-                            <ul class="dropdown-menu text-small"
-                                style="position: absolute;
+                    <ul class="dropdown-menu text-small" style="position: absolute;
                                        inset: 0px 0px auto auto;
                                        margin: 0px;
-                                       transform: translate(0px, 34px)"
-                                data-popper-placement="bottom-end">
+                                       transform: translate(0px, 34px)" data-popper-placement="bottom-end">
                             {# djlint:on #}
                             {% if user.is_superuser %}
                                 <li>
@@ -130,7 +136,8 @@
                                 </li>
                             {% endif %}
                             <li>
-                                <a class="dropdown-item" href="{% url 'portal_account:index' %}">{% trans "Manage Profile" %}</a>
+                                <a class="dropdown-item" href="{% url 'portal_account:index' %}">{% trans "Manage Profile"
+                                %}</a>
                             </li>
                             {% url 'account_email' as email_url_ %}
                             {% if email_url_ %}
@@ -163,9 +170,9 @@
                     </div>
                 {% endif %}
                 {# djlint:off #}
-{#                    <form role="search">#}
-{#                        <input class="form-control" type="search" placeholder="Search" aria-label="Search">#}
-{#                    </form>#}
+                {# <form role="search">#}
+                    {# <input class="form-control" type="search" placeholder="Search" aria-label="Search">#}
+                    {# </form>#}
                 {# djlint:on #}
             </div>
         </div>
