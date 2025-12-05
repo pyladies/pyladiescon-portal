@@ -255,6 +255,27 @@ class TestSponsorshipViews:
         assert "btn-primary" in action_button
         assert "Update" in action_button
 
+    def test_sponsors_table_render_github_issue_url(self, client, admin_user):
+
+        profile = SponsorshipProfile.objects.create(
+            organization_name="Override Corp",
+        )
+
+        client.force_login(admin_user)
+        url = reverse("sponsorship:sponsorship_list")
+
+        response = client.get(url)
+        sponsors_table = response.context["table"]
+        gh_url_render = sponsors_table.render_github_issue_url("", profile)
+        assert gh_url_render == ""
+
+        profile.github_issue_url = "https://github.com/python/cpython/issues/1234"
+        profile.save()
+        gh_url_render = sponsors_table.render_github_issue_url(
+            profile.github_issue_url, profile
+        )
+        assert profile.github_issue_url in gh_url_render
+
 
 @pytest.mark.django_db
 class TestSponsorshipCreateViews:

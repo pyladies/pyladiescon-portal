@@ -55,6 +55,7 @@ class SponsorshipProfileAdmin(ImportExportModelAdmin):
         "sponsorship_tier",
         "progress_status",
         "sponsorship_override_amount",
+        "github_issue_url",
         "po_number",
         "main_contact_user",
     )
@@ -74,6 +75,7 @@ class SponsorshipProfileAdmin(ImportExportModelAdmin):
         "logo",
         "company_description",
         "progress_status",
+        "github_issue_url",
         "main_contact_user",
     )
     resource_classes = [SponsorshipProfileResource]
