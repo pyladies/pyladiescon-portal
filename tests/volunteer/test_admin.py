@@ -8,7 +8,7 @@ from tablib import Dataset
 
 from volunteer.admin import PyladiesChapterAdmin, VolunteerProfileResource
 from volunteer.constants import ApplicationStatus
-from volunteer.models import ApplicationStatus, PyladiesChapter, VolunteerProfile
+from volunteer.models import PyladiesChapter, VolunteerProfile
 
 
 @pytest.mark.django_db
