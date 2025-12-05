@@ -17,7 +17,32 @@ def bulk_waitlist_volunteers(modeladmin, request, queryset):
         volunteer.save()
 
 
-class VolunteerProfileAdmin(admin.ModelAdmin):
+class VolunteerProfileResource(resources.ModelResource):
+    def before_save_instance(self, instance, row, **kwargs):
+        # during 'confirm' step, dry_run is True
+        instance.from_import_export = True
+
+    class Meta:
+        model = VolunteerProfile
+        fields = (
+            "id",
+            "user__first_name",
+            "user__last_name",
+            "user__email",
+            "application_status",
+            "github_username",
+            "discord_username",
+            "instagram_username",
+            "bluesky_username",
+            "mastodon_url",
+            "x_username",
+            "linkedin_url",
+            "region",
+            "chapter__chapter_name",
+        )
+
+
+class VolunteerProfileAdmin(ImportExportModelAdmin):
     list_display = (
         "user",
         "user__first_name",
@@ -38,6 +63,7 @@ class VolunteerProfileAdmin(admin.ModelAdmin):
     )
     list_filter = ("region", "application_status")
     actions = [bulk_waitlist_volunteers]
+    resource_classes = [VolunteerProfileResource]
 
 
 class PyladiesChapterResource(resources.ModelResource):

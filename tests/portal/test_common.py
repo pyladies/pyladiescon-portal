@@ -360,7 +360,6 @@ class TestAttendeeStats:
         """Test attendee breakdown returns empty when no profiles exist."""
         from portal.common import get_attendee_breakdown
 
-        cache.clear()
         breakdown = get_attendee_breakdown()
         for b in breakdown:
             assert b["data"] == []
