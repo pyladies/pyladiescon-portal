@@ -1,10 +1,17 @@
 from django.core.cache import cache
 from django.db.models import Count, Sum
 
-from attendee.models import AttendeeProfile, PretixOrder, PretixOrderstatus
+from attendee.models import (
+    PARTICIPATED_IN_PREVIOUS_EVENT_CHOICES,
+    AttendeeProfile,
+    PretixOrder,
+    PretixOrderstatus,
+)
 from portal.constants import (
     CACHE_KEY_ATTENDEE_BREAKDOWN,
     CACHE_KEY_ATTENDEE_COUNT,
+    CACHE_KEY_ATTENDEE_FIRST_TIME_COUNT,
+    CACHE_KEY_ATTENDEE_FIRST_TIME_PERCENT,
     CACHE_KEY_DONATION_BREAKDOWN,
     CACHE_KEY_DONATION_TOWARDS_GOAL_PERCENT,
     CACHE_KEY_DONATIONS_TOTAL_AMOUNT,
@@ -619,6 +626,11 @@ def get_attendee_stats_dict():
     stats_dict = {}
     stats_dict[CACHE_KEY_ATTENDEE_COUNT] = get_attendee_count_cache()
     stats_dict[CACHE_KEY_ATTENDEE_BREAKDOWN] = get_attendee_breakdown()
+    stats_dict[CACHE_KEY_ATTENDEE_FIRST_TIME_COUNT] = get_first_time_attendee_count()
+    stats_dict[CACHE_KEY_ATTENDEE_FIRST_TIME_PERCENT] = (
+        get_first_time_attendee_percent()
+    )
+
     return stats_dict
 
 
@@ -655,6 +667,46 @@ def get_attendee_current_position_breakdown(attendee_profiles):
         [curren_position, count] for curren_position, count in current_positions.items()
     ]
     return current_position_breakdown
+
+
+def get_first_time_attendee_count():
+    """Returns the count of first-time attendees."""
+    first_time_attendee_count = cache.get(CACHE_KEY_ATTENDEE_FIRST_TIME_COUNT)
+    if not first_time_attendee_count:
+        first_time_attendee_count = AttendeeProfile.objects.filter(
+            order__status=PretixOrderstatus.PAID,
+            participated_in_previous_event__contains=[
+                PARTICIPATED_IN_PREVIOUS_EVENT_CHOICES[2][0]
+            ],
+        ).count()
+
+        cache.set(
+            CACHE_KEY_ATTENDEE_FIRST_TIME_COUNT,
+            first_time_attendee_count,
+            STATS_CACHE_TIMEOUT,
+        )
+    return first_time_attendee_count
+
+
+def get_first_time_attendee_percent():
+    """Returns the percent of first-time attendees."""
+    cache.clear()
+    first_time_attendee_percent = cache.get(CACHE_KEY_ATTENDEE_FIRST_TIME_PERCENT)
+    if not first_time_attendee_percent:
+        attendee_total_count = get_attendee_count_cache()
+        attendee_first_time_count = get_first_time_attendee_count()
+        first_time_attendee_percent = (
+            (attendee_first_time_count / attendee_total_count) * 100
+            if attendee_total_count > 0
+            else 0
+        )
+
+        cache.set(
+            CACHE_KEY_ATTENDEE_FIRST_TIME_PERCENT,
+            first_time_attendee_percent,
+            STATS_CACHE_TIMEOUT,
+        )
+    return first_time_attendee_percent
 
 
 def get_attendee_breakdown():

@@ -33,6 +33,9 @@ DONATIONS_GOAL = "donations_goal"
 SPONSORSHIP_GOAL = "sponsorship_goal"
 
 CACHE_KEY_ATTENDEE_COUNT = "attendee_count"
+CACHE_KEY_ATTENDEE_FIRST_TIME_COUNT = "attendee_first_time_count"
+CACHE_KEY_ATTENDEE_FIRST_TIME_PERCENT = "attendee_first_time_percent"
+
 CACHE_KEY_ATTENDEE_BREAKDOWN = "attendee_breakdown"
 CACHE_KEY_ATTENDEE_BY_ROLE = "attendee_by_role"
 CACHE_KEY_ATTENDEE_BY_COUNTRY = "attendee_by_country"

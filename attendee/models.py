@@ -34,7 +34,7 @@ HEARD_ABOUT_CHOICES = [
 PARTICIPATED_IN_PREVIOUS_EVENT_CHOICES = [
     ("PyLadiesCon 2024", "PyLadiesCon 2024"),
     ("PyLadiesCon 2023", "PyLadiesCon 2023"),
-    ("No, this is my first one", "No, this is my first one"),
+    ("No this is my first one", "No this is my first one"),
 ]
 CURRENT_POSITION_CHOICES = [
     ("Engineer", "Engineer"),
