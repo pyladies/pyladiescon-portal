@@ -2,6 +2,7 @@
 {% load allauth i18n %}
 {% load django_bootstrap5 %}
 {% load static %}
+{% load volunteer_tags %}
 {% block content %}
     <main>
         <h1 class="display-5">
@@ -77,9 +78,7 @@
                                 Language
                             </div>
                             <div class="col">
-                                {% for language in object.language.all %}
-                                    <span class="badge bg-info text-dark me-1">{{ language.name }}</span>
-                                {% endfor %}
+                                {% volunteer_languages_badges object %}
                             </div>
                         </div>
                     </div>
