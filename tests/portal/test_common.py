@@ -4,6 +4,7 @@ from django.core.cache import cache
 
 from attendee.models import AttendeeProfile, PretixOrder, PretixOrderstatus
 from portal.common import (
+    get_fundraising_goal_amount,
     get_sponsorship_committed_amount_stats_cache,
     get_sponsorship_committed_count_stats_cache,
     get_sponsorship_paid_amount_stats_cache,
