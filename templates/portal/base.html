@@ -63,6 +63,9 @@
                             <li class="nav-item">
                                 <a class="nav-link" href="{% url 'volunteer:index' %}">Volunteer</a>
                             </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="{% url 'speaker:index' %}">Speak</a>
+                            </li>
                         {% endif %}
                         {% if user.is_superuser %}
                             <li class="nav-item">
