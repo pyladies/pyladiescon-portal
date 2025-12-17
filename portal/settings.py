@@ -166,6 +166,7 @@ LANGUAGE_CODE = "en-us"
 LANGUAGES = (
     ("pt-br", "Português"),
     ("en-us", "English"),
+    ("hi", "Hindi"),
 )
 
 TIME_ZONE = "UTC"
