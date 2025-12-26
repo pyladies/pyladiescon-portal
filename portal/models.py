@@ -32,3 +32,36 @@ class BaseModel(models.Model):
         ):  # pragma: no cover
             kwargs["update_fields"].append("modified_date")
         super().save(*args, **kwargs)
+
+
+class FundraisingGoal(BaseModel):
+    """Model to store fundraising goals for donations and sponsorships."""
+
+    GOAL_TYPE_CHOICES = [
+        ("donation", "Donation Goal"),
+        ("sponsorship", "Sponsorship Goal"),
+    ]
+
+    goal_type = models.CharField(
+        max_length=20,
+        choices=GOAL_TYPE_CHOICES,
+        unique=True,
+        help_text="Type of fundraising goal",
+    )
+    target_amount = models.DecimalField(
+        max_digits=10, decimal_places=2, help_text="Target amount for this goal"
+    )
+    is_active = models.BooleanField(
+        default=True, help_text="Whether this goal is currently active"
+    )
+    description = models.TextField(
+        blank=True, null=True, help_text="Optional description for this goal"
+    )
+
+    class Meta:
+        verbose_name = "Fundraising Goal"
+        verbose_name_plural = "Fundraising Goals"
+        ordering = ["goal_type"]
+
+    def __str__(self):
+        return f"{self.get_goal_type_display()}: ${self.target_amount}"
