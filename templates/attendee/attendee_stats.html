@@ -1,6 +1,46 @@
 <h3 id="attendee_demographic">
     Attendee Demographic
 </h3>
+<div class="container border rounded-3 p-3 mb-4">
+    <div class="row">
+        <div class="col-sm-4">
+            <div class="card border-0">
+                <div class="card-body">
+                    <h5 class="card-title">
+                        Registered Attendees
+                    </h5>
+                    <h1 class="display-4 text-info">
+                        {{ stats.attendee_count }}
+                    </h1>
+                </div>
+            </div>
+        </div>
+        <div class="col-sm-4">
+            <div class="card border-0">
+                <div class="card-body">
+                    <h5 class="card-title">
+                        First Time Attendees
+                    </h5>
+                    <h1 class="display-4 text-success">
+                        {{ stats.attendee_first_time_count }}
+                    </h1>
+                </div>
+            </div>
+        </div>
+        <div class="col-sm-4">
+            <div class="card border-0 text-bg-success">
+                <div class="card-body">
+                    <h5 class="card-title">
+                        % of First Time Attendees
+                    </h5>
+                    <h1 class="display-4 text-warning">
+                        {{ stats.attendee_first_time_percent |floatformat:0 }}%
+                    </h1>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 {% for breakdown in stats.attendee_breakdown %}
     <div class="container border rounded-3 p-3 mb-4">
         <div class="row">

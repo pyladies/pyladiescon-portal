@@ -60,4 +60,9 @@ urlpatterns = [
         views.stats_json,
         name="portal_stats_json",
     ),
+    path(
+        "dashboard_gallery",
+        views.dashboard_gallery,
+        name="dashboard_gallery",
+    ),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

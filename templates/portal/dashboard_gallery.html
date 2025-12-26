@@ -1,0 +1,41 @@
+{% extends "portal/base.html" %}
+{% load allauth i18n %}
+{% load django_bootstrap5 %}
+{% block body %}
+{% endblock body %}
+{% block content %}
+    <div class="container px-4 py-3" id="featured-3">
+        <h1 class="pb-2 border-bottom">
+            Gallery of Dashboard Visualization using PyLadiesCon Stats and Data
+        </h1>
+        <div class="alert alert-success" role="alert">
+            <p class="mb-0">
+                Did you build your own dashboard using our <a href="{% url 'portal_stats_json' %}">conference data</a>? Share it with us by opening a pull request to add it to this page.
+            </p>
+        </div>
+        <h2 id="sponsor-dashboard-posit">
+            <span><a href="#sponsor-dashboard-posit"><i class="fa-solid fa-link"></i></a> </span>
+            Sponsorship Dashboard on Posit Cloud built by Daniel Chen
+            <span> <a href="https://019aa58c-61dc-6a8e-d7ae-6ab2736a5655.share.connect.posit.cloud/"
+    target="_blank"><i class="fas fa-external-link"></i></a></span>
+        </h2>
+        <div>
+            <iframe src="https://019aa58c-61dc-6a8e-d7ae-6ab2736a5655.share.connect.posit.cloud/"
+                    width="1200px"
+                    height="1000px">
+            </iframe>
+        </div>
+        <h2 id="volunteer-dashboard-posit">
+            <span><a href="#sponsor-dashboard-posit"><i class="fa-solid fa-link"></i></a> </span>
+            Volunteers Dashboard on Posit Cloud built by Daniel Chen
+            <span> <a href="https://019aa58d-0797-4823-0bc7-f5126c80d31e.share.connect.posit.cloud/"
+    target="_blank"><i class="fas fa-external-link"></i></a></span>
+        </h2>
+        <div>
+            <iframe src="https://019aa58d-0797-4823-0bc7-f5126c80d31e.share.connect.posit.cloud/"
+                    width="1200px"
+                    height="1000px"></iframe>
+            {% include "portal/sponsor_donate_callout.html" %}
+        </div>
+    </div>
+{% endblock content %}

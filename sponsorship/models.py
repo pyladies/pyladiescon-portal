@@ -69,6 +69,11 @@ class SponsorshipProfile(BaseModel):
         null=True,
         help_text="Purchase Order number for the sponsorship contract and invoice",
     )
+    github_issue_url = models.URLField(
+        blank=True,
+        null=True,
+        help_text="Link to the GitHub issue tracking this sponsorship",
+    )
 
     def __str__(self):
         return self.organization_name
