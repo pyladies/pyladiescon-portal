@@ -19,6 +19,10 @@ Have these installed first before continuing further.
 - Docker
 - Docker compose
 - GNU Make
+
+!!! note "Windows users"
+    If you don't have `make` installed, you can still run the project using `docker compose` commands directly (see below).
+
 - GitHub CLI (optional, but recommended) https://cli.github.com/
 
 ### Starting the local env
@@ -41,11 +45,36 @@ Have these installed first before continuing further.
 
 3. Start the local environment:
 
-```sh
-make serve
-```
+=== "Using Make (recommended)"
+
+    ```sh
+    make serve
+    ```
+
+=== "Without Make"
+
+    ```sh
+    docker compose up --build
+    ```
+
 
 4. Open the browser and go to <http://localhost:8000/> to see the app running.
+
+
+### First-time setup
+
+After starting the containers for the first time, apply database migrations:
+
+```sh
+docker compose exec web python manage.py migrate
+```
+
+If you see an error like `relation "stats_cache_table" does not exist`, create the database cache table:
+
+```md
+``` sh 
+docker compose exec web python manage.py createcachetable stats_cache_table
+```
 
 5. Run the tests:
 
