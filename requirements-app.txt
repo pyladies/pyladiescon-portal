@@ -19,3 +19,5 @@ markdown==3.7
 bleach==6.3.0
 sentry-sdk[django]==2.43.0
 requests==2.32.5
+celery==5.4.0
+redis==5.2.1
