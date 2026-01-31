@@ -2,7 +2,7 @@
 
 PyLadiesCon online conference management tool.
 
-Note that we are **not** participating in GSoC 2025.
+Note that we are **not** participating in GSoC 2026.
 
 :moneybag: Support the development of this project by [donating to PyLadiesCon](https://2025.conference.pyladies.com/en/donate/).
 
