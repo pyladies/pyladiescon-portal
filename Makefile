@@ -11,7 +11,7 @@ default:
 
 .state/docker-build-web: Dockerfile requirements-app.txt requirements-dev.txt
 	# Build our web container for this project.
-	docker compose build --build-arg  USER_ID=$(shell id -u)  --build-arg GROUP_ID=$(shell id -g) --force-rm web
+	docker compose build --build-arg USER_ID=$(shell id -u) --build-arg GROUP_ID=$(shell id -g) web
 
 	# Collect static assets
 	docker compose run --rm web python manage.py collectstatic --noinput --clear
