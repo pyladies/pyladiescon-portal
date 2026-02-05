@@ -18,7 +18,7 @@ Have these installed first before continuing further.
 
 - Docker
 - Docker compose
-- GNU Make
+- GNU Make (optional, but recommended) - see [Windows note](#windows-note) if you don't have it
 - GitHub CLI (optional, but recommended) https://cli.github.com/
 
 ### Starting the local env
@@ -41,9 +41,21 @@ Have these installed first before continuing further.
 
 3. Start the local environment:
 
-```sh
-make serve
-```
+=== "With Make"
+
+    ```sh
+    make serve
+    ```
+
+=== "Without Make (Windows)"
+
+    ```sh
+    docker compose build --force-rm web
+    docker compose run --rm web python manage.py collectstatic --noinput --clear
+    docker compose run --rm web python manage.py createcachetable
+    docker compose run --rm web python manage.py migrate
+    docker compose up --remove-orphans -d
+    ```
 
 4. Open the browser and go to <http://localhost:8000/> to see the app running.
 
@@ -275,3 +287,32 @@ If you see the error `Cairo library was not found`, try the following instructio
 1. [MKDocs material image processing Docs](https://squidfunk.github.io/mkdocs-material/plugins/requirements/image-processing/?h=cairo#troubleshooting).
 
 2. Check if the `Cairo libraries` are listed in ```/opt/homebrew/lib``` folder. If not, follow the instructions [on this page](https://github.com/squidfunk/mkdocs-material/issues/5121).
+
+## Windows Note
+
+### Make command not available
+
+On Windows, the `make` command from the Makefile may not be available by default. You have two options:
+
+**Option 1: Install Make** (recommended for future use)
+
+=== "Using Chocolatey"
+
+    ```powershell
+    choco install make
+    ```
+
+=== "Using winget"
+
+    ```powershell
+    winget install GnuWin32.Make
+    ```
+
+After installation, restart your terminal and `make serve` should work.
+
+**Option 2: Use Docker commands directly**
+
+If you don't want to install Make, you can run the Docker commands directly as shown in the "Without Make (Windows)" tab in the [Starting the local env](#starting-the-local-env) section above.
+
+Both approaches will set up your development environment successfully.
+````
