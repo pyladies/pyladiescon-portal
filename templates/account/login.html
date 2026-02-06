@@ -1,61 +1,140 @@
 {% extends "account/base_entrance.html" %}
 {% load i18n %}
 {% load allauth account %}
+{% load static %}
+
 {% block head_title %}
     {% trans "Sign In" %}
 {% endblock head_title %}
+
 {% block content %}
-    {% element h1 %}
-    {% trans "Sign In" %}
-{% endelement %}
-{% if not SOCIALACCOUNT_ONLY %}
-    {% setvar link %}
-    <a href="{{ signup_url }}">
-    {% endsetvar %}
-    {% setvar end_link %}
-</a>
-{% endsetvar %}
-{% element p %}
-{% blocktranslate %}If you have not created an account yet, then please {{ link }}sign up{{ end_link }} first.{% endblocktranslate %}
-{% endelement %}
-{% url 'account_login' as login_url %}
-{% element form form=form method="post" action=login_url tags="entrance,login" %}
-{% slot body %}
-{% csrf_token %}
-{% element fields form=form unlabeled=True %}
-{% endelement %}
-{{ redirect_field }}
-{% endslot %}
-{% slot actions %}
-{% element button type="submit" tags="prominent,login" %}
-{% trans "Sign In" %}
-{% endelement %}
-{% endslot %}
-{% endelement %}
-{% endif %}
-{% if LOGIN_BY_CODE_ENABLED or PASSKEY_LOGIN_ENABLED %}
-    {% element hr %}
-{% endelement %}
-{% element button_group vertical=True %}
-{% if PASSKEY_LOGIN_ENABLED %}
-    {% element button type="submit" form="mfa_login" id="passkey_login" tags="prominent,login,outline,primary" %}
-    {% trans "Sign in with a passkey" %}
-{% endelement %}
-{% endif %}
-{% if LOGIN_BY_CODE_ENABLED %}
-    {% element button href=request_login_code_url tags="prominent,login,outline,primary" %}
-    {% trans "Send me a sign-in code" %}
-{% endelement %}
-{% endif %}
-{% endelement %}
-{% endif %}
-{% if SOCIALACCOUNT_ENABLED %}
-    {% include "socialaccount/snippets/login.html" with page_layout="entrance" %}
-{% endif %}
+<link rel="stylesheet" href="{% static 'css/custom-login.css' %}">
+
+<div class="login-bg">
+    <div class="container entrance-container" role="main" aria-labelledby="sign-in-title">
+        <div class="entrance-card card mx-auto shadow-sm" style="max-width:480px;">
+            <header class="card-header text-center py-4 bg-transparent border-0">
+                <div class="brand d-flex justify-content-center mb-2" aria-hidden="true">
+                    <!-- simple inline SVG logo -->
+                    <svg width="56" height="56" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" class="logo">
+                        <rect x="0" y="0" width="24" height="24" rx="6" fill="#0d6efd"/>
+                        <path d="M6 14L10 9l4 6 4-8" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </div>
+
+                {% element h1 id="sign-in-title" class="h5 mb-1 fw-semibold" %}
+                {% trans "Sign In" %}
+                {% endelement %}
+                {% element p class="muted small mt-2 mb-0" %}
+                {% trans "Welcome back — enter your credentials to access your account." %}
+                {% endelement %}
+            </header>
+
+            <div class="card-body p-4">
+                {% if not SOCIALACCOUNT_ONLY %}
+                    {% setvar link %}
+                    <a href="{{ signup_url }}" class="link-primary fw-medium">
+                    {% endsetvar %}
+                    {% setvar end_link %}
+                    </a>
+                    {% endsetvar %}
+                    {% element p class="mb-3 small text-muted" %}
+                    {% blocktranslate %}If you have not created an account yet, then please {{ link }}sign up{{ end_link }} first.{% endblocktranslate %}
+                    {% endelement %}
+
+                    {% url 'account_login' as login_url %}
+                    {% element form form=form method="post" action=login_url tags="entrance,login" class="form-compact" %}
+                    {% slot body %}
+                        {% csrf_token %}
+                        <div class="mb-3">
+                            {% element fields form=form unlabeled=True %}
+                            {% endelement %}
+                        </div>
+                        {{ redirect_field }}
+                    {% endslot %}
+
+                    {% slot actions %}
+                        <div class="d-grid gap-2">
+                            {% element button type="submit" tags="prominent,login" class="btn btn-primary btn-lg" %}
+                            {% trans "Sign In" %}
+                            {% endelement %}
+                            <div class="d-flex justify-content-between align-items-center mt-2">
+                                {% url 'account_reset_password' as reset_url %}
+                                <a href="{{ reset_url }}" class="small link-muted">{% trans "Forgot password?" %}</a>
+                                {% if not LOGIN_BY_CODE_ENABLED and not PASSKEY_LOGIN_ENABLED %}
+                                    <!-- space reserved for alternative actions -->
+                                {% endif %}
+                            </div>
+                        </div>
+                    {% endslot %}
+                    {% endelement %}
+                {% endif %}
+
+                {% if LOGIN_BY_CODE_ENABLED or PASSKEY_LOGIN_ENABLED %}
+                    {% element hr %}{% endelement %}
+                    {% element button_group vertical=True %}
+                        {% if PASSKEY_LOGIN_ENABLED %}
+                            {% element button type="submit" form="mfa_login" id="passkey_login" tags="prominent,login,outline,primary" class="btn btn-outline-secondary w-100" %}
+                            {% trans "Sign in with a passkey" %}
+                            {% endelement %}
+                        {% endif %}
+                        {% if LOGIN_BY_CODE_ENABLED %}
+                            {% element button href=request_login_code_url tags="prominent,login,outline,primary" class="btn btn-outline-secondary w-100" %}
+                            {% trans "Send me a sign-in code" %}
+                            {% endelement %}
+                        {% endif %}
+                    {% endelement %}
+                {% endif %}
+            </div>
+
+            <footer class="card-footer bg-transparent text-center py-3 border-0">
+                {% if SOCIALACCOUNT_ENABLED %}
+                    {% include "socialaccount/snippets/login.html" with page_layout="entrance" %}
+                {% else %}
+                    {% element p class="small muted mb-0" %}
+                    {% trans "Need help? Contact support or check the documentation." %}
+                    {% endelement %}
+                {% endif %}
+            </footer>
+        </div>
+    </div>
+</div>
 {% endblock content %}
+
 {% block extra_body %}
     {{ block.super }}
     {% if PASSKEY_LOGIN_ENABLED %}
         {% include "mfa/webauthn/snippets/login_script.html" with button_id="passkey_login" %}
     {% endif %}
+    <!-- Accessibility + small UX improvements: autofocus first input, show/hide password -->
+    <script>
+      document.addEventListener('DOMContentLoaded', function () {
+        // autofocus first visible text input
+        const firstInput = document.querySelector('.form-compact input[type="text"], .form-compact input[type="email"], .form-compact input[type="tel"]');
+        if (firstInput) firstInput.focus();
+
+        // add show/hide toggle for password fields
+        const pwd = document.querySelector('.form-compact input[type="password"]');
+        if (pwd && pwd.parentElement) {
+          // avoid duplicate toggle
+          if (!pwd.parentElement.querySelector('.pwd-toggle')) {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'pwd-toggle btn btn-sm btn-outline-secondary';
+            btn.style.marginLeft = '8px';
+            btn.textContent = 'Show';
+            // place button next to the password input
+            pwd.insertAdjacentElement('afterend', btn);
+            btn.addEventListener('click', function () {
+              if (pwd.type === 'password') {
+                pwd.type = 'text'; btn.textContent = 'Hide';
+              } else {
+                pwd.type = 'password'; btn.textContent = 'Show';
+              }
+              pwd.focus();
+            });
+          }
+        }
+      });
+    </script>
 {% endblock extra_body %}
