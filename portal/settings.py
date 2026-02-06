@@ -18,6 +18,8 @@ import django.db.models.signals
 import sentry_sdk
 from sentry_sdk.integrations.django import DjangoIntegration
 
+import sys
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -52,9 +54,12 @@ if SENTRY_SDK_DSN:
             ),
         ],
     )
-ALLOWED_HOSTS = os.environ.get("DJANGO_ALLOWED_HOSTS")
-if ALLOWED_HOSTS:
-    ALLOWED_HOSTS = ALLOWED_HOSTS.split(",")
+# When DJANGO_ALLOWED_HOSTS is not set, Django requires ALLOWED_HOSTS
+# to still be a list or tuple. This default prevents Celery and other
+# background processes from failing during settings initialization.
+ALLOWED_HOSTS = os.environ.get("DJANGO_ALLOWED_HOSTS", "")
+ALLOWED_HOSTS = ALLOWED_HOSTS.split(",") if ALLOWED_HOSTS else []
+
 
 # Application definition
 
@@ -335,3 +340,12 @@ CACHES = {
 
 PRETIX_API_TOKEN = os.getenv("PRETIX_API_TOKEN")
 PRETIX_WEBHOOK_SECRET = os.getenv("PRETIX_WEBHOOK_SECRET")
+
+# Celery settings - using Redis
+CELERY_BROKER_URL = os.environ.get('CELERY_BROKER_URL')
+
+# This makes Celery run tasks synchronously during tests
+if 'test' in sys.argv or 'pytest' in sys.modules:
+    CELERY_TASK_ALWAYS_EAGER = True
+    CELERY_TASK_EAGER_PROPAGATES = True
+    

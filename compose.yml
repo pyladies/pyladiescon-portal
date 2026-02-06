@@ -12,7 +12,10 @@ services:
       POSTGRES_FSYNC: null
     healthcheck:
       test: ["CMD", "pg_isready", "-U", "pyladiescon", "-d", "pyladiescon"]
-      interval: 1s
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
     volumes:
       - ./docker-compose/postgres/docker-entrypoint-initdb.d:/docker-entrypoint-initdb.d
       - pgdata:/var/lib/postgresql/data
@@ -23,7 +26,10 @@ services:
       - "6379:6379"
     healthcheck:
      test: ["CMD", "redis-cli","ping"]
-     interval: 1s
+     interval: 10s
+     timeout: 5s
+     retries: 5
+     start_period: 10s
 
   web:
     build:
@@ -43,11 +49,35 @@ services:
       DJANGO_DEFAULT_FROM_EMAIL: PyLadiesCon <pyladiescon@example.com>
       DJANGO_EMAIL_HOST: maildev
       DJANGO_EMAIL_PORT: 1025
+      CELERY_BROKER_URL: redis://redis:6379/0
     depends_on:
       redis:
         condition: service_healthy
       postgres:
         condition: service_healthy
+  
+  celery:
+    build:
+      target: dev
+      args:
+        USER_ID: ${USER_ID:-1000}
+        GROUP_ID: ${GROUP_ID:-1000}
+    image: pyladiescon-portal-celery:docker-compose
+    command: celery -A portal worker --loglevel=info
+    working_dir: /code
+    volumes:
+      - .:/code
+    environment:
+      CELERY_BROKER_URL: redis://redis:6379/0
+      DATABASE_URL: postgresql://pyladiescon:pyladiescon@postgres:5432/pyladiescon
+      SECRET_KEY: verysecure
+      DEBUG: True
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
 
   maildev:
     image: maildev/maildev:2.2.1
