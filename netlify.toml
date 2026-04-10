@@ -5,4 +5,4 @@
 
 [build.environment]
   PYTHON_VERSION = "3.14"
-  NO_MKDOCS_2_WARNING = 1
+  NO_MKDOCS_2_WARNING = "1"
