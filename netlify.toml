@@ -2,7 +2,7 @@
 [build]
   command = "mkdocs build"
   publish = "site"
-  environment = { PYTHON_VERSION = "3.14"}
 
 [build.environment]
+  PYTHON_VERSION = "3.14"
   NO_MKDOCS_2_WARNING = 1
