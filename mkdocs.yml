@@ -40,6 +40,8 @@ nav:
     - How Tos: developer/howto.md
     - Markdown Emails: developer/markdown-emails.md
     - Deployment: developer/deployment.md
+  - Architecture:
+    - Multi-Year Conferences: architecture/multi-year-conferences.md
   - User Guide:
     - Get started: user/get_started.md
     - Core Team: user/core_team.md
@@ -89,3 +91,7 @@ plugins:
   - git-committers:
       repository: pyladies/pyladiescon-portal
       branch: main
+  - mkdocstrings:
+      handlers:
+        python:
+          enable_parallel_processing: false
