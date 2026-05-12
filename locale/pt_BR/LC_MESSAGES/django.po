@@ -21,11 +21,11 @@ msgstr ""
 #: templates/account/account_inactive.html:5
 #: templates/account/account_inactive.html:9
 msgid "Account Inactive"
-msgstr ""
+msgstr "Cuenta inactiva"
 
 #: templates/account/account_inactive.html:12
 msgid "This account is inactive."
-msgstr ""
+msgstr "Esta cuenta está inactiva."
 
 #: templates/account/base_confirm_code.html:31
 #, python-format
@@ -39,7 +39,7 @@ msgstr ""
 #: templates/account/reauthenticate.html:18
 #: templates/mfa/reauthenticate.html:18
 msgid "Confirm"
-msgstr ""
+msgstr "Confirmar"
 
 #: templates/account/base_confirm_code.html:46
 #: templates/account/base_confirm_code.html:50
@@ -52,7 +52,7 @@ msgstr ""
 #: templates/volunteer/volunteerprofile_form.html:213
 #: templates/volunteer/volunteerprofile_form.html:215
 msgid "Cancel"
-msgstr ""
+msgstr "Cancelar"
 
 #: templates/account/base_reauthenticate.html:5
 #: templates/account/base_reauthenticate.html:9
@@ -83,7 +83,7 @@ msgstr ""
 #: templates/mfa/authenticate.html:24 templates/socialaccount/login.html:5
 #: templates/socialaccount/login_redirect.html:5
 msgid "Sign In"
-msgstr ""
+msgstr "Iniciar sesión"
 
 #: templates/account/confirm_login_code.html:8
 msgid "Enter Sign-In Code"
@@ -96,7 +96,7 @@ msgstr ""
 #: templates/account/password_reset_done.html:6
 #: templates/account/password_reset_done.html:10
 msgid "Password Reset"
-msgstr ""
+msgstr "Restablecer contraseña"
 
 #: templates/account/confirm_password_reset_code.html:8
 msgid "Enter Password Reset Code"
@@ -112,7 +112,7 @@ msgstr ""
 
 #: templates/account/email.html:4 templates/account/email.html:8
 msgid "Email Addresses"
-msgstr ""
+msgstr "Dirección de correo electrónico"
 
 #: templates/account/email.html:12
 msgid "The following email addresses are associated with your account:"
@@ -415,7 +415,7 @@ msgstr ""
 #: templates/account/logout.html:21 templates/allauth/layouts/base.html:42
 #: templates/portal/base.html:135
 msgid "Sign Out"
-msgstr ""
+msgstr "Cerrar sesión"
 
 #: templates/account/logout.html:11
 msgid "Are you sure you want to sign out?"
@@ -487,11 +487,11 @@ msgstr ""
 #: templates/allauth/layouts/base.html:18 templates/portal/base.html:126
 #: templates/portal_account/index.html:15
 msgid "Change Password"
-msgstr ""
+msgstr "Cambiar contraseña"
 
 #: templates/account/password_change.html:22
 msgid "Forgot Password?"
-msgstr ""
+msgstr "¿Olvidaste tu contraseña?"
 
 #: templates/account/password_reset.html:14
 msgid ""
@@ -501,7 +501,7 @@ msgstr ""
 
 #: templates/account/password_reset.html:26
 msgid "Reset My Password"
-msgstr ""
+msgstr "Restablecer mi contraseña"
 
 #: templates/account/password_reset.html:31
 msgid "Please contact us if you have any trouble resetting your password."
@@ -573,7 +573,7 @@ msgstr ""
 #: templates/allauth/layouts/base.html:55 templates/socialaccount/signup.html:9
 #: templates/socialaccount/signup.html:25
 msgid "Sign Up"
-msgstr ""
+msgstr "Registrarse"
 
 #: templates/account/signup.html:18 templates/account/signup_by_passkey.html:17
 #, python-format
@@ -625,7 +625,7 @@ msgstr ""
 #: templates/account/verified_email_required.html:5
 #: templates/account/verified_email_required.html:9
 msgid "Verify Your Email Address"
-msgstr ""
+msgstr "Verifica tu dirección de correo electrónico"
 
 #: templates/account/verification_sent.html:12
 msgid ""
