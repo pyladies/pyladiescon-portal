@@ -91,3 +91,7 @@ plugins:
   - git-committers:
       repository: pyladies/pyladiescon-portal
       branch: main
+  - mkdocstrings:
+      handlers:
+        python:
+          enable_parallel_processing: false
