@@ -52,9 +52,9 @@ if SENTRY_SDK_DSN:
             ),
         ],
     )
-ALLOWED_HOSTS = os.environ.get("DJANGO_ALLOWED_HOSTS")
-if ALLOWED_HOSTS:
-    ALLOWED_HOSTS = ALLOWED_HOSTS.split(",")
+ALLOWED_HOSTS = os.environ.get("DJANGO_ALLOWED_HOSTS", "localhost")
+ALLOWED_HOSTS = [host.strip() for host in ALLOWED_HOSTS.split(",")]
+
 
 # Application definition
 
@@ -335,3 +335,24 @@ CACHES = {
 
 PRETIX_API_TOKEN = os.getenv("PRETIX_API_TOKEN")
 PRETIX_WEBHOOK_SECRET = os.getenv("PRETIX_WEBHOOK_SECRET")
+
+
+CELERY_BROKER_URL = os.environ.get('CELERY_BROKER_URL', 'redis://redis:6379/0')
+CELERY_RESULT_BACKEND = os.environ.get('CELERY_RESULT_BACKEND', 'redis://redis:6379/0')
+
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_TIMEZONE = 'UTC'
+
+CELERY_TASK_ROUTES = {
+    'sponsorship.tasks.*': {'queue': 'emails'},
+    'volunteer.tasks.*': {'queue': 'emails'},
+}
+
+CELERY_TASK_TRACK_STARTED = True
+CELERY_TASK_TIME_LIMIT = 30 * 60 
+CELERY_TASK_SOFT_TIME_LIMIT = 25 * 60  
+
+CELERY_WORKER_LOG_FORMAT = '[%(asctime)s: %(levelname)s/%(processName)s] %(message)s'
+CELERY_WORKER_TASK_LOG_FORMAT = '[%(asctime)s: %(levelname)s/%(processName)s][%(task_name)s(%(task_id)s)] %(message)s'

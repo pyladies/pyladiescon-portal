@@ -8,7 +8,7 @@ services:
       POSTGRES_USER: pyladiescon
       POSTGRES_PASSWORD: pyladiescon
       POSTGRES_DB: pyladiescon
-      POSTGRES_HOST_AUTH_METHOD: trust  # never do this in production!
+      POSTGRES_HOST_AUTH_METHOD: trust
       POSTGRES_FSYNC: null
     healthcheck:
       test: ["CMD", "pg_isready", "-U", "pyladiescon", "-d", "pyladiescon"]
@@ -22,27 +22,69 @@ services:
     ports:
       - "6379:6379"
     healthcheck:
-     test: ["CMD", "redis-cli","ping"]
-     interval: 1s
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 1s
+    volumes:
+      - redisdata:/data
 
   web:
     build:
       target: dev
     image: pyladiescon-portal-web:docker-compose
-    command: python manage.py runserver 0.0.0.0:8000
+    command: ["./wait-for-postgres.sh", "postgres", "python", "manage.py", "runserver", "0.0.0.0:8000"]
     volumes:
       - .:/code
       - ./media:/code/media
+      - ./wait-for-postgres.sh:/wait-for-postgres.sh
     ports:
       - "8000:8000"
     environment:
-      DEBUG: True
-      DJANGO_ALLOWED_HOSTS: localhost,127.0.0.1,[::1]
+      DEBUG: "1"
+      DJANGO_ALLOWED_HOSTS: "localhost,127.0.0.1,[::1]"
       SECRET_KEY: verysecure
       DATABASE_URL: postgresql://pyladiescon:pyladiescon@postgres:5432/pyladiescon
       DJANGO_DEFAULT_FROM_EMAIL: PyLadiesCon <pyladiescon@example.com>
       DJANGO_EMAIL_HOST: maildev
       DJANGO_EMAIL_PORT: 1025
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+
+  celery:
+    image: pyladiescon-portal-web:docker-compose
+    command: celery -A portal worker --loglevel=info
+    volumes:
+      - .:/code
+    environment:
+      DEBUG: "1"
+      SECRET_KEY: verysecure
+      DATABASE_URL: postgresql://pyladiescon:pyladiescon@postgres:5432/pyladiescon
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/0
+      DJANGO_DEFAULT_FROM_EMAIL: PyLadiesCon <pyladiescon@example.com>
+      DJANGO_EMAIL_HOST: maildev
+      DJANGO_EMAIL_PORT: 1025
+      DJANGO_ALLOWED_HOSTS: "localhost,127.0.0.1,[::1]"
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+
+  celery-beat:
+    image: pyladiescon-portal-web:docker-compose
+    command: celery -A portal beat --loglevel=info
+    volumes:
+      - .:/code
+    environment:
+      DEBUG: "1"
+      SECRET_KEY: verysecure
+      DATABASE_URL: postgresql://pyladiescon:pyladiescon@postgres:5432/pyladiescon
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/0
+      DJANGO_ALLOWED_HOSTS: "localhost,127.0.0.1,[::1]"
     depends_on:
       redis:
         condition: service_healthy
@@ -57,3 +99,4 @@ services:
 
 volumes:
   pgdata:
+  redisdata:
