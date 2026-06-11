@@ -21,12 +21,12 @@ Delete it once everything is done; the design doc preserves the "why".
 
 ## Phase 1 — Conference model
 
-- [ ] Add `Conference` model to `portal/` with all fields from the design.
-- [ ] Migration 1: create `Conference` table.
-- [ ] Add `Conference` to Django admin with `is_active` toggle.
-- [ ] Implement `Conference.get_active()` and the single-active-row enforcer
+- [x] Add `Conference` model to `portal/` with all fields from the design.
+- [x] Migration 1: create `Conference` table.
+- [x] Add `Conference` to Django admin with `is_active` toggle.
+- [x] Implement `Conference.get_active()` and the single-active-row enforcer
       in `save()`.
-- [ ] Add context processor exposing the active conference to all templates.
+- [x] Add context processor exposing the active conference to all templates.
 
 ## Phase 2 — Foreign keys (nullable)
 
