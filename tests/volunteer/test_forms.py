@@ -620,3 +620,10 @@ class TestSelectMultipleWidget:
         assert (
             "data-placeholder" in widget.attrs
         )  # Default attribute should still be present
+
+
+@pytest.mark.django_db
+class TestConferenceNotExposed:
+    def test_conference_field_not_in_volunteer_form(self):
+        """conference stays out of the public form until multi-year Phase 6."""
+        assert "conference" not in VolunteerProfileForm().fields

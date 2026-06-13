@@ -206,3 +206,46 @@ class TestSponsorshipModel:
         # Retrieve the profile from the database to verify it was saved
         saved_profile = SponsorshipProfile.objects.get(id=profile.id)
         assert saved_profile.po_number is None
+
+
+@pytest.mark.django_db
+class TestConferenceLink:
+    """Nullable conference FK added in multi-year Phase 2."""
+
+    def test_sponsorship_profile_defaults_to_no_conference(self, admin_user):
+        profile = SponsorshipProfile.objects.create(
+            main_contact_user=admin_user,
+            organization_name="Very Cool Company",
+            progress_status=SponsorshipProgressStatus.AWAITING_RESPONSE.value,
+        )
+        assert profile.conference is None
+
+    def test_sponsorship_profile_links_to_conference(self, admin_user, conference):
+        profile = SponsorshipProfile.objects.create(
+            main_contact_user=admin_user,
+            organization_name="Very Cool Company",
+            progress_status=SponsorshipProgressStatus.AWAITING_RESPONSE.value,
+            conference=conference,
+        )
+        assert list(conference.sponsorship_profiles.all()) == [profile]
+
+    def test_sponsorship_tier_links_to_conference(self, conference):
+        tier = SponsorshipTier.objects.create(
+            name="Gold",
+            amount=3000.00,
+            description="Test Description",
+            conference=conference,
+        )
+        assert tier.conference == conference
+        assert list(conference.sponsorship_tiers.all()) == [tier]
+
+    def test_individual_donation_links_to_conference(self, conference):
+        from sponsorship.models import IndividualDonation
+
+        donation = IndividualDonation.objects.create(
+            transaction_id="TXN123",
+            donation_amount=50.00,
+            donor_email="donor@example.com",
+            conference=conference,
+        )
+        assert list(conference.individual_donations.all()) == [donation]

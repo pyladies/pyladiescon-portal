@@ -60,7 +60,15 @@ class VolunteerProfileForm(ModelForm):
 
     class Meta:
         model = VolunteerProfile
-        exclude = ["user", "application_status", "roles", "languages_spoken"]
+        # conference is excluded until Phase 6 of the multi-year work, when
+        # new profiles get tied to the active conference automatically.
+        exclude = [
+            "user",
+            "application_status",
+            "roles",
+            "languages_spoken",
+            "conference",
+        ]
         help_texts = {
             "github_username": "Required - Your GitHub username (e.g., username). We'll grant read access to PyLadiesCon repos to our volunteers.",
             "discord_username": "Required - Your Discord username for team communication (e.g., username or username#1234)",

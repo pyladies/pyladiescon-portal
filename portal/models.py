@@ -42,6 +42,18 @@ class Conference(BaseModel):
     ``docs/architecture/multi-year-conferences.md`` for the full design.
     """
 
+    # BaseModel is concrete (multi-table inheritance), so without this
+    # explicit parent link Django adds a reverse accessor named "conference"
+    # to BaseModel — clashing with the per-year ``conference`` FK that other
+    # models gain. related_name="+" suppresses that accessor.
+    basemodel_ptr = models.OneToOneField(
+        BaseModel,
+        on_delete=models.CASCADE,
+        parent_link=True,
+        primary_key=True,
+        related_name="+",
+    )
+
     year = models.PositiveIntegerField(unique=True)
     name = models.CharField(max_length=100)
     slug = models.SlugField(unique=True)
