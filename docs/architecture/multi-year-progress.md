@@ -6,7 +6,7 @@ Tracking the rollout of the design described in
 This file is internal project management — update it as work progresses.
 Delete it once everything is done; the design doc preserves the "why".
 
-**Last updated:** 2026-06-12
+**Last updated:** 2026-06-13
 
 ---
 
@@ -44,15 +44,32 @@ clashes with the FK name on every child model (`portal` migration 0004).
 
 ## Phase 3 — Backfill
 
-- [ ] Data migration: create Conference rows for 2023, 2024, 2025 (active),
+All four steps land in one reversible data migration,
+`portal/migrations/0005_backfill_conferences.py`.
+
+- [x] Data migration: create Conference rows for 2023, 2024, 2025 (active),
       2026.
-- [ ] Data migration: backfill `historical_snapshot` for 2023 and 2024 from
+- [x] Data migration: backfill `historical_snapshot` for 2023 and 2024 from
       `portal/constants.py::HISTORICAL_STATS`.
-- [ ] Data migration: backfill `conference` on all existing
+- [x] Data migration: backfill `conference` on all existing
       `VolunteerProfile`, `SponsorshipProfile`, `SponsorshipTier`, `Team`,
       `IndividualDonation` rows to point at 2025.
-- [ ] Data migration: backfill `PretixOrder.conference` from `event_slug`
+- [x] Data migration: backfill `PretixOrder.conference` from `event_slug`
       matching `Conference.pretix_event_slug`.
+
+Notes:
+- Historical values (`HISTORICAL_STATS`, `PROPOSALS_2025_COUNT`, goal amounts)
+  are copied literally into the migration, not imported from
+  `portal.constants` — a data migration must stay replayable on a fresh DB,
+  and Phase 8 deletes those constants. `proposals` is stored on
+  `proposals_count`; the rest of each year's stats go in `historical_snapshot`.
+- `pretix_event_slug` for 2025 is `"2025"` (matches
+  `common.pretix_wrapper.PRETIX_EVENT_SLUG`); orders backfill by slug match so
+  future years route automatically.
+- Not unit-tested, matching the existing `volunteer/0011_populate_languages`
+  convention. The suite runs `--no-migrations`, so data migrations never
+  execute under test and are invisible to the 100% coverage gate. Verified
+  manually instead: forward + reverse + re-apply against real data.
 
 ## Phase 4 — Tighten constraints
 
