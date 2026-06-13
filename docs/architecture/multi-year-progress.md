@@ -6,7 +6,7 @@ Tracking the rollout of the design described in
 This file is internal project management — update it as work progresses.
 Delete it once everything is done; the design doc preserves the "why".
 
-**Last updated:** 2026-05-11
+**Last updated:** 2026-06-12
 
 ---
 
@@ -30,12 +30,17 @@ Delete it once everything is done; the design doc preserves the "why".
 
 ## Phase 2 — Foreign keys (nullable)
 
-- [ ] Add nullable `conference` FK to `VolunteerProfile`.
-- [ ] Add nullable `conference` FK to `SponsorshipProfile`.
-- [ ] Add nullable `conference` FK to `SponsorshipTier`.
-- [ ] Add nullable `conference` FK to `Team`.
-- [ ] Add nullable `conference` FK to `IndividualDonation`.
-- [ ] Add nullable `conference` FK to `PretixOrder`.
+- [x] Add nullable `conference` FK to `VolunteerProfile`.
+- [x] Add nullable `conference` FK to `SponsorshipProfile`.
+- [x] Add nullable `conference` FK to `SponsorshipTier`.
+- [x] Add nullable `conference` FK to `Team`.
+- [x] Add nullable `conference` FK to `IndividualDonation`.
+- [x] Add nullable `conference` FK to `PretixOrder`.
+
+Note: `BaseModel` is concrete (multi-table inheritance), so `Conference`
+needed an explicit `basemodel_ptr` parent link with `related_name="+"` —
+otherwise the implicit reverse accessor named `conference` on `BaseModel`
+clashes with the FK name on every child model (`portal` migration 0004).
 
 ## Phase 3 — Backfill
 

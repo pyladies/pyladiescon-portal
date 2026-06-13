@@ -4,6 +4,7 @@ from attendee.models import (
     PRETIX_ANONYMOUS_DONATION_QUESTION_IDENTIFIER,
     PRETIX_NOT_ANONYMOUS_ANSWER_IDENTIFIER,
 )
+from portal.models import Conference
 from volunteer.models import Language
 
 
@@ -42,6 +43,13 @@ def admin_user(db, django_user_model):
 @pytest.fixture
 def language(db):
     return Language.objects.create(code="en", name="English")
+
+
+@pytest.fixture
+def conference(db):
+    return Conference.objects.create(
+        year=2025, name="PyLadiesCon 2025", slug="2025", is_active=True
+    )
 
 
 @pytest.fixture

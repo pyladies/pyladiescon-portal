@@ -102,6 +102,16 @@ ATTENDEE_FIELD_MAPPING = {
 
 
 class PretixOrder(BaseModel):
+    # Nullable while multi-year backfill is pending; resolved from event_slug
+    # matching Conference.pretix_event_slug in the Phase 3 data migration.
+    # See docs/architecture/multi-year-conferences.md.
+    conference = models.ForeignKey(
+        "portal.Conference",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="pretix_orders",
+    )
     order_code = models.CharField(max_length=100, unique=True)
     status = models.CharField(
         max_length=50, choices=PRETIX_ORDER_STATUS_CHOICES, null=True

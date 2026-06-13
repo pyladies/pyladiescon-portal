@@ -670,3 +670,32 @@ class TestVolunteerModel:
 
         # message about being waitslisted is in the body
         assert "and we're not able to accept everyone" in str(mail.outbox[0].body)
+
+
+@pytest.mark.django_db
+class TestConferenceLink:
+    """Nullable conference FK added in multi-year Phase 2."""
+
+    def test_volunteer_profile_defaults_to_no_conference(self, portal_user):
+        profile = VolunteerProfile(user=portal_user)
+        profile.region = Region.NORTH_AMERICA
+        profile.discord_username = "mydiscord"
+        profile.save()
+        assert profile.conference is None
+
+    def test_volunteer_profile_links_to_conference(self, portal_user, conference):
+        profile = VolunteerProfile(user=portal_user, conference=conference)
+        profile.region = Region.NORTH_AMERICA
+        profile.discord_username = "mydiscord"
+        profile.save()
+        assert list(conference.volunteer_profiles.all()) == [profile]
+
+    def test_team_defaults_to_no_conference(self):
+        team = Team.objects.create(short_name="Test Team", description="Test")
+        assert team.conference is None
+
+    def test_team_links_to_conference(self, conference):
+        team = Team.objects.create(
+            short_name="Test Team", description="Test", conference=conference
+        )
+        assert list(conference.teams.all()) == [team]

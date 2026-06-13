@@ -46,6 +46,15 @@ class Language(BaseModel):
 
 
 class Team(BaseModel):
+    # Nullable while multi-year backfill is pending; non-null after Phase 4.
+    # See docs/architecture/multi-year-conferences.md.
+    conference = models.ForeignKey(
+        "portal.Conference",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="teams",
+    )
     short_name = models.CharField("name", max_length=40)
     description = models.CharField("description", max_length=1000)
     team_leads = models.ManyToManyField(
@@ -100,6 +109,16 @@ class PyladiesChapter(BaseModel):
 
 class VolunteerProfile(BaseModel):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
+    # Nullable while multi-year backfill is pending; non-null after Phase 4,
+    # when user also becomes a ForeignKey with unique_together
+    # ("user", "conference"). See docs/architecture/multi-year-conferences.md.
+    conference = models.ForeignKey(
+        "portal.Conference",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="volunteer_profiles",
+    )
     roles = models.ManyToManyField(
         "Role", verbose_name="Roles", related_name="roles", blank=True
     )

@@ -252,3 +252,16 @@ class TestAttendeeProfileModel:
         assert profile.organization_name == "Umbrella Corp"
         assert profile.current_position == ["Student/Intern", "Other"]
         assert profile.raw_answers is not None
+
+
+@pytest.mark.django_db
+class TestPretixOrderConferenceLink:
+    """Nullable conference FK added in multi-year Phase 2."""
+
+    def test_defaults_to_no_conference(self):
+        order = PretixOrder.objects.create(order_code="ORDER123")
+        assert order.conference is None
+
+    def test_links_to_conference(self, conference):
+        order = PretixOrder.objects.create(order_code="ORDER123", conference=conference)
+        assert list(conference.pretix_orders.all()) == [order]
