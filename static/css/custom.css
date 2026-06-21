@@ -1,0 +1,59 @@
+/* Custom visual tweaks to modernize the site */
+:root{
+  --brand:#6f42c1;
+  --brand-dark:#59329a;
+  --muted:#6c757d;
+}
+
+body{
+  background: linear-gradient(180deg,#f7f9fb 0%, #ffffff 60%);
+  color: #212529;
+}
+
+.navbar-brand{
+  font-weight:700;
+  letter-spacing:0.4px;
+}
+
+.navbar .nav-link{
+  margin-right: .6rem;
+}
+
+.container.my-5{
+  max-width:1100px;
+}
+
+/* Card styling for entrance/login */
+.entrance-container{
+  padding-top:40px;
+  padding-bottom:40px;
+}
+
+.entrance-card{
+  border-radius:12px;
+  overflow:hidden;
+}
+
+.entrance-card .card-header{
+  background: linear-gradient(90deg,var(--brand),var(--brand-dark));
+  color: white;
+}
+
+.entrance-card .card-body{
+  background: white;
+}
+
+.btn-primary{
+  background: var(--brand);
+  border-color: var(--brand-dark);
+}
+
+.footer{
+  font-size:0.95rem;
+}
+
+/* Responsive tweaks */
+@media (max-width:576px){
+  .container.my-5{ padding-left:1rem; padding-right:1rem; }
+  .navbar-brand{ font-size:1rem; }
+}
