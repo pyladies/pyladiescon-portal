@@ -201,6 +201,25 @@ Notes:
 - [ ] Manual QA: visit `/stats/comparison/`, verify 2023–2026 all render
       with appropriate data sources.
 
+## Phase 12 — Organizer "Start a new year" wizard (issue #341)
+
+A guided front-end flow (on the portal dashboard, **not** Django admin) for
+organizers who aren't comfortable in Django admin, so standing up next year's
+conference isn't a series of manual admin edits.
+
+- [ ] Dashboard entry point (staff/superuser): "Start next year's conference".
+- [ ] Step 1 — create: year, name, slug.
+- [ ] Step 2 — choose carry-over: teams (Phase 9 clone), sponsorship tiers,
+      goal amounts, returning volunteers (#333).
+- [ ] Step 3 — review & activate (flip `is_active`; single-active enforcer
+      demotes the current year).
+- [ ] Implement the team-clone (Phase 9) and volunteer carry-forward (#333)
+      as reusable services callable from both Django admin and this wizard, so
+      the logic isn't duplicated.
+
+Composes Phase 9's "Clone teams" and #333's "Bring forward returning
+volunteers" into one organizer-facing flow; depends on both.
+
 ---
 
 ## Open items / blockers
