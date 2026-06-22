@@ -14,12 +14,12 @@ from volunteer.models import PyladiesChapter, VolunteerProfile
 @pytest.mark.django_db
 class TestAdminActions:
 
-    def test_bulk_waitlist_action(self, client, portal_user, language):
+    def test_bulk_waitlist_action(self, client, portal_user, language, conference):
         portal_user.is_superuser = True
         portal_user.is_staff = True
         portal_user.save()
 
-        profile = VolunteerProfile(user=portal_user)
+        profile = VolunteerProfile(user=portal_user, conference=conference)
         profile.save()
         profile.language.add(language)
 

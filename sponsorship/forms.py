@@ -1,6 +1,8 @@
 from django import forms
 from django.contrib.auth.models import User
 
+from portal.models import Conference
+
 from .models import SponsorshipProfile
 
 
@@ -57,6 +59,10 @@ class SponsorshipProfileForm(forms.ModelForm):
     def save(self, commit=True):
         if self.user:
             self.instance.user = self.user
+
+        # A new sponsorship belongs to the active conference edition.
+        if self.instance.conference_id is None:
+            self.instance.conference = Conference.get_active()
 
         sponsorship_profile = super().save(commit)
         return sponsorship_profile

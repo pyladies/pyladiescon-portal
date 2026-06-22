@@ -45,6 +45,7 @@ class VolunteerProfileResource(resources.ModelResource):
 class VolunteerProfileAdmin(ImportExportModelAdmin):
     list_display = (
         "user",
+        "conference",
         "user__first_name",
         "user__last_name",
         "user__email",
@@ -61,7 +62,7 @@ class VolunteerProfileAdmin(ImportExportModelAdmin):
         "region",
         "application_status",
     )
-    list_filter = ("region", "application_status")
+    list_filter = ("conference", "region", "application_status")
     actions = [bulk_waitlist_volunteers]
     resource_classes = [VolunteerProfileResource]
 
@@ -101,7 +102,13 @@ class PyladiesChapterAdmin(ImportExportModelAdmin):
     has_logo.short_description = "Has Logo"
 
 
+class TeamAdmin(admin.ModelAdmin):
+    list_display = ("short_name", "conference", "open_to_new_members")
+    list_filter = ("conference", "open_to_new_members")
+    search_fields = ("short_name", "description")
+
+
 admin.site.register(Role)
-admin.site.register(Team)
+admin.site.register(Team, TeamAdmin)
 admin.site.register(VolunteerProfile, VolunteerProfileAdmin)
 admin.site.register(Language)

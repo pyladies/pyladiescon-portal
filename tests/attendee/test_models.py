@@ -64,15 +64,15 @@ class TestPretixOrderModel:
 @pytest.mark.django_db
 class TestAttendeeProfileModel:
 
-    def test_attendee_profile_str_representation(self):
+    def test_attendee_profile_str_representation(self, conference):
         """Test string representation of AttendeeProfile."""
-        order = PretixOrder.objects.create(order_code="ORDER123")
+        order = PretixOrder.objects.create(order_code="ORDER123", conference=conference)
         profile = AttendeeProfile(order=order)
         assert str(profile) == "Profile for ORDER123"
 
-    def test_populate_from_pretix_data(self):
+    def test_populate_from_pretix_data(self, conference):
         """Test populating AttendeeProfile from pretix data."""
-        order = PretixOrder.objects.create(order_code="ORDER123")
+        order = PretixOrder.objects.create(order_code="ORDER123", conference=conference)
         profile = AttendeeProfile(order=order)
 
         # Create sample pretix data with demographic answers
@@ -149,9 +149,9 @@ class TestAttendeeProfileModel:
         assert profile.current_position == ["Student/Intern", "Other"]
         assert profile.raw_answers is not None
 
-    def test_populate_from_pretix_data_handles_missing_fields(self):
+    def test_populate_from_pretix_data_handles_missing_fields(self, conference):
         """Test that from_pretix_data handles missing fields gracefully."""
-        order = PretixOrder.objects.create(order_code="ORDER456")
+        order = PretixOrder.objects.create(order_code="ORDER456", conference=conference)
         profile = AttendeeProfile(order=order)
 
         # Pretix data with minimal answers
@@ -175,9 +175,9 @@ class TestAttendeeProfileModel:
         assert len(profile.current_position) == 0
         assert profile.raw_answers is not None
 
-    def test_populate_from_pretix_data_none_value_for_chapter(self):
+    def test_populate_from_pretix_data_none_value_for_chapter(self, conference):
         """Test populating AttendeeProfile with all demographic fields."""
-        order = PretixOrder.objects.create(order_code="ORDER123")
+        order = PretixOrder.objects.create(order_code="ORDER123", conference=conference)
         profile = AttendeeProfile(order=order)
 
         pretix_data = {
@@ -256,11 +256,7 @@ class TestAttendeeProfileModel:
 
 @pytest.mark.django_db
 class TestPretixOrderConferenceLink:
-    """Nullable conference FK added in multi-year Phase 2."""
-
-    def test_defaults_to_no_conference(self):
-        order = PretixOrder.objects.create(order_code="ORDER123")
-        assert order.conference is None
+    """Conference FK is required (non-null) as of multi-year Phase 4."""
 
     def test_links_to_conference(self, conference):
         order = PretixOrder.objects.create(order_code="ORDER123", conference=conference)

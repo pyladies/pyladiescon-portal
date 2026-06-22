@@ -1,3 +1,5 @@
+import unittest
+
 import pytest
 
 from attendee.models import (
@@ -45,10 +47,28 @@ def language(db):
     return Language.objects.create(code="en", name="English")
 
 
-@pytest.fixture
-def conference(db):
+@pytest.fixture(autouse=True)
+def conference(request):
+    """The active conference every year-bound record is scoped to.
+
+    Autouse so production paths calling ``Conference.get_active()`` resolve in
+    every test, and so inline model construction can request it by name. Tests
+    that manage their own Conference rows override this fixture locally (see
+    ``tests/portal/test_models.py``).
+
+    ``unittest.TestCase`` classes manage their own transactions, so this
+    db-backed row would leak across them and clash on the unique year; those
+    classes are skipped here and seed their own Conference in ``setUp``.
+    """
+    if request.cls is not None and issubclass(request.cls, unittest.TestCase):
+        return None
+    request.getfixturevalue("db")
     return Conference.objects.create(
-        year=2025, name="PyLadiesCon 2025", slug="2025", is_active=True
+        year=2025,
+        name="PyLadiesCon 2025",
+        slug="2025",
+        is_active=True,
+        pretix_event_slug="2025",
     )
 
 

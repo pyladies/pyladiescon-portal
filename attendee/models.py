@@ -102,14 +102,13 @@ ATTENDEE_FIELD_MAPPING = {
 
 
 class PretixOrder(BaseModel):
-    # Nullable while multi-year backfill is pending; resolved from event_slug
-    # matching Conference.pretix_event_slug in the Phase 3 data migration.
+    # Every order belongs to a conference edition, resolved from event_slug
+    # matching Conference.pretix_event_slug (Phase 3 backfilled existing rows;
+    # the webhook/fetch paths resolve it for new orders).
     # See docs/architecture/multi-year-conferences.md.
     conference = models.ForeignKey(
         "portal.Conference",
         on_delete=models.PROTECT,
-        null=True,
-        blank=True,
         related_name="pretix_orders",
     )
     order_code = models.CharField(max_length=100, unique=True)
@@ -132,6 +131,21 @@ class PretixOrder(BaseModel):
     def __str__(self):
         return self.order_code
 
+    @staticmethod
+    def resolve_conference(event_slug):
+        """Map a pretix event slug to its Conference.
+
+        Matches ``Conference.pretix_event_slug`` so a future year's orders land
+        on the right edition automatically; falls back to the active conference
+        when no edition declares that slug.
+        """
+        from portal.models import Conference
+
+        return (
+            Conference.objects.filter(pretix_event_slug=event_slug).first()
+            or Conference.get_active()
+        )
+
     def from_pretix_data(self, data):
         """Populate the PretixOrder instance from pretix order data."""
         if self.last_modified != data["last_modified"]:
@@ -144,6 +158,7 @@ class PretixOrder(BaseModel):
             self.datetime = data.get("datetime", None)
             self.last_modified = data.get("last_modified", None)
             self.event_slug = data["event"]
+            self.conference = self.resolve_conference(data["event"])
             self.set_name_from_data(data)
             self.set_is_anonymous_from_data(data)
             self.raw_data = data

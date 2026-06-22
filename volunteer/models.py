@@ -46,13 +46,11 @@ class Language(BaseModel):
 
 
 class Team(BaseModel):
-    # Nullable while multi-year backfill is pending; non-null after Phase 4.
+    # Every team belongs to a conference edition (backfilled in Phase 3).
     # See docs/architecture/multi-year-conferences.md.
     conference = models.ForeignKey(
         "portal.Conference",
         on_delete=models.PROTECT,
-        null=True,
-        blank=True,
         related_name="teams",
     )
     short_name = models.CharField("name", max_length=40)
@@ -108,15 +106,14 @@ class PyladiesChapter(BaseModel):
 
 
 class VolunteerProfile(BaseModel):
-    user = models.OneToOneField(User, on_delete=models.CASCADE)
-    # Nullable while multi-year backfill is pending; non-null after Phase 4,
-    # when user also becomes a ForeignKey with unique_together
-    # ("user", "conference"). See docs/architecture/multi-year-conferences.md.
+    # A user may volunteer once per conference edition, so user is a plain FK
+    # scoped by the ``("user", "conference")`` uniqueness in Meta below.
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    # Every profile belongs to a conference edition (backfilled in Phase 3).
+    # See docs/architecture/multi-year-conferences.md.
     conference = models.ForeignKey(
         "portal.Conference",
         on_delete=models.PROTECT,
-        null=True,
-        blank=True,
         related_name="volunteer_profiles",
     )
     roles = models.ManyToManyField(
@@ -285,6 +282,9 @@ class VolunteerProfile(BaseModel):
                         "Example: linkedin.com/in/username or https://www.linkedin.com/in/username."
                     }
                 )
+
+    class Meta:
+        unique_together = ("user", "conference")
 
     def __str__(self):
         return self.user.username

@@ -9,6 +9,7 @@ from .models import AttendeeProfile, PretixOrder
 class PretixOrderAdmin(admin.ModelAdmin):
     list_display = (
         "order_code",
+        "conference",
         "status",
         "email",
         "name",
@@ -19,7 +20,7 @@ class PretixOrderAdmin(admin.ModelAdmin):
         "url",
         "is_anonymous",
     )
-    list_filter = ("status", "is_anonymous")
+    list_filter = ("conference", "status", "is_anonymous")
     search_fields = ("order_code", "email", "name")
 
 

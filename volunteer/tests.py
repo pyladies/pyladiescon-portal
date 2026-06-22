@@ -1,11 +1,21 @@
+import pytest
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
 from django.test import TestCase
 
+from portal.models import Conference
 from volunteer.constants import Region
 from volunteer.models import VolunteerProfile
 
 # Create your tests here.
+
+
+@pytest.fixture(autouse=True)
+def conference():
+    """Override conftest's autouse fixture: this TestCase creates its own
+    Conference in setUp (which runs in the TestCase's own transaction), so the
+    shared db-backed fixture must not also insert a clashing 2025 row."""
+    return None
 
 
 class VolunteerProfileSocialMediaValidationTests(TestCase):
@@ -14,8 +24,16 @@ class VolunteerProfileSocialMediaValidationTests(TestCase):
         self.user = User.objects.create_user(
             username="testuser", email="test@example.com", password="testpassword"
         )
+        self.conference = Conference.objects.create(
+            year=2025,
+            name="PyLadiesCon 2025",
+            slug="2025",
+            is_active=True,
+            pretix_event_slug="2025",
+        )
         self.profile = VolunteerProfile(
             user=self.user,
+            conference=self.conference,
             region=Region.NORTH_AMERICA,
             discord_username="discorduser",
         )

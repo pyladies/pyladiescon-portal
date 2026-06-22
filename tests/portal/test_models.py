@@ -4,6 +4,14 @@ from portal.context_processors import active_conference
 from portal.models import Conference
 
 
+@pytest.fixture(autouse=True)
+def conference():
+    """Override the global autouse fixture: these tests create their own
+    Conference rows (specific years, active toggles), so no shared row is
+    seeded here."""
+    return None
+
+
 @pytest.mark.django_db
 class TestConferenceModel:
     def test_str(self):

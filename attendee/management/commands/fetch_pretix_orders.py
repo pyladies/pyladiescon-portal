@@ -19,7 +19,8 @@ class Command(BaseCommand):
         for order in pretix_wrapper.get_orders():
             order_code = order["code"]
             pretix_order, created = PretixOrder.objects.get_or_create(
-                order_code=order_code
+                order_code=order_code,
+                defaults={"conference": PretixOrder.resolve_conference(order["event"])},
             )
             pretix_order.from_pretix_data(order)
             pretix_order.save()
