@@ -261,7 +261,7 @@ class TestVolunteerProfileForm:
         elif not valid:
             assert "linkedin_url" in form.errors
 
-    def test_form_updates_existing_profile(self, portal_user, language):
+    def test_form_updates_existing_profile(self, portal_user, language, conference):
         """Test that form can update an existing profile."""
         other_language = Language.objects.create(code="es", name="Spanish")
         profile = VolunteerProfile.objects.create(
@@ -270,6 +270,7 @@ class TestVolunteerProfileForm:
             github_username="olduser",
             availability_hours_per_week=40,
             region=Region.NORTH_AMERICA,
+            conference=conference,
         )
         profile.language.add(language)
 
@@ -329,13 +330,14 @@ class TestVolunteerProfileForm:
         cleaned_data = form.clean()
         assert cleaned_data == form.cleaned_data
 
-    def test_form_init_with_instance(self, portal_user, language):
+    def test_form_init_with_instance(self, portal_user, language, conference):
         """Test form initialization with existing instance."""
         profile = VolunteerProfile.objects.create(
             user=portal_user,
             region=Region.NORTH_AMERICA,
             github_username="testuser",
             discord_username="testdiscord",
+            conference=conference,
         )
         profile.language.add(language)
 

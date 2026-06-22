@@ -37,7 +37,7 @@ from volunteer.models import VolunteerProfile
 @pytest.mark.django_db
 class TestGetStatsCachedValues:
 
-    def test_get_volunteer_signup_stat_cache(self):
+    def test_get_volunteer_signup_stat_cache(self, conference):
         """Test that the volunteer signup count is cached and returned correctly."""
 
         cache_key = CACHE_KEY_VOLUNTEER_SIGNUPS_COUNT
@@ -49,15 +49,17 @@ class TestGetStatsCachedValues:
 
         VolunteerProfile.objects.create(
             user=get_user_model().objects.create(username="testuser1"),
+            conference=conference,
         )
         VolunteerProfile.objects.create(
             user=get_user_model().objects.create(username="testuser2"),
+            conference=conference,
         )
 
         result = get_volunteer_signup_stat_cache()
         assert result == 2
 
-    def test_get_stats_cached_values(self):
+    def test_get_stats_cached_values(self, conference):
         """Test that the stats dictionary contains the volunteer signup count."""
 
         cache_key = CACHE_KEY_VOLUNTEER_SIGNUPS_COUNT
@@ -69,15 +71,19 @@ class TestGetStatsCachedValues:
 
         VolunteerProfile.objects.create(
             user=get_user_model().objects.create(username="testuser1"),
+            conference=conference,
         )
         VolunteerProfile.objects.create(
             user=get_user_model().objects.create(username="testuser2"),
+            conference=conference,
         )
 
         result = get_stats_cached_values()
         assert result.get(CACHE_KEY_VOLUNTEER_SIGNUPS_COUNT) == 2
 
-    def test_get_sponsorship_total_counts_stats_does_not_count_not_contacted(self):
+    def test_get_sponsorship_total_counts_stats_does_not_count_not_contacted(
+        self, conference
+    ):
         cache_key = CACHE_KEY_TOTAL_SPONSORSHIPS
         cache.delete(cache_key)
 
@@ -86,141 +92,164 @@ class TestGetStatsCachedValues:
         cache.delete(cache_key)
 
         SponsorshipProfile.objects.create(
-            organization_name="testorg1"
+            organization_name="testorg1",
+            conference=conference,
         )  # status is not contacted, is not counted
         SponsorshipProfile.objects.create(
             organization_name="testorg2",
             progress_status=SponsorshipProgressStatus.PAID.value,
+            conference=conference,
         )
         SponsorshipProfile.objects.create(
             organization_name="testorg3",
             progress_status=SponsorshipProgressStatus.INVOICED.value,
+            conference=conference,
         )
 
         result = get_sponsorship_total_count_stats_cache()
         assert result == 2
 
-    def test_get_sponsorship_paid_amount_stats_cache(self):
+    def test_get_sponsorship_paid_amount_stats_cache(self, conference):
         cache_key = CACHE_KEY_SPONSORSHIP_PAID
         cache.delete(cache_key)
 
         stats = get_stats_cached_values()
         assert stats[CACHE_KEY_SPONSORSHIP_PAID] == 0
         cache.delete(cache_key)
-        tier_1 = SponsorshipTier.objects.create(name="Tier 1", amount=1000)
+        tier_1 = SponsorshipTier.objects.create(
+            name="Tier 1", amount=1000, conference=conference
+        )
 
         SponsorshipProfile.objects.create(
             organization_name="testorg1",
             sponsorship_tier=tier_1,
             progress_status=SponsorshipProgressStatus.PAID.value,
+            conference=conference,
         )
         SponsorshipProfile.objects.create(
             organization_name="testorg2",
             sponsorship_tier=tier_1,
             progress_status=SponsorshipProgressStatus.PAID.value,
             sponsorship_override_amount=900,
+            conference=conference,
         )
 
         result = get_sponsorship_paid_amount_stats_cache()
         assert result == 1900
 
-    def test_get_sponsorship_pending_amount_stats_cache(self):
+    def test_get_sponsorship_pending_amount_stats_cache(self, conference):
         cache_key = CACHE_KEY_SPONSORSHIP_PENDING
         cache.delete(cache_key)
 
         stats = get_stats_cached_values()
         assert stats[CACHE_KEY_SPONSORSHIP_PENDING] == 0
         cache.delete(cache_key)
-        tier_1 = SponsorshipTier.objects.create(name="Tier 1", amount=1000)
+        tier_1 = SponsorshipTier.objects.create(
+            name="Tier 1", amount=1000, conference=conference
+        )
 
         SponsorshipProfile.objects.create(
             organization_name="testorg1",
             sponsorship_tier=tier_1,
             progress_status=SponsorshipProgressStatus.INVOICED.value,
+            conference=conference,
         )
         SponsorshipProfile.objects.create(
             organization_name="testorg2",
             sponsorship_tier=tier_1,
             progress_status=SponsorshipProgressStatus.INVOICED.value,
             sponsorship_override_amount=900,
+            conference=conference,
         )
 
         result = get_sponsorship_pending_amount_stats_cache()
         assert result == 1900
 
-    def test_get_sponsorship_committed_amount_stats_cache(self):
+    def test_get_sponsorship_committed_amount_stats_cache(self, conference):
         cache_key = CACHE_KEY_SPONSORSHIP_COMMITTED
         cache.delete(cache_key)
 
         stats = get_stats_cached_values()
         assert stats[CACHE_KEY_SPONSORSHIP_COMMITTED] == 0
         cache.delete(cache_key)
-        tier_1 = SponsorshipTier.objects.create(name="Tier 1", amount=1000)
+        tier_1 = SponsorshipTier.objects.create(
+            name="Tier 1", amount=1000, conference=conference
+        )
 
         SponsorshipProfile.objects.create(
             organization_name="testorg1",
             sponsorship_tier=tier_1,
             progress_status=SponsorshipProgressStatus.INVOICED.value,
+            conference=conference,
         )
         SponsorshipProfile.objects.create(
             organization_name="testorg2",
             sponsorship_tier=tier_1,
             progress_status=SponsorshipProgressStatus.PAID.value,
             sponsorship_override_amount=900,
+            conference=conference,
         )
 
         result = get_sponsorship_committed_amount_stats_cache()
         assert result == 1900
 
-    def test_get_sponsorship_pending_count_stats_cache(self):
+    def test_get_sponsorship_pending_count_stats_cache(self, conference):
         cache_key = CACHE_KEY_SPONSORSHIP_PENDING_COUNT
         cache.delete(cache_key)
 
         stats = get_stats_cached_values()
         assert stats[CACHE_KEY_SPONSORSHIP_PENDING_COUNT] == 0
         cache.delete(cache_key)
-        tier_1 = SponsorshipTier.objects.create(name="Tier 1", amount=1000)
+        tier_1 = SponsorshipTier.objects.create(
+            name="Tier 1", amount=1000, conference=conference
+        )
 
         SponsorshipProfile.objects.create(
             organization_name="testorg1",
             sponsorship_tier=tier_1,
             progress_status=SponsorshipProgressStatus.INVOICED.value,
+            conference=conference,
         )
         SponsorshipProfile.objects.create(
             organization_name="testorg2",
             sponsorship_tier=tier_1,
             progress_status=SponsorshipProgressStatus.INVOICED.value,
             sponsorship_override_amount=900,
+            conference=conference,
         )
 
         result = get_sponsorship_pending_count_stats_cache()
         assert result == 2
 
-    def test_get_sponsorship_committed_count_stats_cache(self):
+    def test_get_sponsorship_committed_count_stats_cache(self, conference):
         cache_key = CACHE_KEY_SPONSORSHIP_COMMITTED_COUNT
         cache.delete(cache_key)
 
         stats = get_stats_cached_values()
         assert stats[CACHE_KEY_SPONSORSHIP_COMMITTED_COUNT] == 0
         cache.delete(cache_key)
-        tier_1 = SponsorshipTier.objects.create(name="Tier 1", amount=1000)
+        tier_1 = SponsorshipTier.objects.create(
+            name="Tier 1", amount=1000, conference=conference
+        )
 
         SponsorshipProfile.objects.create(
             organization_name="testorg1",
             sponsorship_tier=tier_1,
             progress_status=SponsorshipProgressStatus.INVOICED.value,
+            conference=conference,
         )
         SponsorshipProfile.objects.create(
             organization_name="testorg2",
             sponsorship_tier=tier_1,
             progress_status=SponsorshipProgressStatus.PAID.value,
             sponsorship_override_amount=900,
+            conference=conference,
         )
 
         result = get_sponsorship_committed_count_stats_cache()
         assert result == 2
 
-    def test_get_sponsorship_paid_percent_cache(self):
+    def test_get_sponsorship_paid_percent_cache(self, conference):
         cache_key = CACHE_KEY_SPONSORSHIP_PAID_PERCENT
         cache.delete(cache_key)
 
@@ -228,22 +257,26 @@ class TestGetStatsCachedValues:
         assert stats == 0
         cache.delete(cache_key)
 
-        tier_1 = SponsorshipTier.objects.create(name="Tier 1", amount=1000)
+        tier_1 = SponsorshipTier.objects.create(
+            name="Tier 1", amount=1000, conference=conference
+        )
         SponsorshipProfile.objects.create(
             organization_name="testorg1",
             sponsorship_tier=tier_1,
             progress_status=SponsorshipProgressStatus.PAID,
+            conference=conference,
         )
         SponsorshipProfile.objects.create(
             organization_name="testorg2",
             sponsorship_tier=tier_1,
             progress_status=SponsorshipProgressStatus.INVOICED,
+            conference=conference,
         )
 
         result = get_sponsorship_paid_percent_cache()
         assert result == 50
 
-    def test_get_sponsorship_to_goal_percent_cache(self):
+    def test_get_sponsorship_to_goal_percent_cache(self, conference):
         cache_key = CACHE_KEY_SPONSORSHIP_TOWARDS_GOAL_PERCENT
         cache.delete(cache_key)
 
@@ -251,21 +284,26 @@ class TestGetStatsCachedValues:
         assert stats == 0
         cache.delete(cache_key)
 
-        tier_1 = SponsorshipTier.objects.create(name="Tier 1", amount=1000)
+        tier_1 = SponsorshipTier.objects.create(
+            name="Tier 1", amount=1000, conference=conference
+        )
         SponsorshipProfile.objects.create(
             organization_name="testorg1",
             sponsorship_tier=tier_1,
             progress_status=SponsorshipProgressStatus.PAID,
+            conference=conference,
         )
         SponsorshipProfile.objects.create(
             organization_name="testorg2",
             sponsorship_tier=tier_1,
             progress_status=SponsorshipProgressStatus.PAID,
+            conference=conference,
         )
         SponsorshipProfile.objects.create(
             organization_name="testorg3",
             sponsorship_tier=tier_1,
             progress_status=SponsorshipProgressStatus.PAID,
+            conference=conference,
         )
 
         result = get_sponsorship_to_goal_percent_cache()
@@ -276,7 +314,7 @@ class TestGetStatsCachedValues:
 class TestAttendeeStats:
     """Test attendee statistics functions."""
 
-    def test_attendee_breakdown_with_profiles(self):
+    def test_attendee_breakdown_with_profiles(self, conference):
         """Test attendee breakdown with various demographic data."""
         from portal.common import get_attendee_breakdown
 
@@ -285,6 +323,7 @@ class TestAttendeeStats:
             order_code="ORDER1",
             status=PretixOrderstatus.PAID,
             email="test1@example.com",
+            conference=conference,
         )
         AttendeeProfile.objects.create(
             order=order1,
@@ -305,6 +344,7 @@ class TestAttendeeStats:
             order_code="ORDER2",
             status=PretixOrderstatus.PAID,
             email="test2@example.com",
+            conference=conference,
         )
         AttendeeProfile.objects.create(
             order=order2,
@@ -325,6 +365,7 @@ class TestAttendeeStats:
             order_code="ORDER3",
             status=PretixOrderstatus.PAID,
             email="test3@example.com",
+            conference=conference,
         )
         AttendeeProfile.objects.create(
             order=order3,

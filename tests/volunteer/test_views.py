@@ -27,8 +27,8 @@ class TestVolunteer:
         assert response.status_code == 200
         assert response.context["profile"] is None
 
-    def test_volunteer_profile_view_with_profile(self, client, portal_user):
-        profile = VolunteerProfile(user=portal_user)
+    def test_volunteer_profile_view_with_profile(self, client, portal_user, conference):
+        profile = VolunteerProfile(user=portal_user, conference=conference)
         profile.save()
 
         client.force_login(portal_user)
@@ -37,8 +37,10 @@ class TestVolunteer:
         assert response.context["profile"] == profile
         assert response.status_code == 200
 
-    def test_volunteer_profile_update_own_profile(self, client, portal_user):
-        profile = VolunteerProfile(user=portal_user)
+    def test_volunteer_profile_update_own_profile(
+        self, client, portal_user, conference
+    ):
+        profile = VolunteerProfile(user=portal_user, conference=conference)
         profile.save()
         client.force_login(portal_user)
         response = client.get(
@@ -47,12 +49,14 @@ class TestVolunteer:
         assert response.status_code == 200
 
     def test_volunteer_profile_cannot_edit_other_profile(
-        self, client, portal_user, django_user_model
+        self, client, portal_user, django_user_model, conference
     ):
         another_user = django_user_model.objects.create_user(
             username="other",
         )
-        another_profile = VolunteerProfile.objects.create(user=another_user)
+        another_profile = VolunteerProfile.objects.create(
+            user=another_user, conference=conference
+        )
 
         client.force_login(portal_user)
         response = client.get(
@@ -74,13 +78,14 @@ class TestVolunteer:
         response = client.get(reverse("volunteer:volunteer_profile_new"))
         assert response.status_code == 200
 
-    def test_volunteer_profile_teams_available(self, client, portal_user):
+    def test_volunteer_profile_teams_available(self, client, portal_user, conference):
         """Display team list if there are teams that are still accepting new members."""
 
         team = Team(
             short_name="Test Team",
             description="Test Description",
             open_to_new_members=True,
+            conference=conference,
         )
         team.save()
 
@@ -90,7 +95,9 @@ class TestVolunteer:
 
         assert team.short_name in str(response.content)
 
-    def test_volunteer_profile_teams_not_available(self, client, portal_user):
+    def test_volunteer_profile_teams_not_available(
+        self, client, portal_user, conference
+    ):
         """Display a warning message that we are on waitlist mode.
 
         If there is a team but is not accepting new member, then the team is not available.
@@ -102,6 +109,7 @@ class TestVolunteer:
             short_name="Test Team",
             description="Test Description",
             open_to_new_members=False,
+            conference=conference,
         )
         team.save()
 
@@ -112,8 +120,10 @@ class TestVolunteer:
         assert team.short_name not in str(response.content)
         assert "You will be waitlisted." in str(response.content)
 
-    def test_volunteer_profile_cannot_create_if_exists(self, client, portal_user):
-        profile = VolunteerProfile(user=portal_user)
+    def test_volunteer_profile_cannot_create_if_exists(
+        self, client, portal_user, conference
+    ):
+        profile = VolunteerProfile(user=portal_user, conference=conference)
         profile.region = Region.NORTH_AMERICA
         profile.save()
 
@@ -122,12 +132,12 @@ class TestVolunteer:
         assertRedirects(response, reverse("volunteer:index"))
 
     def test_volunteer_profile_cannot_view_other_profile(
-        self, client, portal_user, django_user_model
+        self, client, portal_user, django_user_model, conference
     ):
         another_user = django_user_model.objects.create_user(
             username="other",
         )
-        another_profile = VolunteerProfile(user=another_user)
+        another_profile = VolunteerProfile(user=another_user, conference=conference)
         another_profile.region = Region.NORTH_AMERICA
         another_profile.save()
 
@@ -139,8 +149,8 @@ class TestVolunteer:
         )
         assertRedirects(response, reverse("volunteer:index"))
 
-    def test_volunteer_profile_view_own_profile(self, client, portal_user):
-        profile = VolunteerProfile(user=portal_user)
+    def test_volunteer_profile_view_own_profile(self, client, portal_user, conference):
+        profile = VolunteerProfile(user=portal_user, conference=conference)
         profile.region = Region.NORTH_AMERICA
         profile.save()
         client.force_login(portal_user)
@@ -159,12 +169,12 @@ class TestVolunteer:
         assertRedirects(response, reverse("volunteer:index"))
 
     def test_volunteer_profile_view_staff_can_view_other_profile(
-        self, client, portal_user, django_user_model
+        self, client, portal_user, django_user_model, conference
     ):
         another_user = django_user_model.objects.create_user(
             username="other",
         )
-        another_profile = VolunteerProfile(user=another_user)
+        another_profile = VolunteerProfile(user=another_user, conference=conference)
         another_profile.region = Region.NORTH_AMERICA
         another_profile.save()
 
@@ -223,13 +233,13 @@ class TestVolunteer:
             profile.availability_hours_per_week == data["availability_hours_per_week"]
         )
 
-    def test_edit_volunteer_profile_form_submit(self, client, portal_user):
+    def test_edit_volunteer_profile_form_submit(self, client, portal_user, conference):
         language = Language.objects.create(code="en", name="English")
         client.force_login(portal_user)
         chapter = PyladiesChapter.objects.create(
             chapter_name="vancouver", chapter_description="Vancouver, Canada"
         )
-        profile = VolunteerProfile(user=portal_user)
+        profile = VolunteerProfile(user=portal_user, conference=conference)
         profile.region = Region.NORTH_AMERICA
         profile.discord_username = "blabla"
         profile.availability_hours_per_week = 20
@@ -273,13 +283,17 @@ class TestVolunteer:
             profile.availability_hours_per_week == data["availability_hours_per_week"]
         )
 
-    def test_redirect_when_teams_exist(self, client, portal_user):
-        profile = VolunteerProfile(user=portal_user)
+    def test_redirect_when_teams_exist(self, client, portal_user, conference):
+        profile = VolunteerProfile(user=portal_user, conference=conference)
         profile.save()
         portal_user.is_superuser = True
         portal_user.save()
 
-        team = Team(short_name="Test Team", description="Test Description")
+        team = Team(
+            short_name="Test Team",
+            description="Test Description",
+            conference=conference,
+        )
         team.save()
         team.team_leads.add(profile)
 
@@ -291,8 +305,8 @@ class TestVolunteer:
         assert response.status_code == 200
         assert response_data.short_name == team.short_name
 
-    def test_redirect_when_teams_does_not_exist(self, client, portal_user):
-        profile = VolunteerProfile(user=portal_user)
+    def test_redirect_when_teams_does_not_exist(self, client, portal_user, conference):
+        profile = VolunteerProfile(user=portal_user, conference=conference)
         profile.save()
         portal_user.is_superuser = True
         portal_user.save()
@@ -315,12 +329,12 @@ class TestManageVolunteers:
         assert response.status_code == 403
 
     def test_manage_volunteers_view_is_superuser(
-        self, client, portal_user, django_user_model
+        self, client, portal_user, django_user_model, conference
     ):
         another_user = django_user_model.objects.create_user(
             username="other",
         )
-        another_profile = VolunteerProfile(user=another_user)
+        another_profile = VolunteerProfile(user=another_user, conference=conference)
         another_profile.save()
 
         portal_user.is_superuser = True
@@ -332,12 +346,12 @@ class TestManageVolunteers:
         assert response.status_code == 200
 
     def test_manage_volunteers_view_is_staff(
-        self, client, portal_user, django_user_model
+        self, client, portal_user, django_user_model, conference
     ):
         another_user = django_user_model.objects.create_user(
             username="other",
         )
-        another_profile = VolunteerProfile(user=another_user)
+        another_profile = VolunteerProfile(user=another_user, conference=conference)
         another_profile.save()
 
         portal_user.is_staff = True
@@ -348,21 +362,27 @@ class TestManageVolunteers:
         response = client.get(url)
         assert response.status_code == 200
 
-    def test_manage_volunteers_table(self, client, portal_user, django_user_model):
+    def test_manage_volunteers_table(
+        self, client, portal_user, django_user_model, conference
+    ):
         from volunteer.views import (
             VolunteerProfileTable,
         )
 
-        profile = VolunteerProfile(user=portal_user)
+        profile = VolunteerProfile(user=portal_user, conference=conference)
         profile.save()
 
         another_user = django_user_model.objects.create_user(
             username="other",
         )
-        another_profile = VolunteerProfile(user=another_user)
+        another_profile = VolunteerProfile(user=another_user, conference=conference)
         another_profile.save()
 
-        team = Team(short_name="Test Team", description="Test Team Description")
+        team = Team(
+            short_name="Test Team",
+            description="Test Team Description",
+            conference=conference,
+        )
         team.save()
         team.team_leads.add(another_profile)
 
@@ -441,22 +461,26 @@ class TestManageVolunteers:
         assert "Manage" in action_button
 
     def test_render_teams_with_multiple_teams(
-        self, client, portal_user, django_user_model
+        self, client, portal_user, django_user_model, conference
     ):
         """Test that multiple teams are rendered correctly with links."""
-        profile = VolunteerProfile(user=portal_user)
+        profile = VolunteerProfile(user=portal_user, conference=conference)
         profile.save()
 
         another_user = django_user_model.objects.create_user(
             username="other",
         )
-        another_profile = VolunteerProfile(user=another_user)
+        another_profile = VolunteerProfile(user=another_user, conference=conference)
         another_profile.save()
 
         # Create multiple teams
-        team1 = Team(short_name="Team 1", description="First Team")
+        team1 = Team(
+            short_name="Team 1", description="First Team", conference=conference
+        )
         team1.save()
-        team2 = Team(short_name="Team 2", description="Second Team")
+        team2 = Team(
+            short_name="Team 2", description="Second Team", conference=conference
+        )
         team2.save()
 
         # Add both teams to profile
@@ -486,9 +510,9 @@ class TestManageVolunteers:
             in team_render
         )
 
-    def test_render_teams_with_no_teams(self, client, portal_user):
+    def test_render_teams_with_no_teams(self, client, portal_user, conference):
         """Test that profiles with no teams render empty string."""
-        profile = VolunteerProfile(user=portal_user)
+        profile = VolunteerProfile(user=portal_user, conference=conference)
         profile.save()
 
         portal_user.is_superuser = True
@@ -504,12 +528,16 @@ class TestManageVolunteers:
         # Should return empty string when no teams
         assert team_render == ""
 
-    def test_team_badge_links_are_clickable(self, client, portal_user):
+    def test_team_badge_links_are_clickable(self, client, portal_user, conference):
         """Test that team badges contain proper href attributes."""
-        profile = VolunteerProfile(user=portal_user)
+        profile = VolunteerProfile(user=portal_user, conference=conference)
         profile.save()
 
-        team = Team(short_name="Test Team", description="Test Description")
+        team = Team(
+            short_name="Test Team",
+            description="Test Description",
+            conference=conference,
+        )
         team.save()
         profile.teams.add(team)
         profile.save()
@@ -529,20 +557,22 @@ class TestManageVolunteers:
         assert reverse("team_detail", kwargs={"pk": team.pk}) in team_render
         assert "badge bg-secondary" in team_render
 
-    def test_filter_volunteers_table(self, client, portal_user, django_user_model):
+    def test_filter_volunteers_table(
+        self, client, portal_user, django_user_model, conference
+    ):
         # importing here inline instead of top of the file because it needs the mark.django_db decorator
         from volunteer.views import VolunteerProfileFilter
 
         language = Language.objects.create(code="en", name="English")
 
-        profile = VolunteerProfile(user=portal_user)
+        profile = VolunteerProfile(user=portal_user, conference=conference)
         profile.save()
         profile.language.add(language)
 
         another_user = django_user_model.objects.create_user(
             username="other",
         )
-        another_profile = VolunteerProfile(user=another_user)
+        another_profile = VolunteerProfile(user=another_user, conference=conference)
         another_profile.save()
         another_profile.language.add(language)
 
@@ -578,12 +608,12 @@ class TestManageVolunteers:
 class TestManageVolunteerApplications:
 
     def test_review_volunteers_view_forbidden_if_not_superuser(
-        self, client, portal_user, django_user_model
+        self, client, portal_user, django_user_model, conference
     ):
         another_user = django_user_model.objects.create_user(
             username="other",
         )
-        another_profile = VolunteerProfile(user=another_user)
+        another_profile = VolunteerProfile(user=another_user, conference=conference)
         another_profile.save()
 
         client.force_login(portal_user)
@@ -595,12 +625,12 @@ class TestManageVolunteerApplications:
         assert response.status_code == 403
 
     def test_review_volunteers_view_is_superuser(
-        self, client, portal_user, django_user_model
+        self, client, portal_user, django_user_model, conference
     ):
         another_user = django_user_model.objects.create_user(
             username="other",
         )
-        another_profile = VolunteerProfile(user=another_user)
+        another_profile = VolunteerProfile(user=another_user, conference=conference)
         another_profile.save()
 
         portal_user.is_superuser = True
@@ -615,12 +645,12 @@ class TestManageVolunteerApplications:
         assert response.status_code == 200
 
     def test_manage_volunteers_view_is_staff(
-        self, client, portal_user, django_user_model
+        self, client, portal_user, django_user_model, conference
     ):
         another_user = django_user_model.objects.create_user(
             username="other",
         )
-        another_profile = VolunteerProfile(user=another_user)
+        another_profile = VolunteerProfile(user=another_user, conference=conference)
         another_profile.save()
 
         portal_user.is_staff = True
@@ -635,21 +665,25 @@ class TestManageVolunteerApplications:
         assert response.status_code == 200
 
     def test_approve_volunteer_profile_valid_data(
-        self, client, portal_user, django_user_model
+        self, client, portal_user, django_user_model, conference
     ):
-        profile = VolunteerProfile(user=portal_user)
+        profile = VolunteerProfile(user=portal_user, conference=conference)
         profile.save()
 
         another_user = django_user_model.objects.create_user(
             username="other",
         )
-        another_profile = VolunteerProfile(user=another_user)
+        another_profile = VolunteerProfile(user=another_user, conference=conference)
         another_profile.save()
 
         portal_user.is_superuser = True
         portal_user.save()
 
-        team = Team(short_name="Test Team", description="Test Description")
+        team = Team(
+            short_name="Test Team",
+            description="Test Description",
+            conference=conference,
+        )
         team.save()
         team.team_leads.add(profile)
 
@@ -676,15 +710,15 @@ class TestManageVolunteerApplications:
         assert another_profile.roles.first().short_name == role.short_name
 
     def test_approve_volunteer_profile_data_not_valid(
-        self, client, portal_user, django_user_model
+        self, client, portal_user, django_user_model, conference
     ):
-        profile = VolunteerProfile(user=portal_user)
+        profile = VolunteerProfile(user=portal_user, conference=conference)
         profile.save()
 
         another_user = django_user_model.objects.create_user(
             username="other",
         )
-        another_profile = VolunteerProfile(user=another_user)
+        another_profile = VolunteerProfile(user=another_user, conference=conference)
         another_profile.save()
 
         portal_user.is_superuser = True
@@ -710,17 +744,17 @@ class TestManageVolunteerApplications:
         assert another_profile.roles.count() == 0
 
     def test_resend_onboarding_email_if_approved(
-        self, client, portal_user, django_user_model
+        self, client, portal_user, django_user_model, conference
     ):
         language = Language.objects.create(code="en", name="English")
-        profile = VolunteerProfile(user=portal_user)
+        profile = VolunteerProfile(user=portal_user, conference=conference)
         profile.save()
         profile.language.add(language)
 
         another_user = django_user_model.objects.create_user(
             username="other",
         )
-        another_profile = VolunteerProfile(user=another_user)
+        another_profile = VolunteerProfile(user=another_user, conference=conference)
         another_profile.application_status = ApplicationStatus.APPROVED
         another_profile.save()
         another_profile.language.add(language)
@@ -749,17 +783,17 @@ class TestManageVolunteerApplications:
         ],
     )
     def test_resend_onboarding_email_not_sent_if_not_approved(
-        self, client, portal_user, django_user_model, application_status
+        self, client, portal_user, django_user_model, application_status, conference
     ):
         language = Language.objects.create(code="en", name="English")
-        profile = VolunteerProfile(user=portal_user)
+        profile = VolunteerProfile(user=portal_user, conference=conference)
         profile.save()
         profile.language.add(language)
 
         another_user = django_user_model.objects.create_user(
             username="other",
         )
-        another_profile = VolunteerProfile(user=another_user)
+        another_profile = VolunteerProfile(user=another_user, conference=conference)
         another_profile.application_status = application_status
         another_profile.save()
         another_profile.language.add(language)
@@ -801,15 +835,19 @@ class TestManageVolunteerApplications:
 class TestCancelVolunteering:
 
     def test_cancel_volunteering_by_volunteer_themselves(
-        self, client, portal_user, django_user_model
+        self, client, portal_user, django_user_model, conference
     ):
         """Test that volunteers can cancel their own application."""
-        profile = VolunteerProfile(user=portal_user)
+        profile = VolunteerProfile(user=portal_user, conference=conference)
         profile.application_status = ApplicationStatus.APPROVED
         profile.save()
 
         # Create a team and add volunteer to it
-        team = Team(short_name="Test Team", description="Test Description")
+        team = Team(
+            short_name="Test Team",
+            description="Test Description",
+            conference=conference,
+        )
         team.save()
         profile.teams.add(team)
 
@@ -834,15 +872,21 @@ class TestCancelVolunteering:
             in messages[0].message
         )
 
-    def test_cancel_volunteering_by_staff(self, client, portal_user, django_user_model):
+    def test_cancel_volunteering_by_staff(
+        self, client, portal_user, django_user_model, conference
+    ):
         """Test that staff can cancel volunteer applications."""
         volunteer_user = django_user_model.objects.create_user(username="volunteer")
-        profile = VolunteerProfile(user=volunteer_user)
+        profile = VolunteerProfile(user=volunteer_user, conference=conference)
         profile.application_status = ApplicationStatus.APPROVED
         profile.save()
 
         # Create a team and add volunteer to it
-        team = Team(short_name="Test Team", description="Test Description")
+        team = Team(
+            short_name="Test Team",
+            description="Test Description",
+            conference=conference,
+        )
         team.save()
         profile.teams.add(team)
 
@@ -864,11 +908,11 @@ class TestCancelVolunteering:
         assert profile.teams.count() == 0
 
     def test_cancel_volunteering_permission_denied(
-        self, client, portal_user, django_user_model
+        self, client, portal_user, django_user_model, conference
     ):
         """Test that users cannot cancel other users' applications without permission."""
         volunteer_user = django_user_model.objects.create_user(username="volunteer")
-        profile = VolunteerProfile(user=volunteer_user)
+        profile = VolunteerProfile(user=volunteer_user, conference=conference)
         profile.application_status = ApplicationStatus.APPROVED
         profile.save()
 
@@ -882,9 +926,11 @@ class TestCancelVolunteering:
         profile.refresh_from_db()
         assert profile.application_status == ApplicationStatus.APPROVED
 
-    def test_cancel_already_cancelled_application(self, client, portal_user):
+    def test_cancel_already_cancelled_application(
+        self, client, portal_user, conference
+    ):
         """Test that cancelling an already cancelled application shows warning."""
-        profile = VolunteerProfile(user=portal_user)
+        profile = VolunteerProfile(user=portal_user, conference=conference)
         profile.application_status = ApplicationStatus.CANCELLED
         profile.save()
 
@@ -913,11 +959,11 @@ class TestCancelVolunteering:
         assert response.status_code == 403
 
     def test_cancel_volunteering_with_team_leads(
-        self, client, portal_user, django_user_model
+        self, client, portal_user, django_user_model, conference
     ):
         """Test that cancelling volunteering sends notifications to team leads."""
         # Create volunteer
-        profile = VolunteerProfile(user=portal_user)
+        profile = VolunteerProfile(user=portal_user, conference=conference)
         profile.application_status = ApplicationStatus.APPROVED
         profile.save()
 
@@ -925,11 +971,15 @@ class TestCancelVolunteering:
         team_lead_user = django_user_model.objects.create_user(
             username="teamlead", email="teamlead@example.com"
         )
-        team_lead_profile = VolunteerProfile(user=team_lead_user)
+        team_lead_profile = VolunteerProfile(user=team_lead_user, conference=conference)
         team_lead_profile.save()
 
         # Create team with lead
-        team = Team(short_name="Test Team", description="Test Description")
+        team = Team(
+            short_name="Test Team",
+            description="Test Description",
+            conference=conference,
+        )
         team.save()
         team.team_leads.add(team_lead_profile)
         profile.teams.add(team)
@@ -943,10 +993,10 @@ class TestCancelVolunteering:
         assert profile.teams.count() == 0
 
     def test_cancel_volunteering_generic_exception(
-        self, client, portal_user, monkeypatch
+        self, client, portal_user, monkeypatch, conference
     ):
         """Test the generic exception handler in cancel volunteering."""
-        profile = VolunteerProfile(user=portal_user)
+        profile = VolunteerProfile(user=portal_user, conference=conference)
         profile.application_status = ApplicationStatus.APPROVED
         profile.save()
 
@@ -973,7 +1023,7 @@ class TestCancelVolunteering:
         assert "An error occurred while cancelling:" in messages[0].message
 
     def test_volunteer_table_render_actions_approved_branch(
-        self, portal_user, django_user_model
+        self, portal_user, django_user_model, conference
     ):
         """Test the render_actions method specifically for APPROVED status to ensure branch coverage."""
         import uuid
@@ -984,7 +1034,7 @@ class TestCancelVolunteering:
         another_user = django_user_model.objects.create_user(
             username=f"testuser_{uuid.uuid4().hex[:8]}"
         )
-        profile = VolunteerProfile(user=another_user)
+        profile = VolunteerProfile(user=another_user, conference=conference)
         profile.application_status = ApplicationStatus.APPROVED
         profile.save()
 
@@ -1002,7 +1052,7 @@ class TestCancelVolunteering:
         assert "volunteer_profile_manage" in result
 
     def test_volunteer_table_render_actions_edge_cases(
-        self, portal_user, django_user_model
+        self, portal_user, django_user_model, conference
     ):
         """Test render_actions with different application statuses to ensure full branch coverage."""
         import uuid
@@ -1015,7 +1065,7 @@ class TestCancelVolunteering:
         user1 = django_user_model.objects.create_user(
             username=f"user_rejected_{uuid.uuid4().hex[:8]}"
         )
-        profile1 = VolunteerProfile(user=user1)
+        profile1 = VolunteerProfile(user=user1, conference=conference)
         profile1.application_status = ApplicationStatus.REJECTED
         profile1.save()
 
@@ -1026,7 +1076,7 @@ class TestCancelVolunteering:
         user2 = django_user_model.objects.create_user(
             username=f"user_cancelled_{uuid.uuid4().hex[:8]}"
         )
-        profile2 = VolunteerProfile(user=user2)
+        profile2 = VolunteerProfile(user=user2, conference=conference)
         profile2.application_status = ApplicationStatus.CANCELLED
         profile2.save()
 

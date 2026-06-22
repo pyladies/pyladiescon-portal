@@ -73,17 +73,35 @@ Notes:
 
 ## Phase 4 — Tighten constraints
 
-- [ ] Make `conference` non-null on all affected models.
-- [ ] Change `VolunteerProfile.user` from `OneToOneField` to `ForeignKey`.
-- [ ] Add `unique_together = ("user", "conference")` to `VolunteerProfile`.
+- [x] Make `conference` non-null on all affected models
+      (`volunteer/0014`, `sponsorship/0010`, `attendee/0005`).
+- [x] Change `VolunteerProfile.user` from `OneToOneField` to `ForeignKey`.
+- [x] Add `unique_together = ("user", "conference")` to `VolunteerProfile`.
 - [ ] Pause for review before merging — riskiest step.
+
+Notes:
+- Non-null forced the creation paths to assign a conference now, not later:
+  volunteer/sponsorship forms use `Conference.get_active()`; the pretix
+  webhook and `fetch_pretix_orders` resolve it via
+  `PretixOrder.resolve_conference(event_slug)` (slug match, active fallback);
+  `generate_sample_data` seeds and scopes to an active 2025 edition.
+- Caught a regression: the `SponsorshipProfileResource` CSV import silently
+  failed the new non-null FK — fixed in `before_save_instance` (assigns the
+  active conference). The `VolunteerProfileResource` import was already
+  vacuous (its `user__*` rows don't persist), so it's deferred to Phase 5.
+- Admin visibility added early (subset of Phase 5): `conference` column +
+  list filter on every affected model's admin; `Team` gained a `ModelAdmin`;
+  `SponsorshipProfileAdmin.fields` now includes `conference`.
+- Tests: autouse `conference` fixture in `conftest.py` (skips
+  `unittest.TestCase` classes, which seed their own). 372 pass, 100% cov.
 
 ## Phase 5 — Admin and import/export
 
 - [ ] Add `conference` to `VolunteerProfileResource`, default list filter
       to active conference.
-- [ ] Add `conference` to `SponsorshipProfileResource`, default list filter
-      to active conference.
+- [~] Add `conference` to `SponsorshipProfileResource`, default list filter
+      to active conference. (List filter + import-time assignment done in
+      Phase 4; explicit `conference` import/export column still TODO.)
 - [ ] Add `conference` to `AttendeeProfileResource`.
 - [ ] Verify existing CSV exports still work and gain a `conference` column.
 

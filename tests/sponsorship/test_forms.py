@@ -86,10 +86,12 @@ class TestSponsorshipProfileForm:
         profile = form.save()
         assert profile.user is None
 
-    def test_fields_are_saved(self, form_data, admin_user):
+    def test_fields_are_saved(self, form_data, admin_user, conference):
         """Test that all fields are saved correctly."""
 
-        tier = SponsorshipTier.objects.create(name="Gold", amount=5000)
+        tier = SponsorshipTier.objects.create(
+            name="Gold", amount=5000, conference=conference
+        )
         form_data.update(
             {
                 "sponsor_contact_name": "John Doe",

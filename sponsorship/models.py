@@ -20,13 +20,11 @@ class SponsorshipProgressStatus(models.IntegerChoices):
 
 
 class SponsorshipTier(BaseModel):
-    # Nullable while multi-year backfill is pending; non-null after Phase 4.
+    # Every tier belongs to a conference edition (backfilled in Phase 3).
     # See docs/architecture/multi-year-conferences.md.
     conference = models.ForeignKey(
         "portal.Conference",
         on_delete=models.PROTECT,
-        null=True,
-        blank=True,
         related_name="sponsorship_tiers",
     )
     name = models.CharField(max_length=100)  # "Championship", "Supporter", etc.
@@ -39,13 +37,11 @@ class SponsorshipTier(BaseModel):
 
 class SponsorshipProfile(BaseModel):
 
-    # Nullable while multi-year backfill is pending; non-null after Phase 4.
+    # Every profile belongs to a conference edition (backfilled in Phase 3).
     # See docs/architecture/multi-year-conferences.md.
     conference = models.ForeignKey(
         "portal.Conference",
         on_delete=models.PROTECT,
-        null=True,
-        blank=True,
         related_name="sponsorship_profiles",
     )
     user = models.ForeignKey(
@@ -100,13 +96,11 @@ class SponsorshipProfile(BaseModel):
 class IndividualDonation(BaseModel):
     """Representation of Individual Donations coming in from PSF CivicCRM platform."""
 
-    # Nullable while multi-year backfill is pending; non-null after Phase 4.
+    # Every donation belongs to a conference edition (backfilled in Phase 3).
     # See docs/architecture/multi-year-conferences.md.
     conference = models.ForeignKey(
         "portal.Conference",
         on_delete=models.PROTECT,
-        null=True,
-        blank=True,
         related_name="individual_donations",
     )
     transaction_id = models.CharField(max_length=100, unique=True)
