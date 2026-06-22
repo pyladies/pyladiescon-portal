@@ -1,11 +1,13 @@
 import pytest
 from django.conf import settings
 from django.contrib.admin.sites import AdminSite
+from django.contrib.auth.models import User
 from django.core import mail
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
 from tablib import Dataset
 
+from portal.models import Conference
 from volunteer.admin import PyladiesChapterAdmin, VolunteerProfileResource
 from volunteer.constants import ApplicationStatus
 from volunteer.models import PyladiesChapter, VolunteerProfile
@@ -140,3 +142,66 @@ class TestVolunteerImportExport:
         assert len(mail.outbox) == 0  # no email
         resource.import_data(dataset, dry_run=True)
         assert len(mail.outbox) == 0  # no email
+
+    def test_export_includes_conference_year(self, conference):
+        user = User.objects.create_user("exp_vol", email="exp@example.com")
+        VolunteerProfile.objects.create(
+            user=user, conference=conference, discord_username="d"
+        )
+        dataset = VolunteerProfileResource().export()
+        assert "conference" in dataset.headers
+        idx = dataset.headers.index("conference")
+        assert str(dataset[0][idx]) == str(conference.year)
+
+
+@pytest.mark.django_db
+class TestActiveConferenceFilter:
+    """The conference list filter defaults the changelist to the active edition."""
+
+    def _changelist_queryset(self, client, admin_user, query=""):
+        client.force_login(admin_user)
+        url = reverse("admin:volunteer_volunteerprofile_changelist")
+        response = client.get(url + query)
+        assert response.status_code == 200
+        return list(response.context["cl"].queryset)
+
+    def _two_editions(self, conference):
+        """One profile in the active edition, one in a past edition."""
+        active_user = User.objects.create_user("active_vol", email="a@example.com")
+        past = Conference.objects.create(
+            year=2024, name="PyLadiesCon 2024", slug="2024"
+        )
+        past_user = User.objects.create_user("past_vol", email="p@example.com")
+        active_profile = VolunteerProfile.objects.create(
+            user=active_user, conference=conference, discord_username="a"
+        )
+        past_profile = VolunteerProfile.objects.create(
+            user=past_user, conference=past, discord_username="p"
+        )
+        return active_profile, past_profile, past
+
+    def test_defaults_to_active_conference(self, client, admin_user, conference):
+        active_profile, past_profile, _ = self._two_editions(conference)
+        qs = self._changelist_queryset(client, admin_user)
+        assert active_profile in qs
+        assert past_profile not in qs
+
+    def test_all_shows_every_conference(self, client, admin_user, conference):
+        active_profile, past_profile, _ = self._two_editions(conference)
+        qs = self._changelist_queryset(client, admin_user, "?conference=all")
+        assert active_profile in qs
+        assert past_profile in qs
+
+    def test_filter_by_specific_conference(self, client, admin_user, conference):
+        active_profile, past_profile, past = self._two_editions(conference)
+        qs = self._changelist_queryset(client, admin_user, f"?conference={past.pk}")
+        assert past_profile in qs
+        assert active_profile not in qs
+
+    def test_no_active_conference_shows_all(self, client, admin_user, conference):
+        active_profile, past_profile, _ = self._two_editions(conference)
+        conference.is_active = False
+        conference.save()
+        qs = self._changelist_queryset(client, admin_user)
+        assert active_profile in qs
+        assert past_profile in qs

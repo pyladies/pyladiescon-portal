@@ -1,7 +1,10 @@
 from django.contrib import admin
 from import_export import resources
 from import_export.admin import ImportExportModelAdmin
+from import_export.fields import Field
+from import_export.widgets import ForeignKeyWidget
 
+from portal.admin_filters import ActiveConferenceFilter
 from portal.models import Conference
 
 from .models import IndividualDonation, SponsorshipProfile, SponsorshipTier
@@ -30,11 +33,17 @@ class SponsorshipTierAdmin(admin.ModelAdmin):
 
 
 class SponsorshipProfileResource(resources.ModelResource):
+    # Export/import the conference by its year rather than the surrogate pk.
+    conference = Field(
+        attribute="conference",
+        column_name="conference",
+        widget=ForeignKeyWidget(Conference, field="year"),
+    )
+
     def before_save_instance(self, instance, row, **kwargs):
         # during 'confirm' step, dry_run is True
         instance.from_import_export = True
-        # Imports predate Phase 5's explicit conference column; tie rows to the
-        # active edition so the now-required conference FK is satisfied.
+        # Rows that omit the conference column belong to the active edition.
         if instance.conference_id is None:
             instance.conference = Conference.get_active()
 
@@ -42,6 +51,7 @@ class SponsorshipProfileResource(resources.ModelResource):
         model = SponsorshipProfile
         fields = (
             "id",
+            "conference",
             "organization_name",
             "sponsor_contact_name",
             "sponsors_contact_email",
@@ -68,7 +78,7 @@ class SponsorshipProfileAdmin(ImportExportModelAdmin):
         "main_contact_user",
     )
     list_filter = (
-        "conference",
+        ActiveConferenceFilter,
         "progress_status",
         "sponsorship_tier",
     )

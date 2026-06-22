@@ -97,13 +97,25 @@ Notes:
 
 ## Phase 5 — Admin and import/export
 
-- [ ] Add `conference` to `VolunteerProfileResource`, default list filter
+- [x] Add `conference` to `VolunteerProfileResource`, default list filter
       to active conference.
-- [~] Add `conference` to `SponsorshipProfileResource`, default list filter
-      to active conference. (List filter + import-time assignment done in
-      Phase 4; explicit `conference` import/export column still TODO.)
-- [ ] Add `conference` to `AttendeeProfileResource`.
-- [ ] Verify existing CSV exports still work and gain a `conference` column.
+- [x] Add `conference` to `SponsorshipProfileResource`, default list filter
+      to active conference.
+- [x] Add `conference` to `AttendeeProfileResource` (export-only, via
+      `order.conference`).
+- [x] Verify existing CSV exports still work and gain a `conference` column.
+
+Notes:
+- `conference` is exported/imported by **year** (via `ForeignKeyWidget`),
+  not the surrogate pk. Rows imported without a conference column fall back
+  to the active edition in `before_save_instance` (this also completes the
+  `VolunteerProfileResource` import fix deferred from Phase 4).
+- "Default list filter to active" is a reusable `ActiveConferenceFilter`
+  (`portal/admin_filters.py`): the changelist lands on the active edition
+  with no query param; `?conference=all` shows every year. Applied to the
+  volunteer and sponsorship profile admins.
+- Admin column/filter visibility on all six models landed in Phase 4.
+- Tests: 381 pass, 100% cov; no schema change (admin-only).
 
 ## Phase 6 — Behavior changes
 
