@@ -148,6 +148,16 @@ Notes:
 ## Phase 9 — Admin actions and polish
 
 - [ ] Admin action: "Clone teams from prior conference" on `Conference`.
+- [ ] Admin action: "Bring forward returning volunteers" (issue #333). On the
+      `VolunteerProfile` changelist (or `Conference`), select prior-year
+      volunteers and create new `VolunteerProfile` rows for the active
+      conference, copying profile fields (social handles, languages, region,
+      chapter, availability) and optionally team/role assignments. New rows
+      land as `PENDING` by default. This is the admin-initiated counterpart to
+      the self-service returning-volunteer pre-fill in Phase 6: #333 wants the
+      organizer to onboard last year's volunteers into this year's teams
+      *without* the volunteer re-filling the form. Depends on the team-clone
+      action above (teams must exist in the new year before assignment).
 - [ ] Admin action: "Freeze stats for this conference" — snapshot live
       aggregations into `historical_snapshot`.
 - [ ] Update `AttendeeProfile.participated_in_previous_event` choices to
