@@ -1,6 +1,7 @@
 from django.contrib import admin
 from import_export import resources
 from import_export.admin import ImportExportModelAdmin
+from import_export.fields import Field
 
 from .models import AttendeeProfile, PretixOrder
 
@@ -25,10 +26,19 @@ class PretixOrderAdmin(admin.ModelAdmin):
 
 
 class AttendeeProfileResource(resources.ModelResource):
+    # Attendees inherit their conference from the order; export the year as a
+    # read-only column (it is never imported back onto the profile). Both
+    # ``order`` and ``order.conference`` are non-null, so the path is safe.
+    conference = Field(column_name="conference", readonly=True)
+
+    def dehydrate_conference(self, obj):
+        return obj.order.conference.year
+
     class Meta:
         model = AttendeeProfile
         fields = (
             "order",
+            "conference",
             "order__name",
             "order__email",
             "order__status",
