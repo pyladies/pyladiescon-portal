@@ -61,8 +61,8 @@ class VolunteerProfileForm(ModelForm):
 
     class Meta:
         model = VolunteerProfile
-        # conference is excluded until Phase 6 of the multi-year work, when
-        # new profiles get tied to the active conference automatically.
+        # conference is not shown in the form: new profiles are tied to the
+        # active conference automatically in save().
         exclude = [
             "user",
             "application_status",
@@ -224,9 +224,43 @@ class VolunteerProfileForm(ModelForm):
                 "data-placeholder": "Start typing to select languages...",
             },
         )
+        # Teams are conference-scoped: only offer the active edition's open
+        # teams, never a prior year's.
+        self.fields["teams"].queryset = Team.objects.filter(
+            open_to_new_members=True, conference=Conference.get_active()
+        )
 
-        if self.instance and self.instance.pk:
-            pass
+        # Returning volunteers: pre-fill a brand-new application from their most
+        # recent prior profile so they only review and adjust. The new row still
+        # goes through the form and resets application_status to PENDING.
+        if self.user and not (self.instance and self.instance.pk):
+            self._prefill_from_prior_profile()
+
+    PREFILL_FIELDS = (
+        "github_username",
+        "discord_username",
+        "instagram_username",
+        "bluesky_username",
+        "mastodon_url",
+        "x_username",
+        "linkedin_url",
+        "region",
+        "chapter",
+        "availability_hours_per_week",
+    )
+
+    def _prefill_from_prior_profile(self):
+        prior = (
+            VolunteerProfile.objects.filter(user=self.user)
+            .exclude(conference=Conference.get_active())
+            .order_by("-conference__year")
+            .first()
+        )
+        if prior is None:
+            return
+        for field in self.PREFILL_FIELDS:
+            self.initial.setdefault(field, getattr(prior, field))
+        self.initial.setdefault("language", list(prior.language.all()))
 
     def save(self, commit=True):
         if self.user:
@@ -263,6 +297,11 @@ class VolunteerProfileReviewForm(ModelForm):
     def __init__(self, *args, **kwargs):
         self.user = kwargs.pop("user", None)
         super().__init__(*args, **kwargs)
+        # Assign only teams belonging to the profile's own conference edition.
+        if self.instance and self.instance.conference_id:
+            self.fields["teams"].queryset = Team.objects.filter(
+                conference_id=self.instance.conference_id
+            )
 
     def clean(self):
         cleaned_data = super().clean()

@@ -7,6 +7,7 @@
     <div class="container px-4 py-5" id="featured-3">
         <h2 class="pb-2 border-bottom">
             {{ team.short_name }}
+            <span class="badge bg-secondary align-middle fs-6">{{ team.conference }}</span>
             {% if user.is_superuser %}
                 <small class="fs-6"><a href="{% url 'admin:volunteer_team_change' team.id %}">Edit in Django Admin</a></small>
             {% endif %}

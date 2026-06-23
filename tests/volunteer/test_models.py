@@ -398,16 +398,16 @@ class TestVolunteerModel:
         assert len(mail.outbox) == 3
         assert (  # user creation, to internal staff
             str(mail.outbox[0].subject)
-            == f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} New Volunteer Application"
+            == f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} New {profile.conference} Volunteer Application"
         )
         assert (  # user creation, to internal staff
             str(mail.outbox[1].subject)
-            == f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} New Volunteer Application"
+            == f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} New {profile.conference} Volunteer Application"
         )
 
         assert (  # user creation, to user
             str(mail.outbox[2].subject)
-            == f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} Volunteer Application Received"
+            == f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} {profile.conference} Volunteer Application Received"
         )
 
     def test_email_is_sent_after_updated(self, portal_user, conference):
@@ -421,7 +421,7 @@ class TestVolunteerModel:
 
         assert (
             str(mail.outbox[0].subject)
-            == f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} Volunteer Application Updated"
+            == f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} {profile.conference} Volunteer Application Updated"
         )
 
     def test_volunteer_notification_email_contains_info(self, portal_user, conference):
@@ -488,7 +488,7 @@ class TestVolunteerModel:
         assert len(mail.outbox) == 1
         assert (
             str(mail.outbox[0].subject)
-            == f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} Welcome to the PyLadiesCon Volunteer Team"
+            == f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} Welcome to the {profile.conference} Volunteer Team"
         )
         # role name and team name in the body
         assert role.short_name in str(mail.outbox[0].body)
@@ -525,7 +525,7 @@ class TestVolunteerModel:
         assert len(mail.outbox) == 1
         assert (
             str(mail.outbox[0].subject)
-            == f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} Welcome to the PyLadiesCon Volunteer Team"
+            == f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} Welcome to the {profile.conference} Volunteer Team"
         )
         # role name and team name in the body
         assert admin_role.short_name in str(mail.outbox[0].body)
@@ -608,7 +608,7 @@ class TestVolunteerModel:
         assert len(mail.outbox) == 1
         assert (
             str(mail.outbox[0].subject)
-            == f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} Complete the Volunteer Onboarding for: {profile.user.first_name} {profile.user.last_name}"
+            == f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} Complete the {profile.conference} Volunteer Onboarding for: {profile.user.first_name} {profile.user.last_name}"
         )
         # role name and team name in the body
         assert role.short_name in str(mail.outbox[0].body)
@@ -656,7 +656,7 @@ class TestVolunteerModel:
         assert len(mail.outbox) == 1
         assert (
             str(mail.outbox[0].subject)
-            == f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} Complete the Volunteer Onboarding for: {profile.user.first_name} {profile.user.last_name}"
+            == f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} Complete the {profile.conference} Volunteer Onboarding for: {profile.user.first_name} {profile.user.last_name}"
         )
         # role name and team name in the body
         assert admin_role.short_name in str(mail.outbox[0].body)
@@ -711,7 +711,7 @@ class TestVolunteerModel:
 
         assert (
             str(mail.outbox[0].subject)
-            == f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} Volunteer Application Updated"
+            == f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} {profile.conference} Volunteer Application Updated"
         )
 
         # message about being waitslisted is in the body

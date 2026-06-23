@@ -298,7 +298,10 @@ class VolunteerProfile(BaseModel):
 def send_volunteer_notification_email(instance, updated=False):
     """Send email to the user whenever their volunteer profile was updated/created."""
     context = {"profile": instance}
-    subject = f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} Volunteer Application"
+    subject = (
+        f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} {instance.conference} "
+        "Volunteer Application"
+    )
     if updated:
         context["updated"] = True
         subject += " Updated"
@@ -323,7 +326,7 @@ def send_volunteer_onboarding_email(instance):
     """
     if instance.application_status == ApplicationStatus.APPROVED:
         context = {"profile": instance, "GDRIVE_FOLDER_ID": settings.GDRIVE_FOLDER_ID}
-        subject = f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} Welcome to the PyLadiesCon Volunteer Team"
+        subject = f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} Welcome to the {instance.conference} Volunteer Team"
 
         for role in instance.roles.all():
             if role.short_name in [RoleTypes.ADMIN, RoleTypes.STAFF]:
@@ -345,7 +348,7 @@ def send_internal_volunteer_onboarding_email(instance):
     """
     if instance.application_status == ApplicationStatus.APPROVED:
         context = {"profile": instance, "GDRIVE_FOLDER_ID": settings.GDRIVE_FOLDER_ID}
-        subject = f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} Complete the Volunteer Onboarding for: {instance.user.first_name} {instance.user.last_name}"
+        subject = f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} Complete the {instance.conference} Volunteer Onboarding for: {instance.user.first_name} {instance.user.last_name}"
         for role in instance.roles.all():
             if role.short_name in [RoleTypes.ADMIN, RoleTypes.STAFF]:
                 context["admin_onboarding"] = True
@@ -403,7 +406,7 @@ def send_internal_notification_email(instance):
 
     """
     context = {"profile": instance}
-    subject = f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} New Volunteer Application"
+    subject = f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} New {instance.conference} Volunteer Application"
 
     markdown_template = (
         "emails/volunteer/internal_volunteer_profile_email_notification.md"

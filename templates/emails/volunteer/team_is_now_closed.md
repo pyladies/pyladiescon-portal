@@ -2,7 +2,7 @@
 {% load i18n %}
 {% block content %}
 
-{{ profile.user.first_name }}, thank you for applying to volunteer with us.
+{{ profile.user.first_name }}, thank you for applying to volunteer with us for **{{ profile.conference }}**.
 
 {% if updated %}
 Your volunteer profile has recently been updated.

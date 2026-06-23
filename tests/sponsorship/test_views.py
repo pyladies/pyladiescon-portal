@@ -3,6 +3,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
 from pytest_django.asserts import assertRedirects
 
+from portal.models import Conference
 from sponsorship.models import (
     SponsorshipProfile,
     SponsorshipProgressStatus,
@@ -12,6 +13,85 @@ from sponsorship.views import SponsorshipProfileFilter, SponsorshipProfileTable
 from volunteer.constants import ApplicationStatus
 from volunteer.languages import LANGUAGES
 from volunteer.models import VolunteerProfile
+
+
+@pytest.mark.django_db
+class TestSponsorshipConferenceScoping:
+    def _sponsor(self, name, conference):
+        return SponsorshipProfile.objects.create(
+            organization_name=name,
+            conference=conference,
+            progress_status=SponsorshipProgressStatus.PAID,
+        )
+
+    def test_admin_can_switch_year(self, client, admin_user, conference):
+        past = Conference.objects.create(
+            year=2024, name="PyLadiesCon 2024", slug="2024"
+        )
+        self._sponsor("Active Sponsor", conference)
+        self._sponsor("Past Sponsor", past)
+        client.force_login(admin_user)
+        url = reverse("sponsorship:sponsorship_list")
+
+        active_orgs = [
+            p.organization_name for p in client.get(url).context["object_list"]
+        ]
+        assert "Active Sponsor" in active_orgs
+        assert "Past Sponsor" not in active_orgs
+
+        past_orgs = [
+            p.organization_name
+            for p in client.get(f"{url}?conference={past.pk}").context["object_list"]
+        ]
+        assert "Past Sponsor" in past_orgs
+        assert "Active Sponsor" not in past_orgs
+
+    def test_volunteer_sees_only_the_year_they_are_approved_for(
+        self, client, portal_user, conference
+    ):
+        past = Conference.objects.create(
+            year=2024, name="PyLadiesCon 2024", slug="2024"
+        )
+        # approved for the past edition only, not the active one
+        VolunteerProfile.objects.create(
+            user=portal_user,
+            conference=past,
+            application_status=ApplicationStatus.APPROVED,
+            discord_username="d",
+        )
+        self._sponsor("Active Sponsor", conference)
+        self._sponsor("Past Sponsor", past)
+        client.force_login(portal_user)
+
+        response = client.get(reverse("sponsorship:sponsorship_list"))
+        assert response.status_code == 200
+        orgs = [p.organization_name for p in response.context["object_list"]]
+        assert "Past Sponsor" in orgs
+        assert "Active Sponsor" not in orgs
+
+    def test_volunteer_cannot_open_other_year_sponsor_detail(
+        self, client, portal_user, conference
+    ):
+        # approved for the active edition only
+        VolunteerProfile.objects.create(
+            user=portal_user,
+            conference=conference,
+            application_status=ApplicationStatus.APPROVED,
+            discord_username="d",
+        )
+        past = Conference.objects.create(
+            year=2024, name="PyLadiesCon 2024", slug="2024"
+        )
+        past_sponsor = self._sponsor("Past Sponsor", past)
+        client.force_login(portal_user)
+
+        response = client.get(
+            reverse(
+                "sponsorship:sponsorship_profile_detail",
+                kwargs={"pk": past_sponsor.pk},
+            )
+        )
+        assert response.status_code == 403
 
 
 @pytest.mark.django_db

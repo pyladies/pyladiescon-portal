@@ -1,8 +1,59 @@
 import pytest
 
+from portal.models import Conference
 from volunteer.constants import Region
 from volunteer.forms import SelectMultipleWidget, VolunteerProfileForm
-from volunteer.models import Language, VolunteerProfile
+from volunteer.models import Language, Team, VolunteerProfile
+
+
+@pytest.mark.django_db
+class TestReturningVolunteerPrefill:
+    def test_form_prefills_from_most_recent_prior_profile(
+        self, portal_user, conference
+    ):
+        past = Conference.objects.create(
+            year=2024, name="PyLadiesCon 2024", slug="2024"
+        )
+        prior = VolunteerProfile.objects.create(
+            user=portal_user,
+            conference=past,
+            discord_username="priordiscord",
+            github_username="priorgh",
+            region=Region.NORTH_AMERICA,
+            availability_hours_per_week=5,
+        )
+        french = Language.objects.create(code="fr", name="French")
+        prior.language.add(french)
+
+        form = VolunteerProfileForm(user=portal_user)
+
+        assert form.initial["discord_username"] == "priordiscord"
+        assert form.initial["github_username"] == "priorgh"
+        assert form.initial["region"] == Region.NORTH_AMERICA
+        assert form.initial["availability_hours_per_week"] == 5
+        assert list(form.initial["language"]) == [french]
+
+    def test_team_choices_scoped_to_active_conference(self, portal_user, conference):
+        past = Conference.objects.create(
+            year=2024, name="PyLadiesCon 2024", slug="2024"
+        )
+        active_team = Team.objects.create(
+            short_name="Active Team",
+            description="d",
+            conference=conference,
+            open_to_new_members=True,
+        )
+        past_team = Team.objects.create(
+            short_name="Past Team",
+            description="d",
+            conference=past,
+            open_to_new_members=True,
+        )
+
+        teams = list(VolunteerProfileForm(user=portal_user).fields["teams"].queryset)
+
+        assert active_team in teams
+        assert past_team not in teams
 
 
 @pytest.mark.django_db

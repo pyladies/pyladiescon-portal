@@ -119,15 +119,31 @@ Notes:
 
 ## Phase 6 — Behavior changes
 
-- [ ] Remove the post-save signal that auto-creates `VolunteerProfile` on
-      user signup.
-- [ ] Update "Apply to volunteer" view: explicit action, ties new
-      `VolunteerProfile` to active conference.
-- [ ] Implement returning-volunteer pre-fill (form initial values come from
+- [x] ~~Remove the post-save signal that auto-creates `VolunteerProfile` on
+      user signup.~~ N/A — no such signal exists; signup only creates
+      `PortalProfile` and volunteering is already explicit via
+      `VolunteerProfileCreate`.
+- [x] Update "Apply to volunteer" view: explicit action, ties new
+      `VolunteerProfile` to active conference. (Conference assignment landed in
+      Phase 4; the "already applied?" guard is now scoped to the active
+      conference so returning volunteers can apply each year.)
+- [x] Implement returning-volunteer pre-fill (form initial values come from
       user's most recent prior `VolunteerProfile`).
-- [ ] Update volunteer list view to filter by active conference; add an
+- [x] Update volunteer list view to filter by active conference; add an
       admin-only year switcher.
-- [ ] Update sponsorship list view to filter by active conference.
+- [x] Update sponsorship list view to filter by active conference.
+
+Notes:
+- Multi-year broke several single-profile assumptions, now scoped to the
+  active conference: `volunteer index` (`get()` → `MultipleObjectsReturned`),
+  the apply guard, and the `portal` dashboard lookup.
+- Sponsor access is per-approved-year: staff/superusers see every conference;
+  other users may only view the conference(s) they were APPROVED volunteers
+  for. `SponsorshipProfileList` defaults to the active edition (or their most
+  recent viewable year) with a year switcher; the detail view checks the
+  specific sponsor's year.
+- Year switchers are a button group on both manage lists; the search form
+  carries the selected year in a hidden field. 386 tests pass, 100% cov.
 
 ## Phase 7 — Stats refactor
 
