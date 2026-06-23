@@ -1,6 +1,8 @@
 from django import forms
 from django.contrib.auth.models import User
 
+from portal.models import Conference
+
 from .models import SponsorshipProfile
 
 
@@ -11,10 +13,18 @@ class SponsorshipProfileForm(forms.ModelForm):
         help_text="Required. Main contact person from PyLadiesCon. Defaults to the person who creates the profile.",
         label="Internal Contact *",
     )
+    conference = forms.ModelChoiceField(
+        queryset=Conference.objects.all(),
+        required=False,
+        help_text="The conference edition this sponsorship is for. "
+        "Defaults to the active conference.",
+        label="Conference",
+    )
 
     class Meta:
         model = SponsorshipProfile
         fields = [
+            "conference",
             "main_contact_user",
             "organization_name",
             "sponsor_contact_name",
@@ -53,10 +63,18 @@ class SponsorshipProfileForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         if self.user:
             self.fields["main_contact_user"].initial = self.user.id
+        # Pre-select the active conference; admins can switch to another year
+        # (e.g. to set up next year's sponsors early).
+        if not self.instance.pk:
+            self.fields["conference"].initial = Conference.get_active()
 
     def save(self, commit=True):
         if self.user:
             self.instance.user = self.user
+
+        # A new sponsorship belongs to the active conference edition.
+        if self.instance.conference_id is None:
+            self.instance.conference = Conference.get_active()
 
         sponsorship_profile = super().save(commit)
         return sponsorship_profile

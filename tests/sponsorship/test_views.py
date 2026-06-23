@@ -3,6 +3,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
 from pytest_django.asserts import assertRedirects
 
+from portal.models import Conference
 from sponsorship.models import (
     SponsorshipProfile,
     SponsorshipProgressStatus,
@@ -15,16 +16,95 @@ from volunteer.models import VolunteerProfile
 
 
 @pytest.mark.django_db
+class TestSponsorshipConferenceScoping:
+    def _sponsor(self, name, conference):
+        return SponsorshipProfile.objects.create(
+            organization_name=name,
+            conference=conference,
+            progress_status=SponsorshipProgressStatus.PAID,
+        )
+
+    def test_admin_can_switch_year(self, client, admin_user, conference):
+        past = Conference.objects.create(
+            year=2024, name="PyLadiesCon 2024", slug="2024"
+        )
+        self._sponsor("Active Sponsor", conference)
+        self._sponsor("Past Sponsor", past)
+        client.force_login(admin_user)
+        url = reverse("sponsorship:sponsorship_list")
+
+        active_orgs = [
+            p.organization_name for p in client.get(url).context["object_list"]
+        ]
+        assert "Active Sponsor" in active_orgs
+        assert "Past Sponsor" not in active_orgs
+
+        past_orgs = [
+            p.organization_name
+            for p in client.get(f"{url}?conference={past.pk}").context["object_list"]
+        ]
+        assert "Past Sponsor" in past_orgs
+        assert "Active Sponsor" not in past_orgs
+
+    def test_volunteer_sees_only_the_year_they_are_approved_for(
+        self, client, portal_user, conference
+    ):
+        past = Conference.objects.create(
+            year=2024, name="PyLadiesCon 2024", slug="2024"
+        )
+        # approved for the past edition only, not the active one
+        VolunteerProfile.objects.create(
+            user=portal_user,
+            conference=past,
+            application_status=ApplicationStatus.APPROVED,
+            discord_username="d",
+        )
+        self._sponsor("Active Sponsor", conference)
+        self._sponsor("Past Sponsor", past)
+        client.force_login(portal_user)
+
+        response = client.get(reverse("sponsorship:sponsorship_list"))
+        assert response.status_code == 200
+        orgs = [p.organization_name for p in response.context["object_list"]]
+        assert "Past Sponsor" in orgs
+        assert "Active Sponsor" not in orgs
+
+    def test_volunteer_cannot_open_other_year_sponsor_detail(
+        self, client, portal_user, conference
+    ):
+        # approved for the active edition only
+        VolunteerProfile.objects.create(
+            user=portal_user,
+            conference=conference,
+            application_status=ApplicationStatus.APPROVED,
+            discord_username="d",
+        )
+        past = Conference.objects.create(
+            year=2024, name="PyLadiesCon 2024", slug="2024"
+        )
+        past_sponsor = self._sponsor("Past Sponsor", past)
+        client.force_login(portal_user)
+
+        response = client.get(
+            reverse(
+                "sponsorship:sponsorship_profile_detail",
+                kwargs={"pk": past_sponsor.pk},
+            )
+        )
+        assert response.status_code == 403
+
+
+@pytest.mark.django_db
 class TestSponsorshipViews:
     def test_sponsors_list_view_forbidden_if_not_approved_volunteer(
-        self, client, portal_user
+        self, client, portal_user, conference
     ):
         client.force_login(portal_user)
         response = client.get(reverse("sponsorship:sponsorship_list"))
         assert response.status_code == 403
 
         # create the volunteer profile but is not approved
-        profile = VolunteerProfile(user=portal_user)
+        profile = VolunteerProfile(user=portal_user, conference=conference)
         profile.save()
 
         response = client.get(reverse("sponsorship:sponsorship_list"))
@@ -37,9 +117,13 @@ class TestSponsorshipViews:
         response = client.get(url)
         assert response.status_code == 200
 
-    def test_sponsors_list_view_is_approved_volunteer(self, client, portal_user):
+    def test_sponsors_list_view_is_approved_volunteer(
+        self, client, portal_user, conference
+    ):
         profile = VolunteerProfile(
-            user=portal_user, application_status=ApplicationStatus.APPROVED
+            user=portal_user,
+            application_status=ApplicationStatus.APPROVED,
+            conference=conference,
         )
         profile.save()
 
@@ -82,15 +166,20 @@ class TestSponsorshipViews:
         self,
         client,
         admin_user,
+        conference,
     ):
         tier = SponsorshipTier.objects.create(
-            name="Gold", amount=5000.00, description="Gold tier sponsorship"
+            name="Gold",
+            amount=5000.00,
+            description="Gold tier sponsorship",
+            conference=conference,
         )
 
         profile = SponsorshipProfile.objects.create(
             organization_name="Override Corp",
             sponsorship_tier=tier,
             progress_status=SponsorshipProgressStatus.PAID,
+            conference=conference,
         )
 
         profile.logo = SimpleUploadedFile(
@@ -115,15 +204,20 @@ class TestSponsorshipViews:
         self,
         client,
         admin_user,
+        conference,
     ):
         tier = SponsorshipTier.objects.create(
-            name="Gold", amount=5000.00, description="Gold tier sponsorship"
+            name="Gold",
+            amount=5000.00,
+            description="Gold tier sponsorship",
+            conference=conference,
         )
 
         profile = SponsorshipProfile.objects.create(
             organization_name="Override Corp",
             sponsorship_tier=tier,
             progress_status=SponsorshipProgressStatus.PAID,
+            conference=conference,
         )
 
         client.force_login(admin_user)
@@ -153,7 +247,7 @@ class TestSponsorshipViews:
         ],
     )
     def test_sponsors_table_render_progress_status_for_approved_volunteer(
-        self, client, portal_user, status, css_class, is_visible
+        self, client, portal_user, status, css_class, is_visible, conference
     ):
         """Volunteer can only view Committed sponsors.
 
@@ -163,17 +257,23 @@ class TestSponsorshipViews:
         """
 
         tier = SponsorshipTier.objects.create(
-            name="Gold", amount=5000.00, description="Gold tier sponsorship"
+            name="Gold",
+            amount=5000.00,
+            description="Gold tier sponsorship",
+            conference=conference,
         )
 
         SponsorshipProfile.objects.create(
             organization_name="Override Corp",
             sponsorship_tier=tier,
             progress_status=status,
+            conference=conference,
         )
 
         profile = VolunteerProfile(
-            user=portal_user, application_status=ApplicationStatus.APPROVED
+            user=portal_user,
+            application_status=ApplicationStatus.APPROVED,
+            conference=conference,
         )
         profile.save()
 
@@ -191,15 +291,21 @@ class TestSponsorshipViews:
             # No rows in the table because the status is not approved
             assert len(sponsors_table.rows) == 0
 
-    def test_sponsors_table_render_amount_without_override(self, client, admin_user):
+    def test_sponsors_table_render_amount_without_override(
+        self, client, admin_user, conference
+    ):
 
         tier = SponsorshipTier.objects.create(
-            name="Gold", amount=5000.00, description="Gold tier sponsorship"
+            name="Gold",
+            amount=5000.00,
+            description="Gold tier sponsorship",
+            conference=conference,
         )
 
         profile = SponsorshipProfile.objects.create(
             organization_name="Override Corp",
             sponsorship_tier=tier,
+            conference=conference,
         )
         client.force_login(admin_user)
         url = reverse("sponsorship:sponsorship_list")
@@ -209,15 +315,21 @@ class TestSponsorshipViews:
         amount_render = sponsors_table.render_amount(tier.amount, profile)
         assert amount_render == f"${tier.amount:,.2f}"
 
-    def test_sponsors_table_render_amount_with_override(self, client, admin_user):
+    def test_sponsors_table_render_amount_with_override(
+        self, client, admin_user, conference
+    ):
         tier = SponsorshipTier.objects.create(
-            name="Gold", amount=5000.00, description="Gold tier sponsorship"
+            name="Gold",
+            amount=5000.00,
+            description="Gold tier sponsorship",
+            conference=conference,
         )
 
         profile = SponsorshipProfile.objects.create(
             organization_name="Override Corp",
             sponsorship_tier=tier,
             sponsorship_override_amount=3000.00,
+            conference=conference,
         )
 
         client.force_login(admin_user)
@@ -227,10 +339,13 @@ class TestSponsorshipViews:
         amount_render = sponsors_table.render_amount(tier.amount, profile)
         assert amount_render == f"${profile.sponsorship_override_amount:,.2f}"
 
-    def test_sponsors_table_render_amount_no_sponsorship_tier(self, client, admin_user):
+    def test_sponsors_table_render_amount_no_sponsorship_tier(
+        self, client, admin_user, conference
+    ):
 
         profile = SponsorshipProfile.objects.create(
             organization_name="Override Corp",
+            conference=conference,
         )
 
         client.force_login(admin_user)
@@ -240,10 +355,11 @@ class TestSponsorshipViews:
         amount_render = sponsors_table.render_amount("", profile)
         assert amount_render == ""
 
-    def test_sponsors_table_render_actions(self, client, admin_user):
+    def test_sponsors_table_render_actions(self, client, admin_user, conference):
 
         profile = SponsorshipProfile.objects.create(
             organization_name="Override Corp",
+            conference=conference,
         )
 
         client.force_login(admin_user)
@@ -255,10 +371,13 @@ class TestSponsorshipViews:
         assert "btn-primary" in action_button
         assert "Update" in action_button
 
-    def test_sponsors_table_render_github_issue_url(self, client, admin_user):
+    def test_sponsors_table_render_github_issue_url(
+        self, client, admin_user, conference
+    ):
 
         profile = SponsorshipProfile.objects.create(
             organization_name="Override Corp",
+            conference=conference,
         )
 
         client.force_login(admin_user)
@@ -316,13 +435,15 @@ class TestSponsorshipCreateViews:
         assert profile.progress_status == SponsorshipProgressStatus.AGREEMENT_SENT
 
     def test_sponsorship_profile_create_user_can_create_multiple_profiles(
-        self, client, admin_user
+        self, client, admin_user, conference
     ):
 
         client.force_login(admin_user)
 
         SponsorshipProfile.objects.create(
-            main_contact_user=admin_user, organization_name="Test Org 1"
+            main_contact_user=admin_user,
+            organization_name="Test Org 1",
+            conference=conference,
         )
         response = client.get(reverse("sponsorship:sponsorship_profile_new"))
         # Form page loads successfully even though the user already created a sponsorship profile before
@@ -344,22 +465,30 @@ class TestSponsorshipCreateViews:
         assert profile.organization_name == "Test Org 2"
         assert profile.progress_status == SponsorshipProgressStatus.NOT_CONTACTED
 
-    def test_filter_sponsorship_table(self, client, admin_user):
+    def test_filter_sponsorship_table(self, client, admin_user, conference):
         tier_1 = SponsorshipTier.objects.create(
-            name="Silver", amount=3000.00, description="Silver tier"
+            name="Silver",
+            amount=3000.00,
+            description="Silver tier",
+            conference=conference,
         )
         tier_2 = SponsorshipTier.objects.create(
-            name="Gold", amount=5000.00, description="Gold tier"
+            name="Gold",
+            amount=5000.00,
+            description="Gold tier",
+            conference=conference,
         )
         SponsorshipProfile.objects.create(
             organization_name="Alpha Corp",
             sponsorship_tier=tier_1,
             progress_status=SponsorshipProgressStatus.NOT_CONTACTED,
+            conference=conference,
         )
         SponsorshipProfile.objects.create(
             organization_name="Beta LLC",
             sponsorship_tier=tier_2,
             progress_status=SponsorshipProgressStatus.PAID,
+            conference=conference,
         )
 
         client.force_login(admin_user)
@@ -387,22 +516,28 @@ class TestSponsorshipCreateViews:
         assert qs.count() == 0  # No sponsors with INVOICED status
 
     def test_sponsorship_profile_detail_view_for_approved_volunteer(
-        self, client, portal_user
+        self, client, portal_user, conference
     ):
         """Test that approved volunteers can view sponsorship details."""
         tier = SponsorshipTier.objects.create(
-            name="Gold", amount=5000.00, description="Gold tier sponsorship"
+            name="Gold",
+            amount=5000.00,
+            description="Gold tier sponsorship",
+            conference=conference,
         )
 
         profile = SponsorshipProfile.objects.create(
             organization_name="Test Corp",
             sponsorship_tier=tier,
             progress_status=SponsorshipProgressStatus.APPROVED,
+            conference=conference,
         )
 
         # Create approved volunteer profile
         volunteer_profile = VolunteerProfile(
-            user=portal_user, application_status=ApplicationStatus.APPROVED
+            user=portal_user,
+            application_status=ApplicationStatus.APPROVED,
+            conference=conference,
         )
         volunteer_profile.languages_spoken = [LANGUAGES[0]]
         volunteer_profile.save()
@@ -419,17 +554,21 @@ class TestSponsorshipCreateViews:
         assert not response.context["can_send_invoice"]
 
     def test_sponsorship_profile_detail_view_for_admin_shows_send_invoice_button(
-        self, client, admin_user
+        self, client, admin_user, conference
     ):
         """Test that admins can see the send invoice button for approved sponsors."""
         tier = SponsorshipTier.objects.create(
-            name="Gold", amount=5000.00, description="Gold tier sponsorship"
+            name="Gold",
+            amount=5000.00,
+            description="Gold tier sponsorship",
+            conference=conference,
         )
 
         profile = SponsorshipProfile.objects.create(
             organization_name="Test Corp",
             sponsorship_tier=tier,
             progress_status=SponsorshipProgressStatus.APPROVED,
+            conference=conference,
         )
 
         client.force_login(admin_user)
@@ -444,17 +583,21 @@ class TestSponsorshipCreateViews:
         assert response.context["can_send_invoice"]
 
     def test_sponsorship_profile_detail_view_admin_no_button_for_non_approved(
-        self, client, admin_user
+        self, client, admin_user, conference
     ):
         """Test that send invoice button is not shown for non-approved sponsors."""
         tier = SponsorshipTier.objects.create(
-            name="Gold", amount=5000.00, description="Gold tier sponsorship"
+            name="Gold",
+            amount=5000.00,
+            description="Gold tier sponsorship",
+            conference=conference,
         )
 
         profile = SponsorshipProfile.objects.create(
             organization_name="Test Corp",
             sponsorship_tier=tier,
             progress_status=SponsorshipProgressStatus.PAID,  # Not approved
+            conference=conference,
         )
 
         client.force_login(admin_user)
@@ -467,18 +610,24 @@ class TestSponsorshipCreateViews:
         # Should not show send invoice button for non-approved sponsors
         assert not response.context["can_send_invoice"]
 
-    def test_send_invoice_view_updates_status_and_sends_email(self, client, admin_user):
+    def test_send_invoice_view_updates_status_and_sends_email(
+        self, client, admin_user, conference
+    ):
         """Test that send invoice view updates status and sends email."""
         from django.core import mail
 
         tier = SponsorshipTier.objects.create(
-            name="Gold", amount=5000.00, description="Gold tier sponsorship"
+            name="Gold",
+            amount=5000.00,
+            description="Gold tier sponsorship",
+            conference=conference,
         )
 
         profile = SponsorshipProfile.objects.create(
             organization_name="Test Corp",
             sponsorship_tier=tier,
             progress_status=SponsorshipProgressStatus.APPROVED,
+            conference=conference,
         )
 
         # Clear the mail outbox

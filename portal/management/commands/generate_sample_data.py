@@ -22,6 +22,7 @@ from django.core.management.base import BaseCommand, CommandError
 from django.db.models.signals import post_save
 from django.utils import timezone
 
+from portal.models import Conference
 from portal_account.models import PortalProfile
 from sponsorship.models import (
     IndividualDonation,
@@ -65,6 +66,7 @@ class Command(BaseCommand):
         )
 
         # Generate data
+        self._generate_conference()
         self._generate_users()
         self._generate_pyladies_chapters()
         self._generate_roles()
@@ -76,6 +78,24 @@ class Command(BaseCommand):
 
         self.stdout.write(
             self.style.SUCCESS("Sample data generation completed successfully!")
+        )
+
+    def _generate_conference(self):
+        """Generate the active conference every other record is scoped to."""
+        self.stdout.write("Generating conference...")
+
+        self.conference, created = Conference.objects.get_or_create(
+            year=2025,
+            defaults={
+                "name": "PyLadiesCon 2025",
+                "slug": "2025",
+                "is_active": True,
+                "pretix_event_slug": "2025",
+            },
+        )
+        verb = "Created" if created else "Using existing"
+        self.stdout.write(
+            self.style.SUCCESS(f"  ✓ {verb} conference: {self.conference}\n")
         )
 
     def _generate_users(self):
@@ -364,6 +384,7 @@ class Command(BaseCommand):
             team, created = Team.objects.get_or_create(
                 short_name=team_data["short_name"],
                 defaults={
+                    "conference": self.conference,
                     "description": team_data["description"],
                     "open_to_new_members": team_data["open_to_new_members"],
                 },
@@ -480,6 +501,7 @@ class Command(BaseCommand):
         for profile_data in profiles_data:
             profile, created = VolunteerProfile.objects.get_or_create(
                 user=profile_data["user"],
+                conference=self.conference,
                 defaults={
                     "application_status": profile_data["status"],
                     "discord_username": profile_data["discord_username"],
@@ -556,6 +578,7 @@ class Command(BaseCommand):
             tier, created = SponsorshipTier.objects.get_or_create(
                 name=tier_data["name"],
                 defaults={
+                    "conference": self.conference,
                     "amount": tier_data["amount"],
                     "description": tier_data["description"],
                 },
@@ -675,6 +698,7 @@ class Command(BaseCommand):
             profile, created = SponsorshipProfile.objects.get_or_create(
                 organization_name=profile_data["organization_name"],
                 defaults={
+                    "conference": self.conference,
                     "main_contact_user": profile_data["main_contact_user"],
                     "sponsorship_tier": profile_data["tier"],
                     "progress_status": profile_data["progress_status"],
@@ -712,6 +736,7 @@ class Command(BaseCommand):
             donation, created = IndividualDonation.objects.get_or_create(
                 transaction_id=f"transaction-{i+1}",
                 defaults={
+                    "conference": self.conference,
                     "donor_name": f"Donor {i+1}",
                     "donor_email": f"donor{i+1}@example.com",
                     "donation_amount": random.randint(5, 300),

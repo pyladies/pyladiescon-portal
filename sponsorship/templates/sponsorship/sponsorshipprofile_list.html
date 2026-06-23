@@ -14,8 +14,19 @@
         {% endif %}
     </h1>
     {% include "sponsorship/sponsorship_stats.html" %}
+    {% if conferences %}
+        <div class="btn-group mb-3" role="group" aria-label="Conference year">
+            {% for conference in conferences %}
+                <a href="?conference={{ conference.pk }}"
+                   class="btn btn-sm {% if conference == selected_conference %}btn-primary{% else %}btn-outline-primary{% endif %}">
+                    {{ conference.year }}
+                </a>
+            {% endfor %}
+        </div>
+    {% endif %}
     {% if filter %}
         <form action="" method="get" class="form">
+            <input type="hidden" name="conference" value="{{ selected_conference.pk }}">
             {% bootstrap_form filter.form %}
             {% bootstrap_button 'Search' %}
             {% if filter.form.is_bound %}

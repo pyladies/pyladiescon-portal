@@ -17,6 +17,15 @@ from common.pretix_wrapper import (
     PRETIX_ORG,
     PRETIX_WEBHOOK_ORDER_CANCELLED,
 )
+from portal.models import Conference
+
+
+@pytest.fixture(autouse=True)
+def conference():
+    """Override conftest's autouse fixture: this TestCase seeds its own active
+    Conference in setUp (in the TestCase transaction), so the shared db-backed
+    fixture must not also insert a clashing 2025 row."""
+    return None
 
 
 @pytest.mark.django_db
@@ -58,6 +67,15 @@ class TestPretixWebhook(TestCase):
     def setUp(self):
         self.client = Client()
         self.url = reverse("webhooks:pretix_webhook")
+        # Orders resolve their conference from the event slug; seed the active
+        # 2025 edition so webhook-created orders satisfy the non-null FK.
+        self.conference = Conference.objects.create(
+            year=2025,
+            name="PyLadiesCon 2025",
+            slug="2025",
+            is_active=True,
+            pretix_event_slug="2025",
+        )
 
     def test_pretix_webhook_endpoint_require_post(self):
         response = self.client.get(self.url, query_params={"secret": "supersecret"})
@@ -170,7 +188,9 @@ class TestPretixWebhook(TestCase):
 
     def test_pretix_webhook_endpoint_order_updated_if_exists(self):
         order_code = self._pretix_order_data["code"]
-        order = PretixOrder.objects.create(order_code=order_code)
+        order = PretixOrder.objects.create(
+            order_code=order_code, conference=self.conference
+        )
         assert order.email is None
         assert order.status is None
         assert order.total == 0

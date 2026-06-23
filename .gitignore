@@ -32,3 +32,6 @@ site/
 htmlcov/
 /media/
 
+# Root-level JSON (service-account keys, local tooling) — not subdirs
+/*.json
+

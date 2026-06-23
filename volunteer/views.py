@@ -14,6 +14,7 @@ from django_filters.views import FilterView
 from django_tables2.views import SingleTableMixin
 
 from common.mixins import AdminRequiredMixin, VolunteerOrAdminRequiredMixin
+from portal.models import Conference
 
 from .forms import VolunteerProfileForm, VolunteerProfileReviewForm
 from .models import (  # Language,
@@ -29,11 +30,12 @@ from .models import (  # Language,
 @login_required
 def index(request):
     context = {}
-    try:
-        profile = VolunteerProfile.objects.get(user=request.user)
-        context["profile"] = profile
-    except VolunteerProfile.DoesNotExist:
-        context["profile"] = None
+    # A user can have one profile per conference; show the active edition's.
+    # ``conference=None`` (no active conference) matches nothing, so this
+    # safely yields no profile rather than an arbitrary year.
+    context["profile"] = VolunteerProfile.objects.filter(
+        user=request.user, conference=Conference.get_active()
+    ).first()
     return render(request, "volunteer/index.html", context)
 
 
@@ -190,6 +192,27 @@ class VolunteerProfileList(VolunteerAdminRequiredMixin, SingleTableMixin, Filter
     table_class = VolunteerProfileTable
     filterset_class = VolunteerProfileFilter
 
+    def get_selected_conference(self):
+        """The conference whose volunteers are shown; defaults to active.
+
+        Admins can switch years via ``?conference=<pk>``.
+        """
+        param = self.request.GET.get("conference")
+        if param:
+            return Conference.objects.filter(pk=param).first()
+        return Conference.get_active()
+
+    def get_queryset(self):
+        # ``conference=None`` matches nothing, so an unknown year or no active
+        # conference yields an empty list rather than every year at once.
+        return super().get_queryset().filter(conference=self.get_selected_conference())
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["conferences"] = Conference.objects.all()
+        context["selected_conference"] = self.get_selected_conference()
+        return context
+
 
 class VolunteerProfileView(DetailView):
     model = VolunteerProfile
@@ -225,6 +248,19 @@ class ManageVolunteerProfile(VolunteerAdminRequiredMixin, UpdateView):
         kwargs.update({"user": self.request.user})
         return kwargs
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        # Prior-year applications by the same volunteer, newest first, to inform
+        # the review decision (what years/roles they served before).
+        context["volunteer_history"] = (
+            VolunteerProfile.objects.filter(user=self.object.user)
+            .exclude(pk=self.object.pk)
+            .select_related("conference")
+            .prefetch_related("roles", "teams")
+            .order_by("-conference__year")
+        )
+        return context
+
 
 class VolunteerProfileCreate(CreateView):
     model = VolunteerProfile
@@ -233,7 +269,11 @@ class VolunteerProfileCreate(CreateView):
     form_class = VolunteerProfileForm
 
     def get(self, request, *args, **kwargs):
-        if VolunteerProfile.objects.filter(user__id=request.user.id).exists():
+        # Only block if they have already applied for the *active* conference;
+        # returning volunteers may apply afresh each year.
+        if VolunteerProfile.objects.filter(
+            user=request.user, conference=Conference.get_active()
+        ).exists():
             return redirect("volunteer:index")
         return super(VolunteerProfileCreate, self).get(request, *args, **kwargs)
 

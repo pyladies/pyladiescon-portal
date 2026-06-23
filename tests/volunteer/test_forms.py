@@ -1,8 +1,59 @@
 import pytest
 
+from portal.models import Conference
 from volunteer.constants import Region
 from volunteer.forms import SelectMultipleWidget, VolunteerProfileForm
-from volunteer.models import Language, VolunteerProfile
+from volunteer.models import Language, Team, VolunteerProfile
+
+
+@pytest.mark.django_db
+class TestReturningVolunteerPrefill:
+    def test_form_prefills_from_most_recent_prior_profile(
+        self, portal_user, conference
+    ):
+        past = Conference.objects.create(
+            year=2024, name="PyLadiesCon 2024", slug="2024"
+        )
+        prior = VolunteerProfile.objects.create(
+            user=portal_user,
+            conference=past,
+            discord_username="priordiscord",
+            github_username="priorgh",
+            region=Region.NORTH_AMERICA,
+            availability_hours_per_week=5,
+        )
+        french = Language.objects.create(code="fr", name="French")
+        prior.language.add(french)
+
+        form = VolunteerProfileForm(user=portal_user)
+
+        assert form.initial["discord_username"] == "priordiscord"
+        assert form.initial["github_username"] == "priorgh"
+        assert form.initial["region"] == Region.NORTH_AMERICA
+        assert form.initial["availability_hours_per_week"] == 5
+        assert list(form.initial["language"]) == [french]
+
+    def test_team_choices_scoped_to_active_conference(self, portal_user, conference):
+        past = Conference.objects.create(
+            year=2024, name="PyLadiesCon 2024", slug="2024"
+        )
+        active_team = Team.objects.create(
+            short_name="Active Team",
+            description="d",
+            conference=conference,
+            open_to_new_members=True,
+        )
+        past_team = Team.objects.create(
+            short_name="Past Team",
+            description="d",
+            conference=past,
+            open_to_new_members=True,
+        )
+
+        teams = list(VolunteerProfileForm(user=portal_user).fields["teams"].queryset)
+
+        assert active_team in teams
+        assert past_team not in teams
 
 
 @pytest.mark.django_db
@@ -261,7 +312,7 @@ class TestVolunteerProfileForm:
         elif not valid:
             assert "linkedin_url" in form.errors
 
-    def test_form_updates_existing_profile(self, portal_user, language):
+    def test_form_updates_existing_profile(self, portal_user, language, conference):
         """Test that form can update an existing profile."""
         other_language = Language.objects.create(code="es", name="Spanish")
         profile = VolunteerProfile.objects.create(
@@ -270,6 +321,7 @@ class TestVolunteerProfileForm:
             github_username="olduser",
             availability_hours_per_week=40,
             region=Region.NORTH_AMERICA,
+            conference=conference,
         )
         profile.language.add(language)
 
@@ -329,13 +381,14 @@ class TestVolunteerProfileForm:
         cleaned_data = form.clean()
         assert cleaned_data == form.cleaned_data
 
-    def test_form_init_with_instance(self, portal_user, language):
+    def test_form_init_with_instance(self, portal_user, language, conference):
         """Test form initialization with existing instance."""
         profile = VolunteerProfile.objects.create(
             user=portal_user,
             region=Region.NORTH_AMERICA,
             github_username="testuser",
             discord_username="testdiscord",
+            conference=conference,
         )
         profile.language.add(language)
 
@@ -620,3 +673,10 @@ class TestSelectMultipleWidget:
         assert (
             "data-placeholder" in widget.attrs
         )  # Default attribute should still be present
+
+
+@pytest.mark.django_db
+class TestConferenceNotExposed:
+    def test_conference_field_not_in_volunteer_form(self):
+        """conference stays out of the public form until multi-year Phase 6."""
+        assert "conference" not in VolunteerProfileForm().fields

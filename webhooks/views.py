@@ -87,7 +87,10 @@ def pretix_webhook(request):
     event_json = json.loads(request.body.decode("utf-8"))
     order_code = event_json["code"]
     order_data = pretix_wrapper.get_order_by_code(order_code)
-    order_instance, _ = PretixOrder.objects.get_or_create(order_code=order_code)
+    order_instance, _ = PretixOrder.objects.get_or_create(
+        order_code=order_code,
+        defaults={"conference": PretixOrder.resolve_conference(order_data["event"])},
+    )
     order_instance.from_pretix_data(order_data)
     order_instance.save()
 

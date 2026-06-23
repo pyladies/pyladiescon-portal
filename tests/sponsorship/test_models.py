@@ -18,49 +18,59 @@ from volunteer.models import (
 @pytest.mark.django_db
 class TestSponsorshipModel:
 
-    def test_profile_str_representation(self, admin_user):
+    def test_profile_str_representation(self, admin_user, conference):
         """Test string representation of SponsorshipProfile."""
         profile = SponsorshipProfile()
         profile.organization_name = "Very Cool Company"
         profile.main_contact_user = admin_user
         profile.progress_status = SponsorshipProgressStatus.AWAITING_RESPONSE.value
+        profile.conference = conference
         profile.save()
         assert str(profile) == profile.organization_name
 
-    def test_tier_str_representation(self):
+    def test_tier_str_representation(self, conference):
         """Test string representation of SponsorshipTier."""
         tier = SponsorshipTier(
-            name="Gold", amount=3000.00, description="Test Description"
+            name="Gold",
+            amount=3000.00,
+            description="Test Description",
+            conference=conference,
         )
         tier.save()
         assert str(tier) == f"{tier.name} (${tier.amount:.2f})"
 
-    def test_donation_str_representation(self):
+    def test_donation_str_representation(self, conference):
         """Test string representation of IndividualDonation."""
         from sponsorship.models import IndividualDonation
 
-        donation = IndividualDonation(transaction_id="TX12345", donation_amount=150.00)
+        donation = IndividualDonation(
+            transaction_id="TX12345", donation_amount=150.00, conference=conference
+        )
         donation.save()
         assert (
             str(donation)
             == f"{donation.transaction_id}: ${donation.donation_amount:.2f}"
         )
 
-    def test_tier_relationships(self, admin_user):
+    def test_tier_relationships(self, admin_user, conference):
         """Test tier relationships with sponsorship."""
         tier = SponsorshipTier.objects.create(
-            name="Gold", amount=3000.00, description="Test Description"
+            name="Gold",
+            amount=3000.00,
+            description="Test Description",
+            conference=conference,
         )
         profile = SponsorshipProfile()
         profile.organization_name = "Very Cool Company"
         profile.main_contact_user = admin_user
         profile.progress_status = SponsorshipProgressStatus.AWAITING_RESPONSE.value
         profile.sponsorship_tier = tier
+        profile.conference = conference
         profile.save()
 
         assert profile.sponsorship_tier == tier
 
-    def test_email_is_sent_after_saved(self, admin_user):
+    def test_email_is_sent_after_saved(self, admin_user, conference):
         # set up an admin account to receive internal notification email
         admin_role = Role.objects.create(
             short_name=RoleTypes.ADMIN, description="Admin role"
@@ -70,7 +80,9 @@ class TestSponsorshipModel:
             email="test-admin@example.com",
             password="pyladiesadmin123",
         )
-        admin_profile = VolunteerProfile(user=admin_user_to_notify)
+        admin_profile = VolunteerProfile(
+            user=admin_user_to_notify, conference=conference
+        )
         admin_profile.region = Region.NORTH_AMERICA
         admin_profile.save()
 
@@ -90,6 +102,7 @@ class TestSponsorshipModel:
             main_contact_user=admin_user,
             organization_name="Test Org",
             progress_status=SponsorshipProgressStatus.AWAITING_RESPONSE.value,
+            conference=conference,
         )
 
         profile.save()
@@ -102,7 +115,7 @@ class TestSponsorshipModel:
                 == f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} New Sponsorship Tracking: {profile.organization_name}"
             )
 
-    def test_no_email_if_no_admin_user(self, portal_user):
+    def test_no_email_if_no_admin_user(self, portal_user, conference):
 
         mail.outbox.clear()
 
@@ -111,6 +124,7 @@ class TestSponsorshipModel:
             main_contact_user=portal_user,
             organization_name="Test Org",
             progress_status=SponsorshipProgressStatus.AWAITING_RESPONSE.value,
+            conference=conference,
         )
 
         profile.save()
@@ -118,11 +132,12 @@ class TestSponsorshipModel:
         # 3 emails were sent:
         assert len(mail.outbox) == 0  # emails sent to 3 different admins
 
-    def test_email_is_sent_after_updated(self, admin_user):
+    def test_email_is_sent_after_updated(self, admin_user, conference):
         profile = SponsorshipProfile(
             main_contact_user=admin_user,
             organization_name="Test Org",
             progress_status=SponsorshipProgressStatus.AWAITING_RESPONSE.value,
+            conference=conference,
         )
         profile.save()
         mail.outbox.clear()
@@ -134,21 +149,26 @@ class TestSponsorshipModel:
             == f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} Update in Sponsorship Tracking for {profile.organization_name}"
         )
 
-    def test_sponsorship_notification_email_contains_info(self, admin_user):
+    def test_sponsorship_notification_email_contains_info(self, admin_user, conference):
         admin_user_to_notify = User.objects.create_superuser(
             username="testadmin",
             email="test-admin@example.com",
             password="pyladiesadmin123",
         )
-        admin_profile = VolunteerProfile(user=admin_user_to_notify)
+        admin_profile = VolunteerProfile(
+            user=admin_user_to_notify, conference=conference
+        )
         admin_profile.region = Region.NORTH_AMERICA
         admin_profile.save()
 
         tier = SponsorshipTier.objects.create(
-            name="Gold", amount=5000.00, description="Gold Tier"
+            name="Gold",
+            amount=5000.00,
+            description="Gold Tier",
+            conference=conference,
         )
 
-        profile = SponsorshipProfile(user=admin_user)
+        profile = SponsorshipProfile(user=admin_user, conference=conference)
         profile.progress_status = SponsorshipProgressStatus.INVOICED
         profile.sponsorship_tier = tier
         profile.organization_name = "Test Org"
@@ -171,10 +191,13 @@ class TestSponsorshipModel:
         assert profile.organization_address in body
         assert str(profile.sponsorship_override_amount) in body
 
-    def test_po_number_field_is_saved(self, admin_user):
+    def test_po_number_field_is_saved(self, admin_user, conference):
         """Test that the PO Number field is saved correctly."""
         tier = SponsorshipTier.objects.create(
-            name="Gold", amount=3000.00, description="Test Description"
+            name="Gold",
+            amount=3000.00,
+            description="Test Description",
+            conference=conference,
         )
         profile = SponsorshipProfile(
             main_contact_user=admin_user,
@@ -182,6 +205,7 @@ class TestSponsorshipModel:
             progress_status=SponsorshipProgressStatus.AWAITING_RESPONSE.value,
             sponsorship_tier=tier,
             po_number="PO-2024-12345",
+            conference=conference,
         )
         profile.save()
 
@@ -189,10 +213,13 @@ class TestSponsorshipModel:
         saved_profile = SponsorshipProfile.objects.get(id=profile.id)
         assert saved_profile.po_number == "PO-2024-12345"
 
-    def test_po_number_field_can_be_empty(self, admin_user):
+    def test_po_number_field_can_be_empty(self, admin_user, conference):
         """Test that the PO Number field can be left empty (optional)."""
         tier = SponsorshipTier.objects.create(
-            name="Silver", amount=2000.00, description="Test Description"
+            name="Silver",
+            amount=2000.00,
+            description="Test Description",
+            conference=conference,
         )
         profile = SponsorshipProfile(
             main_contact_user=admin_user,
@@ -200,9 +227,45 @@ class TestSponsorshipModel:
             progress_status=SponsorshipProgressStatus.AWAITING_RESPONSE.value,
             sponsorship_tier=tier,
             po_number=None,
+            conference=conference,
         )
         profile.save()
 
         # Retrieve the profile from the database to verify it was saved
         saved_profile = SponsorshipProfile.objects.get(id=profile.id)
         assert saved_profile.po_number is None
+
+
+@pytest.mark.django_db
+class TestConferenceLink:
+    """Conference FK is required (non-null) as of multi-year Phase 4."""
+
+    def test_sponsorship_profile_links_to_conference(self, admin_user, conference):
+        profile = SponsorshipProfile.objects.create(
+            main_contact_user=admin_user,
+            organization_name="Very Cool Company",
+            progress_status=SponsorshipProgressStatus.AWAITING_RESPONSE.value,
+            conference=conference,
+        )
+        assert list(conference.sponsorship_profiles.all()) == [profile]
+
+    def test_sponsorship_tier_links_to_conference(self, conference):
+        tier = SponsorshipTier.objects.create(
+            name="Gold",
+            amount=3000.00,
+            description="Test Description",
+            conference=conference,
+        )
+        assert tier.conference == conference
+        assert list(conference.sponsorship_tiers.all()) == [tier]
+
+    def test_individual_donation_links_to_conference(self, conference):
+        from sponsorship.models import IndividualDonation
+
+        donation = IndividualDonation.objects.create(
+            transaction_id="TXN123",
+            donation_amount=50.00,
+            donor_email="donor@example.com",
+            conference=conference,
+        )
+        assert list(conference.individual_donations.all()) == [donation]

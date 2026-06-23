@@ -16,14 +16,17 @@ from sponsorship.models import (
 
 @pytest.mark.django_db
 class TestSponsorshipEmails:
-    def test_send_sponsorship_status_emails(self):
+    def test_send_sponsorship_status_emails(self, conference):
         """Test that sponsorship status emails are sent correctly."""
         user = User.objects.create_user(
             username="sponsor", email="sponsor@example.com", password="testpass"
         )
 
         tier = SponsorshipTier.objects.create(
-            name="Gold", amount=5000.00, description="Gold tier sponsorship"
+            name="Gold",
+            amount=5000.00,
+            description="Gold tier sponsorship",
+            conference=conference,
         )
 
         profile = SponsorshipProfile.objects.create(
@@ -31,6 +34,7 @@ class TestSponsorshipEmails:
             organization_name="Test Corp",
             sponsorship_tier=tier,
             progress_status=SponsorshipProgressStatus.APPROVED,
+            conference=conference,
         )
 
         # Clear the mail outbox
@@ -52,10 +56,13 @@ class TestSponsorshipEmails:
         assert "New Sponsorship Approved: Test Corp" in team_email.subject
         assert team_email.to == ["team@example.com"]
 
-    def test_send_psf_invoice_request_email(self):
+    def test_send_psf_invoice_request_email(self, conference):
         """Test that PSF invoice request email is sent correctly."""
         tier = SponsorshipTier.objects.create(
-            name="Gold", amount=5000.00, description="Gold tier sponsorship"
+            name="Gold",
+            amount=5000.00,
+            description="Gold tier sponsorship",
+            conference=conference,
         )
 
         profile = SponsorshipProfile.objects.create(
@@ -63,6 +70,7 @@ class TestSponsorshipEmails:
             sponsorship_tier=tier,
             progress_status=SponsorshipProgressStatus.APPROVED,
             sponsors_contact_email="contact@testcorp.com",
+            conference=conference,
         )
 
         # Clear the mail outbox

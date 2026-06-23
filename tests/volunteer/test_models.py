@@ -19,9 +19,9 @@ from volunteer.models import (
 
 @pytest.mark.django_db
 class TestVolunteerModel:
-    def test_volunteer_profile(self, portal_user, language):
+    def test_volunteer_profile(self, portal_user, language, conference):
         """Test basic volunteer profile creation and URL generation."""
-        profile = VolunteerProfile(user=portal_user)
+        profile = VolunteerProfile(user=portal_user, conference=conference)
         profile.region = Region.NORTH_AMERICA
         profile.discord_username = "mydiscord"
         profile.save()
@@ -31,18 +31,22 @@ class TestVolunteerModel:
             "volunteer:volunteer_profile_edit", kwargs={"pk": profile.pk}
         )
 
-    def test_profile_str_representation(self, portal_user):
+    def test_profile_str_representation(self, portal_user, conference):
         """Test string representation of VolunteerProfile."""
-        profile = VolunteerProfile(user=portal_user)
+        profile = VolunteerProfile(user=portal_user, conference=conference)
         profile.region = Region.NORTH_AMERICA
         profile.discord_username = "mydiscord"
         assert str(profile) == portal_user.username
 
-    def test_team_str_representation(self):
+    def test_team_str_representation(self, conference):
         """Test string representation of Team."""
-        team = Team(short_name="Test Team", description="Test Description")
+        team = Team(
+            short_name="Test Team",
+            description="Test Description",
+            conference=conference,
+        )
         team.save()
-        assert str(team) == "Test Team"
+        assert str(team) == f"Test Team ({conference.year})"
 
     def test_role_str_representation(self):
         """Test string representation of Role."""
@@ -73,15 +77,16 @@ class TestVolunteerModel:
                 chapter_name="Vancouver", chapter_description="Vancouver, Canada"
             )
 
-    def test_team_relationships(self, portal_user, language):
+    def test_team_relationships(self, portal_user, language, conference):
         """Test team relationships with volunteers."""
         team = Team.objects.create(
-            short_name="Dev Team", description="Development Team"
+            short_name="Dev Team", description="Development Team", conference=conference
         )
         profile = VolunteerProfile.objects.create(
             user=portal_user,
             region=Region.NORTH_AMERICA,
             discord_username="mydiscord",
+            conference=conference,
         )
         profile.language.add(language)
         team.team_leads.add(profile)
@@ -90,13 +95,13 @@ class TestVolunteerModel:
         assert profile in team.team_leads.all()
         assert team in profile.teams.all()
 
-    def test_role_relationships(self, portal_user, language):
+    def test_role_relationships(self, portal_user, language, conference):
         """Test role relationships with volunteers."""
         role = Role.objects.create(
             short_name="Developer", description="Software Developer"
         )
         profile = VolunteerProfile.objects.create(
-            user=portal_user, region=Region.NORTH_AMERICA
+            user=portal_user, region=Region.NORTH_AMERICA, conference=conference
         )
         profile.language.add(language)
         profile.roles.add(role)
@@ -104,10 +109,11 @@ class TestVolunteerModel:
         assert role in profile.roles.all()
         assert profile in role.roles.all()
 
-    def test_volunteer_profile_validation(self, portal_user):
+    def test_volunteer_profile_validation(self, portal_user, conference):
         """Test validation of volunteer profile fields."""
         profile = VolunteerProfile(
             user=portal_user,
+            conference=conference,
             region=Region.NORTH_AMERICA,
             github_username="valid-username",
             discord_username="valid.username",
@@ -136,11 +142,12 @@ class TestVolunteerModel:
         ],
     )
     def test_invalid_social_media_fields(
-        self, portal_user, field, value, expected_error
+        self, portal_user, conference, field, value, expected_error
     ):
         """Test validation of invalid social media fields."""
         profile = VolunteerProfile(
             user=portal_user,
+            conference=conference,
             region=Region.NORTH_AMERICA,
             **{field: value},
         )
@@ -150,26 +157,29 @@ class TestVolunteerModel:
 
         assert expected_error in str(excinfo.value)
 
-    def test_application_status_default(self, portal_user):
+    def test_application_status_default(self, portal_user, conference):
         """Test that application_status defaults to PENDING."""
         profile = VolunteerProfile.objects.create(
-            user=portal_user, region=Region.NORTH_AMERICA
+            user=portal_user, region=Region.NORTH_AMERICA, conference=conference
         )
         assert profile.application_status == "Pending Review"
 
-    def test_region_choices(self, portal_user):
+    def test_region_choices(self, portal_user, conference):
         """Test that region must be from the predefined choices."""
-        profile = VolunteerProfile(user=portal_user, region="INVALID")
+        profile = VolunteerProfile(
+            user=portal_user, conference=conference, region="INVALID"
+        )
 
         with pytest.raises(ValidationError) as excinfo:
             profile.full_clean()
 
         assert "region" in str(excinfo.value)
 
-    def test_language_validation(self, portal_user):
+    def test_language_validation(self, portal_user, conference):
         """Test that languages_spoken must be from LANGUAGES."""
         profile = VolunteerProfile(
             user=portal_user,
+            conference=conference,
             languages_spoken=["invalid_language"],
             region=Region.NORTH_AMERICA,
         )
@@ -179,10 +189,11 @@ class TestVolunteerModel:
 
         assert "languages_spoken" in str(excinfo.value)
 
-    def test_linkedin_url_protocol_not_added_in_model(self, portal_user):
+    def test_linkedin_url_protocol_not_added_in_model(self, portal_user, conference):
         """Test that LinkedIn URL protocol isn't added during model validation."""
         profile = VolunteerProfile(
             user=portal_user,
+            conference=conference,
             region=Region.NORTH_AMERICA,
             discord_username="validuser123",
             linkedin_url="linkedin.com/in/username",
@@ -190,7 +201,7 @@ class TestVolunteerModel:
         profile.full_clean()
         assert profile.linkedin_url == "linkedin.com/in/username"
 
-    def test_linkedin_url_validation(self, portal_user):
+    def test_linkedin_url_validation(self, portal_user, conference):
         """Test LinkedIn URL validation in the model."""
         valid_urls = [
             "https://linkedin.com/in/username",
@@ -205,16 +216,18 @@ class TestVolunteerModel:
         for url in valid_urls:
             profile = VolunteerProfile(
                 user=portal_user,
+                conference=conference,
                 region=Region.NORTH_AMERICA,
                 discord_username="validuser123",
                 linkedin_url=url,
             )
             profile.full_clean()
 
-    def test_linkedin_url_with_path_slash(self, portal_user):
+    def test_linkedin_url_with_path_slash(self, portal_user, conference):
         """Test that LinkedIn URL with trailing slash is valid."""
         profile = VolunteerProfile(
             user=portal_user,
+            conference=conference,
             region=Region.NORTH_AMERICA,
             discord_username="validuser123",
             linkedin_url="https://linkedin.com/in/username/",
@@ -222,10 +235,11 @@ class TestVolunteerModel:
         profile.full_clean()
         assert profile.linkedin_url == "https://linkedin.com/in/username/"
 
-    def test_linkedin_url_validation_error_message(self, portal_user):
+    def test_linkedin_url_validation_error_message(self, portal_user, conference):
         """Test LinkedIn URL validation error message."""
         profile = VolunteerProfile(
             user=portal_user,
+            conference=conference,
             region=Region.NORTH_AMERICA,
             discord_username="validuser123",
             linkedin_url="invalid-url",
@@ -237,13 +251,14 @@ class TestVolunteerModel:
         assert "linkedin_url" in str(excinfo.value)
         assert "Invalid LinkedIn URL format" in str(excinfo.value)
 
-    def test_linkedin_url_validation_with_invalid_chars(self, portal_user):
+    def test_linkedin_url_validation_with_invalid_chars(self, portal_user, conference):
         """Test LinkedIn URL validation with invalid characters.
 
         For now as long as it starts with linkedin domain, we'll consider it valid.
         """
         profile = VolunteerProfile(
             user=portal_user,
+            conference=conference,
             region=Region.NORTH_AMERICA,
             discord_username="validuser123",
             linkedin_url="linkedin.com/in/user@name",
@@ -251,10 +266,11 @@ class TestVolunteerModel:
 
         profile.full_clean()
 
-    def test_linkedin_url_invalid_domain(self, portal_user):
+    def test_linkedin_url_invalid_domain(self, portal_user, conference):
         """Test LinkedIn URL validation with invalid domain format."""
         profile = VolunteerProfile(
             user=portal_user,
+            conference=conference,
             region=Region.NORTH_AMERICA,
             discord_username="validuser123",
             linkedin_url="https://invalid-domain.com/in/username",
@@ -266,10 +282,11 @@ class TestVolunteerModel:
         assert "linkedin_url" in str(excinfo.value)
         assert "Invalid LinkedIn URL format" in str(excinfo.value)
 
-    def test_linkedin_url_missing_in_path(self, portal_user):
+    def test_linkedin_url_missing_in_path(self, portal_user, conference):
         """Test LinkedIn URL validation when missing '/in/' in path."""
         profile = VolunteerProfile(
             user=portal_user,
+            conference=conference,
             region=Region.NORTH_AMERICA,
             discord_username="validuser123",
             linkedin_url="https://linkedin.com/username",
@@ -281,10 +298,11 @@ class TestVolunteerModel:
         assert "linkedin_url" in str(excinfo.value)
         assert "Invalid LinkedIn URL format" in str(excinfo.value)
 
-    def test_linkedin_url_with_uppercase(self, portal_user):
+    def test_linkedin_url_with_uppercase(self, portal_user, conference):
         """Test LinkedIn URL validation with uppercase letters in path."""
         profile = VolunteerProfile(
             user=portal_user,
+            conference=conference,
             region=Region.NORTH_AMERICA,
             discord_username="validuser123",
             linkedin_url="https://linkedin.com/in/UserName",
@@ -292,10 +310,11 @@ class TestVolunteerModel:
         profile.full_clean()
         assert profile.linkedin_url == "https://linkedin.com/in/UserName"
 
-    def test_discord_username_length_validation(self, portal_user):
+    def test_discord_username_length_validation(self, portal_user, conference):
         """Test Discord username validation for length constraints."""
         profile = VolunteerProfile(
             user=portal_user,
+            conference=conference,
             region=Region.NORTH_AMERICA,
             discord_username="a",
         )
@@ -327,17 +346,20 @@ class TestVolunteerModel:
         ],
     )
     def test_discord_username_underscore_variations(
-        self, portal_user, username, description
+        self, portal_user, conference, username, description
     ):
         """Test various underscore patterns in Discord usernames (issue #150)."""
         profile = VolunteerProfile(
-            user=portal_user, region=Region.NORTH_AMERICA, discord_username=username
+            user=portal_user,
+            conference=conference,
+            region=Region.NORTH_AMERICA,
+            discord_username=username,
         )
 
         # This should not raise ValidationError
         profile.full_clean()
 
-    def test_email_is_sent_after_saved(self, portal_user):
+    def test_email_is_sent_after_saved(self, portal_user, conference):
         # set up an admin account to receive internal notification email
         admin_role = Role.objects.create(
             short_name=RoleTypes.ADMIN, description="Admin role"
@@ -347,7 +369,9 @@ class TestVolunteerModel:
             email="test-admin@example.com",
             password="pyladiesadmin123",
         )
-        admin_profile = VolunteerProfile(user=admin_user_to_notify)
+        admin_profile = VolunteerProfile(
+            user=admin_user_to_notify, conference=conference
+        )
         admin_profile.region = Region.NORTH_AMERICA
         admin_profile.save()
 
@@ -363,7 +387,7 @@ class TestVolunteerModel:
         mail.outbox.clear()
 
         # the actual process to test
-        profile = VolunteerProfile(user=portal_user)
+        profile = VolunteerProfile(user=portal_user, conference=conference)
         profile.region = Region.NORTH_AMERICA
         profile.save()
 
@@ -374,20 +398,20 @@ class TestVolunteerModel:
         assert len(mail.outbox) == 3
         assert (  # user creation, to internal staff
             str(mail.outbox[0].subject)
-            == f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} New Volunteer Application"
+            == f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} New {profile.conference} Volunteer Application"
         )
         assert (  # user creation, to internal staff
             str(mail.outbox[1].subject)
-            == f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} New Volunteer Application"
+            == f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} New {profile.conference} Volunteer Application"
         )
 
         assert (  # user creation, to user
             str(mail.outbox[2].subject)
-            == f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} Volunteer Application Received"
+            == f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} {profile.conference} Volunteer Application Received"
         )
 
-    def test_email_is_sent_after_updated(self, portal_user):
-        profile = VolunteerProfile(user=portal_user)
+    def test_email_is_sent_after_updated(self, portal_user, conference):
+        profile = VolunteerProfile(user=portal_user, conference=conference)
         profile.region = Region.NORTH_AMERICA
         profile.save()
         mail.outbox.clear()
@@ -397,15 +421,15 @@ class TestVolunteerModel:
 
         assert (
             str(mail.outbox[0].subject)
-            == f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} Volunteer Application Updated"
+            == f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} {profile.conference} Volunteer Application Updated"
         )
 
-    def test_volunteer_notification_email_contains_info(self, portal_user):
+    def test_volunteer_notification_email_contains_info(self, portal_user, conference):
         chapter = PyladiesChapter.objects.create(
             chapter_name="vancouver", chapter_description="Vancouver, Canada"
         )
 
-        profile = VolunteerProfile(user=portal_user)
+        profile = VolunteerProfile(user=portal_user, conference=conference)
         profile.region = Region.NORTH_AMERICA
         profile.bluesky_username = "mybsky"
         profile.discord_username = "mydiscord"
@@ -436,16 +460,20 @@ class TestVolunteerModel:
 
         assert reverse("volunteer:index") in body
 
-    def test_volunteer_onboarding_email_contains_info(self, portal_user, settings):
+    def test_volunteer_onboarding_email_contains_info(
+        self, portal_user, conference, settings
+    ):
         settings.GDRIVE_FOLDER_ID = "super-secret-folder-id"
 
-        profile = VolunteerProfile(user=portal_user)
+        profile = VolunteerProfile(user=portal_user, conference=conference)
         profile.region = Region.NORTH_AMERICA
         profile.discord_username = "mydiscord"
         profile.save()
 
         team = Team.objects.create(
-            short_name="Super random team name", description="Development Team"
+            short_name="Super random team name",
+            description="Development Team",
+            conference=conference,
         )
         profile.teams.add(team)
         role = Role.objects.create(
@@ -460,7 +488,7 @@ class TestVolunteerModel:
         assert len(mail.outbox) == 1
         assert (
             str(mail.outbox[0].subject)
-            == f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} Welcome to the PyLadiesCon Volunteer Team"
+            == f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} Welcome to the {profile.conference} Volunteer Team"
         )
         # role name and team name in the body
         assert role.short_name in str(mail.outbox[0].body)
@@ -469,16 +497,20 @@ class TestVolunteerModel:
         # gdrive info not in the body. It's for admin onboarding only
         assert "super-secret-folder-id" not in str(mail.outbox[0].body)
 
-    def test_admin_onboarding_email_contains_info(self, portal_user, settings):
+    def test_admin_onboarding_email_contains_info(
+        self, portal_user, conference, settings
+    ):
         settings.GDRIVE_FOLDER_ID = "super-secret-folder-id"
 
-        profile = VolunteerProfile(user=portal_user)
+        profile = VolunteerProfile(user=portal_user, conference=conference)
         profile.region = Region.NORTH_AMERICA
         profile.discord_username = "mydiscord"
         profile.save()
 
         team = Team.objects.create(
-            short_name="Super random team name", description="Development Team"
+            short_name="Super random team name",
+            description="Development Team",
+            conference=conference,
         )
         profile.teams.add(team)
         admin_role = Role.objects.create(
@@ -493,7 +525,7 @@ class TestVolunteerModel:
         assert len(mail.outbox) == 1
         assert (
             str(mail.outbox[0].subject)
-            == f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} Welcome to the PyLadiesCon Volunteer Team"
+            == f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} Welcome to the {profile.conference} Volunteer Team"
         )
         # role name and team name in the body
         assert admin_role.short_name in str(mail.outbox[0].body)
@@ -511,16 +543,18 @@ class TestVolunteerModel:
         ],
     )
     def test_onboarding_email_not_sent_if_not_approved(
-        self, portal_user, application_status
+        self, portal_user, conference, application_status
     ):
 
-        profile = VolunteerProfile(user=portal_user)
+        profile = VolunteerProfile(user=portal_user, conference=conference)
         profile.region = Region.NORTH_AMERICA
         profile.discord_username = "mydiscord"
         profile.save()
 
         team = Team.objects.create(
-            short_name="Super random team name", description="Development Team"
+            short_name="Super random team name",
+            description="Development Team",
+            conference=conference,
         )
         profile.teams.add(team)
         admin_role = Role.objects.create(
@@ -535,7 +569,7 @@ class TestVolunteerModel:
         assert len(mail.outbox) == 0
 
     def test_internal_volunteer_onboarding_email_contains_info(
-        self, portal_user, settings
+        self, portal_user, conference, settings
     ):
         settings.GDRIVE_FOLDER_ID = "super-secret-folder-id"
 
@@ -544,17 +578,21 @@ class TestVolunteerModel:
             email="test-admin@example.com",
             password="pyladiesadmin123",
         )
-        admin_profile = VolunteerProfile(user=admin_user_to_notify)
+        admin_profile = VolunteerProfile(
+            user=admin_user_to_notify, conference=conference
+        )
         admin_profile.region = Region.NORTH_AMERICA
         admin_profile.save()
 
-        profile = VolunteerProfile(user=portal_user)
+        profile = VolunteerProfile(user=portal_user, conference=conference)
         profile.region = Region.NORTH_AMERICA
         profile.discord_username = "mydiscord"
         profile.save()
 
         team = Team.objects.create(
-            short_name="Super random team name", description="Development Team"
+            short_name="Super random team name",
+            description="Development Team",
+            conference=conference,
         )
         profile.teams.add(team)
 
@@ -570,7 +608,7 @@ class TestVolunteerModel:
         assert len(mail.outbox) == 1
         assert (
             str(mail.outbox[0].subject)
-            == f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} Complete the Volunteer Onboarding for: {profile.user.first_name} {profile.user.last_name}"
+            == f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} Complete the {profile.conference} Volunteer Onboarding for: {profile.user.first_name} {profile.user.last_name}"
         )
         # role name and team name in the body
         assert role.short_name in str(mail.outbox[0].body)
@@ -579,7 +617,9 @@ class TestVolunteerModel:
         # gdrive info not in the body. It's for admin onboarding only
         assert "super-secret-folder-id" not in str(mail.outbox[0].body)
 
-    def test_internal_admin_onboarding_email_contains_info(self, portal_user, settings):
+    def test_internal_admin_onboarding_email_contains_info(
+        self, portal_user, conference, settings
+    ):
         settings.GDRIVE_FOLDER_ID = "super-secret-folder-id"
 
         admin_user_to_notify = User.objects.create_superuser(
@@ -587,17 +627,21 @@ class TestVolunteerModel:
             email="test-admin@example.com",
             password="pyladiesadmin123",
         )
-        admin_profile = VolunteerProfile(user=admin_user_to_notify)
+        admin_profile = VolunteerProfile(
+            user=admin_user_to_notify, conference=conference
+        )
         admin_profile.region = Region.NORTH_AMERICA
         admin_profile.save()
 
-        profile = VolunteerProfile(user=portal_user)
+        profile = VolunteerProfile(user=portal_user, conference=conference)
         profile.region = Region.NORTH_AMERICA
         profile.discord_username = "mydiscord"
         profile.save()
 
         team = Team.objects.create(
-            short_name="Super random team name", description="Development Team"
+            short_name="Super random team name",
+            description="Development Team",
+            conference=conference,
         )
         profile.teams.add(team)
         admin_role = Role.objects.create(
@@ -612,7 +656,7 @@ class TestVolunteerModel:
         assert len(mail.outbox) == 1
         assert (
             str(mail.outbox[0].subject)
-            == f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} Complete the Volunteer Onboarding for: {profile.user.first_name} {profile.user.last_name}"
+            == f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} Complete the {profile.conference} Volunteer Onboarding for: {profile.user.first_name} {profile.user.last_name}"
         )
         # role name and team name in the body
         assert admin_role.short_name in str(mail.outbox[0].body)
@@ -630,16 +674,18 @@ class TestVolunteerModel:
         ],
     )
     def test_internal_onboarding_email_not_sent_if_not_approved(
-        self, portal_user, application_status
+        self, portal_user, conference, application_status
     ):
 
-        profile = VolunteerProfile(user=portal_user)
+        profile = VolunteerProfile(user=portal_user, conference=conference)
         profile.region = Region.NORTH_AMERICA
         profile.discord_username = "mydiscord"
         profile.save()
 
         team = Team.objects.create(
-            short_name="Super random team name", description="Development Team"
+            short_name="Super random team name",
+            description="Development Team",
+            conference=conference,
         )
         profile.teams.add(team)
         admin_role = Role.objects.create(
@@ -653,8 +699,8 @@ class TestVolunteerModel:
         send_internal_volunteer_onboarding_email(profile)
         assert len(mail.outbox) == 0
 
-    def test_email_if_waitlisted(self, portal_user):
-        profile = VolunteerProfile(user=portal_user)
+    def test_email_if_waitlisted(self, portal_user, conference):
+        profile = VolunteerProfile(user=portal_user, conference=conference)
         profile.region = Region.NORTH_AMERICA
         profile.application_status = ApplicationStatus.WAITLISTED
         profile.save()
@@ -665,8 +711,26 @@ class TestVolunteerModel:
 
         assert (
             str(mail.outbox[0].subject)
-            == f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} Volunteer Application Updated"
+            == f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} {profile.conference} Volunteer Application Updated"
         )
 
         # message about being waitslisted is in the body
         assert "and we're not able to accept everyone" in str(mail.outbox[0].body)
+
+
+@pytest.mark.django_db
+class TestConferenceLink:
+    """Conference FK (required as of multi-year Phase 4)."""
+
+    def test_volunteer_profile_links_to_conference(self, portal_user, conference):
+        profile = VolunteerProfile(user=portal_user, conference=conference)
+        profile.region = Region.NORTH_AMERICA
+        profile.discord_username = "mydiscord"
+        profile.save()
+        assert list(conference.volunteer_profiles.all()) == [profile]
+
+    def test_team_links_to_conference(self, conference):
+        team = Team.objects.create(
+            short_name="Test Team", description="Test", conference=conference
+        )
+        assert list(conference.teams.all()) == [team]

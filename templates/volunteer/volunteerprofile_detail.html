@@ -10,6 +10,7 @@
         {% else %}
             Your Volunteer Profile
         {% endif %}
+        <span class="badge bg-secondary me-1">{{ object.conference }}</span>
         <span class="badge bg-info text-dark me-1">{{ object.application_status }}</span>
     </h1>
     <div class="card mb-4">
@@ -19,6 +20,14 @@
             </h5>
         </div>
         <div class="card-body">
+            <div class="row mb-3">
+                <div class="col-md-3 fw-bold">
+                    {% trans "Conference:" %}
+                </div>
+                <div class="col-md-9">
+                    {{ object.conference }}
+                </div>
+            </div>
             <div class="row mb-3">
                 <div class="col-md-3 fw-bold">
                     {% trans "Username:" %}
