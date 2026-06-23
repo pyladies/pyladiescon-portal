@@ -46,7 +46,7 @@ class TestVolunteerModel:
             conference=conference,
         )
         team.save()
-        assert str(team) == "Test Team"
+        assert str(team) == f"Test Team ({conference.year})"
 
     def test_role_str_representation(self):
         """Test string representation of Role."""

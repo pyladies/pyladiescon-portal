@@ -63,7 +63,9 @@ class Team(BaseModel):
     open_to_new_members = models.BooleanField(default=True)
 
     def __str__(self):
-        return self.short_name
+        # Include the conference year so teams are distinguishable across
+        # editions (e.g. in admin M2M pickers that list every year's teams).
+        return f"{self.short_name} ({self.conference.year})"
 
     @cached_property
     def approved_members(self):

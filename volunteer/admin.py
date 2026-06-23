@@ -82,6 +82,11 @@ class VolunteerProfileAdmin(ImportExportModelAdmin):
     list_filter = (ActiveConferenceFilter, "region", "application_status")
     actions = [bulk_waitlist_volunteers]
     resource_classes = [VolunteerProfileResource]
+    # Dual-list ("available"/"chosen") pickers for the many-to-many fields.
+    filter_horizontal = ("teams", "roles", "language")
+    # ``languages_spoken`` is deprecated in favour of the ``language`` m2m; hide
+    # it from the admin form (the public form already excludes it).
+    exclude = ("languages_spoken",)
 
 
 class PyladiesChapterResource(resources.ModelResource):
