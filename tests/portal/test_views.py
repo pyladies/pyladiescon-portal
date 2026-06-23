@@ -88,6 +88,7 @@ class TestStatsJSON:
         assert "stats" in data
 
 
+@pytest.mark.django_db
 class TestDashboardGallery:
 
     def test_dashboard_gallery_is_public(self, client):

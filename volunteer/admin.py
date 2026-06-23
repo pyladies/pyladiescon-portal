@@ -1,6 +1,11 @@
 from django.contrib import admin
 from import_export import resources
 from import_export.admin import ImportExportModelAdmin
+from import_export.fields import Field
+from import_export.widgets import ForeignKeyWidget
+
+from portal.admin_filters import ActiveConferenceFilter
+from portal.models import Conference
 
 from .constants import ApplicationStatus
 from .models import Language, PyladiesChapter, Role, Team, VolunteerProfile
@@ -18,14 +23,26 @@ def bulk_waitlist_volunteers(modeladmin, request, queryset):
 
 
 class VolunteerProfileResource(resources.ModelResource):
+    # Export/import the conference by its year (stable, human-readable) rather
+    # than the surrogate pk.
+    conference = Field(
+        attribute="conference",
+        column_name="conference",
+        widget=ForeignKeyWidget(Conference, field="year"),
+    )
+
     def before_save_instance(self, instance, row, **kwargs):
         # during 'confirm' step, dry_run is True
         instance.from_import_export = True
+        # Rows that omit the conference column belong to the active edition.
+        if instance.conference_id is None:
+            instance.conference = Conference.get_active()
 
     class Meta:
         model = VolunteerProfile
         fields = (
             "id",
+            "conference",
             "user__first_name",
             "user__last_name",
             "user__email",
@@ -45,6 +62,7 @@ class VolunteerProfileResource(resources.ModelResource):
 class VolunteerProfileAdmin(ImportExportModelAdmin):
     list_display = (
         "user",
+        "conference",
         "user__first_name",
         "user__last_name",
         "user__email",
@@ -61,9 +79,14 @@ class VolunteerProfileAdmin(ImportExportModelAdmin):
         "region",
         "application_status",
     )
-    list_filter = ("region", "application_status")
+    list_filter = (ActiveConferenceFilter, "region", "application_status")
     actions = [bulk_waitlist_volunteers]
     resource_classes = [VolunteerProfileResource]
+    # Dual-list ("available"/"chosen") pickers for the many-to-many fields.
+    filter_horizontal = ("teams", "roles", "language")
+    # ``languages_spoken`` is deprecated in favour of the ``language`` m2m; hide
+    # it from the admin form (the public form already excludes it).
+    exclude = ("languages_spoken",)
 
 
 class PyladiesChapterResource(resources.ModelResource):
@@ -101,7 +124,13 @@ class PyladiesChapterAdmin(ImportExportModelAdmin):
     has_logo.short_description = "Has Logo"
 
 
+class TeamAdmin(admin.ModelAdmin):
+    list_display = ("short_name", "conference", "open_to_new_members")
+    list_filter = ("conference", "open_to_new_members")
+    search_fields = ("short_name", "description")
+
+
 admin.site.register(Role)
-admin.site.register(Team)
+admin.site.register(Team, TeamAdmin)
 admin.site.register(VolunteerProfile, VolunteerProfileAdmin)
 admin.site.register(Language)

@@ -46,6 +46,13 @@ class Language(BaseModel):
 
 
 class Team(BaseModel):
+    # Every team belongs to a conference edition (backfilled in Phase 3).
+    # See docs/architecture/multi-year-conferences.md.
+    conference = models.ForeignKey(
+        "portal.Conference",
+        on_delete=models.PROTECT,
+        related_name="teams",
+    )
     short_name = models.CharField("name", max_length=40)
     description = models.CharField("description", max_length=1000)
     team_leads = models.ManyToManyField(
@@ -56,7 +63,9 @@ class Team(BaseModel):
     open_to_new_members = models.BooleanField(default=True)
 
     def __str__(self):
-        return self.short_name
+        # Include the conference year so teams are distinguishable across
+        # editions (e.g. in admin M2M pickers that list every year's teams).
+        return f"{self.short_name} ({self.conference.year})"
 
     @cached_property
     def approved_members(self):
@@ -99,7 +108,16 @@ class PyladiesChapter(BaseModel):
 
 
 class VolunteerProfile(BaseModel):
-    user = models.OneToOneField(User, on_delete=models.CASCADE)
+    # A user may volunteer once per conference edition, so user is a plain FK
+    # scoped by the ``("user", "conference")`` uniqueness in Meta below.
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    # Every profile belongs to a conference edition (backfilled in Phase 3).
+    # See docs/architecture/multi-year-conferences.md.
+    conference = models.ForeignKey(
+        "portal.Conference",
+        on_delete=models.PROTECT,
+        related_name="volunteer_profiles",
+    )
     roles = models.ManyToManyField(
         "Role", verbose_name="Roles", related_name="roles", blank=True
     )
@@ -267,6 +285,9 @@ class VolunteerProfile(BaseModel):
                     }
                 )
 
+    class Meta:
+        unique_together = ("user", "conference")
+
     def __str__(self):
         return self.user.username
 
@@ -277,7 +298,10 @@ class VolunteerProfile(BaseModel):
 def send_volunteer_notification_email(instance, updated=False):
     """Send email to the user whenever their volunteer profile was updated/created."""
     context = {"profile": instance}
-    subject = f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} Volunteer Application"
+    subject = (
+        f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} {instance.conference} "
+        "Volunteer Application"
+    )
     if updated:
         context["updated"] = True
         subject += " Updated"
@@ -302,7 +326,7 @@ def send_volunteer_onboarding_email(instance):
     """
     if instance.application_status == ApplicationStatus.APPROVED:
         context = {"profile": instance, "GDRIVE_FOLDER_ID": settings.GDRIVE_FOLDER_ID}
-        subject = f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} Welcome to the PyLadiesCon Volunteer Team"
+        subject = f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} Welcome to the {instance.conference} Volunteer Team"
 
         for role in instance.roles.all():
             if role.short_name in [RoleTypes.ADMIN, RoleTypes.STAFF]:
@@ -324,7 +348,7 @@ def send_internal_volunteer_onboarding_email(instance):
     """
     if instance.application_status == ApplicationStatus.APPROVED:
         context = {"profile": instance, "GDRIVE_FOLDER_ID": settings.GDRIVE_FOLDER_ID}
-        subject = f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} Complete the Volunteer Onboarding for: {instance.user.first_name} {instance.user.last_name}"
+        subject = f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} Complete the {instance.conference} Volunteer Onboarding for: {instance.user.first_name} {instance.user.last_name}"
         for role in instance.roles.all():
             if role.short_name in [RoleTypes.ADMIN, RoleTypes.STAFF]:
                 context["admin_onboarding"] = True
@@ -382,7 +406,7 @@ def send_internal_notification_email(instance):
 
     """
     context = {"profile": instance}
-    subject = f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} New Volunteer Application"
+    subject = f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} New {instance.conference} Volunteer Application"
 
     markdown_template = (
         "emails/volunteer/internal_volunteer_profile_email_notification.md"

@@ -3,6 +3,7 @@ from django.http import JsonResponse
 from django.shortcuts import redirect, render
 
 from portal.common import get_stats_cached_values
+from portal.models import Conference
 from portal_account.models import PortalProfile
 from volunteer.models import VolunteerProfile
 
@@ -19,7 +20,9 @@ def index(request):
     if user.is_authenticated:
         if not PortalProfile.objects.filter(user=user).exists():
             return redirect("portal_account:portal_profile_new")
-        volunteer_profile = VolunteerProfile.objects.filter(user=user).first()
+        volunteer_profile = VolunteerProfile.objects.filter(
+            user=user, conference=Conference.get_active()
+        ).first()
         context["volunteer_profile"] = volunteer_profile
         context["roles"] = volunteer_profile.roles.all() if volunteer_profile else []
     else:

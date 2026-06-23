@@ -6,6 +6,7 @@ from django.forms import ModelForm
 from django.forms.widgets import SelectMultiple
 from django.utils.safestring import mark_safe
 
+from portal.models import Conference
 from portal.validators import validate_linked_in_pattern
 
 from .constants import ApplicationStatus
@@ -60,7 +61,15 @@ class VolunteerProfileForm(ModelForm):
 
     class Meta:
         model = VolunteerProfile
-        exclude = ["user", "application_status", "roles", "languages_spoken"]
+        # conference is not shown in the form: new profiles are tied to the
+        # active conference automatically in save().
+        exclude = [
+            "user",
+            "application_status",
+            "roles",
+            "languages_spoken",
+            "conference",
+        ]
         help_texts = {
             "github_username": "Required - Your GitHub username (e.g., username). We'll grant read access to PyLadiesCon repos to our volunteers.",
             "discord_username": "Required - Your Discord username for team communication (e.g., username or username#1234)",
@@ -215,13 +224,51 @@ class VolunteerProfileForm(ModelForm):
                 "data-placeholder": "Start typing to select languages...",
             },
         )
+        # Teams are conference-scoped: only offer the active edition's open
+        # teams, never a prior year's.
+        self.fields["teams"].queryset = Team.objects.filter(
+            open_to_new_members=True, conference=Conference.get_active()
+        )
 
-        if self.instance and self.instance.pk:
-            pass
+        # Returning volunteers: pre-fill a brand-new application from their most
+        # recent prior profile so they only review and adjust. The new row still
+        # goes through the form and resets application_status to PENDING.
+        if self.user and not (self.instance and self.instance.pk):
+            self._prefill_from_prior_profile()
+
+    PREFILL_FIELDS = (
+        "github_username",
+        "discord_username",
+        "instagram_username",
+        "bluesky_username",
+        "mastodon_url",
+        "x_username",
+        "linkedin_url",
+        "region",
+        "chapter",
+        "availability_hours_per_week",
+    )
+
+    def _prefill_from_prior_profile(self):
+        prior = (
+            VolunteerProfile.objects.filter(user=self.user)
+            .exclude(conference=Conference.get_active())
+            .order_by("-conference__year")
+            .first()
+        )
+        if prior is None:
+            return
+        for field in self.PREFILL_FIELDS:
+            self.initial.setdefault(field, getattr(prior, field))
+        self.initial.setdefault("language", list(prior.language.all()))
 
     def save(self, commit=True):
         if self.user:
             self.instance.user = self.user
+
+        # A new application belongs to the active conference edition.
+        if self.instance.conference_id is None:
+            self.instance.conference = Conference.get_active()
 
         volunteer_profile = super().save(commit)
         return volunteer_profile
@@ -250,6 +297,11 @@ class VolunteerProfileReviewForm(ModelForm):
     def __init__(self, *args, **kwargs):
         self.user = kwargs.pop("user", None)
         super().__init__(*args, **kwargs)
+        # Assign only teams belonging to the profile's own conference edition.
+        if self.instance and self.instance.conference_id:
+            self.fields["teams"].queryset = Team.objects.filter(
+                conference_id=self.instance.conference_id
+            )
 
     def clean(self):
         cleaned_data = super().clean()
