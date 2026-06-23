@@ -37,11 +37,19 @@
                 Create
             {% endif %}
             your Volunteer Profile
+            <span class="badge bg-secondary align-middle fs-6">
+                {% if object.pk %}
+                    {{ object.conference }}
+                {% else %}
+                    {{ active_conference }}
+                {% endif %}
+            </span>
         </h1>
         <p class="lead">
             {% if object.pk %}
                 {% trans "Update your information below." %}
             {% else %}
+                {% blocktrans with conference=active_conference %}You are applying to volunteer for {{ conference }}.{% endblocktrans %}
                 {% trans "Fill in the profile below." %}
             {% endif %}
             <div class="alert alert-info" role="alert">

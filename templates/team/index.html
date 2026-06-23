@@ -15,6 +15,7 @@
                         <div class="card-header">
                             <h5>
                                 <a href="{% url 'team_detail' team.id %}">{{ team.short_name }}</a>
+                                <span class="badge bg-secondary">{{ team.conference.year }}</span>
                             </h5>
                         </div>
                         <div class="card-body">

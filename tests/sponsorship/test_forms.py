@@ -1,5 +1,6 @@
 import pytest
 
+from portal.models import Conference
 from sponsorship.forms import SponsorshipProfileForm
 from sponsorship.models import (
     SponsorshipProgressStatus,
@@ -31,6 +32,21 @@ class TestSponsorshipProfileForm:
         assert profile.organization_name == form_data["organization_name"]
         assert profile.progress_status == form_data["progress_status"]
         assert profile.main_contact_user == form_data["main_contact_user"]
+
+    def test_defaults_to_active_conference(self, form_data, conference):
+        form = SponsorshipProfileForm(data=form_data)
+        assert form.is_valid()
+        profile = form.save()
+        assert profile.conference == conference
+
+    def test_can_target_a_specific_conference(self, form_data, conference):
+        past = Conference.objects.create(
+            year=2024, name="PyLadiesCon 2024", slug="2024"
+        )
+        form = SponsorshipProfileForm(data={**form_data, "conference": past.id})
+        assert form.is_valid()
+        profile = form.save()
+        assert profile.conference == past
 
     def test_required_fields(self, form_data, admin_user, portal_user):
         """Test validation of required fields."""

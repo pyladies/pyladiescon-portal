@@ -45,7 +45,7 @@ class TestAdminActions:
         # one message was sent to notify user about waitlisted status
         assert (
             str(mail.outbox[0].subject)
-            == f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} Volunteer Application Updated"
+            == f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} {profile.conference} Volunteer Application Updated"
         )
         assert "We are placing you on a waitlist" in str(mail.outbox[0].body)
         profile.refresh_from_db()

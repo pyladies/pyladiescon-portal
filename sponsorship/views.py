@@ -14,6 +14,7 @@ from django_tables2.views import SingleTableMixin
 
 from common.mixins import AdminRequiredMixin
 from portal.common import get_sponsorships_stats_dict
+from portal.models import Conference
 from volunteer.constants import ApplicationStatus
 from volunteer.models import VolunteerProfile
 
@@ -23,19 +24,24 @@ from .models import SponsorshipProfile, SponsorshipProgressStatus, SponsorshipTi
 
 
 class CanViewSponsorship(UserPassesTestMixin):
-    """Mixin for views that allows sponsorship listing.
-    Open to approved volunteers.
+    """Mixin for views that allow sponsorship viewing.
+
+    Staff and superusers may view every conference. Other users may only view
+    the conferences they were an approved volunteer for — they see the year(s)
+    they are approved for.
     """
 
+    def viewable_conferences(self):
+        user = self.request.user
+        if user.is_superuser or user.is_staff:
+            return Conference.objects.all()
+        return Conference.objects.filter(
+            volunteer_profiles__user=user,
+            volunteer_profiles__application_status=ApplicationStatus.APPROVED,
+        ).distinct()
+
     def test_func(self):
-        is_approved_volunteer = VolunteerProfile.objects.filter(
-            user=self.request.user, application_status=ApplicationStatus.APPROVED
-        ).exists()
-        return (
-            is_approved_volunteer
-            or self.request.user.is_superuser
-            or self.request.user.is_staff
-        )
+        return self.viewable_conferences().exists()
 
 
 class SponsorshipProfileCreate(AdminRequiredMixin, CreateView):
@@ -222,15 +228,38 @@ class SponsorshipProfileList(CanViewSponsorship, SingleTableMixin, FilterView):
     table_class = SponsorshipProfileTable
     filterset_class = SponsorshipProfileFilter
 
+    def get_selected_conference(self):
+        """The conference whose sponsors are shown.
+
+        Defaults to the active conference when the viewer may see it, otherwise
+        their most recent viewable year. ``?conference=<pk>`` switches years but
+        only among the conferences the viewer is allowed to see.
+        """
+        viewable = self.viewable_conferences()
+        param = self.request.GET.get("conference")
+        if param:
+            return viewable.filter(pk=param).first()
+        active = Conference.get_active()
+        if active is not None and viewable.filter(pk=active.pk).exists():
+            return active
+        return viewable.order_by("-year").first()
+
+    def get_queryset(self):
+        # ``conference=None`` matches nothing, so a year the viewer may not see
+        # yields an empty list rather than leaking another year's sponsors.
+        return super().get_queryset().filter(conference=self.get_selected_conference())
+
     def get_context_data(self, **kwargs):
         # kwargs.pop('filter')
         context = super().get_context_data(**kwargs)
         volunteer_profile = VolunteerProfile.objects.filter(
-            user=self.request.user
+            user=self.request.user, conference=Conference.get_active()
         ).first()
         context["volunteer_profile"] = volunteer_profile
         context["title"] = "Sponsorship Profiles"
         context["stats"] = get_sponsorships_stats_dict()
+        context["conferences"] = self.viewable_conferences()
+        context["selected_conference"] = self.get_selected_conference()
         return context
 
 
@@ -238,6 +267,14 @@ class SponsorshipProfileDetail(CanViewSponsorship, DetailView):
     model = SponsorshipProfile
     template_name = "sponsorship/sponsorship_profile_detail.html"
     context_object_name = "profile"
+
+    def test_func(self):
+        # A viewer may open a sponsor only if they may see that sponsor's year.
+        return (
+            self.viewable_conferences()
+            .filter(pk=self.get_object().conference_id)
+            .exists()
+        )
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)

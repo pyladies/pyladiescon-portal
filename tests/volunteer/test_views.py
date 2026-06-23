@@ -3,6 +3,7 @@ from django.contrib.messages import get_messages
 from django.urls import reverse
 from pytest_django.asserts import assertRedirects
 
+from portal.models import Conference
 from volunteer.constants import Region
 from volunteer.models import (
     ApplicationStatus,
@@ -644,6 +645,36 @@ class TestManageVolunteerApplications:
         )
         assert response.status_code == 200
 
+    def test_review_page_shows_prior_year_history(
+        self, client, admin_user, django_user_model, conference
+    ):
+        past = Conference.objects.create(
+            year=2024, name="PyLadiesCon 2024", slug="2024"
+        )
+        applicant = django_user_model.objects.create_user(username="returning")
+        role = Role.objects.create(short_name="Developer", description="d")
+        prior = VolunteerProfile.objects.create(
+            user=applicant,
+            conference=past,
+            discord_username="d",
+            application_status=ApplicationStatus.APPROVED,
+        )
+        prior.roles.add(role)
+        current = VolunteerProfile.objects.create(
+            user=applicant, conference=conference, discord_username="d2"
+        )
+
+        client.force_login(admin_user)
+        response = client.get(
+            reverse("volunteer:volunteer_profile_manage", kwargs={"pk": current.id})
+        )
+
+        assert response.status_code == 200
+        history = list(response.context["volunteer_history"])
+        assert prior in history
+        assert current not in history
+        assert role.short_name in response.content.decode()
+
     def test_manage_volunteers_view_is_staff(
         self, client, portal_user, django_user_model, conference
     ):
@@ -1082,3 +1113,37 @@ class TestCancelVolunteering:
 
         result2 = table.render_actions("", profile2)
         assert result2 == ""
+
+
+@pytest.mark.django_db
+class TestVolunteerListYearSwitcher:
+    def test_defaults_to_active_and_switches_year(
+        self, client, admin_user, django_user_model, conference
+    ):
+        past = Conference.objects.create(
+            year=2024, name="PyLadiesCon 2024", slug="2024"
+        )
+        active_user = django_user_model.objects.create_user(
+            "activevol", email="a@example.com"
+        )
+        past_user = django_user_model.objects.create_user(
+            "pastvol", email="p@example.com"
+        )
+        active_profile = VolunteerProfile.objects.create(
+            user=active_user, conference=conference, discord_username="a"
+        )
+        past_profile = VolunteerProfile.objects.create(
+            user=past_user, conference=past, discord_username="p"
+        )
+        client.force_login(admin_user)
+        url = reverse("volunteer:volunteer_profile_list")
+
+        default_list = list(client.get(url).context["object_list"])
+        assert active_profile in default_list
+        assert past_profile not in default_list
+
+        switched_list = list(
+            client.get(f"{url}?conference={past.pk}").context["object_list"]
+        )
+        assert past_profile in switched_list
+        assert active_profile not in switched_list

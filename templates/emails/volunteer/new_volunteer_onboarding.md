@@ -2,7 +2,7 @@
 {% load i18n %}
 {% block content %}
 
-{{ profile.user.first_name }}, thank you for applying to volunteer with PyLadiesCon. We're excited to share that your application has been approved.
+{{ profile.user.first_name }}, thank you for applying to volunteer with **{{ profile.conference }}**. We're excited to share that your application has been approved.
 
 ## Team Assignment
 

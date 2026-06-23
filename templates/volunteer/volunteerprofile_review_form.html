@@ -6,6 +6,8 @@
     <main>
         <h1 class="display-5">
             Volunteer Profile for: {{ object.user.username }}
+            <span class="badge bg-secondary align-middle fs-6">{{ object.conference }}</span>
+            <span class="badge bg-info text-dark align-middle fs-6">{{ object.application_status }}</span>
         </h1>
         {% if object.is_approved %}
             <form action="{% url 'volunteer:resend_onboarding_email' object.pk %}"
@@ -16,6 +18,62 @@
                     <i class="fa-solid fa-envelope"></i> Resend Onboarding Email
                 </button>
             </form>
+        {% endif %}
+        {% if volunteer_history %}
+            <div class="card mb-4 border-info">
+                <h5 class="card-header">
+                    Volunteer history
+                </h5>
+                <div class="card-body">
+                    <p class="text-muted">
+                        This volunteer has applied in previous years — useful context for your decision.
+                    </p>
+                    <table class="table table-sm align-middle">
+                        <thead>
+                            <tr>
+                                <th>
+                                    Conference
+                                </th>
+                                <th>
+                                    Status
+                                </th>
+                                <th>
+                                    Roles
+                                </th>
+                                <th>
+                                    Teams
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for past in volunteer_history %}
+                                <tr>
+                                    <td>
+                                        {{ past.conference }}
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-info text-dark">{{ past.application_status }}</span>
+                                    </td>
+                                    <td>
+                                        {% for role in past.roles.all %}
+                                            <span class="badge bg-secondary">{{ role.short_name }}</span>
+                                        {% empty %}
+                                            —
+                                        {% endfor %}
+                                    </td>
+                                    <td>
+                                        {% for team in past.teams.all %}
+                                            <span class="badge bg-primary">{{ team.short_name }}</span>
+                                        {% empty %}
+                                            —
+                                        {% endfor %}
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
         {% endif %}
         <div class="row row-cols-1 row-cols-md-2 g-4">
             <div class="col">

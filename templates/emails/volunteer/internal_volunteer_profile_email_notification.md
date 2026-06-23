@@ -4,7 +4,7 @@
 
 Hello, {{ recipient_name }}.
 
-We're writing to let you know that a new volunteer has just signed up. Be sure to review their application in a timely manner.
+We're writing to let you know that a new volunteer has just signed up for **{{ profile.conference }}**. Be sure to review their application in a timely manner.
 
 **Volunteer Application Status:** {{ profile.application_status }}.
 
