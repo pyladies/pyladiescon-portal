@@ -5,7 +5,9 @@ from django.db.models import Q
 
 from common.send_emails import send_email
 from volunteer.models import RoleTypes, VolunteerProfile
+
 from .models import SponsorshipProfile
+
 
 @shared_task(bind=True, max_retries=3, default_retry_delay=60)
 def send_internal_email_task(self, subject, markdown_template, context):
@@ -42,39 +44,41 @@ def send_internal_email_task(self, subject, markdown_template, context):
         sent_count += 1
 
     return f"Sent {sent_count} internal emails: {subject}"
-    
+
+
 @shared_task(bind=True, max_retries=3, default_retry_delay=60)
 def send_internal_sponsor_onboarding_email_task(self, profile_id):
     """
     Send onboarding notification to internal team when new sponsor is created.
     """
-    
+
     try:
         profile = SponsorshipProfile.objects.get(id=profile_id)
-        
+
         context = {"profile": profile}
         subject = f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} New Sponsorship Tracking: {profile.organization_name}"
         markdown_template = "emails/sponsorship/internal_sponsor_onboarding.md"
 
         return send_internal_email_task(subject, markdown_template, context)
-    
+
     except SponsorshipProfile.DoesNotExist:
         return f"SponsorshipProfile with id {profile_id} not found"
-    
+
+
 @shared_task(bind=True, max_retries=3, default_retry_delay=60)
 def send_internal_sponsor_progress_update_email_task(self, profile_id):
     """
     Send progress update notification to internal team.
     """
-    
+
     try:
         profile = SponsorshipProfile.objects.get(id=profile_id)
-        
+
         context = {"profile": profile}
         subject = f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} Update in Sponsorship Tracking for {profile.organization_name}"
         markdown_template = "emails/sponsorship/internal_sponsor_updated.md"
 
         return send_internal_email_task(subject, markdown_template, context)
-    
+
     except SponsorshipProfile.DoesNotExist:
         return f"SponsorshipProfile with id {profile_id} not found"

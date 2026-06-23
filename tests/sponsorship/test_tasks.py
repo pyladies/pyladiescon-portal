@@ -12,7 +12,7 @@ from volunteer.models import Region, Role, RoleTypes, VolunteerProfile
 
 
 @pytest.fixture
-def admin_user_with_role():
+def admin_user_with_role(conference):
     """Create an admin user with proper role."""
     admin_role = Role.objects.create(
         short_name=RoleTypes.ADMIN, description="Admin role"
@@ -22,21 +22,21 @@ def admin_user_with_role():
         email="test-admin@example.com",
         password="pyladiesadmin123",
     )
-    admin_profile = VolunteerProfile(user=admin_user)
+    admin_profile = VolunteerProfile(user=admin_user, conference=conference)
     admin_profile.region = Region.NORTH_AMERICA
     admin_profile.save()
     admin_profile.roles.add(admin_role)
-    admin_profile.save()
     return admin_user
 
 
 @pytest.fixture
-def sponsorship_profile(admin_user):
+def sponsorship_profile(admin_user, conference):
     """Create a test sponsorship profile."""
     return SponsorshipProfile.objects.create(
         main_contact_user=admin_user,
         organization_name="Test Org",
         progress_status=SponsorshipProgressStatus.AWAITING_RESPONSE.value,
+        conference=conference,
     )
 
 

@@ -72,11 +72,18 @@ services:
       DATABASE_URL: postgresql://pyladiescon:pyladiescon@postgres:5432/pyladiescon
       SECRET_KEY: verysecure
       DEBUG: True
+      # The worker sends the emails, so it needs the same email config as web;
+      # without DJANGO_EMAIL_HOST settings falls back to the console backend.
+      DJANGO_DEFAULT_FROM_EMAIL: PyLadiesCon <pyladiescon@example.com>
+      DJANGO_EMAIL_HOST: maildev
+      DJANGO_EMAIL_PORT: 1025
     depends_on:
       redis:
         condition: service_healthy
       postgres:
         condition: service_healthy
+      maildev:
+        condition: service_started
     restart: unless-stopped
 
   maildev:
