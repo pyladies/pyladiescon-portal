@@ -577,8 +577,8 @@ class Command(BaseCommand):
         for tier_data in tiers_data:
             tier, created = SponsorshipTier.objects.get_or_create(
                 name=tier_data["name"],
+                conference=self.conference,
                 defaults={
-                    "conference": self.conference,
                     "amount": tier_data["amount"],
                     "description": tier_data["description"],
                 },
