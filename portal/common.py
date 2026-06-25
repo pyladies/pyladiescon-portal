@@ -496,11 +496,24 @@ def get_volunteer_breakdown():
             .values("region")
             .annotate(count=Count("id"))
         )
-        result = [[data["region"], data["count"]] for data in volunteers_by_region]
+        # Map continents to representative countries for GeoChart
+        continent_to_country = {
+            "North America": "United States",
+            "South America": "Brazil", 
+            "Europe": "Germany",
+            "Africa": "Nigeria",
+            "Asia": "India",
+            "Oceania": "Australia",
+        }
+        result = []
+        for data in volunteers_by_region:
+            region = data["region"]
+            country = continent_to_country.get(region, region)  # fallback to region name if not found
+            result.append([country, data["count"]])
         volunteer_breakdown.append(
             {
                 "title": "Volunteers By Region",
-                "columns": ["Region", "Volunteers"],
+                "columns": ["Country", "Volunteers"],
                 "data": result,
                 "chart_id": "volunteers_by_region",
             }
