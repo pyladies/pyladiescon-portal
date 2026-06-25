@@ -3,7 +3,7 @@ from django.contrib.auth.models import User
 
 from portal.models import Conference
 
-from .models import SponsorshipProfile
+from .models import SponsorshipProfile, SponsorshipTier
 
 
 class SponsorshipProfileForm(forms.ModelForm):
@@ -63,10 +63,29 @@ class SponsorshipProfileForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         if self.user:
             self.fields["main_contact_user"].initial = self.user.id
+        active = Conference.get_active()
         # Pre-select the active conference; admins can switch to another year
         # (e.g. to set up next year's sponsors early).
         if not self.instance.pk:
-            self.fields["conference"].initial = Conference.get_active()
+            self.fields["conference"].initial = active
+        # Offer only the active edition's tiers (tiers are conference-scoped);
+        # otherwise the dropdown lists every year's tiers.
+        self.fields["sponsorship_tier"].queryset = SponsorshipTier.objects.filter(
+            conference=active
+        )
+
+    def clean(self):
+        cleaned_data = super().clean()
+        tier = cleaned_data.get("sponsorship_tier")
+        conference = cleaned_data.get("conference") or Conference.get_active()
+        # Guard the (selector vs dropdown) gap: a tier must belong to the same
+        # conference the sponsorship is for.
+        if tier and conference and tier.conference_id != conference.pk:
+            self.add_error(
+                "sponsorship_tier",
+                "This tier belongs to a different conference edition.",
+            )
+        return cleaned_data
 
     def save(self, commit=True):
         if self.user:

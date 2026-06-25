@@ -48,6 +48,40 @@ class TestSponsorshipProfileForm:
         profile = form.save()
         assert profile.conference == past
 
+    def test_tier_choices_scoped_to_active_conference(self, conference):
+        past = Conference.objects.create(
+            year=2024, name="PyLadiesCon 2024", slug="2024"
+        )
+        active_tier = SponsorshipTier.objects.create(
+            name="Active Tier", amount=1000, description="d", conference=conference
+        )
+        past_tier = SponsorshipTier.objects.create(
+            name="Past Tier", amount=1000, description="d", conference=past
+        )
+
+        tiers = list(SponsorshipProfileForm().fields["sponsorship_tier"].queryset)
+
+        assert active_tier in tiers
+        assert past_tier not in tiers
+
+    def test_tier_must_match_chosen_conference(self, form_data, conference):
+        past = Conference.objects.create(
+            year=2024, name="PyLadiesCon 2024", slug="2024"
+        )
+        active_tier = SponsorshipTier.objects.create(
+            name="Active Tier", amount=1000, description="d", conference=conference
+        )
+        # Choosing a past edition but an active-edition tier must be rejected.
+        form = SponsorshipProfileForm(
+            data={
+                **form_data,
+                "conference": past.id,
+                "sponsorship_tier": active_tier.id,
+            }
+        )
+        assert not form.is_valid()
+        assert "sponsorship_tier" in form.errors
+
     def test_required_fields(self, form_data, admin_user, portal_user):
         """Test validation of required fields."""
         form = SponsorshipProfileForm(data={})
