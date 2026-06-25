@@ -32,7 +32,9 @@ class SponsorshipTier(BaseModel):
     description = models.TextField()
 
     def __str__(self):
-        return f"{self.name} (${self.amount:.2f})"
+        # Include the conference year so tiers are distinguishable across
+        # editions (the form/admin pickers list every year's tiers).
+        return f"{self.name} (${self.amount:.2f}) — {self.conference.year}"
 
 
 class SponsorshipProfile(BaseModel):

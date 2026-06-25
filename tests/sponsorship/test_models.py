@@ -37,7 +37,7 @@ class TestSponsorshipModel:
             conference=conference,
         )
         tier.save()
-        assert str(tier) == f"{tier.name} (${tier.amount:.2f})"
+        assert str(tier) == f"{tier.name} (${tier.amount:.2f}) — {conference.year}"
 
     def test_donation_str_representation(self, conference):
         """Test string representation of IndividualDonation."""
