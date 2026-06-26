@@ -460,6 +460,8 @@ def volunteer_profile_signal(sender, instance, created, **kwargs):
     creation) about their volunteer application status.
     """
     # Local import avoids a circular import (tasks imports this module).
+    from common.tasks import enqueue
+
     from .tasks import send_volunteer_profile_emails_task
 
-    send_volunteer_profile_emails_task.delay(instance.id, created)
+    enqueue(send_volunteer_profile_emails_task, instance.id, created)

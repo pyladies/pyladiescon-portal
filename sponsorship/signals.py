@@ -1,6 +1,8 @@
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 
+from common.tasks import enqueue
+
 from .models import SponsorshipProfile
 from .tasks import (
     send_internal_sponsor_onboarding_email_task,
@@ -22,7 +24,7 @@ def sponsorship_profile_signal(sender, instance, created, **kwargs):
 
     if created:
         # Send onboarding email asynchronously
-        send_internal_sponsor_onboarding_email_task.delay(instance.id)
+        enqueue(send_internal_sponsor_onboarding_email_task, instance.id)
     else:
         # Send progress update email asynchronously
-        send_internal_sponsor_progress_update_email_task.delay(instance.id)
+        enqueue(send_internal_sponsor_progress_update_email_task, instance.id)
