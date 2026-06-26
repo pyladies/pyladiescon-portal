@@ -10,13 +10,10 @@ from portal.models import Conference
 from portal.validators import validate_linked_in_pattern
 
 from .constants import ApplicationStatus
-from .models import (
-    Language,
-    Role,
-    Team,
-    VolunteerProfile,
-    send_internal_volunteer_onboarding_email,
-    send_volunteer_onboarding_email,
+from .models import Language, Role, Team, VolunteerProfile
+from .tasks import (
+    send_internal_volunteer_onboarding_email_task,
+    send_volunteer_onboarding_email_task,
 )
 
 
@@ -318,6 +315,6 @@ class VolunteerProfileReviewForm(ModelForm):
         volunteer_profile = super().save(commit)
 
         if newly_approved:
-            send_volunteer_onboarding_email(volunteer_profile)
-            send_internal_volunteer_onboarding_email(volunteer_profile)
+            send_volunteer_onboarding_email_task.delay(volunteer_profile.id)
+            send_internal_volunteer_onboarding_email_task.delay(volunteer_profile.id)
         return volunteer_profile

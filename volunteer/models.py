@@ -456,11 +456,10 @@ def send_volunteer_cancelled_emails(instance, teams_before_cancel, roles_before_
 def volunteer_profile_signal(sender, instance, created, **kwargs):
     """Things to do whenever a volunteer profile is created or updated.
 
-    Send a notification email to the user to confirm their volunteer application status.
+    Queue a background task to notify the user (and the internal team on
+    creation) about their volunteer application status.
     """
-    if created:
-        send_internal_notification_email(instance)
-        send_volunteer_notification_email(instance)
-    else:
-        # no need to send email to internal team for VolunteerProfile updates (e.g. changing username, etc)
-        send_volunteer_notification_email(instance, updated=True)
+    # Local import avoids a circular import (tasks imports this module).
+    from .tasks import send_volunteer_profile_emails_task
+
+    send_volunteer_profile_emails_task.delay(instance.id, created)
