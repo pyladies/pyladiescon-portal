@@ -69,6 +69,8 @@ def conference(request):
         slug="2025",
         is_active=True,
         pretix_event_slug="2025",
+        sponsorship_goal=15000,
+        donation_goal=2500,
     )
 
 

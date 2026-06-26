@@ -40,10 +40,10 @@ class TestGetStatsCachedValues:
     def test_get_volunteer_signup_stat_cache(self, conference):
         """Test that the volunteer signup count is cached and returned correctly."""
 
-        cache_key = CACHE_KEY_VOLUNTEER_SIGNUPS_COUNT
+        cache_key = f"{CACHE_KEY_VOLUNTEER_SIGNUPS_COUNT}_{conference.year}"
         cache.delete(cache_key)
 
-        result = get_volunteer_signup_stat_cache()
+        result = get_volunteer_signup_stat_cache(conference)
         assert result == 0
         cache.delete(cache_key)
 
@@ -56,16 +56,16 @@ class TestGetStatsCachedValues:
             conference=conference,
         )
 
-        result = get_volunteer_signup_stat_cache()
+        result = get_volunteer_signup_stat_cache(conference)
         assert result == 2
 
     def test_get_stats_cached_values(self, conference):
         """Test that the stats dictionary contains the volunteer signup count."""
 
-        cache_key = CACHE_KEY_VOLUNTEER_SIGNUPS_COUNT
+        cache_key = f"{CACHE_KEY_VOLUNTEER_SIGNUPS_COUNT}_{conference.year}"
         cache.delete(cache_key)
 
-        stats = get_stats_cached_values()
+        stats = get_stats_cached_values(conference)
         assert stats[CACHE_KEY_VOLUNTEER_SIGNUPS_COUNT] == 0
         cache.delete(cache_key)
 
@@ -78,16 +78,16 @@ class TestGetStatsCachedValues:
             conference=conference,
         )
 
-        result = get_stats_cached_values()
+        result = get_stats_cached_values(conference)
         assert result.get(CACHE_KEY_VOLUNTEER_SIGNUPS_COUNT) == 2
 
     def test_get_sponsorship_total_counts_stats_does_not_count_not_contacted(
         self, conference
     ):
-        cache_key = CACHE_KEY_TOTAL_SPONSORSHIPS
+        cache_key = f"{CACHE_KEY_TOTAL_SPONSORSHIPS}_{conference.year}"
         cache.delete(cache_key)
 
-        stats = get_stats_cached_values()
+        stats = get_stats_cached_values(conference)
         assert stats[CACHE_KEY_TOTAL_SPONSORSHIPS] == 0
         cache.delete(cache_key)
 
@@ -106,14 +106,14 @@ class TestGetStatsCachedValues:
             conference=conference,
         )
 
-        result = get_sponsorship_total_count_stats_cache()
+        result = get_sponsorship_total_count_stats_cache(conference)
         assert result == 2
 
     def test_get_sponsorship_paid_amount_stats_cache(self, conference):
-        cache_key = CACHE_KEY_SPONSORSHIP_PAID
+        cache_key = f"{CACHE_KEY_SPONSORSHIP_PAID}_{conference.year}"
         cache.delete(cache_key)
 
-        stats = get_stats_cached_values()
+        stats = get_stats_cached_values(conference)
         assert stats[CACHE_KEY_SPONSORSHIP_PAID] == 0
         cache.delete(cache_key)
         tier_1 = SponsorshipTier.objects.create(
@@ -134,14 +134,14 @@ class TestGetStatsCachedValues:
             conference=conference,
         )
 
-        result = get_sponsorship_paid_amount_stats_cache()
+        result = get_sponsorship_paid_amount_stats_cache(conference)
         assert result == 1900
 
     def test_get_sponsorship_pending_amount_stats_cache(self, conference):
-        cache_key = CACHE_KEY_SPONSORSHIP_PENDING
+        cache_key = f"{CACHE_KEY_SPONSORSHIP_PENDING}_{conference.year}"
         cache.delete(cache_key)
 
-        stats = get_stats_cached_values()
+        stats = get_stats_cached_values(conference)
         assert stats[CACHE_KEY_SPONSORSHIP_PENDING] == 0
         cache.delete(cache_key)
         tier_1 = SponsorshipTier.objects.create(
@@ -162,14 +162,14 @@ class TestGetStatsCachedValues:
             conference=conference,
         )
 
-        result = get_sponsorship_pending_amount_stats_cache()
+        result = get_sponsorship_pending_amount_stats_cache(conference)
         assert result == 1900
 
     def test_get_sponsorship_committed_amount_stats_cache(self, conference):
-        cache_key = CACHE_KEY_SPONSORSHIP_COMMITTED
+        cache_key = f"{CACHE_KEY_SPONSORSHIP_COMMITTED}_{conference.year}"
         cache.delete(cache_key)
 
-        stats = get_stats_cached_values()
+        stats = get_stats_cached_values(conference)
         assert stats[CACHE_KEY_SPONSORSHIP_COMMITTED] == 0
         cache.delete(cache_key)
         tier_1 = SponsorshipTier.objects.create(
@@ -190,14 +190,14 @@ class TestGetStatsCachedValues:
             conference=conference,
         )
 
-        result = get_sponsorship_committed_amount_stats_cache()
+        result = get_sponsorship_committed_amount_stats_cache(conference)
         assert result == 1900
 
     def test_get_sponsorship_pending_count_stats_cache(self, conference):
-        cache_key = CACHE_KEY_SPONSORSHIP_PENDING_COUNT
+        cache_key = f"{CACHE_KEY_SPONSORSHIP_PENDING_COUNT}_{conference.year}"
         cache.delete(cache_key)
 
-        stats = get_stats_cached_values()
+        stats = get_stats_cached_values(conference)
         assert stats[CACHE_KEY_SPONSORSHIP_PENDING_COUNT] == 0
         cache.delete(cache_key)
         tier_1 = SponsorshipTier.objects.create(
@@ -218,14 +218,14 @@ class TestGetStatsCachedValues:
             conference=conference,
         )
 
-        result = get_sponsorship_pending_count_stats_cache()
+        result = get_sponsorship_pending_count_stats_cache(conference)
         assert result == 2
 
     def test_get_sponsorship_committed_count_stats_cache(self, conference):
-        cache_key = CACHE_KEY_SPONSORSHIP_COMMITTED_COUNT
+        cache_key = f"{CACHE_KEY_SPONSORSHIP_COMMITTED_COUNT}_{conference.year}"
         cache.delete(cache_key)
 
-        stats = get_stats_cached_values()
+        stats = get_stats_cached_values(conference)
         assert stats[CACHE_KEY_SPONSORSHIP_COMMITTED_COUNT] == 0
         cache.delete(cache_key)
         tier_1 = SponsorshipTier.objects.create(
@@ -246,14 +246,14 @@ class TestGetStatsCachedValues:
             conference=conference,
         )
 
-        result = get_sponsorship_committed_count_stats_cache()
+        result = get_sponsorship_committed_count_stats_cache(conference)
         assert result == 2
 
     def test_get_sponsorship_paid_percent_cache(self, conference):
-        cache_key = CACHE_KEY_SPONSORSHIP_PAID_PERCENT
+        cache_key = f"{CACHE_KEY_SPONSORSHIP_PAID_PERCENT}_{conference.year}"
         cache.delete(cache_key)
 
-        stats = get_sponsorship_paid_percent_cache()
+        stats = get_sponsorship_paid_percent_cache(conference)
         assert stats == 0
         cache.delete(cache_key)
 
@@ -273,14 +273,14 @@ class TestGetStatsCachedValues:
             conference=conference,
         )
 
-        result = get_sponsorship_paid_percent_cache()
+        result = get_sponsorship_paid_percent_cache(conference)
         assert result == 50
 
     def test_get_sponsorship_to_goal_percent_cache(self, conference):
-        cache_key = CACHE_KEY_SPONSORSHIP_TOWARDS_GOAL_PERCENT
+        cache_key = f"{CACHE_KEY_SPONSORSHIP_TOWARDS_GOAL_PERCENT}_{conference.year}"
         cache.delete(cache_key)
 
-        stats = get_sponsorship_to_goal_percent_cache()
+        stats = get_sponsorship_to_goal_percent_cache(conference)
         assert stats == 0
         cache.delete(cache_key)
 
@@ -306,7 +306,7 @@ class TestGetStatsCachedValues:
             conference=conference,
         )
 
-        result = get_sponsorship_to_goal_percent_cache()
+        result = get_sponsorship_to_goal_percent_cache(conference)
         assert result == 20
 
 
@@ -382,7 +382,7 @@ class TestAttendeeStats:
             current_position=["Manager"],
         )
 
-        breakdown = get_attendee_breakdown()
+        breakdown = get_attendee_breakdown(conference)
         for b in breakdown:
             if b["title"] == "Current Position":
                 assert b["data"] == [
@@ -397,10 +397,10 @@ class TestAttendeeStats:
                     ["Junior", 1],
                 ]
 
-    def test_attendee_breakdown_with_no_profiles(self):
+    def test_attendee_breakdown_with_no_profiles(self, conference):
         """Test attendee breakdown returns empty when no profiles exist."""
         from portal.common import get_attendee_breakdown
 
-        breakdown = get_attendee_breakdown()
+        breakdown = get_attendee_breakdown(conference)
         for b in breakdown:
             assert b["data"] == []

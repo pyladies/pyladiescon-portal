@@ -257,7 +257,7 @@ class SponsorshipProfileList(CanViewSponsorship, SingleTableMixin, FilterView):
         ).first()
         context["volunteer_profile"] = volunteer_profile
         context["title"] = "Sponsorship Profiles"
-        context["stats"] = get_sponsorships_stats_dict()
+        context["stats"] = get_sponsorships_stats_dict(Conference.get_active())
         context["conferences"] = self.viewable_conferences()
         context["selected_conference"] = self.get_selected_conference()
         return context
