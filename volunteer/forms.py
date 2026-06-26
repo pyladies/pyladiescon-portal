@@ -6,10 +6,9 @@ from django.forms import ModelForm
 from django.forms.widgets import SelectMultiple
 from django.utils.safestring import mark_safe
 
+from common.tasks import enqueue
 from portal.models import Conference
 from portal.validators import validate_linked_in_pattern
-
-from common.tasks import enqueue
 
 from .constants import ApplicationStatus
 from .models import Language, Role, Team, VolunteerProfile
