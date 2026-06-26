@@ -14,6 +14,7 @@ from django_filters.views import FilterView
 from django_tables2.views import SingleTableMixin
 
 from common.mixins import AdminRequiredMixin, VolunteerOrAdminRequiredMixin
+from common.tasks import enqueue
 from portal.models import Conference
 
 from .forms import VolunteerProfileForm, VolunteerProfileReviewForm
@@ -339,7 +340,7 @@ class ResendOnboardingEmailView(VolunteerAdminRequiredMixin, View):
         try:
             profile = VolunteerProfile.objects.get(pk=pk)
             if profile.application_status == ApplicationStatus.APPROVED:
-                send_volunteer_onboarding_email_task.delay(profile.id)
+                enqueue(send_volunteer_onboarding_email_task, profile.id)
                 messages.add_message(
                     request, messages.SUCCESS, "Onboarding email was sent successfully."
                 )
@@ -391,7 +392,9 @@ class CancelVolunteeringView(VolunteerOrAdminRequiredMixin, View):
             profile.roles.clear()  # Remove from all roles
             profile.save()
 
-            send_volunteer_cancelled_emails_task.delay(profile.id, team_ids, role_ids)
+            enqueue(
+                send_volunteer_cancelled_emails_task, profile.id, team_ids, role_ids
+            )
 
             messages.add_message(
                 request,

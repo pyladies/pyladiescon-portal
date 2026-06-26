@@ -341,8 +341,11 @@ CACHES = {
 PRETIX_API_TOKEN = os.getenv("PRETIX_API_TOKEN")
 PRETIX_WEBHOOK_SECRET = os.getenv("PRETIX_WEBHOOK_SECRET")
 
-# Celery settings - using Redis
-CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL")
+# Celery settings - using Redis.
+# Fall back to REDIS_URL, which managed platforms inject automatically when a
+# Redis add-on is provisioned (its value is often a masked secret), so the
+# broker works without copying that secret into a second env var.
+CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL") or os.environ.get("REDIS_URL")
 
 # This makes Celery run tasks synchronously during tests
 if "test" in sys.argv or "pytest" in sys.modules:

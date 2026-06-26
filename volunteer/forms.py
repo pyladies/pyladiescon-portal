@@ -6,6 +6,7 @@ from django.forms import ModelForm
 from django.forms.widgets import SelectMultiple
 from django.utils.safestring import mark_safe
 
+from common.tasks import enqueue
 from portal.models import Conference
 from portal.validators import validate_linked_in_pattern
 
@@ -315,6 +316,6 @@ class VolunteerProfileReviewForm(ModelForm):
         volunteer_profile = super().save(commit)
 
         if newly_approved:
-            send_volunteer_onboarding_email_task.delay(volunteer_profile.id)
-            send_internal_volunteer_onboarding_email_task.delay(volunteer_profile.id)
+            enqueue(send_volunteer_onboarding_email_task, volunteer_profile.id)
+            enqueue(send_internal_volunteer_onboarding_email_task, volunteer_profile.id)
         return volunteer_profile
