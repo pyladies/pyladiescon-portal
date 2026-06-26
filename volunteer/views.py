@@ -22,8 +22,10 @@ from .models import (  # Language,
     PyladiesChapter,
     Team,
     VolunteerProfile,
-    send_volunteer_cancelled_emails,
-    send_volunteer_onboarding_email,
+)
+from .tasks import (
+    send_volunteer_cancelled_emails_task,
+    send_volunteer_onboarding_email_task,
 )
 
 
@@ -337,7 +339,7 @@ class ResendOnboardingEmailView(VolunteerAdminRequiredMixin, View):
         try:
             profile = VolunteerProfile.objects.get(pk=pk)
             if profile.application_status == ApplicationStatus.APPROVED:
-                send_volunteer_onboarding_email(profile)
+                send_volunteer_onboarding_email_task.delay(profile.id)
                 messages.add_message(
                     request, messages.SUCCESS, "Onboarding email was sent successfully."
                 )
@@ -378,18 +380,18 @@ class CancelVolunteeringView(VolunteerOrAdminRequiredMixin, View):
                 )
                 return redirect("volunteer:volunteer_profile_detail", pk=pk)
 
-            # Store team and role information before clearing for email notifications
-            teams_before_cancel = list(profile.teams.all())
-            roles_before_cancel = list(profile.roles.all())
+            # Capture team/role ids before clearing; the task re-fetches them
+            # for the notification emails (the rows persist, only membership
+            # is removed).
+            team_ids = list(profile.teams.values_list("id", flat=True))
+            role_ids = list(profile.roles.values_list("id", flat=True))
             # Update the volunteer profile
             profile.application_status = ApplicationStatus.CANCELLED
             profile.teams.clear()  # Remove from all teams
             profile.roles.clear()  # Remove from all roles
             profile.save()
 
-            send_volunteer_cancelled_emails(
-                profile, teams_before_cancel, roles_before_cancel
-            )
+            send_volunteer_cancelled_emails_task.delay(profile.id, team_ids, role_ids)
 
             messages.add_message(
                 request,
