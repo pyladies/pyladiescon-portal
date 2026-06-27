@@ -332,6 +332,26 @@ class TeamList(VolunteerAdminRequiredMixin, ListView):
     template_name = "team/index.html"
     context_object_name = "teams"
 
+    def get_selected_conference(self):
+        """The edition whose teams are shown; ``?conference=<pk>`` switches it."""
+        param = self.request.GET.get("conference")
+        if param:
+            conference = Conference.objects.filter(pk=param).first()
+            if conference is not None:
+                return conference
+        return Conference.get_active()
+
+    def get_queryset(self):
+        # ``conference=None`` matches nothing, so no active edition yields an
+        # empty list rather than mixing every year's teams together.
+        return Team.objects.filter(conference=self.get_selected_conference())
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["conferences"] = Conference.objects.all()
+        context["selected_conference"] = self.get_selected_conference()
+        return context
+
 
 class TeamView(VolunteerAdminRequiredMixin, DetailView):
     model = Team

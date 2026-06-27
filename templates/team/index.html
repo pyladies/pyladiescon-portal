@@ -6,8 +6,18 @@
 {% block content %}
     <div class="container px-4 py-5" id="featured-3">
         <h1 class="pb-2 border-bottom">
-            {% trans "Teams" %}
+            {% trans "Teams" %} — {{ selected_conference.year }}
         </h1>
+        {% if conferences %}
+            <div class="btn-group mb-3" role="group" aria-label="Conference year">
+                {% for conference in conferences %}
+                    <a href="?conference={{ conference.pk }}"
+                       class="btn btn-sm {% if conference == selected_conference %}btn-primary{% else %}btn-outline-primary{% endif %}">
+                        {{ conference.year }}
+                    </a>
+                {% endfor %}
+            </div>
+        {% endif %}
         <div class="row pt-2 row-cols-1 row-cols-md-3 g-4">
             {% for team in teams %}
                 <div class="col">
