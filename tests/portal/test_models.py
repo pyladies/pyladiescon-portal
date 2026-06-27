@@ -113,3 +113,61 @@ class TestActiveConferenceContextProcessor:
 
     def test_returns_none_when_no_active(self):
         assert active_conference(None) == {"active_conference": None}
+
+
+@pytest.mark.django_db
+class TestCloneTeamsFrom:
+    def test_copies_team_structure_but_not_leads(self):
+        from django.contrib.auth import get_user_model
+
+        from volunteer.models import Team, VolunteerProfile
+
+        source = Conference.objects.create(
+            year=2025, name="PyLadiesCon 2025", slug="2025"
+        )
+        target = Conference.objects.create(
+            year=2026, name="PyLadiesCon 2026", slug="2026"
+        )
+        lead = VolunteerProfile.objects.create(
+            user=get_user_model().objects.create(username="lead"), conference=source
+        )
+        team = Team.objects.create(
+            conference=source,
+            short_name="Comms",
+            description="Communications team",
+            open_to_new_members=False,
+        )
+        team.team_leads.add(lead)
+
+        created = target.clone_teams_from(source)
+
+        assert created == 1
+        cloned = target.teams.get()
+        assert cloned.short_name == "Comms"
+        assert cloned.description == "Communications team"
+        assert cloned.open_to_new_members is False
+        assert cloned.team_leads.count() == 0  # leads are per-edition
+
+    def test_skips_teams_already_present(self):
+        from volunteer.models import Team
+
+        source = Conference.objects.create(
+            year=2025, name="PyLadiesCon 2025", slug="2025"
+        )
+        target = Conference.objects.create(
+            year=2026, name="PyLadiesCon 2026", slug="2026"
+        )
+        Team.objects.create(conference=source, short_name="Comms", description="a")
+        Team.objects.create(conference=source, short_name="Design", description="b")
+        Team.objects.create(
+            conference=target, short_name="Comms", description="kept as-is"
+        )
+
+        created = target.clone_teams_from(source)
+
+        assert created == 1  # only Design is new; Comms already exists
+        assert set(target.teams.values_list("short_name", flat=True)) == {
+            "Comms",
+            "Design",
+        }
+        assert target.teams.get(short_name="Comms").description == "kept as-is"
