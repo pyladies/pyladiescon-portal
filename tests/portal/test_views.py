@@ -165,6 +165,13 @@ class TestStartNewYear:
         response = client.get(reverse("start_new_year"))
         assert response.status_code in (302, 403)
 
+    def test_staff_non_superuser_denied(self, client, django_user_model, conference):
+        # The wizard is superuser-only, so plain staff cannot reach it.
+        staff = django_user_model.objects.create_user("staffy", is_staff=True)
+        client.force_login(staff)
+        response = client.get(reverse("start_new_year"))
+        assert response.status_code in (302, 403)
+
     def test_get_renders_form_with_source(self, client, admin_user, conference):
         client.force_login(admin_user)
         response = client.get(reverse("start_new_year"))

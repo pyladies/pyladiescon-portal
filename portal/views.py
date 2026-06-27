@@ -5,7 +5,7 @@ from django.shortcuts import redirect, render
 from django.urls import reverse_lazy
 from django.views.generic.edit import FormView
 
-from common.mixins import AdminRequiredMixin
+from common.mixins import SuperuserRequiredMixin
 from portal.common import get_historical_comparison_data, get_stats_cached_values
 from portal.forms import StartNewYearForm
 from portal.models import Conference
@@ -103,7 +103,7 @@ def dashboard_gallery(request):
     return render(request, "portal/dashboard_gallery.html", context)
 
 
-class StartNewYearView(AdminRequiredMixin, FormView):
+class StartNewYearView(SuperuserRequiredMixin, FormView):
     """Guided flow for organizers to stand up the next conference edition.
 
     Creates the edition and, in one step, carries selected data over from the
