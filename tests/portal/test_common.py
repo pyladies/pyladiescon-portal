@@ -4,6 +4,7 @@ from django.core.cache import cache
 
 from attendee.models import AttendeeProfile, PretixOrder, PretixOrderstatus
 from portal.common import (
+    get_historical_comparison_data,
     get_sponsorship_committed_amount_stats_cache,
     get_sponsorship_committed_count_stats_cache,
     get_sponsorship_paid_amount_stats_cache,
@@ -16,6 +17,7 @@ from portal.common import (
     get_volunteer_signup_stat_cache,
 )
 from portal.constants import (
+    CACHE_KEY_HISTORICAL_COMPARISON,
     CACHE_KEY_SPONSORSHIP_COMMITTED,
     CACHE_KEY_SPONSORSHIP_COMMITTED_COUNT,
     CACHE_KEY_SPONSORSHIP_PAID,
@@ -26,6 +28,7 @@ from portal.constants import (
     CACHE_KEY_TOTAL_SPONSORSHIPS,
     CACHE_KEY_VOLUNTEER_SIGNUPS_COUNT,
 )
+from portal.models import Conference
 from sponsorship.models import (
     SponsorshipProfile,
     SponsorshipProgressStatus,
@@ -404,3 +407,45 @@ class TestAttendeeStats:
         breakdown = get_attendee_breakdown(conference)
         for b in breakdown:
             assert b["data"] == []
+
+
+@pytest.mark.django_db
+class TestHistoricalComparison:
+    def test_combines_snapshot_and_live_editions(self, conference):
+        """Pre-portal editions use their snapshot; live editions are aggregated."""
+        cache.delete(CACHE_KEY_HISTORICAL_COMPARISON)
+        Conference.objects.create(
+            year=2024,
+            name="PyLadiesCon 2024",
+            slug="2024",
+            proposals_count=192,
+            historical_snapshot={
+                "registrations": 732,
+                "sponsors": 11,
+                "sponsorship_amount": 10000,
+                "donors": 105,
+                "donation_amount": 1520,
+            },
+        )
+
+        data = get_historical_comparison_data()
+        assert len(data) == 7  # one chart per metric
+
+        registrations = next(
+            c for c in data if c["chart_id"] == "registrations_comparison"
+        )
+        years = [row[0] for row in registrations["data"]]
+        assert "2024" in years and "2025" in years  # both editions present
+        # 2024 comes from the snapshot; 2025 (active, no data) is live → 0.
+        assert dict(registrations["data"])["2024"] == 732
+        assert dict(registrations["data"])["2025"] == 0
+
+        # proceeds = sponsorship + donation, from the snapshot for 2024.
+        proceeds = next(c for c in data if c["chart_id"] == "proceeds_comparison")
+        assert dict(proceeds["data"])["2024"] == 10000 + 1520
+
+    def test_result_is_cached(self, conference):
+        cache.delete(CACHE_KEY_HISTORICAL_COMPARISON)
+        first = get_historical_comparison_data()
+        assert cache.get(CACHE_KEY_HISTORICAL_COMPARISON) == first
+        assert get_historical_comparison_data() == first

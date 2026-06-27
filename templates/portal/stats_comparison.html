@@ -1,0 +1,41 @@
+{% extends "portal/base.html" %}
+{% load i18n %}
+{% block extra_head %}
+    {{ block.super }}
+    <!--Google Charts-->
+    <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+    <script type="text/javascript">
+    google.charts.load('current', { 'packages': ['corechart', 'bar'] });
+    google.charts.setOnLoadCallback(drawChart);
+    function drawChart() {
+        {% include "portal/historical_comparison_charts.html" %}
+    }
+    </script>
+    <style>
+        .chart-container {
+            height: 300px;
+        }
+    </style>
+{% endblock extra_head %}
+{% block content %}
+    <div class="container px-4 py-3">
+        <h2 class="pb-2 border-bottom">
+            <i class="bi bi-graph-up"></i> Year-over-Year Comparison
+        </h2>
+        <p>
+            <a href="{% url 'portal_stats' %}"><i class="bi bi-arrow-left"></i> Back to current stats</a>
+        </p>
+        <div class="row g-4 mt-2">
+            {% for comparison in historical_comparison %}
+                <div class="col-md-6">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <div id="{{ comparison.chart_id }}" class="chart-container">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+{% endblock content %}
