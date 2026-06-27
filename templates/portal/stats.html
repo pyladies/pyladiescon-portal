@@ -28,16 +28,26 @@
         <h2 class="pb-2 border-bottom">
             PyLadiesCon Stats and Numbers — {{ selected_conference.year }}
         </h2>
-        {% if conferences %}
-            <div class="btn-group mb-3" role="group" aria-label="Conference year">
-                {% for conference in conferences %}
-                    <a href="?year={{ conference.year }}"
-                       class="btn btn-sm {% if conference == selected_conference %}btn-primary{% else %}btn-outline-primary{% endif %}">
-                        {{ conference.year }}
-                    </a>
-                {% endfor %}
+        <div class="row align-items-center mb-3">
+            <div class="col-md-8">
+                {% if conferences %}
+                    <div class="btn-group" role="group" aria-label="Conference year">
+                        {% for conference in conferences %}
+                            <a href="?year={{ conference.year }}"
+                               class="btn btn-sm {% if conference == selected_conference %}btn-primary{% else %}btn-outline-primary{% endif %}">
+                                {{ conference.year }}
+                            </a>
+                        {% endfor %}
+                    </div>
+                {% endif %}
             </div>
-        {% endif %}
+            <div class="col-md-4 text-md-end mt-2 mt-md-0">
+                <a href="{% url 'portal_stats_comparison' %}"
+                   class="btn btn-sm btn-outline-secondary">
+                    <i class="bi bi-graph-up"></i> Year-over-Year Comparison
+                </a>
+            </div>
+        </div>
         {% if historical_snapshot %}
             <div class="alert alert-info" role="alert">
                 <h4 class="alert-heading">
@@ -170,16 +180,5 @@
             {% include "volunteer/volunteer_stats.html" %}
             {% include "attendee/attendee_stats.html" %}
         {% endif %}
-        <div class="row mt-5">
-            <div class="col-12">
-                <h3 class="pb-2 border-bottom">
-                    <i class="bi bi-graph-up"></i> Year-over-Year Comparison
-                </h3>
-                <p>
-                    See how PyLadiesCon has grown across editions on the
-                    <a href="{% url 'portal_stats_comparison' %}">year-over-year comparison page</a>.
-                </p>
-            </div>
-        </div>
     </div>
 {% endblock content %}
