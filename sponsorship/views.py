@@ -8,7 +8,7 @@ from django.urls import reverse_lazy
 from django.utils.html import format_html
 from django.views.generic import DetailView
 from django.views.generic.base import View
-from django.views.generic.edit import CreateView
+from django.views.generic.edit import CreateView, DeleteView, UpdateView
 from django_filters.views import FilterView
 from django_tables2.views import SingleTableMixin
 
@@ -58,6 +58,26 @@ class SponsorshipProfileCreate(AdminRequiredMixin, CreateView):
         kwargs = super(SponsorshipProfileCreate, self).get_form_kwargs()
         kwargs.update({"user": self.request.user})
         return kwargs
+
+
+class SponsorshipProfileUpdate(AdminRequiredMixin, UpdateView):
+    model = SponsorshipProfile
+    template_name = "sponsorship/sponsorship_profile_form.html"
+    form_class = SponsorshipProfileForm
+
+    # No ``user`` kwarg passed to the form: editing must not reassign the owner.
+
+    def get_success_url(self):
+        return reverse_lazy(
+            "sponsorship:sponsorship_profile_detail", kwargs={"pk": self.object.pk}
+        )
+
+
+class SponsorshipProfileDelete(AdminRequiredMixin, DeleteView):
+    model = SponsorshipProfile
+    template_name = "sponsorship/sponsorship_profile_confirm_delete.html"
+    context_object_name = "profile"
+    success_url = reverse_lazy("sponsorship:sponsorship_list")
 
 
 class SponsorshipProfileTable(tables.Table):
@@ -156,11 +176,19 @@ class SponsorshipProfileTable(tables.Table):
         """Render action buttons for each sponsorship profile."""
 
         edit_url = reverse_lazy(
-            "admin:sponsorship_sponsorshipprofile_change", args=[record.pk]
+            "sponsorship:sponsorship_profile_edit", args=[record.pk]
         )
+        delete_url = reverse_lazy(
+            "sponsorship:sponsorship_profile_delete", args=[record.pk]
+        )
+        # Icon-only in the table (tooltip + aria-label for accessibility).
         return format_html(
-            '<a href="{}" class="btn btn-sm btn-primary">Update</a>',
+            '<a href="{}" class="btn btn-sm btn-primary" title="Edit" '
+            'aria-label="Edit"><i class="fa-solid fa-pencil"></i></a> '
+            '<a href="{}" class="btn btn-sm btn-outline-danger" title="Delete" '
+            'aria-label="Delete"><i class="fa-solid fa-trash"></i></a>',
             edit_url,
+            delete_url,
         )
 
     def render_github_issue_url(self, value, record):

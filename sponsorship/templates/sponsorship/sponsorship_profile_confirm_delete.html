@@ -1,0 +1,20 @@
+{% extends "portal/base.html" %}
+{% load i18n %}
+{% block content %}
+    <div class="container px-4 py-3">
+        <h1 class="display-6 pb-2 border-bottom">
+            {% trans "Delete Sponsorship" %}
+        </h1>
+        <p class="fs-5">
+            {% blocktrans with name=profile.organization_name year=profile.conference.year %}Are you sure you want to delete the sponsorship "{{ name }}" ({{ year }})?{% endblocktrans %}
+        </p>
+        <form method="post">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-danger">
+                {% trans "Delete" %}
+            </button>
+            <a href="{% url 'sponsorship:sponsorship_profile_detail' profile.pk %}"
+               class="btn btn-secondary">{% trans "Cancel" %}</a>
+        </form>
+    </div>
+{% endblock content %}

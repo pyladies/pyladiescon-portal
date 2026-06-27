@@ -3,6 +3,7 @@ import pytest
 from portal.models import Conference
 from sponsorship.forms import SponsorshipProfileForm
 from sponsorship.models import (
+    SponsorshipProfile,
     SponsorshipProgressStatus,
     SponsorshipTier,
 )
@@ -172,3 +173,25 @@ class TestSponsorshipProfileForm:
         assert profile.company_description == form_data["company_description"]
         assert profile.progress_status == form_data["progress_status"]
         assert profile.po_number == form_data["po_number"]
+
+    def test_edit_scopes_tiers_to_sponsors_edition(self, conference):
+        past = Conference.objects.create(
+            year=2024, name="PyLadiesCon 2024", slug="2024"
+        )
+        past_tier = SponsorshipTier.objects.create(
+            conference=past, name="Old", amount=1, description="d"
+        )
+        active_tier = SponsorshipTier.objects.create(
+            conference=conference, name="New", amount=2, description="d"
+        )
+        profile = SponsorshipProfile.objects.create(
+            organization_name="Acme",
+            conference=past,
+            progress_status=SponsorshipProgressStatus.AWAITING_RESPONSE,
+        )
+
+        form = SponsorshipProfileForm(instance=profile)
+        tiers = list(form.fields["sponsorship_tier"].queryset)
+
+        assert past_tier in tiers  # the sponsor's own edition
+        assert active_tier not in tiers
