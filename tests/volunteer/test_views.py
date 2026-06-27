@@ -1287,3 +1287,12 @@ class TestTeamCRUD:
         ]
         for url in urls:
             assert client.get(url).status_code in (302, 403)
+
+    def test_detail_has_back_to_teams_link(self, client, admin_user, conference):
+        team = Team.objects.create(
+            short_name="Comms", description="d", conference=conference
+        )
+        client.force_login(admin_user)
+        response = client.get(reverse("team_detail", kwargs={"pk": team.pk}))
+        assert response.status_code == 200
+        assert reverse("teams") in response.content.decode()
