@@ -2,6 +2,7 @@ import pytest
 from django.urls import reverse
 
 from portal.models import Conference
+from volunteer.models import Team
 
 
 @pytest.fixture(autouse=True)
@@ -20,8 +21,6 @@ class TestCloneTeamsAction:
         )
 
     def test_clones_teams_from_previous_edition(self, client, admin_user):
-        from volunteer.models import Team
-
         source = Conference.objects.create(
             year=2025, name="PyLadiesCon 2025", slug="2025"
         )

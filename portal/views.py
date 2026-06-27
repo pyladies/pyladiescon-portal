@@ -9,6 +9,11 @@ from common.mixins import AdminRequiredMixin
 from portal.common import get_historical_comparison_data, get_stats_cached_values
 from portal.forms import StartNewYearForm
 from portal.models import Conference
+from portal.services import (
+    bring_forward_volunteers,
+    clone_sponsorship_tiers,
+    clone_teams,
+)
 from portal_account.models import PortalProfile
 from volunteer.models import VolunteerProfile
 
@@ -132,14 +137,12 @@ class StartNewYearView(AdminRequiredMixin, FormView):
         carried = []
         if source:
             if data["clone_teams"]:
-                carried.append(f"{conference.clone_teams_from(source)} team(s)")
+                carried.append(f"{clone_teams(conference, source)} team(s)")
             if data["copy_tiers"]:
-                carried.append(
-                    f"{conference.clone_sponsorship_tiers_from(source)} tier(s)"
-                )
+                carried.append(f"{clone_sponsorship_tiers(conference, source)} tier(s)")
             if data["bring_volunteers"]:
                 carried.append(
-                    f"{conference.bring_forward_volunteers_from(source)} volunteer(s)"
+                    f"{bring_forward_volunteers(conference, source)} volunteer(s)"
                 )
 
         message = f"Created {conference}."

@@ -1,10 +1,13 @@
 import pytest
+from django.contrib.auth.models import User
 from django.urls import reverse
 from pytest_django.asserts import assertRedirects
 
 from portal.models import Conference
 from portal_account.models import PortalProfile
-from volunteer.models import PyladiesChapter
+from sponsorship.models import SponsorshipTier
+from volunteer.constants import ApplicationStatus
+from volunteer.models import PyladiesChapter, Team, VolunteerProfile
 
 
 @pytest.mark.django_db
@@ -169,12 +172,6 @@ class TestStartNewYear:
         assert response.context["source"] == conference  # most recent edition
 
     def test_creates_carries_over_and_activates(self, client, admin_user, conference):
-        from django.contrib.auth.models import User
-
-        from sponsorship.models import SponsorshipTier
-        from volunteer.constants import ApplicationStatus
-        from volunteer.models import Team, VolunteerProfile
-
         conference.sponsorship_goal = 15000
         conference.donation_goal = 2500
         conference.save()
