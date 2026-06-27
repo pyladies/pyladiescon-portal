@@ -1,10 +1,13 @@
 import pytest
+from django.contrib.auth.models import User
 from django.urls import reverse
 from pytest_django.asserts import assertRedirects
 
 from portal.models import Conference
 from portal_account.models import PortalProfile
-from volunteer.models import PyladiesChapter
+from sponsorship.models import SponsorshipTier
+from volunteer.constants import ApplicationStatus
+from volunteer.models import PyladiesChapter, Team, VolunteerProfile
 
 
 @pytest.mark.django_db
@@ -153,3 +156,102 @@ class TestDashboardGallery:
         response = client.get(reverse("dashboard_gallery"))
         assert response.status_code == 200
         assert "Gallery of Dashboard Visualization" in response.content.decode()
+
+
+@pytest.mark.django_db
+class TestStartNewYear:
+    def test_requires_admin(self, client, portal_user):
+        client.force_login(portal_user)  # not staff/superuser
+        response = client.get(reverse("start_new_year"))
+        assert response.status_code in (302, 403)
+
+    def test_get_renders_form_with_source(self, client, admin_user, conference):
+        client.force_login(admin_user)
+        response = client.get(reverse("start_new_year"))
+        assert response.status_code == 200
+        assert response.context["source"] == conference  # most recent edition
+
+    def test_creates_carries_over_and_activates(self, client, admin_user, conference):
+        conference.sponsorship_goal = 15000
+        conference.donation_goal = 2500
+        conference.save()
+        Team.objects.create(conference=conference, short_name="Comms", description="c")
+        SponsorshipTier.objects.create(
+            conference=conference, name="Gold", amount=1000, description="g"
+        )
+        vol = User.objects.create(username="returner")
+        VolunteerProfile.objects.create(
+            user=vol,
+            conference=conference,
+            application_status=ApplicationStatus.APPROVED,
+        )
+        client.force_login(admin_user)
+
+        response = client.post(
+            reverse("start_new_year"),
+            {
+                "year": 2026,
+                "name": "PyLadiesCon 2026",
+                "slug": "2026",
+                "clone_teams": "on",
+                "copy_tiers": "on",
+                "copy_goals": "on",
+                "bring_volunteers": "on",
+                "activate": "on",
+            },
+            follow=True,
+        )
+
+        assert response.status_code == 200
+        new = Conference.objects.get(year=2026)
+        assert new.is_active is True
+        assert new.sponsorship_goal == 15000
+        assert new.donation_goal == 2500
+        assert new.teams.count() == 1
+        assert new.sponsorship_tiers.count() == 1
+        assert new.volunteer_profiles.filter(user=vol).exists()
+        # single-active enforcer demoted the previous edition
+        conference.refresh_from_db()
+        assert conference.is_active is False
+
+    def test_creates_without_previous_edition(self, client, admin_user, conference):
+        # No prior edition to carry from.
+        Conference.objects.all().delete()
+        client.force_login(admin_user)
+
+        response = client.post(
+            reverse("start_new_year"),
+            {
+                "year": 2027,
+                "name": "PyLadiesCon 2027",
+                "slug": "2027",
+                "clone_teams": "on",
+                "copy_tiers": "on",
+                "copy_goals": "on",
+            },
+            follow=True,
+        )
+
+        assert response.status_code == 200
+        new = Conference.objects.get(year=2027)
+        assert new.is_active is False
+        assert new.teams.count() == 0
+        assert new.sponsorship_tiers.count() == 0
+
+    def test_duplicate_year_rejected(self, client, admin_user, conference):
+        client.force_login(admin_user)
+        response = client.post(
+            reverse("start_new_year"),
+            {"year": conference.year, "name": "Dup", "slug": "dup"},
+        )
+        assert response.status_code == 200  # re-renders with errors
+        assert not Conference.objects.filter(slug="dup").exists()
+
+    def test_duplicate_slug_rejected(self, client, admin_user, conference):
+        client.force_login(admin_user)
+        response = client.post(
+            reverse("start_new_year"),
+            {"year": 2099, "name": "Dup", "slug": conference.slug},
+        )
+        assert response.status_code == 200  # re-renders with errors
+        assert not Conference.objects.filter(year=2099).exists()

@@ -1,6 +1,7 @@
 from django.contrib import admin, messages
 
 from .models import Conference
+from .services import clone_teams, freeze_stats
 
 
 @admin.action(description="Clone teams from the previous edition")
@@ -15,7 +16,7 @@ def clone_teams_from_previous(modeladmin, request, queryset):
                 level=messages.WARNING,
             )
             continue
-        created = target.clone_teams_from(source)
+        created = clone_teams(target, source)
         modeladmin.message_user(
             request,
             f"Cloned {created} team(s) from {source} into {target}.",
@@ -27,7 +28,7 @@ def clone_teams_from_previous(modeladmin, request, queryset):
 def freeze_conference_stats(modeladmin, request, queryset):
     """Persist each selected edition's live metrics as its final snapshot."""
     for conference in queryset:
-        conference.freeze_stats()
+        freeze_stats(conference)
         modeladmin.message_user(
             request,
             f"Froze stats for {conference}.",
