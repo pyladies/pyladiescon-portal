@@ -228,17 +228,16 @@ Fixed:
   edition being viewed.
 - `VolunteerProfileReviewForm.teams` declared an all-years default queryset
   (overridden in `__init__`); tightened to an empty default.
+- `TeamList` (`/teams/`) now has a year switcher and is scoped to the selected
+  edition (defaulting to the active one), like the sponsor list.
 
-Deferred (need a product decision, tracked for follow-up):
+Deferred (decided to leave for now):
 
-- `TeamList` (`/teams/`, admin-only) lists every edition's teams (each shown
-  with a year badge). Decide: scope to the active edition, add a year switcher,
-  or keep the all-years view.
 - `send_internal_email_task` notifies admin/staff volunteers from *any* edition
-  (plus all `is_staff`/`is_superuser`). Decide whether sponsorship notices
-  should be scoped to the sponsorship's edition.
+  (plus all `is_staff`/`is_superuser`). Left as-is intentionally — the
+  `is_staff`/`is_superuser` catch-all already covers current organizers.
 - `TeamView` / `SponsorshipProfileSendInvoice` fetch by pk without an edition
-  check (admin-only; low risk).
+  check (admin-only; low risk — a wrong-year footgun, not an access leak).
 
 ## Phase 12 — Organizer "Start a new year" wizard (issue #341)
 
