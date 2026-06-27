@@ -1,3 +1,5 @@
+from datetime import date, timedelta
+
 import pytest
 
 from portal.context_processors import active_conference
@@ -113,3 +115,37 @@ class TestActiveConferenceContextProcessor:
 
     def test_returns_none_when_no_active(self):
         assert active_conference(None) == {"active_conference": None}
+
+
+@pytest.mark.django_db
+class TestCanStartNextYear:
+    def test_true_when_no_active_edition(self):
+        # No active edition yet — allow creating the first.
+        Conference.objects.create(year=2025, name="PyLadiesCon 2025", slug="2025")
+        assert Conference.can_start_next_year() is True
+
+    def test_false_when_active_date_unset(self):
+        Conference.objects.create(
+            year=2025, name="PyLadiesCon 2025", slug="2025", is_active=True
+        )
+        assert Conference.can_start_next_year() is False
+
+    def test_false_when_active_date_in_future(self):
+        Conference.objects.create(
+            year=2025,
+            name="PyLadiesCon 2025",
+            slug="2025",
+            is_active=True,
+            conference_date=date.today() + timedelta(days=2),
+        )
+        assert Conference.can_start_next_year() is False
+
+    def test_true_when_active_date_passed(self):
+        Conference.objects.create(
+            year=2025,
+            name="PyLadiesCon 2025",
+            slug="2025",
+            is_active=True,
+            conference_date=date.today() - timedelta(days=2),
+        )
+        assert Conference.can_start_next_year() is True

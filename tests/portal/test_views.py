@@ -255,3 +255,29 @@ class TestStartNewYear:
         )
         assert response.status_code == 200  # re-renders with errors
         assert not Conference.objects.filter(year=2099).exists()
+
+
+@pytest.mark.django_db
+class TestStartNextYearGate:
+    def test_wizard_blocked_when_date_not_passed(self, client, admin_user, conference):
+        conference.conference_date = None
+        conference.save()
+        client.force_login(admin_user)
+        response = client.get(reverse("start_new_year"))
+        assert response.status_code == 302
+        assert response.url == reverse("index")
+
+    def test_card_shown_when_date_passed(self, client, admin_user, conference):
+        # autouse conference_date is in the past -> can start next year
+        PortalProfile.objects.create(user=admin_user)
+        client.force_login(admin_user)
+        response = client.get(reverse("index"))
+        assert "Start Next Year's Conference" in response.content.decode()
+
+    def test_card_hidden_when_date_not_passed(self, client, admin_user, conference):
+        PortalProfile.objects.create(user=admin_user)
+        conference.conference_date = None
+        conference.save()
+        client.force_login(admin_user)
+        response = client.get(reverse("index"))
+        assert "Start Next Year's Conference" not in response.content.decode()

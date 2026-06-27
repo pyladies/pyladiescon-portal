@@ -40,6 +40,7 @@ def index(request):
         context["roles"] = []
 
     context["stats"] = get_stats_cached_values()
+    context["can_start_next_year"] = Conference.can_start_next_year()
 
     return render(request, "portal/index.html", context)
 
@@ -113,6 +114,16 @@ class StartNewYearView(AdminRequiredMixin, FormView):
     template_name = "portal/start_new_year.html"
     form_class = StartNewYearForm
     success_url = reverse_lazy("index")
+
+    def dispatch(self, request, *args, **kwargs):
+        if not Conference.can_start_next_year():
+            messages.info(
+                request,
+                "Next year's conference can be started once the current "
+                "edition's date has passed.",
+            )
+            return redirect("index")
+        return super().dispatch(request, *args, **kwargs)
 
     def _previous_edition(self):
         return Conference.objects.order_by("-year").first()

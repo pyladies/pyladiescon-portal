@@ -73,6 +73,9 @@ class Conference(BaseModel):
     # optional metadata
     start_date = models.DateField(null=True, blank=True)
     end_date = models.DateField(null=True, blank=True)
+    # When this edition takes place. Next year's conference can only be started
+    # once this date has passed. Null for a freshly-created edition.
+    conference_date = models.DateField(null=True, blank=True)
     banner_text = models.CharField(max_length=255, blank=True)
 
     # snapshot of closed-out year metrics (used when no portal data exists,
@@ -94,3 +97,20 @@ class Conference(BaseModel):
     def get_active(cls):
         """Return the active conference, or ``None`` if none is set."""
         return cls.objects.filter(is_active=True).first()
+
+    @classmethod
+    def can_start_next_year(cls):
+        """Whether the "start a new year" flow should be available.
+
+        Available once the active edition's ``conference_date`` has passed, so
+        organizers set up next year only after the current edition is over.
+        Hidden while the active edition's date is unset or still upcoming. When
+        there is no active edition at all, it is available so the first edition
+        can be created.
+        """
+        active = cls.get_active()
+        if active is None:
+            return True
+        if active.conference_date is None:
+            return False
+        return active.conference_date < now().date()
