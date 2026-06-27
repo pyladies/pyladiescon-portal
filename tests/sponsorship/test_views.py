@@ -3,6 +3,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
 from pytest_django.asserts import assertRedirects
 
+from portal.constants import SPONSORSHIP_GOAL
 from portal.models import Conference
 from sponsorship.models import (
     SponsorshipProfile,
@@ -45,6 +46,29 @@ class TestSponsorshipConferenceScoping:
         ]
         assert "Past Sponsor" in past_orgs
         assert "Active Sponsor" not in past_orgs
+
+    def test_stats_follow_selected_year(self, client, admin_user, conference):
+        past = Conference.objects.create(
+            year=2024, name="PyLadiesCon 2024", slug="2024", sponsorship_goal=9999
+        )
+        client.force_login(admin_user)
+        url = reverse("sponsorship:sponsorship_list")
+
+        # Default tab → the active conference's goal.
+        active_stats = client.get(url).context["stats"]
+        assert active_stats[SPONSORSHIP_GOAL] == conference.sponsorship_goal
+
+        # Switching the year tab → that conference's goal.
+        past_stats = client.get(f"{url}?conference={past.pk}").context["stats"]
+        assert past_stats[SPONSORSHIP_GOAL] == 9999
+
+    def test_stats_none_when_selected_conference_not_viewable(
+        self, client, admin_user, conference
+    ):
+        client.force_login(admin_user)
+        url = reverse("sponsorship:sponsorship_list")
+        response = client.get(f"{url}?conference=99999")
+        assert response.context["stats"] is None
 
     def test_volunteer_sees_only_the_year_they_are_approved_for(
         self, client, portal_user, conference

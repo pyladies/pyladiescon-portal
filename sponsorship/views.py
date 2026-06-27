@@ -252,14 +252,20 @@ class SponsorshipProfileList(CanViewSponsorship, SingleTableMixin, FilterView):
     def get_context_data(self, **kwargs):
         # kwargs.pop('filter')
         context = super().get_context_data(**kwargs)
+        selected_conference = self.get_selected_conference()
         volunteer_profile = VolunteerProfile.objects.filter(
             user=self.request.user, conference=Conference.get_active()
         ).first()
         context["volunteer_profile"] = volunteer_profile
         context["title"] = "Sponsorship Profiles"
-        context["stats"] = get_sponsorships_stats_dict(Conference.get_active())
+        # Stats follow the selected year tab so the overview matches the list.
+        context["stats"] = (
+            get_sponsorships_stats_dict(selected_conference)
+            if selected_conference
+            else None
+        )
         context["conferences"] = self.viewable_conferences()
-        context["selected_conference"] = self.get_selected_conference()
+        context["selected_conference"] = selected_conference
         return context
 
 
