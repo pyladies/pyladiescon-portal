@@ -21,6 +21,16 @@ urlpatterns = [
         name="sponsorship_profile_detail",
     ),
     path(
+        "<int:pk>/edit/",
+        views.SponsorshipProfileUpdate.as_view(),
+        name="sponsorship_profile_edit",
+    ),
+    path(
+        "<int:pk>/delete/",
+        views.SponsorshipProfileDelete.as_view(),
+        name="sponsorship_profile_delete",
+    ),
+    path(
         "<int:pk>/send-invoice/",
         views.SponsorshipProfileSendInvoice.as_view(),
         name="sponsorship_send_invoice",

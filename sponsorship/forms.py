@@ -68,10 +68,15 @@ class SponsorshipProfileForm(forms.ModelForm):
         # (e.g. to set up next year's sponsors early).
         if not self.instance.pk:
             self.fields["conference"].initial = active
-        # Offer only the active edition's tiers (tiers are conference-scoped);
-        # otherwise the dropdown lists every year's tiers.
+        # Offer only the relevant edition's tiers (tiers are conference-scoped);
+        # when editing, that's the sponsor's own edition, otherwise the active
+        # one — instead of listing every year's tiers.
+        if self.instance.conference_id:
+            tier_conference = self.instance.conference
+        else:
+            tier_conference = active
         self.fields["sponsorship_tier"].queryset = SponsorshipTier.objects.filter(
-            conference=active
+            conference=tier_conference
         )
 
     def clean(self):

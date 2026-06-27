@@ -24,7 +24,7 @@
         </p>
         <div class="row g-5">
             {% bootstrap_form_errors form %}
-            <form action="{% if object.pk %}{#  url 'sponsorship:sponsorship_profile_edit' object.pk #}{% else %}{% url 'sponsorship:sponsorship_profile_new' %}{% endif %}"
+            <form action="{% if object.pk %}{% url 'sponsorship:sponsorship_profile_edit' object.pk %}{% else %}{% url 'sponsorship:sponsorship_profile_new' %}{% endif %}"
                   method="post"
                   class="form">
                 {% csrf_token %}

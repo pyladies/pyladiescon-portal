@@ -713,3 +713,54 @@ class TestSponsorshipCreateViews:
         assert "Invoice request sent to PSF accounting team for Test Corp" in str(
             messages[0].message
         )
+
+
+@pytest.mark.django_db
+class TestSponsorshipCRUD:
+    def _sponsor(self, conference, **kwargs):
+        return SponsorshipProfile.objects.create(
+            organization_name=kwargs.pop("organization_name", "Acme"),
+            conference=conference,
+            progress_status=SponsorshipProgressStatus.AWAITING_RESPONSE,
+            **kwargs,
+        )
+
+    def test_admin_can_edit_sponsor(self, client, admin_user, portal_user, conference):
+        profile = self._sponsor(conference, user=portal_user)
+        client.force_login(admin_user)
+        response = client.post(
+            reverse("sponsorship:sponsorship_profile_edit", kwargs={"pk": profile.pk}),
+            {
+                "organization_name": "Acme Updated",
+                "conference": conference.pk,
+                "main_contact_user": admin_user.pk,
+                "progress_status": SponsorshipProgressStatus.AWAITING_RESPONSE.value,
+            },
+            follow=True,
+        )
+        assert response.status_code == 200
+        profile.refresh_from_db()
+        assert profile.organization_name == "Acme Updated"
+        assert profile.user == portal_user  # owner is not reassigned on edit
+
+    def test_admin_can_delete_sponsor(self, client, admin_user, conference):
+        profile = self._sponsor(conference)
+        client.force_login(admin_user)
+        response = client.post(
+            reverse(
+                "sponsorship:sponsorship_profile_delete", kwargs={"pk": profile.pk}
+            ),
+            follow=True,
+        )
+        assert response.status_code == 200
+        assert not SponsorshipProfile.objects.filter(pk=profile.pk).exists()
+
+    def test_edit_delete_require_admin(self, client, portal_user, conference):
+        profile = self._sponsor(conference)
+        client.force_login(portal_user)  # not staff/superuser
+        for name in [
+            "sponsorship:sponsorship_profile_edit",
+            "sponsorship:sponsorship_profile_delete",
+        ]:
+            url = reverse(name, kwargs={"pk": profile.pk})
+            assert client.get(url).status_code in (302, 403)
