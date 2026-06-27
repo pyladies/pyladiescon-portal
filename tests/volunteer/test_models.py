@@ -734,3 +734,62 @@ class TestConferenceLink:
             short_name="Test Team", description="Test", conference=conference
         )
         assert list(conference.teams.all()) == [team]
+
+
+@pytest.mark.django_db
+class TestBringForwardTo:
+    def test_copies_details_as_pending_without_email(
+        self, portal_user, language, conference
+    ):
+        from portal.models import Conference
+
+        source = VolunteerProfile(
+            user=portal_user,
+            conference=conference,
+            region=Region.NORTH_AMERICA,
+            discord_username="mydiscord",
+            github_username="octocat",
+            availability_hours_per_week=5,
+        )
+        source.save()
+        source.language.add(language)
+        team = Team.objects.create(
+            conference=conference, short_name="Comms", description="c"
+        )
+        source.teams.add(team)
+        target = Conference.objects.create(
+            year=2026, name="PyLadiesCon 2026", slug="2026"
+        )
+        mail.outbox.clear()
+
+        new_profile = source.bring_forward_to(target)
+
+        assert new_profile is not None
+        assert new_profile.conference == target
+        assert new_profile.user == portal_user
+        assert new_profile.application_status == ApplicationStatus.PENDING
+        assert new_profile.github_username == "octocat"
+        assert new_profile.discord_username == "mydiscord"
+        assert new_profile.region == Region.NORTH_AMERICA
+        assert new_profile.availability_hours_per_week == 5
+        assert list(new_profile.language.all()) == [language]
+        assert new_profile.teams.count() == 0  # team assignments not carried
+        assert new_profile.roles.count() == 0
+        assert len(mail.outbox) == 0  # no unsolicited "application received" email
+
+    def test_returns_none_when_already_in_target(self, portal_user, conference):
+        from portal.models import Conference
+
+        target = Conference.objects.create(
+            year=2026, name="PyLadiesCon 2026", slug="2026"
+        )
+        source = VolunteerProfile.objects.create(
+            user=portal_user, conference=conference
+        )
+        VolunteerProfile.objects.create(user=portal_user, conference=target)
+
+        assert source.bring_forward_to(target) is None
+        assert (
+            VolunteerProfile.objects.filter(user=portal_user, conference=target).count()
+            == 1
+        )

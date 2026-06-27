@@ -183,6 +183,42 @@ class VolunteerProfile(BaseModel):
         """Returns False if the volunteer profile is pending."""
         return self.application_status == ApplicationStatus.PENDING
 
+    def bring_forward_to(self, target_conference):
+        """Carry a returning volunteer into another edition without re-applying.
+
+        Copies this profile's details (not its team/role assignments) into a new
+        PENDING profile for ``target_conference``, so a returning volunteer does
+        not have to fill in the form again; the organizer still reviews it.
+        Returns the new profile, or ``None`` if the user already has a profile
+        in that edition. No "application received" emails are sent.
+        """
+        if VolunteerProfile.objects.filter(
+            user=self.user, conference=target_conference
+        ).exists():
+            return None
+
+        new_profile = VolunteerProfile(
+            user=self.user,
+            conference=target_conference,
+            application_status=ApplicationStatus.PENDING,
+            github_username=self.github_username,
+            discord_username=self.discord_username,
+            instagram_username=self.instagram_username,
+            bluesky_username=self.bluesky_username,
+            mastodon_url=self.mastodon_url,
+            x_username=self.x_username,
+            linkedin_url=self.linkedin_url,
+            languages_spoken=self.languages_spoken,
+            additional_comments=self.additional_comments,
+            availability_hours_per_week=self.availability_hours_per_week,
+            region=self.region,
+            chapter=self.chapter,
+        )
+        new_profile.skip_notifications = True
+        new_profile.save()
+        new_profile.language.set(self.language.all())
+        return new_profile
+
     def clean(self):
         super().clean()
         self._validate_github_username()
@@ -459,6 +495,12 @@ def volunteer_profile_signal(sender, instance, created, **kwargs):
     Queue a background task to notify the user (and the internal team on
     creation) about their volunteer application status.
     """
+    # Bulk operations (e.g. bringing returning volunteers forward into a new
+    # edition) set this so the volunteer is not emailed an unsolicited
+    # "application received" notice.
+    if getattr(instance, "skip_notifications", False):
+        return
+
     # Local import avoids a circular import (tasks imports this module).
     from common.tasks import enqueue
 
