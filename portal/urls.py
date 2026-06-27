@@ -40,6 +40,11 @@ urlpatterns = [
         name="teams",
     ),
     path(
+        "teams/new/",
+        volunteer_view.TeamCreate.as_view(),
+        name="team_new",
+    ),
+    path(
         "chapters/",
         volunteer_view.PyladiesChaptersList.as_view(),
         name="chapters",
@@ -48,6 +53,16 @@ urlpatterns = [
         "teams/<int:pk>",
         volunteer_view.TeamView.as_view(),
         name="team_detail",
+    ),
+    path(
+        "teams/<int:pk>/edit/",
+        volunteer_view.TeamUpdate.as_view(),
+        name="team_edit",
+    ),
+    path(
+        "teams/<int:pk>/delete/",
+        volunteer_view.TeamDelete.as_view(),
+        name="team_delete",
     ),
     path("i18n/", include("django.conf.urls.i18n")),
     path(

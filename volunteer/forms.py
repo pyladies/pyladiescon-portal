@@ -321,3 +321,21 @@ class VolunteerProfileReviewForm(ModelForm):
             enqueue(send_volunteer_onboarding_email_task, volunteer_profile.id)
             enqueue(send_internal_volunteer_onboarding_email_task, volunteer_profile.id)
         return volunteer_profile
+
+
+class TeamForm(ModelForm):
+    """Create/edit a team through the portal (instead of Django admin)."""
+
+    class Meta:
+        model = Team
+        fields = ["short_name", "description", "open_to_new_members", "team_leads"]
+        widgets = {"team_leads": forms.CheckboxSelectMultiple}
+
+    def __init__(self, *args, conference=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Team leads must be volunteers of the team's own edition. The views
+        # always pass the edition (active on create, the instance's on edit).
+        self.fields["team_leads"].required = False
+        self.fields["team_leads"].queryset = VolunteerProfile.objects.filter(
+            conference=conference
+        )

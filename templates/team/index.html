@@ -18,6 +18,11 @@
                 {% endfor %}
             </div>
         {% endif %}
+        <p>
+            <a href="{% url 'team_new' %}" class="btn btn-primary">
+                <i class="fa-solid fa-plus"></i> {% trans "New Team" %}
+            </a>
+        </p>
         <div class="row pt-2 row-cols-1 row-cols-md-3 g-4">
             {% for team in teams %}
                 <div class="col">
