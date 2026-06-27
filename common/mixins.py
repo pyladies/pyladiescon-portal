@@ -14,6 +14,13 @@ class AdminRequiredMixin(UserPassesTestMixin):
         return self.request.user.is_superuser or self.request.user.is_staff
 
 
+class SuperuserRequiredMixin(UserPassesTestMixin):
+    """Mixin for views restricted to superusers only (not staff)."""
+
+    def test_func(self):
+        return self.request.user.is_superuser
+
+
 class VolunteerOrAdminRequiredMixin(UserPassesTestMixin):
     """Mixin for views that require the user to be the owner of the object or an admin.
 
