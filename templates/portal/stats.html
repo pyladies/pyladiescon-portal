@@ -13,7 +13,6 @@
         {% include "sponsorship/sponsorship_charts.html" %}
         {% include "volunteer/volunteer_charts.html" %}
         {% endif %}
-        {% include "portal/historical_comparison_charts.html" %}
    }
     </script>
     <style>
@@ -171,25 +170,16 @@
             {% include "volunteer/volunteer_stats.html" %}
             {% include "attendee/attendee_stats.html" %}
         {% endif %}
-        <!-- Historical Comparison Section -->
         <div class="row mt-5">
             <div class="col-12">
                 <h3 class="pb-2 border-bottom">
-                    <i class="bi bi-graph-up"></i> Historical Comparison
+                    <i class="bi bi-graph-up"></i> Year-over-Year Comparison
                 </h3>
+                <p>
+                    See how PyLadiesCon has grown across editions on the
+                    <a href="{% url 'portal_stats_comparison' %}">year-over-year comparison page</a>.
+                </p>
             </div>
-        </div>
-        <div class="row g-4 mt-2">
-            {% for comparison in stats.historical_comparison %}
-                <div class="col-md-6">
-                    <div class="card h-100">
-                        <div class="card-body">
-                            <div id="{{ comparison.chart_id }}" class="chart-container">
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            {% endfor %}
         </div>
     </div>
 {% endblock content %}

@@ -2,7 +2,7 @@ from django.contrib.auth import get_user
 from django.http import JsonResponse
 from django.shortcuts import redirect, render
 
-from portal.common import get_stats_cached_values
+from portal.common import get_historical_comparison_data, get_stats_cached_values
 from portal.models import Conference
 from portal_account.models import PortalProfile
 from volunteer.models import VolunteerProfile
@@ -72,6 +72,15 @@ def stats_json(request):
     context["stats"] = get_stats_cached_values(_stats_conference(request))
 
     return JsonResponse(context)
+
+
+def stats_comparison(request):
+    """
+    Show year-over-year comparison charts across all conference editions.
+    """
+    context = {"historical_comparison": get_historical_comparison_data()}
+
+    return render(request, "portal/stats_comparison.html", context)
 
 
 def dashboard_gallery(request):

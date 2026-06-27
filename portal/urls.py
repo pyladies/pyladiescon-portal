@@ -61,6 +61,11 @@ urlpatterns = [
         name="portal_stats_json",
     ),
     path(
+        "stats/comparison/",
+        views.stats_comparison,
+        name="portal_stats_comparison",
+    ),
+    path(
         "dashboard_gallery",
         views.dashboard_gallery,
         name="dashboard_gallery",

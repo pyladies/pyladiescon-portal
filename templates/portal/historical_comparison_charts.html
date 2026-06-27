@@ -1,8 +1,8 @@
 {% comment %}
 Historical comparison charts for PyLadiesCon stats across years
-Uses Google Charts to display bar charts comparing metrics from 2023, 2024, and 2025
+Uses Google Charts to display bar charts comparing metrics across all editions
 {% endcomment %}
-{% for comparison in stats.historical_comparison %}
+{% for comparison in historical_comparison %}
     var data_{{ comparison.chart_id }} = new google.visualization.DataTable();
     {% for column in comparison.columns %}
         data_{{ comparison.chart_id }}.addColumn('{{ column.0 }}', '{{ column.1 }}');

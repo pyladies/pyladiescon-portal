@@ -85,6 +85,11 @@ class TestPortalStats:
         assert "600" in content  # snapshot registrations
         assert "164" in content  # proposals_count
 
+    def test_stats_comparison_page_is_public(self, client, conference):
+        response = client.get(reverse("portal_stats_comparison"))
+        assert response.status_code == 200
+        assert "Year-over-Year Comparison" in response.content.decode()
+
 
 @pytest.mark.django_db
 class TestPyladiesChapters:

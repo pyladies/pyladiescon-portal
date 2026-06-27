@@ -16,11 +16,9 @@ CACHE_KEY_SPONSORSHIP_COMMITTED_COUNT = "sponsorship_committed_count"
 CACHE_KEY_SPONSORSHIP_PAID_PERCENT = "sponsorship_paid_percent"
 CACHE_KEY_SPONSORSHIP_TOWARDS_GOAL_PERCENT = "sponsorship_towards_goal_percent"
 CACHE_KEY_SPONSORSHIP_BREAKDOWN = "sponsorship_breakdown"
-SPONSORSHIP_GOAL_AMOUNT = 15000
 
 CACHE_KEY_VOLUNTEER_BREAKDOWN = "volunteer_breakdown"
 
-DONATION_GOAL_AMOUNT = 2500
 CACHE_KEY_DONATION_BREAKDOWN = "donation_breakdown"
 CACHE_KEY_DONATIONS_TOTAL_AMOUNT = "donations_total_amount"
 CACHE_KEY_DONORS_COUNT = "donors_count"
@@ -45,29 +43,5 @@ CACHE_KEY_ATTENDEE_BY_REGION = "attendee_by_region"
 
 # Historical data for comparison charts
 CACHE_KEY_HISTORICAL_COMPARISON = "historical_comparison"
-
-# Historical data from past PyLadiesCon events
-# Data source: https://conference.pyladies.com/2024-pyladiescon-ends/
-HISTORICAL_STATS = {
-    "2023": {
-        "registrations": 600,
-        "proposals": 164,
-        "sponsors": 8,
-        "sponsorship_amount": 10500,
-        "donors": 58,
-        "donation_amount": 650,
-    },
-    "2024": {
-        "registrations": 732,
-        "proposals": 192,
-        "sponsors": 11,
-        "sponsorship_amount": 10000,
-        "donors": 105,
-        "donation_amount": 1520,
-    },
-}
-
-# Current year proposals count (not stored in database)
-PROPOSALS_2025_COUNT = 194
 
 BASE_PRETIX_URL = "https://pretix.eu/api/v1/"
