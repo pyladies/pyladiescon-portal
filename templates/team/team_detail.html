@@ -15,9 +15,9 @@
         {% if user.is_superuser or user.is_staff %}
             <div class="mb-3">
                 <a href="{% url 'team_edit' team.id %}"
-                   class="btn btn-sm btn-outline-primary">{% trans "Edit" %}</a>
+                   class="btn btn-sm btn-outline-primary"><i class="fa-solid fa-pencil"></i> {% trans "Edit" %}</a>
                 <a href="{% url 'team_delete' team.id %}"
-                   class="btn btn-sm btn-outline-danger">{% trans "Delete" %}</a>
+                   class="btn btn-sm btn-outline-danger"><i class="fa-solid fa-trash"></i> {% trans "Delete" %}</a>
             </div>
         {% endif %}
         <div class="row g-4 py-5 row-cols-1 row-cols-lg-3">
