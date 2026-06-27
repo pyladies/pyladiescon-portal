@@ -205,17 +205,40 @@ Notes:
 
 ## Phase 11 — Verification
 
-- [ ] All existing tests pass.
-- [ ] New tests for `Conference` model (single-active enforcer,
-      `get_active()`).
-- [ ] New tests for returning-volunteer pre-fill flow.
-- [ ] New tests for year-aware stats aggregation.
+- [x] All existing tests pass (100% coverage maintained).
+- [x] Tests for `Conference` model (single-active enforcer, `get_active()`) —
+      `tests/portal/test_models.py`.
+- [x] Tests for returning-volunteer pre-fill flow —
+      `test_form_prefills_from_most_recent_prior_profile`.
+- [x] Tests for year-aware stats aggregation — `tests/portal/test_common.py`.
 - [ ] Manual QA: create 2026 conference, flip `is_active`, verify stats and
       volunteer flow.
 - [ ] Manual QA: switch back to 2025 via `?year=2025`, verify historical
       data renders correctly.
 - [ ] Manual QA: visit `/stats/comparison/`, verify 2023–2026 all render
       with appropriate data sources.
+
+### Conference-scoping audit
+
+A sweep of user-facing read/write paths for cross-year leakage.
+
+Fixed:
+
+- Sponsor list tier filter listed every year's tiers; now scoped to the
+  edition being viewed.
+- `VolunteerProfileReviewForm.teams` declared an all-years default queryset
+  (overridden in `__init__`); tightened to an empty default.
+
+Deferred (need a product decision, tracked for follow-up):
+
+- `TeamList` (`/teams/`, admin-only) lists every edition's teams (each shown
+  with a year badge). Decide: scope to the active edition, add a year switcher,
+  or keep the all-years view.
+- `send_internal_email_task` notifies admin/staff volunteers from *any* edition
+  (plus all `is_staff`/`is_superuser`). Decide whether sponsorship notices
+  should be scoped to the sponsorship's edition.
+- `TeamView` / `SponsorshipProfileSendInvoice` fetch by pk without an edition
+  check (admin-only; low risk).
 
 ## Phase 12 — Organizer "Start a new year" wizard (issue #341)
 
