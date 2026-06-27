@@ -94,3 +94,27 @@ class Conference(BaseModel):
     def get_active(cls):
         """Return the active conference, or ``None`` if none is set."""
         return cls.objects.filter(is_active=True).first()
+
+    def clone_teams_from(self, source):
+        """Copy the team structure from another edition into this one.
+
+        Copies each team's name, description, and open-to-new-members flag but
+        not its team leads (those are per-edition volunteers). Teams whose name
+        already exists in this edition are skipped, so it is safe to run more
+        than once. Returns the number of teams created.
+        """
+        from volunteer.models import Team
+
+        existing = set(self.teams.values_list("short_name", flat=True))
+        created = 0
+        for team in source.teams.all():
+            if team.short_name in existing:
+                continue
+            Team.objects.create(
+                conference=self,
+                short_name=team.short_name,
+                description=team.description,
+                open_to_new_members=team.open_to_new_members,
+            )
+            created += 1
+        return created
