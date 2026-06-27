@@ -5,13 +5,21 @@
 {% endblock body %}
 {% block content %}
     <div class="container px-4 py-5" id="featured-3">
+        <p>
+            <a href="{% url 'teams' %}"><i class="fa-solid fa-arrow-left"></i> {% trans "All teams" %}</a>
+        </p>
         <h2 class="pb-2 border-bottom">
             {{ team.short_name }}
             <span class="badge bg-secondary align-middle fs-6">{{ team.conference }}</span>
-            {% if user.is_superuser %}
-                <small class="fs-6"><a href="{% url 'admin:volunteer_team_change' team.id %}">Edit in Django Admin</a></small>
-            {% endif %}
         </h2>
+        {% if user.is_superuser or user.is_staff %}
+            <div class="mb-3">
+                <a href="{% url 'team_edit' team.id %}"
+                   class="btn btn-sm btn-outline-primary">{% trans "Edit" %}</a>
+                <a href="{% url 'team_delete' team.id %}"
+                   class="btn btn-sm btn-outline-danger">{% trans "Delete" %}</a>
+            </div>
+        {% endif %}
         <div class="row g-4 py-5 row-cols-1 row-cols-lg-3">
             {{ team.description }}
         </div>

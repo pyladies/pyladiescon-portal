@@ -1,0 +1,27 @@
+{% extends "portal/base.html" %}
+{% load i18n %}
+{% load django_bootstrap5 %}
+{% block content %}
+    <div class="container px-4 py-3">
+        <h1 class="display-6 pb-2 border-bottom">
+            {% if form.instance.pk %}
+                {% trans "Edit Team" %}
+            {% else %}
+                {% trans "New Team" %}
+            {% endif %}
+        </h1>
+        <form method="post" class="col-md-8">
+            {% csrf_token %}
+            {% bootstrap_form form %}
+            <button type="submit" class="btn btn-primary">
+                {% trans "Save" %}
+            </button>
+            {% if form.instance.pk %}
+                <a href="{% url 'team_detail' form.instance.pk %}"
+                   class="btn btn-secondary">{% trans "Cancel" %}</a>
+            {% else %}
+                <a href="{% url 'teams' %}" class="btn btn-secondary">{% trans "Cancel" %}</a>
+            {% endif %}
+        </form>
+    </div>
+{% endblock content %}

@@ -1229,3 +1229,70 @@ class TestTeamList:
             client.get(reverse("teams") + "?conference=99999").context["teams"]
         )
         assert active_team in teams
+
+
+@pytest.mark.django_db
+class TestTeamCRUD:
+    def test_create_team(self, client, admin_user, conference):
+        client.force_login(admin_user)
+        response = client.post(
+            reverse("team_new"),
+            {
+                "short_name": "Comms",
+                "description": "Communications",
+                "open_to_new_members": "on",
+            },
+            follow=True,
+        )
+        assert response.status_code == 200
+        team = Team.objects.get(short_name="Comms")
+        assert team.conference == conference  # the active edition
+        assert team.open_to_new_members is True
+
+    def test_update_team(self, client, admin_user, conference):
+        team = Team.objects.create(
+            short_name="Comms", description="old", conference=conference
+        )
+        client.force_login(admin_user)
+        response = client.post(
+            reverse("team_edit", kwargs={"pk": team.pk}),
+            {"short_name": "Comms", "description": "new description"},
+            follow=True,
+        )
+        assert response.status_code == 200
+        team.refresh_from_db()
+        assert team.description == "new description"
+        assert team.open_to_new_members is False  # unchecked
+
+    def test_delete_team(self, client, admin_user, conference):
+        team = Team.objects.create(
+            short_name="Comms", description="d", conference=conference
+        )
+        client.force_login(admin_user)
+        response = client.post(
+            reverse("team_delete", kwargs={"pk": team.pk}), follow=True
+        )
+        assert response.status_code == 200
+        assert not Team.objects.filter(pk=team.pk).exists()
+
+    def test_team_crud_requires_admin(self, client, portal_user, conference):
+        team = Team.objects.create(
+            short_name="Comms", description="d", conference=conference
+        )
+        client.force_login(portal_user)  # not staff/superuser
+        urls = [
+            reverse("team_new"),
+            reverse("team_edit", kwargs={"pk": team.pk}),
+            reverse("team_delete", kwargs={"pk": team.pk}),
+        ]
+        for url in urls:
+            assert client.get(url).status_code in (302, 403)
+
+    def test_detail_has_back_to_teams_link(self, client, admin_user, conference):
+        team = Team.objects.create(
+            short_name="Comms", description="d", conference=conference
+        )
+        client.force_login(admin_user)
+        response = client.get(reverse("team_detail", kwargs={"pk": team.pk}))
+        assert response.status_code == 200
+        assert reverse("teams") in response.content.decode()

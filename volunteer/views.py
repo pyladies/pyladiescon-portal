@@ -17,7 +17,7 @@ from common.mixins import AdminRequiredMixin, VolunteerOrAdminRequiredMixin
 from common.tasks import enqueue
 from portal.models import Conference
 
-from .forms import VolunteerProfileForm, VolunteerProfileReviewForm
+from .forms import TeamForm, VolunteerProfileForm, VolunteerProfileReviewForm
 from .models import (  # Language,
     ApplicationStatus,
     PyladiesChapter,
@@ -364,6 +364,45 @@ class TeamView(VolunteerAdminRequiredMixin, DetailView):
         except Team.DoesNotExist:
             return redirect("teams")
         return super(TeamView, self).get(request, pk)
+
+
+class TeamCreate(VolunteerAdminRequiredMixin, CreateView):
+    model = Team
+    form_class = TeamForm
+    template_name = "team/team_form.html"
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["conference"] = Conference.get_active()
+        return kwargs
+
+    def form_valid(self, form):
+        # New teams belong to the active edition.
+        form.instance.conference = Conference.get_active()
+        return super().form_valid(form)
+
+    def get_success_url(self):
+        return reverse("team_detail", kwargs={"pk": self.object.pk})
+
+
+class TeamUpdate(VolunteerAdminRequiredMixin, UpdateView):
+    model = Team
+    form_class = TeamForm
+    template_name = "team/team_form.html"
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["conference"] = self.object.conference
+        return kwargs
+
+    def get_success_url(self):
+        return reverse("team_detail", kwargs={"pk": self.object.pk})
+
+
+class TeamDelete(VolunteerAdminRequiredMixin, DeleteView):
+    model = Team
+    template_name = "team/team_confirm_delete.html"
+    success_url = reverse_lazy("teams")
 
 
 class ResendOnboardingEmailView(VolunteerAdminRequiredMixin, View):

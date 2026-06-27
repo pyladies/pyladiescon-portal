@@ -1,0 +1,19 @@
+{% extends "portal/base.html" %}
+{% load i18n %}
+{% block content %}
+    <div class="container px-4 py-3">
+        <h1 class="display-6 pb-2 border-bottom">
+            {% trans "Delete Team" %}
+        </h1>
+        <p class="fs-5">
+            {% blocktrans with name=team.short_name year=team.conference.year %}Are you sure you want to delete the team "{{ name }}" ({{ year }})?{% endblocktrans %}
+        </p>
+        <form method="post">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-danger">
+                {% trans "Delete" %}
+            </button>
+            <a href="{% url 'team_detail' team.pk %}" class="btn btn-secondary">{% trans "Cancel" %}</a>
+        </form>
+    </div>
+{% endblock content %}
