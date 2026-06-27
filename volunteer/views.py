@@ -42,6 +42,21 @@ def index(request):
     return render(request, "volunteer/index.html", context)
 
 
+class MyConferencesView(ListView):
+    """List every edition the logged-in volunteer has a profile for."""
+
+    template_name = "volunteer/my_conferences.html"
+    context_object_name = "profiles"
+
+    def get_queryset(self):
+        return (
+            VolunteerProfile.objects.filter(user=self.request.user)
+            .select_related("conference")
+            .prefetch_related("teams", "roles")
+            .order_by("-conference__year")
+        )
+
+
 class VolunteerAdminRequiredMixin(AdminRequiredMixin):
     """Mixin for views that require administrative permission for the volunteers.
     Currently it requires the user to be a superuser or staff member.

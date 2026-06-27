@@ -73,6 +73,12 @@
             Links and Resources
         </h2>
         <ul class="list-unstyled ps-8">
+            <li>
+                <a href="{% url 'volunteer:my_conferences' %}" class="icon-link">
+                    Your Conferences
+                    <i class="fa-solid fa-chevron-right"></i>
+                </a> See all the editions you have volunteered for.
+            </li>
             {% if profile.id %}
                 <li>
                     <a href="{% url 'volunteer:index' %}" class="icon-link">
