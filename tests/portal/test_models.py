@@ -171,3 +171,34 @@ class TestCloneTeamsFrom:
             "Design",
         }
         assert target.teams.get(short_name="Comms").description == "kept as-is"
+
+
+@pytest.mark.django_db
+class TestFreezeStats:
+    def test_snapshots_live_metrics_as_json_safe(self):
+        from django.core.cache import cache
+
+        from sponsorship.models import SponsorshipProfile, SponsorshipProgressStatus
+
+        cache.clear()
+        conf = Conference.objects.create(
+            year=2025, name="PyLadiesCon 2025", slug="2025"
+        )
+        SponsorshipProfile.objects.create(
+            organization_name="Acme",
+            conference=conf,
+            progress_status=SponsorshipProgressStatus.PAID,
+            sponsorship_override_amount=5000,
+        )
+
+        snapshot = conf.freeze_stats()
+
+        assert snapshot["sponsors"] == 1
+        assert snapshot["sponsorship_amount"] == 5000.0
+        assert isinstance(snapshot["sponsorship_amount"], float)  # JSON-safe
+        assert isinstance(snapshot["donation_amount"], float)
+        assert snapshot["registrations"] == 0
+        assert snapshot["donors"] == 0
+
+        conf.refresh_from_db()
+        assert conf.historical_snapshot == snapshot

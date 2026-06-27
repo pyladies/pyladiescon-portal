@@ -48,3 +48,29 @@ class TestCloneTeamsAction:
         assert response.status_code == 200
         assert target.teams.count() == 0
         assert "No previous edition" in response.content.decode()
+
+
+@pytest.mark.django_db
+class TestFreezeStatsAction:
+    def test_freezes_selected_edition(self, client, admin_user):
+        conf = Conference.objects.create(
+            year=2025, name="PyLadiesCon 2025", slug="2025"
+        )
+        client.force_login(admin_user)
+
+        response = client.post(
+            reverse("admin:portal_conference_changelist"),
+            {"action": "freeze_conference_stats", "_selected_action": [conf.pk]},
+            follow=True,
+        )
+
+        assert response.status_code == 200
+        assert "Froze stats" in response.content.decode()
+        conf.refresh_from_db()
+        assert set(conf.historical_snapshot) == {
+            "registrations",
+            "sponsors",
+            "sponsorship_amount",
+            "donors",
+            "donation_amount",
+        }

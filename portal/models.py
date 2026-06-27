@@ -118,3 +118,31 @@ class Conference(BaseModel):
             )
             created += 1
         return created
+
+    def freeze_stats(self):
+        """Snapshot this edition's live metrics into ``historical_snapshot``.
+
+        Once frozen, the comparison and historical-fallback views read these
+        fixed numbers instead of recomputing them, so a closed edition's stats
+        stay final. Amounts are stored as floats so the dict is JSON-safe.
+        Returns the snapshot dict.
+        """
+        from portal.common import (
+            get_attendee_count_cache,
+            get_donors_count_cache,
+            get_sponsorship_committed_amount_stats_cache,
+            get_sponsorship_committed_count_stats_cache,
+            get_total_donations_amount_cache,
+        )
+
+        self.historical_snapshot = {
+            "registrations": get_attendee_count_cache(self),
+            "sponsors": get_sponsorship_committed_count_stats_cache(self),
+            "sponsorship_amount": float(
+                get_sponsorship_committed_amount_stats_cache(self)
+            ),
+            "donors": get_donors_count_cache(self),
+            "donation_amount": float(get_total_donations_amount_cache(self)),
+        }
+        self.save()
+        return self.historical_snapshot

@@ -23,6 +23,18 @@ def clone_teams_from_previous(modeladmin, request, queryset):
         )
 
 
+@admin.action(description="Freeze stats (snapshot the final numbers)")
+def freeze_conference_stats(modeladmin, request, queryset):
+    """Persist each selected edition's live metrics as its final snapshot."""
+    for conference in queryset:
+        conference.freeze_stats()
+        modeladmin.message_user(
+            request,
+            f"Froze stats for {conference}.",
+            level=messages.SUCCESS,
+        )
+
+
 @admin.register(Conference)
 class ConferenceAdmin(admin.ModelAdmin):
     list_display = ("name", "year", "slug", "is_active")
@@ -31,4 +43,4 @@ class ConferenceAdmin(admin.ModelAdmin):
     search_fields = ("name", "year", "slug")
     ordering = ("-year",)
     prepopulated_fields = {"slug": ("name",)}
-    actions = [clone_teams_from_previous]
+    actions = [clone_teams_from_previous, freeze_conference_stats]

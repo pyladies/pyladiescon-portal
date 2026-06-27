@@ -81,7 +81,7 @@ class TestPortalStats:
         response = client.get(reverse("portal_stats") + "?year=2024")
         assert response.status_code == 200
         content = response.content.decode()
-        assert "Limited data" in content
+        assert "Final numbers" in content
         assert "600" in content  # snapshot registrations
         assert "164" in content  # proposals_count
 
