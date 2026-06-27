@@ -45,6 +45,9 @@
              aria-label="Fourth navbar example">
             <div class="container-fluid">
                 <a class="navbar-brand" href="{% url "index" %}">PyLadiesCon Portal</a>
+                {% if active_conference %}
+                    <span class="badge bg-secondary me-2" title="Active conference edition">{{ active_conference.year }}</span>
+                {% endif %}
                 <button class="navbar-toggler"
                         type="button"
                         data-bs-toggle="collapse"
