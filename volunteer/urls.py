@@ -8,6 +8,11 @@ app_name = "volunteer"
 urlpatterns = [
     path("", views.index, name="index"),
     path(
+        "my-conferences/",
+        login_required(views.MyConferencesView.as_view()),
+        name="my_conferences",
+    ),
+    path(
         "list",
         login_required(views.VolunteerProfileList.as_view()),
         name="volunteer_profile_list",

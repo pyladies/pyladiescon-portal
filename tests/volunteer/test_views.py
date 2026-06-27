@@ -1147,3 +1147,47 @@ class TestVolunteerListYearSwitcher:
         )
         assert past_profile in switched_list
         assert active_profile not in switched_list
+
+
+@pytest.mark.django_db
+class TestMyConferences:
+    def test_lists_users_editions_newest_first(self, client, portal_user, conference):
+        past = Conference.objects.create(
+            year=2024, name="PyLadiesCon 2024", slug="2024"
+        )
+        VolunteerProfile.objects.create(
+            user=portal_user, conference=conference, discord_username="d"
+        )
+        VolunteerProfile.objects.create(
+            user=portal_user, conference=past, discord_username="d"
+        )
+        client.force_login(portal_user)
+
+        response = client.get(reverse("volunteer:my_conferences"))
+
+        assert response.status_code == 200
+        profiles = list(response.context["profiles"])
+        assert [p.conference.year for p in profiles] == [2025, 2024]
+        assert "Your Conferences" in response.content.decode()
+
+    def test_only_shows_own_profiles(self, client, portal_user, conference):
+        from django.contrib.auth.models import User
+
+        other = User.objects.create_user("other", email="o@example.com")
+        VolunteerProfile.objects.create(
+            user=other, conference=conference, discord_username="d"
+        )
+        VolunteerProfile.objects.create(
+            user=portal_user, conference=conference, discord_username="d"
+        )
+        client.force_login(portal_user)
+
+        response = client.get(reverse("volunteer:my_conferences"))
+
+        profiles = list(response.context["profiles"])
+        assert len(profiles) == 1
+        assert profiles[0].user == portal_user
+
+    def test_requires_login(self, client):
+        response = client.get(reverse("volunteer:my_conferences"))
+        assert response.status_code == 302

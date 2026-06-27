@@ -1,0 +1,70 @@
+{% extends "portal/base.html" %}
+{% load i18n %}
+{% block content %}
+    <div class="container px-4 py-3">
+        <h1 class="display-5">
+            {% trans "Your Conferences" %}
+        </h1>
+        <p class="text-muted">
+            {% trans "Editions you have volunteered for." %}
+        </p>
+        {% if profiles %}
+            <table class="table table-hover align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th>
+                            {% trans "Edition" %}
+                        </th>
+                        <th>
+                            {% trans "Status" %}
+                        </th>
+                        <th>
+                            {% trans "Teams" %}
+                        </th>
+                        <th>
+                            {% trans "Roles" %}
+                        </th>
+                        <th>
+                        </th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for profile in profiles %}
+                        <tr>
+                            <td>
+                                {{ profile.conference.year }}
+                            </td>
+                            <td>
+                                {{ profile.application_status }}
+                            </td>
+                            <td>
+                                {% for team in profile.teams.all %}
+                                    {{ team.short_name }}
+                                    {% if not forloop.last %}
+                                        ,
+                                    {% endif %}
+                                {% endfor %}
+                            </td>
+                            <td>
+                                {% for role in profile.roles.all %}
+                                    {{ role.short_name }}
+                                    {% if not forloop.last %}
+                                        ,
+                                    {% endif %}
+                                {% endfor %}
+                            </td>
+                            <td>
+                                <a href="{% url 'volunteer:volunteer_profile_detail' profile.id %}"
+                                   class="btn btn-sm btn-outline-primary">{% trans "View" %}</a>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <p class="fs-5">
+                {% trans "You have not volunteered for any edition yet." %}
+            </p>
+        {% endif %}
+    </div>
+{% endblock content %}
