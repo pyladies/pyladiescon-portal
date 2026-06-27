@@ -2,6 +2,7 @@ import pytest
 from django.urls import reverse
 from pytest_django.asserts import assertRedirects
 
+from portal.models import Conference
 from portal_account.models import PortalProfile
 from volunteer.models import PyladiesChapter
 
@@ -45,6 +46,45 @@ class TestPortalStats:
         assert response.status_code == 200
         assert "PyLadiesCon Stats" in response.content.decode()
 
+    def test_stats_defaults_to_active_conference(self, client, conference):
+        response = client.get(reverse("portal_stats"))
+        assert response.status_code == 200
+        assert response.context["selected_conference"] == conference
+
+    def test_stats_year_switcher_selects_requested_year(self, client, conference):
+        past = Conference.objects.create(
+            year=2024, name="PyLadiesCon 2024", slug="2024"
+        )
+        response = client.get(reverse("portal_stats") + "?year=2024")
+        assert response.status_code == 200
+        assert response.context["selected_conference"] == past
+
+    def test_stats_invalid_year_falls_back_to_active(self, client, conference):
+        response = client.get(reverse("portal_stats") + "?year=9999")
+        assert response.status_code == 200
+        assert response.context["selected_conference"] == conference
+
+    def test_stats_historical_year_renders_snapshot(self, client, conference):
+        Conference.objects.create(
+            year=2024,
+            name="PyLadiesCon 2024",
+            slug="2024",
+            proposals_count=164,
+            historical_snapshot={
+                "registrations": 600,
+                "sponsors": 8,
+                "sponsorship_amount": 10500,
+                "donors": 58,
+                "donation_amount": 650,
+            },
+        )
+        response = client.get(reverse("portal_stats") + "?year=2024")
+        assert response.status_code == 200
+        content = response.content.decode()
+        assert "Limited data" in content
+        assert "600" in content  # snapshot registrations
+        assert "164" in content  # proposals_count
+
 
 @pytest.mark.django_db
 class TestPyladiesChapters:
@@ -86,6 +126,12 @@ class TestStatsJSON:
         assert response.status_code == 200
         data = response.json()
         assert "stats" in data
+
+    def test_stats_json_accepts_year(self, client, conference):
+        Conference.objects.create(year=2024, name="PyLadiesCon 2024", slug="2024")
+        response = client.get(reverse("portal_stats_json") + "?year=2024")
+        assert response.status_code == 200
+        assert "stats" in response.json()
 
 
 @pytest.mark.django_db

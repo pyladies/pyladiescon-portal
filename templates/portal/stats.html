@@ -9,8 +9,10 @@
     google.charts.load('current', { 'packages': ['corechart', 'bar'] });
     google.charts.setOnLoadCallback(drawChart);
     function drawChart() {
+        {% if not historical_snapshot %}
         {% include "sponsorship/sponsorship_charts.html" %}
         {% include "volunteer/volunteer_charts.html" %}
+        {% endif %}
         {% include "portal/historical_comparison_charts.html" %}
    }
     </script>
@@ -25,55 +27,150 @@
 {% block content %}
     <div class="container px-4 py-3" id="featured-3">
         <h2 class="pb-2 border-bottom">
-            PyLadiesCon Stats and Numbers
+            PyLadiesCon Stats and Numbers — {{ selected_conference.year }}
         </h2>
-        <div class="alert alert-success" role="alert">
-            <h4 class="alert-heading">
-                Live conference stats*
-            </h4>
-            <p class="mb-0">
-                Our stats are also available as a <a href="{% url 'portal_stats_json' %}">JSON endpoint</a> so that you can come up with your own visualization and dashboard.
-            </p>
-            <p class="mb-0">
-                View the <a href="{% url 'dashboard_gallery' %}">Dashboard Gallery</a> to see what others have built using our data!
-            </p>
-            <hr>
-            <p>
-                <span class="text-muted">*Up to 5 minutes delay.</span>
-            </p>
-        </div>
-        {% include "sponsorship/sponsorship_stats.html" %}
-        <!-- Sponsor/Donate Callout -->
-        <div class="container border rounded-3 p-4 mb-4 bg-light">
-            <div class="row align-items-center">
-                <div class="col-md-8">
-                    <h3 class="mb-2">
-                        Support PyLadiesCon!
-                    </h3>
-                    <p class="mb-0 text-muted">
-                        Help us make PyLadiesCon possible by becoming a sponsor or making a donation.
-                        Your support enables us to create an inclusive and accessible conference for the global PyLadies
-                        community.
-                    </p>
+        {% if conferences %}
+            <div class="btn-group mb-3" role="group" aria-label="Conference year">
+                {% for conference in conferences %}
+                    <a href="?year={{ conference.year }}"
+                       class="btn btn-sm {% if conference == selected_conference %}btn-primary{% else %}btn-outline-primary{% endif %}">
+                        {{ conference.year }}
+                    </a>
+                {% endfor %}
+            </div>
+        {% endif %}
+        {% if historical_snapshot %}
+            <div class="alert alert-info" role="alert">
+                <h4 class="alert-heading">
+                    Limited data
+                </h4>
+                <p class="mb-0">
+                    {{ selected_conference }} predates this portal — showing the recorded summary numbers.
+                </p>
+            </div>
+            <div class="row g-3 mb-4 row-cols-2 row-cols-md-3">
+                <div class="col">
+                    <div class="card h-100 text-center">
+                        <div class="card-body">
+                            <h3 class="card-title">
+                                {{ historical_snapshot.registrations }}
+                            </h3>
+                            <p class="card-text text-muted mb-0">
+                                Registrations
+                            </p>
+                        </div>
+                    </div>
                 </div>
-                <div class="col-md-4 text-md-end mt-3 mt-md-0">
-                    <a href="https://2025.conference.pyladies.com/en/sponsors/"
-                       target="_blank"
-                       rel="noopener noreferrer"
-                       class="btn btn-primary btn-lg me-2 mb-2">
-                        <i class="bi bi-building"></i> Sponsor Us
-                    </a>
-                    <a href="https://2025.conference.pyladies.com/en/donate/"
-                       target="_blank"
-                       rel="noopener noreferrer"
-                       class="btn btn-success btn-lg mb-2">
-                        <i class="bi bi-heart-fill"></i> Donate
-                    </a>
+                <div class="col">
+                    <div class="card h-100 text-center">
+                        <div class="card-body">
+                            <h3 class="card-title">
+                                {{ selected_conference.proposals_count }}
+                            </h3>
+                            <p class="card-text text-muted mb-0">
+                                Proposals
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col">
+                    <div class="card h-100 text-center">
+                        <div class="card-body">
+                            <h3 class="card-title">
+                                {{ historical_snapshot.sponsors }}
+                            </h3>
+                            <p class="card-text text-muted mb-0">
+                                Sponsors
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col">
+                    <div class="card h-100 text-center">
+                        <div class="card-body">
+                            <h3 class="card-title">
+                                ${{ historical_snapshot.sponsorship_amount }}
+                            </h3>
+                            <p class="card-text text-muted mb-0">
+                                Sponsorship Amount
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col">
+                    <div class="card h-100 text-center">
+                        <div class="card-body">
+                            <h3 class="card-title">
+                                {{ historical_snapshot.donors }}
+                            </h3>
+                            <p class="card-text text-muted mb-0">
+                                Donors
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col">
+                    <div class="card h-100 text-center">
+                        <div class="card-body">
+                            <h3 class="card-title">
+                                ${{ historical_snapshot.donation_amount }}
+                            </h3>
+                            <p class="card-text text-muted mb-0">
+                                Donations
+                            </p>
+                        </div>
+                    </div>
                 </div>
             </div>
-        </div>
-        {% include "volunteer/volunteer_stats.html" %}
-        {% include "attendee/attendee_stats.html" %}
+        {% else %}
+            <div class="alert alert-success" role="alert">
+                <h4 class="alert-heading">
+                    Live conference stats*
+                </h4>
+                <p class="mb-0">
+                    Our stats are also available as a <a href="{% url 'portal_stats_json' %}">JSON endpoint</a> so that you can come up with your own visualization and dashboard.
+                </p>
+                <p class="mb-0">
+                    View the <a href="{% url 'dashboard_gallery' %}">Dashboard Gallery</a> to see what others have built using our data!
+                </p>
+                <hr>
+                <p>
+                    <span class="text-muted">*Up to 5 minutes delay.</span>
+                </p>
+            </div>
+            {% include "sponsorship/sponsorship_stats.html" %}
+            <!-- Sponsor/Donate Callout -->
+            <div class="container border rounded-3 p-4 mb-4 bg-light">
+                <div class="row align-items-center">
+                    <div class="col-md-8">
+                        <h3 class="mb-2">
+                            Support PyLadiesCon!
+                        </h3>
+                        <p class="mb-0 text-muted">
+                            Help us make PyLadiesCon possible by becoming a sponsor or making a donation.
+                            Your support enables us to create an inclusive and accessible conference for the global PyLadies
+                            community.
+                        </p>
+                    </div>
+                    <div class="col-md-4 text-md-end mt-3 mt-md-0">
+                        <a href="https://2025.conference.pyladies.com/en/sponsors/"
+                           target="_blank"
+                           rel="noopener noreferrer"
+                           class="btn btn-primary btn-lg me-2 mb-2">
+                            <i class="bi bi-building"></i> Sponsor Us
+                        </a>
+                        <a href="https://2025.conference.pyladies.com/en/donate/"
+                           target="_blank"
+                           rel="noopener noreferrer"
+                           class="btn btn-success btn-lg mb-2">
+                            <i class="bi bi-heart-fill"></i> Donate
+                        </a>
+                    </div>
+                </div>
+            </div>
+            {% include "volunteer/volunteer_stats.html" %}
+            {% include "attendee/attendee_stats.html" %}
+        {% endif %}
         <!-- Historical Comparison Section -->
         <div class="row mt-5">
             <div class="col-12">

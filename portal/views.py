@@ -34,13 +34,31 @@ def index(request):
     return render(request, "portal/index.html", context)
 
 
+def _stats_conference(request):
+    """Resolve the conference to show stats for from ``?year=``.
+
+    Falls back to the active conference when no (valid) year is given.
+    """
+    year = request.GET.get("year")
+    if year:
+        conference = Conference.objects.filter(year=year).first()
+        if conference is not None:
+            return conference
+    return Conference.get_active()
+
+
 def stats(request):
     """
     Show Interesting Public Stats
     """
-    context = {}
-
-    context["stats"] = get_stats_cached_values()
+    conference = _stats_conference(request)
+    context = {
+        "stats": get_stats_cached_values(conference),
+        "conferences": Conference.objects.all(),
+        "selected_conference": conference,
+        # Years that predate the portal have no live data, only a snapshot.
+        "historical_snapshot": conference.historical_snapshot if conference else None,
+    }
 
     return render(request, "portal/stats.html", context)
 
@@ -51,7 +69,7 @@ def stats_json(request):
     """
     context = {}
 
-    context["stats"] = get_stats_cached_values()
+    context["stats"] = get_stats_cached_values(_stats_conference(request))
 
     return JsonResponse(context)
 
