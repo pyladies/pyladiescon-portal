@@ -418,7 +418,12 @@ class TestSponsorshipViews:
         sponsors_table = response.context["table"]
         action_button = sponsors_table.render_actions("", profile)
         assert "btn-primary" in action_button
-        assert "Update" in action_button
+        assert "fa-pencil" in action_button  # edit icon
+        assert "fa-trash" in action_button  # delete icon
+        assert (
+            reverse("sponsorship:sponsorship_profile_edit", args=[profile.pk])
+            in action_button
+        )
 
     def test_sponsors_table_render_github_issue_url(
         self, client, admin_user, conference
@@ -764,3 +769,12 @@ class TestSponsorshipCRUD:
         ]:
             url = reverse(name, kwargs={"pk": profile.pk})
             assert client.get(url).status_code in (302, 403)
+
+    def test_edit_page_links_back_to_list(self, client, admin_user, conference):
+        profile = self._sponsor(conference)
+        client.force_login(admin_user)
+        response = client.get(
+            reverse("sponsorship:sponsorship_profile_edit", kwargs={"pk": profile.pk})
+        )
+        assert response.status_code == 200
+        assert reverse("sponsorship:sponsorship_list") in response.content.decode()

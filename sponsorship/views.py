@@ -181,9 +181,12 @@ class SponsorshipProfileTable(tables.Table):
         delete_url = reverse_lazy(
             "sponsorship:sponsorship_profile_delete", args=[record.pk]
         )
+        # Icon-only in the table (tooltip + aria-label for accessibility).
         return format_html(
-            '<a href="{}" class="btn btn-sm btn-primary">Update</a> '
-            '<a href="{}" class="btn btn-sm btn-outline-danger">Delete</a>',
+            '<a href="{}" class="btn btn-sm btn-primary" title="Edit" '
+            'aria-label="Edit"><i class="fa-solid fa-pencil"></i></a> '
+            '<a href="{}" class="btn btn-sm btn-outline-danger" title="Delete" '
+            'aria-label="Delete"><i class="fa-solid fa-trash"></i></a>',
             edit_url,
             delete_url,
         )

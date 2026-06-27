@@ -25,9 +25,9 @@
                             {% if user.is_superuser or user.is_staff %}
                                 <div class="mb-2">
                                     <a href="{% url 'sponsorship:sponsorship_profile_edit' profile.pk %}"
-                                       class="btn btn-sm btn-outline-primary">{% trans "Edit" %}</a>
+                                       class="btn btn-sm btn-outline-primary"><i class="fa-solid fa-pencil"></i> {% trans "Edit" %}</a>
                                     <a href="{% url 'sponsorship:sponsorship_profile_delete' profile.pk %}"
-                                       class="btn btn-sm btn-outline-danger">{% trans "Delete" %}</a>
+                                       class="btn btn-sm btn-outline-danger"><i class="fa-solid fa-trash"></i> {% trans "Delete" %}</a>
                                 </div>
                             {% endif %}
                             <p class="card-text">
