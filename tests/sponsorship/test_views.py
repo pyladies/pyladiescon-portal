@@ -70,6 +70,31 @@ class TestSponsorshipConferenceScoping:
         response = client.get(f"{url}?conference=99999")
         assert response.context["stats"] is None
 
+    def test_tier_filter_scoped_to_selected_year(self, client, admin_user, conference):
+        past = Conference.objects.create(
+            year=2024, name="PyLadiesCon 2024", slug="2024"
+        )
+        active_tier = SponsorshipTier.objects.create(
+            name="Gold", amount=1000, conference=conference
+        )
+        past_tier = SponsorshipTier.objects.create(
+            name="OldGold", amount=500, conference=past
+        )
+        client.force_login(admin_user)
+        url = reverse("sponsorship:sponsorship_list")
+
+        def tier_options(query=""):
+            response = client.get(url + query)
+            return list(response.context["filter"].filters["sponsorship_tier"].queryset)
+
+        # Default (active edition) → only the active edition's tiers.
+        assert active_tier in tier_options()
+        assert past_tier not in tier_options()
+
+        # Switched to the past edition → only that edition's tiers.
+        assert past_tier in tier_options(f"?conference={past.pk}")
+        assert active_tier not in tier_options(f"?conference={past.pk}")
+
     def test_volunteer_sees_only_the_year_they_are_approved_for(
         self, client, portal_user, conference
     ):

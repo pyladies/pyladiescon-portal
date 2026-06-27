@@ -185,8 +185,23 @@ class SponsorshipProfileFilter(django_filters.FilterSet):
         field_name="progress_status",
     )
     sponsorship_tier = django_filters.ModelChoiceFilter(
-        queryset=SponsorshipTier.objects.all()
+        queryset=SponsorshipTier.objects.none()
     )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Tiers are per-edition, so the dropdown should only offer the tiers of
+        # the conference being viewed (matching the conference-scoped list),
+        # not every year's tiers.
+        param = self.request.GET.get("conference") if self.request else None
+        conference = None
+        if param:
+            conference = Conference.objects.filter(pk=param).first()
+        if conference is None:
+            conference = Conference.get_active()
+        self.filters["sponsorship_tier"].queryset = SponsorshipTier.objects.filter(
+            conference=conference
+        )
 
     class Meta:
         model = SponsorshipProfile

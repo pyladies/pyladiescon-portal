@@ -1191,3 +1191,41 @@ class TestMyConferences:
     def test_requires_login(self, client):
         response = client.get(reverse("volunteer:my_conferences"))
         assert response.status_code == 302
+
+
+@pytest.mark.django_db
+class TestTeamList:
+    def test_lists_active_edition_teams_with_switcher(
+        self, client, admin_user, conference
+    ):
+        past = Conference.objects.create(
+            year=2024, name="PyLadiesCon 2024", slug="2024"
+        )
+        active_team = Team.objects.create(
+            short_name="Active Team", description="a", conference=conference
+        )
+        past_team = Team.objects.create(
+            short_name="Past Team", description="p", conference=past
+        )
+        client.force_login(admin_user)
+        url = reverse("teams")
+
+        default_teams = list(client.get(url).context["teams"])
+        assert active_team in default_teams
+        assert past_team not in default_teams
+
+        switched = list(client.get(f"{url}?conference={past.pk}").context["teams"])
+        assert past_team in switched
+        assert active_team not in switched
+
+    def test_invalid_conference_falls_back_to_active(
+        self, client, admin_user, conference
+    ):
+        active_team = Team.objects.create(
+            short_name="Active Team", description="a", conference=conference
+        )
+        client.force_login(admin_user)
+        teams = list(
+            client.get(reverse("teams") + "?conference=99999").context["teams"]
+        )
+        assert active_team in teams

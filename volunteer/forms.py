@@ -277,7 +277,9 @@ class VolunteerProfileReviewForm(ModelForm):
     additional_comments = forms.CharField(widget=forms.Textarea, required=False)
     teams = forms.ModelMultipleChoiceField(
         required=True,
-        queryset=Team.objects.all(),
+        # Scoped to the reviewed profile's edition in __init__; an empty default
+        # avoids ever offering another year's teams.
+        queryset=Team.objects.none(),
         widget=forms.CheckboxSelectMultiple,
         error_messages={"required": "Please assign at least one team."},
     )
