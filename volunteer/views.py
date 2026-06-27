@@ -156,11 +156,15 @@ class VolunteerProfileTable(tables.Table):
             ApplicationStatus.WAITLISTED,
         ]:
             render_html = format_html(
-                '<a href="{}" class="btn btn-sm btn-primary">Review</a> ', url
+                '<a href="{}" class="btn btn-sm btn-primary" title="Review" '
+                'aria-label="Review"><i class="fa-solid fa-clipboard-list"></i></a> ',
+                url,
             )
         elif application_status == ApplicationStatus.APPROVED:
             render_html = format_html(
-                '<a href="{}" class="btn btn-sm btn-info">Manage</a> ', url
+                '<a href="{}" class="btn btn-sm btn-info" title="Manage" '
+                'aria-label="Manage"><i class="fa-solid fa-gear"></i></a> ',
+                url,
             )
         return render_html
 

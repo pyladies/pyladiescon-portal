@@ -55,7 +55,9 @@
                             </td>
                             <td>
                                 <a href="{% url 'volunteer:volunteer_profile_detail' profile.id %}"
-                                   class="btn btn-sm btn-outline-primary">{% trans "View" %}</a>
+                                   class="btn btn-sm btn-outline-primary"
+                                   title="View"
+                                   aria-label="View"><i class="fa-solid fa-eye"></i></a>
                             </td>
                         </tr>
                     {% endfor %}
