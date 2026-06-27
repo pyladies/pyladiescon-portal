@@ -202,3 +202,72 @@ class TestFreezeStats:
 
         conf.refresh_from_db()
         assert conf.historical_snapshot == snapshot
+
+
+@pytest.mark.django_db
+class TestCloneSponsorshipTiersFrom:
+    def test_copies_tiers_skipping_existing(self):
+        from sponsorship.models import SponsorshipTier
+
+        source = Conference.objects.create(
+            year=2025, name="PyLadiesCon 2025", slug="2025"
+        )
+        target = Conference.objects.create(
+            year=2026, name="PyLadiesCon 2026", slug="2026"
+        )
+        SponsorshipTier.objects.create(
+            conference=source, name="Gold", amount=1000, description="g"
+        )
+        SponsorshipTier.objects.create(
+            conference=source, name="Silver", amount=500, description="s"
+        )
+        SponsorshipTier.objects.create(
+            conference=target, name="Gold", amount=999, description="kept"
+        )
+
+        created = target.clone_sponsorship_tiers_from(source)
+
+        assert created == 1  # only Silver; Gold already exists
+        assert set(target.sponsorship_tiers.values_list("name", flat=True)) == {
+            "Gold",
+            "Silver",
+        }
+        assert target.sponsorship_tiers.get(name="Gold").amount == 999
+
+
+@pytest.mark.django_db
+class TestBringForwardVolunteersFrom:
+    def test_brings_only_approved_as_pending(self):
+        from django.contrib.auth import get_user_model
+
+        from volunteer.constants import ApplicationStatus
+        from volunteer.models import VolunteerProfile
+
+        user_model = get_user_model()
+        source = Conference.objects.create(
+            year=2025, name="PyLadiesCon 2025", slug="2025"
+        )
+        target = Conference.objects.create(
+            year=2026, name="PyLadiesCon 2026", slug="2026"
+        )
+        approved_user = user_model.objects.create(username="appr")
+        pending_user = user_model.objects.create(username="pend")
+        VolunteerProfile.objects.create(
+            user=approved_user,
+            conference=source,
+            application_status=ApplicationStatus.APPROVED,
+        )
+        VolunteerProfile.objects.create(
+            user=pending_user,
+            conference=source,
+            application_status=ApplicationStatus.PENDING,
+        )
+
+        created = target.bring_forward_volunteers_from(source)
+
+        assert created == 1  # only the approved volunteer
+        new = VolunteerProfile.objects.get(user=approved_user, conference=target)
+        assert new.application_status == ApplicationStatus.PENDING
+        assert not VolunteerProfile.objects.filter(
+            user=pending_user, conference=target
+        ).exists()

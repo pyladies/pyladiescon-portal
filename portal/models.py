@@ -146,3 +146,43 @@ class Conference(BaseModel):
         }
         self.save()
         return self.historical_snapshot
+
+    def clone_sponsorship_tiers_from(self, source):
+        """Copy sponsorship tiers (name, amount, description) from another edition.
+
+        Skips tiers whose name already exists in this edition. Returns the
+        number of tiers created.
+        """
+        from sponsorship.models import SponsorshipTier
+
+        existing = set(self.sponsorship_tiers.values_list("name", flat=True))
+        created = 0
+        for tier in source.sponsorship_tiers.all():
+            if tier.name in existing:
+                continue
+            SponsorshipTier.objects.create(
+                conference=self,
+                name=tier.name,
+                amount=tier.amount,
+                description=tier.description,
+            )
+            created += 1
+        return created
+
+    def bring_forward_volunteers_from(self, source):
+        """Bring every APPROVED volunteer from another edition into this one.
+
+        Each becomes a PENDING profile (see
+        ``VolunteerProfile.bring_forward_to``); volunteers who already have a
+        profile here are skipped. Returns the number of profiles created.
+        """
+        from volunteer.constants import ApplicationStatus
+
+        created = 0
+        approved = source.volunteer_profiles.filter(
+            application_status=ApplicationStatus.APPROVED
+        )
+        for profile in approved:
+            if profile.bring_forward_to(self) is not None:
+                created += 1
+        return created

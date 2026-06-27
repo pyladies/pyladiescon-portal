@@ -1,0 +1,27 @@
+{% extends "portal/base.html" %}
+{% load i18n %}
+{% load django_bootstrap5 %}
+{% block content %}
+    <div class="container px-4 py-3">
+        <h1 class="display-6 pb-2 border-bottom">
+            {% trans "Start Next Year's Conference" %}
+        </h1>
+        {% if source %}
+            <p class="text-muted">
+                {% blocktrans with year=source.year %}Carry-over options below copy from the most recent edition ({{ year }}).{% endblocktrans %}
+            </p>
+        {% else %}
+            <p class="text-muted">
+                {% trans "No previous edition exists yet, so there is nothing to carry over." %}
+            </p>
+        {% endif %}
+        <form method="post" class="col-md-8">
+            {% csrf_token %}
+            {% bootstrap_form form %}
+            <button type="submit" class="btn btn-primary">
+                {% trans "Create" %}
+            </button>
+            <a href="{% url 'index' %}" class="btn btn-secondary">{% trans "Cancel" %}</a>
+        </form>
+    </div>
+{% endblock content %}

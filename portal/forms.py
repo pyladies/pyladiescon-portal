@@ -1,6 +1,8 @@
 from allauth.account.forms import SignupForm
 from django import forms
 
+from portal.models import Conference
+
 
 class CustomSignupForm(SignupForm):
     first_name = forms.CharField(
@@ -38,3 +40,36 @@ class CustomSignupForm(SignupForm):
         portal_profile.save()
 
         return user
+
+
+class StartNewYearForm(forms.Form):
+    """Create a new conference edition and carry over from the previous one."""
+
+    year = forms.IntegerField(min_value=2000, label="Year")
+    name = forms.CharField(max_length=100, label="Name")
+    slug = forms.SlugField(label="Slug")
+    clone_teams = forms.BooleanField(
+        required=False, initial=True, label="Clone teams from the previous edition"
+    )
+    copy_tiers = forms.BooleanField(
+        required=False, initial=True, label="Copy sponsorship tiers"
+    )
+    copy_goals = forms.BooleanField(
+        required=False, initial=True, label="Copy goal amounts"
+    )
+    bring_volunteers = forms.BooleanField(
+        required=False, label="Bring forward approved volunteers (as pending)"
+    )
+    activate = forms.BooleanField(required=False, label="Activate this edition now")
+
+    def clean_year(self):
+        year = self.cleaned_data["year"]
+        if Conference.objects.filter(year=year).exists():
+            raise forms.ValidationError("A conference for that year already exists.")
+        return year
+
+    def clean_slug(self):
+        slug = self.cleaned_data["slug"]
+        if Conference.objects.filter(slug=slug).exists():
+            raise forms.ValidationError("A conference with that slug already exists.")
+        return slug

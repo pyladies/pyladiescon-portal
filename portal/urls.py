@@ -70,4 +70,9 @@ urlpatterns = [
         views.dashboard_gallery,
         name="dashboard_gallery",
     ),
+    path(
+        "conference/start-new-year/",
+        views.StartNewYearView.as_view(),
+        name="start_new_year",
+    ),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
