@@ -51,6 +51,68 @@ class TestAdminActions:
         profile.refresh_from_db()
         assert profile.application_status == ApplicationStatus.WAITLISTED
 
+    def _bring_forward(self, client, profile, query=""):
+        data = {
+            "action": "bring_forward_to_active_conference",
+            "select_across": ["0"],
+            "index": ["0"],
+            "_selected_action": [str(profile.id)],
+        }
+        url = reverse("admin:volunteer_volunteerprofile_changelist") + query
+        return client.post(url, data, follow=True)
+
+    def test_bring_forward_action(self, client, admin_user, conference):
+        # conference (2025) is active by default; make 2026 the active edition.
+        new_edition = Conference.objects.create(
+            year=2026, name="PyLadiesCon 2026", slug="2026", is_active=True
+        )
+        returner = User.objects.create_user("returner", email="r@example.com")
+        profile = VolunteerProfile.objects.create(
+            user=returner, conference=conference, discord_username="d"
+        )
+        client.force_login(admin_user)
+        mail.outbox.clear()
+
+        # ?conference=all so the past-edition profile is in the changelist.
+        response = self._bring_forward(client, profile, "?conference=all")
+
+        assert response.status_code == 200
+        assert "Brought 1 volunteer(s) forward" in response.content.decode()
+        new_profile = VolunteerProfile.objects.get(
+            user=returner, conference=new_edition
+        )
+        assert new_profile.application_status == ApplicationStatus.PENDING
+        assert len(mail.outbox) == 0
+
+    def test_bring_forward_skips_existing(self, client, admin_user, conference):
+        # Active edition is 2025; the profile already lives there → skipped.
+        returner = User.objects.create_user("returner", email="r@example.com")
+        profile = VolunteerProfile.objects.create(
+            user=returner, conference=conference, discord_username="d"
+        )
+        client.force_login(admin_user)
+
+        response = self._bring_forward(client, profile)
+
+        assert response.status_code == 200
+        content = response.content.decode()
+        assert "Brought 0 volunteer(s) forward" in content
+        assert "1 already had a profile" in content
+
+    def test_bring_forward_no_active_conference(self, client, admin_user, conference):
+        conference.is_active = False
+        conference.save()
+        returner = User.objects.create_user("returner", email="r@example.com")
+        profile = VolunteerProfile.objects.create(
+            user=returner, conference=conference, discord_username="d"
+        )
+        client.force_login(admin_user)
+
+        response = self._bring_forward(client, profile, "?conference=all")
+
+        assert response.status_code == 200
+        assert "No active conference is set" in response.content.decode()
+
 
 @pytest.mark.django_db
 class TestPyLadiesChapterAdmin:

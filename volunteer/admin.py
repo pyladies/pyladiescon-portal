@@ -1,4 +1,4 @@
-from django.contrib import admin
+from django.contrib import admin, messages
 from import_export import resources
 from import_export.admin import ImportExportModelAdmin
 from import_export.fields import Field
@@ -20,6 +20,34 @@ def bulk_waitlist_volunteers(modeladmin, request, queryset):
     for volunteer in queryset:
         volunteer.application_status = ApplicationStatus.WAITLISTED
         volunteer.save()
+
+
+@admin.action(description="Bring selected volunteers forward to the active conference")
+def bring_forward_to_active_conference(modeladmin, request, queryset):
+    """Carry returning volunteers into the active edition without re-applying.
+
+    Copies each selected profile's details into a new PENDING profile for the
+    active conference; volunteers who already have a profile there are skipped.
+    """
+    active = Conference.get_active()
+    if active is None:
+        modeladmin.message_user(
+            request, "No active conference is set.", level=messages.ERROR
+        )
+        return
+    created = 0
+    skipped = 0
+    for volunteer in queryset:
+        if volunteer.bring_forward_to(active) is None:
+            skipped += 1
+        else:
+            created += 1
+    modeladmin.message_user(
+        request,
+        f"Brought {created} volunteer(s) forward into {active}; "
+        f"{skipped} already had a profile there.",
+        level=messages.SUCCESS,
+    )
 
 
 class VolunteerProfileResource(resources.ModelResource):
@@ -80,7 +108,7 @@ class VolunteerProfileAdmin(ImportExportModelAdmin):
         "application_status",
     )
     list_filter = (ActiveConferenceFilter, "region", "application_status")
-    actions = [bulk_waitlist_volunteers]
+    actions = [bulk_waitlist_volunteers, bring_forward_to_active_conference]
     resource_classes = [VolunteerProfileResource]
     # Dual-list ("available"/"chosen") pickers for the many-to-many fields.
     filter_horizontal = ("teams", "roles", "language")
