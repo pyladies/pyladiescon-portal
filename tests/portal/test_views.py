@@ -17,6 +17,13 @@ class TestPortalIndex:
         assert "Sign up" in response.content.decode()
         assert "Login" in response.content.decode()
 
+    def test_navbar_shows_active_conference_year(self, client, conference):
+        response = client.get(reverse("index"))
+        assert response.status_code == 200
+        content = response.content.decode()
+        assert "Active conference edition" in content  # the navbar badge
+        assert str(conference.year) in content
+
     def test_index_authenticated_no_profile_created(self, client, portal_user):
 
         client.force_login(portal_user)
