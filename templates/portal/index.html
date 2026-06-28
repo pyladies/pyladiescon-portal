@@ -10,223 +10,221 @@
         </h2>
         {% if user.is_authenticated %}
             <div class="row g-4 py-5 row-cols-1 row-cols-lg-3">
+                {# ---- My volunteering (everyone) ---- #}
                 <div class="feature col">
                     <div class="d-inline-flex align-items-center justify-content-center fa-3x mb-3">
                         <i class="fa-solid fa-user-group"></i>
                     </div>
                     <h3 class="fs-2 text-body-emphasis">
-                        {% trans "Volunteer" %}
+                        {% trans "My volunteering" %}
                     </h3>
                     <p>
-                        {% if user.is_authenticated and volunteer_profile %}
-                            {% translate "Thanks for signing up to volunteer. Check back here to manage your volunteer profile and your availabilities. You can always update your profile in case there has been changes to your situation and/or availabilities." %}
+                        {% if volunteer_profile %}
+                            {% translate "Manage your volunteer profile and availability, and see the editions you've signed up for." %}
                         {% else %}
-                            {% translate "Sign up to volunteer with us! Fill in your Volunteer profile and we'll get you set up." %}
+                            {% translate "Sign up to volunteer with us! Fill in your volunteer profile and we'll get you set up." %}
                         {% endif %}
                     </p>
                     <ul class="list-unstyled ps-8">
-                        {% if user.is_authenticated and volunteer_profile %}
+                        {% if volunteer_profile %}
                             <li>
                                 <a href="{% url 'volunteer:index' %}" class="icon-link">
-                                    {% translate "Manage your volunteer profile" %}
+                                    {% translate "Manage my profile" %}
+                                    <i class="fa-solid fa-chevron-right"></i>
+                                </a>
+                            </li>
+                            <li>
+                                <a href="{% url 'volunteer:my_conferences' %}" class="icon-link">
+                                    {% translate "My conferences" %}
                                     <i class="fa-solid fa-chevron-right"></i>
                                 </a>
                             </li>
                         {% else %}
                             <li>
                                 <a href="{% url 'volunteer:volunteer_profile_new' %}" class="icon-link">
-                                    {% translate "Volunteer Now" %}
+                                    {% translate "Volunteer now" %}
                                     <i class="fa-solid fa-chevron-right"></i>
                                 </a>
                             </li>
                         {% endif %}
-                        <li>
-                            <a href="https://conference.pyladies.com/docs/" class="icon-link">
-                                {% translate "Team Descriptions" %}
-                                <i class="fa-solid fa-chevron-right"></i>
-                            </a>
-                        </li>
-                        <li>
-                            <a href="https://conference.pyladies.com/docs/roles_and_responsibilities/"
-                               class="icon-link">
-                                {% translate "Volunteer Responsibilities" %}
-                                <i class="fa-solid fa-chevron-right"></i>
-                            </a>
-                        </li>
-                        <li>
-                            <a href="https://discord.com/invite/2fUN4ddVfP" class="icon-link">
-                                {% translate "Join our Discord" %}
-                                <i class="fa-brands fa-discord"></i>
-                            </a>
-                        </li>
                     </ul>
                 </div>
-                <div class="feature col">
-                    <div class="d-inline-flex align-items-center justify-content-center fa-3x mb-3">
-                        <i class="fa-solid fa-hand-holding-dollar"></i>
-                    </div>
-                    <h3 class="fs-2 text-body-emphasis">
-                        {% trans "Sponsorship" %}
-                    </h3>
-                    <p>
-                        {% trans "Resources for sponsorships." %}
-                    </p>
-                    <ul class="list-unstyled ps-8">
-                        <li>
-                            <a href="https://2025.conference.pyladies.com/en/sponsors/"
-                               class="icon-link">Sponsorship Packages <i class="fa-solid fa-chevron-right"></i></a>
-                        </li>
-                        {% if user.is_authenticated and volunteer_profile and volunteer_profile.is_approved %}
-                            <li>
-                                <a href="{% url 'sponsorship:sponsorship_list' %}" class="icon-link">View Current Sponsorships <i class="fa-solid fa-chevron-right"></i></a>
-                            </li>
-                        {% endif %}
-                    </ul>
-                </div>
-                <div class="feature col">
-                    <div class="d-inline-flex align-items-center justify-content-center fa-3x mb-3">
-                        <i class="fa-solid fa-microphone"></i>
-                    </div>
-                    <h3 class="fs-2 text-body-emphasis">
-                        {% trans "Speaker Portal" %}
-                    </h3>
-                    <p>
-                        {% trans "Resources for speakers and presenters." %}
-                    </p>
-                    <ul class="list-unstyled ps-8">
-                        <li>
-                            <a href="https://conference.pyladies.com/docs/speakers/speaker_guide/"
-                               class="icon-link">Speaker Guide <i class="fa-solid fa-chevron-right"></i></a>
-                        </li>
-                        <li>
-                            <a href="https://conference.pyladies.com/docs/speakers/keynote_speaker_guide/"
-                               class="icon-link">Keynote Speaker Guide <i class="fa-solid fa-chevron-right"></i></a>
-                        </li>
-                    </ul>
-                </div>
-                {% if user.is_superuser %}
+                {# ---- Sponsorship (one adaptive card) ---- #}
+                {% if can_view_sponsorship %}
                     <div class="feature col">
                         <div class="d-inline-flex align-items-center justify-content-center fa-3x mb-3">
-                            <i class="fa-solid fa-people-roof"></i>
+                            <i class="fa-solid fa-hand-holding-dollar"></i>
                         </div>
                         <h3 class="fs-2 text-body-emphasis">
-                            Manage Volunteers
+                            {% trans "Sponsorship" %}
+                            {% if can_manage_sponsorship %}
+                                <span class="badge text-bg-success align-middle fs-6">{% trans "Manage" %}</span>
+                            {% else %}
+                                <span class="badge text-bg-secondary align-middle fs-6">{% trans "Read-only" %}</span>
+                            {% endif %}
                         </h3>
                         <p>
-                            Review volunteer applications and manage team members.
+                            {% if can_manage_sponsorship %}
+                                {% trans "The full sponsor pipeline, tiers, and invoicing." %}
+                            {% else %}
+                                {% trans "Browse this year's confirmed sponsors and packages." %}
+                            {% endif %}
+                        </p>
+                        <ul class="list-unstyled ps-8">
+                            <li>
+                                <a href="{% url 'sponsorship:sponsorship_list' %}" class="icon-link">
+                                    {% if can_manage_sponsorship %}
+                                        {% trans "All sponsors" %}
+                                    {% else %}
+                                        {% trans "View sponsors" %}
+                                    {% endif %}
+                                    <i class="fa-solid fa-chevron-right"></i>
+                                </a>
+                            </li>
+                            {% if can_manage_sponsorship %}
+                                <li>
+                                    <a href="{% url 'sponsorship:sponsorship_profile_new' %}"
+                                       class="icon-link">
+                                        {% trans "Add sponsor" %}
+                                        <i class="fa-solid fa-chevron-right"></i>
+                                    </a>
+                                </li>
+                                <li>
+                                    <a href="{% url 'sponsorship:tier_list' %}" class="icon-link">
+                                        {% trans "Manage tiers" %}
+                                        <i class="fa-solid fa-chevron-right"></i>
+                                    </a>
+                                </li>
+                            {% endif %}
+                            <li>
+                                <a href="https://2025.conference.pyladies.com/en/sponsors/"
+                                   class="icon-link">
+                                    {% trans "Sponsorship packages" %}
+                                    <i class="fa-solid fa-arrow-up-right-from-square"></i>
+                                </a>
+                            </li>
+                        </ul>
+                    </div>
+                {% endif %}
+                {# ---- Organizer tools (admin/staff) ---- #}
+                {% if is_organizer %}
+                    <div class="feature col">
+                        <div class="d-inline-flex align-items-center justify-content-center fa-3x mb-3">
+                            <i class="fa-solid fa-screwdriver-wrench"></i>
+                        </div>
+                        <h3 class="fs-2 text-body-emphasis">
+                            {% trans "Organizer tools" %}
+                        </h3>
+                        <p>
+                            {% trans "Review volunteers, manage teams, and run conference editions." %}
                         </p>
                         <ul class="list-unstyled ps-8">
                             <li>
                                 <a href="{% url 'volunteer:volunteers_list' %}" class="icon-link">
-                                    {% translate "Manage Volunteers" %}
+                                    {% trans "Volunteers" %}
                                     <i class="fa-solid fa-chevron-right"></i>
                                 </a>
                             </li>
-                        </ul>
-                    </div>
-                    <div class="feature col">
-                        <div class="d-inline-flex align-items-center justify-content-center fa-3x mb-3">
-                            <i class="fa-solid fa-people-group"></i>
-                        </div>
-                        <h3 class="fs-2 text-body-emphasis">
-                            Manage Teams
-                        </h3>
-                        <p>
-                            Create and manage the conference teams and their leads.
-                        </p>
-                        <ul class="list-unstyled ps-8">
                             <li>
                                 <a href="{% url 'teams' %}" class="icon-link">
-                                    {% translate "Manage Teams" %}
+                                    {% trans "Teams" %}
                                     <i class="fa-solid fa-chevron-right"></i>
                                 </a>
                             </li>
-                        </ul>
-                    </div>
-                    <div class="feature col">
-                        <div class="d-inline-flex align-items-center justify-content-center fa-3x mb-3">
-                            <i class="fa-solid fa-money-bill-trend-up"></i>
-                        </div>
-                        <h3 class="fs-2 text-body-emphasis">
-                            Manage Sponsorships
-                        </h3>
-                        <p>
-                            Review and Track Sponsorship progress.
-                        </p>
-                        <ul class="list-unstyled ps-8">
-                            <li>
-                                <a href="{% url 'sponsorship:sponsorship_list' %}" class="icon-link">Manage Sponsorships <i class="fa-solid fa-chevron-right"></i></a>
-                            </li>
-                            <li>
-                                <a href="{% url 'sponsorship:sponsorship_profile_new' %}"
-                                   class="icon-link">New Sponsorship <i class="fa-solid fa-chevron-right"></i></a>
-                            </li>
-                            <li>
-                                <a href="{% url 'sponsorship:tier_list' %}" class="icon-link">Manage Sponsorship Tiers <i class="fa-solid fa-chevron-right"></i></a>
-                            </li>
-                        </ul>
-                    </div>
-                    <div class="feature col">
-                        <div class="d-inline-flex align-items-center justify-content-center fa-3x mb-3">
-                            <i class="fa-solid fa-user-secret"></i>
-                        </div>
-                        <h3 class="fs-2 text-body-emphasis">
-                            Admin Area
-                        </h3>
-                        <p>
-                            Access the Django Admin area for your superuser privileges. Use your power responsibly!
-                        </p>
-                        <ul class="list-unstyled ps-8">
-                            <li>
-                                <a href="{% url 'admin:index' %}" class="icon-link">
-                                    {% translate "Admin Area" %}
-                                    <i class="fa-solid fa-chevron-right"></i>
-                                </a>
-                            </li>
-                        </ul>
-                    </div>
-                    <div class="feature col">
-                        <div class="d-inline-flex align-items-center justify-content-center fa-3x mb-3">
-                            <i class="fa-solid fa-calendar-days"></i>
-                        </div>
-                        <h3 class="fs-2 text-body-emphasis">
-                            Manage Conferences
-                        </h3>
-                        <p>
-                            View, edit, and manage all conference editions.
-                        </p>
-                        <ul class="list-unstyled ps-8">
                             <li>
                                 <a href="{% url 'conference_list' %}" class="icon-link">
-                                    {% translate "Manage Conferences" %}
+                                    {% trans "Conferences" %}
+                                    <i class="fa-solid fa-chevron-right"></i>
+                                </a>
+                            </li>
+                            {% if can_start_next_year %}
+                                <li>
+                                    <a href="{% url 'start_new_year' %}" class="icon-link">
+                                        {% trans "Start next year" %}
+                                        <i class="fa-solid fa-chevron-right"></i>
+                                    </a>
+                                </li>
+                            {% endif %}
+                            <li>
+                                <a href="{% url 'admin:index' %}" class="icon-link">
+                                    {% trans "Admin area" %}
                                     <i class="fa-solid fa-chevron-right"></i>
                                 </a>
                             </li>
                         </ul>
                     </div>
-                    {% if can_start_next_year %}
-                        <div class="feature col">
-                            <div class="d-inline-flex align-items-center justify-content-center fa-3x mb-3">
-                                <i class="fa-solid fa-calendar-plus"></i>
-                            </div>
-                            <h3 class="fs-2 text-body-emphasis">
-                                Start Next Year
-                            </h3>
-                            <p>
-                                Stand up the next conference edition and carry teams,
-                                tiers, goals, and returning volunteers over from this year.
-                            </p>
-                            <ul class="list-unstyled ps-8">
+                {% endif %}
+            </div>
+            {# ---- Resources, grouped by role (external reference) ---- #}
+            <div class="row pb-5">
+                <div class="col">
+                    <h3 class="fs-4 text-body-emphasis pb-2 border-bottom">
+                        {% trans "Resources" %}
+                    </h3>
+                    <div class="row row-cols-1 row-cols-md-3 g-4 pt-3">
+                        <div class="col">
+                            <h4 class="fs-6 text-uppercase text-secondary">
+                                {% trans "Volunteering" %}
+                            </h4>
+                            <ul class="list-unstyled">
                                 <li>
-                                    <a href="{% url 'start_new_year' %}" class="icon-link">
-                                        {% translate "Start Next Year's Conference" %}
-                                        <i class="fa-solid fa-chevron-right"></i>
+                                    <a href="https://conference.pyladies.com/docs/" class="icon-link">
+                                        {% trans "Team descriptions" %}
+                                        <i class="fa-solid fa-arrow-up-right-from-square"></i>
+                                    </a>
+                                </li>
+                                <li>
+                                    <a href="https://conference.pyladies.com/docs/roles_and_responsibilities/"
+                                       class="icon-link">
+                                        {% trans "Responsibilities" %}
+                                        <i class="fa-solid fa-arrow-up-right-from-square"></i>
+                                    </a>
+                                </li>
+                                <li>
+                                    <a href="https://discord.com/invite/2fUN4ddVfP" class="icon-link">
+                                        {% trans "Join our Discord" %}
+                                        <i class="fa-brands fa-discord"></i>
                                     </a>
                                 </li>
                             </ul>
                         </div>
-                    {% endif %}
-                {% endif %}
+                        <div class="col">
+                            <h4 class="fs-6 text-uppercase text-secondary">
+                                {% trans "Speaking" %}
+                            </h4>
+                            <ul class="list-unstyled">
+                                <li>
+                                    <a href="https://conference.pyladies.com/docs/speakers/speaker_guide/"
+                                       class="icon-link">
+                                        {% trans "Speaker guide" %}
+                                        <i class="fa-solid fa-arrow-up-right-from-square"></i>
+                                    </a>
+                                </li>
+                                <li>
+                                    <a href="https://conference.pyladies.com/docs/speakers/keynote_speaker_guide/"
+                                       class="icon-link">
+                                        {% trans "Keynote speaker guide" %}
+                                        <i class="fa-solid fa-arrow-up-right-from-square"></i>
+                                    </a>
+                                </li>
+                            </ul>
+                        </div>
+                        <div class="col">
+                            <h4 class="fs-6 text-uppercase text-secondary">
+                                {% trans "Sponsorship and finance" %}
+                            </h4>
+                            <ul class="list-unstyled">
+                                <li>
+                                    <a href="https://2025.conference.pyladies.com/en/sponsors/"
+                                       class="icon-link">
+                                        {% trans "Sponsorship prospectus" %}
+                                        <i class="fa-solid fa-arrow-up-right-from-square"></i>
+                                    </a>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
             </div>
         {% else %}
             <div class="row row-cols-1 row-cols-md-2 align-items-md-center g-5 py-5">
