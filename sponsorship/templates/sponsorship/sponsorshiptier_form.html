@@ -1,0 +1,25 @@
+{% extends "portal/base.html" %}
+{% load i18n %}
+{% load django_bootstrap5 %}
+{% block content %}
+    <div class="container px-4 py-3">
+        <p>
+            <a href="{% url 'sponsorship:tier_list' %}"><i class="fa-solid fa-arrow-left"></i> {% trans "All tiers" %}</a>
+        </p>
+        <h1 class="display-6 pb-2 border-bottom">
+            {% if object.pk %}
+                {% trans "Edit Sponsorship Tier" %}
+            {% else %}
+                {% trans "New Sponsorship Tier" %}
+            {% endif %}
+        </h1>
+        <form method="post" class="col-md-8">
+            {% csrf_token %}
+            {% bootstrap_form form %}
+            <button type="submit" class="btn btn-primary">
+                {% trans "Save" %}
+            </button>
+            <a href="{% url 'sponsorship:tier_list' %}" class="btn btn-secondary">{% trans "Cancel" %}</a>
+        </form>
+    </div>
+{% endblock content %}
