@@ -353,10 +353,25 @@ class SponsorshipTierList(AdminRequiredMixin, ListView):
     template_name = "sponsorship/sponsorshiptier_list.html"
     context_object_name = "tiers"
 
+    def get_selected_conference(self):
+        """The edition whose tiers are shown; ``?conference=<pk>`` switches it."""
+        param = self.request.GET.get("conference")
+        if param:
+            conference = Conference.objects.filter(pk=param).first()
+            if conference is not None:
+                return conference
+        return Conference.get_active()
+
     def get_queryset(self):
-        return SponsorshipTier.objects.select_related("conference").order_by(
-            "-conference__year", "name"
-        )
+        return SponsorshipTier.objects.filter(
+            conference=self.get_selected_conference()
+        ).order_by("name")
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["conferences"] = Conference.objects.all()
+        context["selected_conference"] = self.get_selected_conference()
+        return context
 
 
 class SponsorshipTierCreate(AdminRequiredMixin, CreateView):

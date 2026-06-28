@@ -849,3 +849,26 @@ class TestSponsorshipTierCRUD:
         for name in ["sponsorship:tier_edit", "sponsorship:tier_delete"]:
             url = reverse(name, kwargs={"pk": tier.pk})
             assert client.get(url).status_code in (302, 403)
+
+    def test_list_scoped_to_selected_year(self, client, admin_user, conference):
+        past = Conference.objects.create(
+            year=2024, name="PyLadiesCon 2024", slug="2024"
+        )
+        active_tier = self._tier(conference, name="Active")
+        past_tier = SponsorshipTier.objects.create(
+            name="Past", amount=1, description="d", conference=past
+        )
+        client.force_login(admin_user)
+        url = reverse("sponsorship:tier_list")
+
+        default_tiers = list(client.get(url).context["tiers"])
+        assert active_tier in default_tiers
+        assert past_tier not in default_tiers
+
+        switched = list(client.get(f"{url}?conference={past.pk}").context["tiers"])
+        assert past_tier in switched
+        assert active_tier not in switched
+
+        # Invalid year falls back to the active edition.
+        invalid = list(client.get(f"{url}?conference=99999").context["tiers"])
+        assert active_tier in invalid
