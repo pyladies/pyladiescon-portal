@@ -73,3 +73,34 @@ class StartNewYearForm(forms.Form):
         if Conference.objects.filter(slug=slug).exists():
             raise forms.ValidationError("A conference with that slug already exists.")
         return slug
+
+
+class ConferenceForm(forms.ModelForm):
+    """Edit an existing conference edition through the portal."""
+
+    class Meta:
+        model = Conference
+        fields = [
+            "year",
+            "name",
+            "slug",
+            "is_active",
+            "pretix_event_slug",
+            "sponsorship_goal",
+            "donation_goal",
+            "proposals_count",
+            "volunteer_application_open",
+            "sponsorship_open",
+            "accepting_donations",
+            "start_date",
+            "end_date",
+            "conference_date",
+            "banner_text",
+        ]
+        widgets = {
+            "start_date": forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"),
+            "end_date": forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"),
+            "conference_date": forms.DateInput(
+                attrs={"type": "date"}, format="%Y-%m-%d"
+            ),
+        }

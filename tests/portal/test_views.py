@@ -288,3 +288,63 @@ class TestStartNextYearGate:
         client.force_login(admin_user)
         response = client.get(reverse("index"))
         assert "Start Next Year's Conference" not in response.content.decode()
+
+
+@pytest.mark.django_db
+class TestConferenceCRUD:
+    def test_list_shows_conferences(self, client, admin_user, conference):
+        client.force_login(admin_user)
+        response = client.get(reverse("conference_list"))
+        assert response.status_code == 200
+        assert conference in response.context["conferences"]
+
+    def test_update_conference(self, client, admin_user, conference):
+        client.force_login(admin_user)
+        response = client.post(
+            reverse("conference_edit", kwargs={"pk": conference.pk}),
+            {
+                "year": conference.year,
+                "name": "Renamed Edition",
+                "slug": conference.slug,
+                "sponsorship_goal": "15000",
+                "donation_goal": "2500",
+                "proposals_count": "0",
+                "conference_date": "2025-11-15",
+            },
+            follow=True,
+        )
+        assert response.status_code == 200
+        conference.refresh_from_db()
+        assert conference.name == "Renamed Edition"
+        assert str(conference.conference_date) == "2025-11-15"
+
+    def test_delete_empty_conference(self, client, admin_user, conference):
+        extra = Conference.objects.create(year=2099, name="Empty", slug="empty")
+        client.force_login(admin_user)
+        response = client.post(
+            reverse("conference_delete", kwargs={"pk": extra.pk}), follow=True
+        )
+        assert response.status_code == 200
+        assert not Conference.objects.filter(pk=extra.pk).exists()
+
+    def test_delete_blocked_when_has_data(self, client, admin_user, conference):
+        extra = Conference.objects.create(year=2099, name="HasData", slug="hasdata")
+        Team.objects.create(conference=extra, short_name="T", description="d")
+        client.force_login(admin_user)
+        response = client.post(
+            reverse("conference_delete", kwargs={"pk": extra.pk}), follow=True
+        )
+        assert response.status_code == 200
+        assert Conference.objects.filter(pk=extra.pk).exists()  # protected, not deleted
+        assert "Cannot delete" in response.content.decode()
+
+    def test_requires_superuser(self, client, django_user_model, conference):
+        staff = django_user_model.objects.create_user("staffy2", is_staff=True)
+        client.force_login(staff)
+        urls = [
+            reverse("conference_list"),
+            reverse("conference_edit", kwargs={"pk": conference.pk}),
+            reverse("conference_delete", kwargs={"pk": conference.pk}),
+        ]
+        for url in urls:
+            assert client.get(url).status_code in (302, 403)
