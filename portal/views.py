@@ -1,13 +1,15 @@
 from django.contrib import messages
 from django.contrib.auth import get_user
+from django.db.models import ProtectedError
 from django.http import JsonResponse
 from django.shortcuts import redirect, render
 from django.urls import reverse_lazy
-from django.views.generic.edit import FormView
+from django.views.generic import ListView
+from django.views.generic.edit import DeleteView, FormView, UpdateView
 
 from common.mixins import SuperuserRequiredMixin
 from portal.common import get_historical_comparison_data, get_stats_cached_values
-from portal.forms import StartNewYearForm
+from portal.forms import ConferenceForm, StartNewYearForm
 from portal.models import Conference
 from portal.services import (
     bring_forward_volunteers,
@@ -163,3 +165,36 @@ class StartNewYearView(SuperuserRequiredMixin, FormView):
             message += " It is now the active edition."
         messages.success(self.request, message)
         return super().form_valid(form)
+
+
+class ConferenceList(SuperuserRequiredMixin, ListView):
+    model = Conference
+    template_name = "portal/conference_list.html"
+    context_object_name = "conferences"
+
+
+class ConferenceUpdate(SuperuserRequiredMixin, UpdateView):
+    model = Conference
+    form_class = ConferenceForm
+    template_name = "portal/conference_form.html"
+    success_url = reverse_lazy("conference_list")
+
+
+class ConferenceDelete(SuperuserRequiredMixin, DeleteView):
+    model = Conference
+    template_name = "portal/conference_confirm_delete.html"
+    context_object_name = "conference"
+    success_url = reverse_lazy("conference_list")
+
+    def form_valid(self, form):
+        # An edition referenced by teams/profiles/sponsors/tiers/donations is
+        # PROTECTed; surface a clear message instead of a 500.
+        try:
+            return super().form_valid(form)
+        except ProtectedError:
+            messages.error(
+                self.request,
+                f"Cannot delete {self.object}: it still has teams, volunteers, "
+                "sponsors, tiers, or donations. Remove those first.",
+            )
+            return redirect("conference_list")
