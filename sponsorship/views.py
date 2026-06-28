@@ -292,6 +292,15 @@ class SponsorshipProfileList(CanViewSponsorship, SingleTableMixin, FilterView):
         # yields an empty list rather than leaking another year's sponsors.
         return super().get_queryset().filter(conference=self.get_selected_conference())
 
+    def get_table_kwargs(self):
+        kwargs = super().get_table_kwargs()
+        user = self.request.user
+        # Read-only viewers (approved volunteers, not staff) can't edit or
+        # delete, so drop the actions column instead of showing buttons that 403.
+        if not (user.is_superuser or user.is_staff):
+            kwargs["exclude"] = ("actions",)
+        return kwargs
+
     def get_context_data(self, **kwargs):
         # kwargs.pop('filter')
         context = super().get_context_data(**kwargs)

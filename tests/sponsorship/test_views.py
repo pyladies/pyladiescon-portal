@@ -872,3 +872,48 @@ class TestSponsorshipTierCRUD:
         # Invalid year falls back to the active edition.
         invalid = list(client.get(f"{url}?conference=99999").context["tiers"])
         assert active_tier in invalid
+
+
+@pytest.mark.django_db
+class TestSponsorActionsColumn:
+    """The actions (edit/delete) column is hidden from read-only viewers."""
+
+    def _profile(self, conference):
+        tier = SponsorshipTier.objects.create(
+            name="Gold", amount=5000, description="g", conference=conference
+        )
+        return SponsorshipProfile.objects.create(
+            organization_name="Corp",
+            sponsorship_tier=tier,
+            progress_status=SponsorshipProgressStatus.APPROVED,
+            conference=conference,
+        )
+
+    def test_actions_hidden_for_read_only_viewer(self, client, portal_user, conference):
+        profile = self._profile(conference)
+        VolunteerProfile.objects.create(
+            user=portal_user,
+            application_status=ApplicationStatus.APPROVED,
+            conference=conference,
+        )
+        client.force_login(portal_user)
+        response = client.get(reverse("sponsorship:sponsorship_list"))
+        assert response.status_code == 200
+        columns = [column.name for column in response.context["table"].columns]
+        assert "actions" not in columns
+        edit_url = reverse(
+            "sponsorship:sponsorship_profile_edit", kwargs={"pk": profile.pk}
+        )
+        assert edit_url not in response.content.decode()
+
+    def test_actions_shown_for_organizer(self, client, admin_user, conference):
+        profile = self._profile(conference)
+        client.force_login(admin_user)
+        response = client.get(reverse("sponsorship:sponsorship_list"))
+        assert response.status_code == 200
+        columns = [column.name for column in response.context["table"].columns]
+        assert "actions" in columns
+        edit_url = reverse(
+            "sponsorship:sponsorship_profile_edit", kwargs={"pk": profile.pk}
+        )
+        assert edit_url in response.content.decode()
