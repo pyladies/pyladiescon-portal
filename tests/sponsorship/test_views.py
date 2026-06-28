@@ -778,3 +778,97 @@ class TestSponsorshipCRUD:
         )
         assert response.status_code == 200
         assert reverse("sponsorship:sponsorship_list") in response.content.decode()
+
+
+@pytest.mark.django_db
+class TestSponsorshipTierCRUD:
+    def _tier(self, conference, **kwargs):
+        return SponsorshipTier.objects.create(
+            name=kwargs.pop("name", "Gold"),
+            amount=kwargs.pop("amount", 1000),
+            description=kwargs.pop("description", "g"),
+            conference=conference,
+        )
+
+    def test_list(self, client, admin_user, conference):
+        tier = self._tier(conference)
+        client.force_login(admin_user)
+        response = client.get(reverse("sponsorship:tier_list"))
+        assert response.status_code == 200
+        assert tier in response.context["tiers"]
+
+    def test_create(self, client, admin_user, conference):
+        client.force_login(admin_user)
+        response = client.post(
+            reverse("sponsorship:tier_new"),
+            {
+                "conference": conference.pk,
+                "name": "Gold",
+                "amount": "1000",
+                "description": "Gold tier",
+                "sponsor_limit": "3",
+            },
+            follow=True,
+        )
+        assert response.status_code == 200
+        tier = SponsorshipTier.objects.get(name="Gold", conference=conference)
+        assert tier.sponsor_limit == 3
+
+    def test_update(self, client, admin_user, conference):
+        tier = self._tier(conference)
+        client.force_login(admin_user)
+        response = client.post(
+            reverse("sponsorship:tier_edit", kwargs={"pk": tier.pk}),
+            {
+                "conference": conference.pk,
+                "name": "Platinum",
+                "amount": "2000",
+                "description": "g",
+            },
+            follow=True,
+        )
+        assert response.status_code == 200
+        tier.refresh_from_db()
+        assert tier.name == "Platinum"
+        assert tier.amount == 2000
+
+    def test_delete(self, client, admin_user, conference):
+        tier = self._tier(conference)
+        client.force_login(admin_user)
+        response = client.post(
+            reverse("sponsorship:tier_delete", kwargs={"pk": tier.pk}), follow=True
+        )
+        assert response.status_code == 200
+        assert not SponsorshipTier.objects.filter(pk=tier.pk).exists()
+
+    def test_requires_admin(self, client, portal_user, conference):
+        tier = self._tier(conference)
+        client.force_login(portal_user)  # not staff/superuser
+        assert client.get(reverse("sponsorship:tier_list")).status_code in (302, 403)
+        assert client.get(reverse("sponsorship:tier_new")).status_code in (302, 403)
+        for name in ["sponsorship:tier_edit", "sponsorship:tier_delete"]:
+            url = reverse(name, kwargs={"pk": tier.pk})
+            assert client.get(url).status_code in (302, 403)
+
+    def test_list_scoped_to_selected_year(self, client, admin_user, conference):
+        past = Conference.objects.create(
+            year=2024, name="PyLadiesCon 2024", slug="2024"
+        )
+        active_tier = self._tier(conference, name="Active")
+        past_tier = SponsorshipTier.objects.create(
+            name="Past", amount=1, description="d", conference=past
+        )
+        client.force_login(admin_user)
+        url = reverse("sponsorship:tier_list")
+
+        default_tiers = list(client.get(url).context["tiers"])
+        assert active_tier in default_tiers
+        assert past_tier not in default_tiers
+
+        switched = list(client.get(f"{url}?conference={past.pk}").context["tiers"])
+        assert past_tier in switched
+        assert active_tier not in switched
+
+        # Invalid year falls back to the active edition.
+        invalid = list(client.get(f"{url}?conference=99999").context["tiers"])
+        assert active_tier in invalid

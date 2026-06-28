@@ -16,6 +16,26 @@ urlpatterns = [
         name="sponsorship_list",
     ),
     path(
+        "tiers/",
+        views.SponsorshipTierList.as_view(),
+        name="tier_list",
+    ),
+    path(
+        "tiers/new/",
+        views.SponsorshipTierCreate.as_view(),
+        name="tier_new",
+    ),
+    path(
+        "tiers/<int:pk>/edit/",
+        views.SponsorshipTierUpdate.as_view(),
+        name="tier_edit",
+    ),
+    path(
+        "tiers/<int:pk>/delete/",
+        views.SponsorshipTierDelete.as_view(),
+        name="tier_delete",
+    ),
+    path(
         "<int:pk>/",
         views.SponsorshipProfileDetail.as_view(),
         name="sponsorship_profile_detail",

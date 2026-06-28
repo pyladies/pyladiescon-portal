@@ -1,0 +1,68 @@
+{% extends "portal/base.html" %}
+{% load i18n %}
+{% block content %}
+    <div class="container px-4 py-3">
+        <h1 class="display-5">
+            {% trans "Sponsorship Tiers" %} — {{ selected_conference.year }}
+            <a class="btn btn-primary" href="{% url 'sponsorship:tier_new' %}">{% trans "New Tier" %}</a>
+        </h1>
+        {% if conferences %}
+            <div class="btn-group mb-3" role="group" aria-label="Conference year">
+                {% for conference in conferences %}
+                    <a href="?conference={{ conference.pk }}"
+                       class="btn btn-sm {% if conference == selected_conference %}btn-primary{% else %}btn-outline-primary{% endif %}">
+                        {{ conference.year }}
+                    </a>
+                {% endfor %}
+            </div>
+        {% endif %}
+        <table class="table table-hover align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>
+                        {% trans "Name" %}
+                    </th>
+                    <th>
+                        {% trans "Amount" %}
+                    </th>
+                    <th>
+                        {% trans "Limit" %}
+                    </th>
+                    <th>
+                        {% trans "Description" %}
+                    </th>
+                    <th>
+                    </th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for tier in tiers %}
+                    <tr>
+                        <td>
+                            {{ tier.name }}
+                        </td>
+                        <td>
+                            ${{ tier.amount }}
+                        </td>
+                        <td>
+                            {{ tier.sponsor_limit|default:"" }}
+                        </td>
+                        <td>
+                            {{ tier.description|truncatechars:60 }}
+                        </td>
+                        <td>
+                            <a href="{% url 'sponsorship:tier_edit' tier.pk %}"
+                               class="btn btn-sm btn-outline-primary"
+                               title="Edit"
+                               aria-label="Edit"><i class="fa-solid fa-pencil"></i></a>
+                            <a href="{% url 'sponsorship:tier_delete' tier.pk %}"
+                               class="btn btn-sm btn-outline-danger"
+                               title="Delete"
+                               aria-label="Delete"><i class="fa-solid fa-trash"></i></a>
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+{% endblock content %}

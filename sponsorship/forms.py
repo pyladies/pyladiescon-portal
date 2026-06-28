@@ -102,3 +102,17 @@ class SponsorshipProfileForm(forms.ModelForm):
 
         sponsorship_profile = super().save(commit)
         return sponsorship_profile
+
+
+class SponsorshipTierForm(forms.ModelForm):
+    """Create/edit a sponsorship tier through the portal."""
+
+    class Meta:
+        model = SponsorshipTier
+        fields = ["conference", "name", "amount", "description", "sponsor_limit"]
+        widgets = {"description": forms.Textarea(attrs={"rows": 3})}
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if not self.instance.pk:
+            self.fields["conference"].initial = Conference.get_active()

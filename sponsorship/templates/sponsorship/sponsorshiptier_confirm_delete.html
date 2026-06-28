@@ -1,0 +1,22 @@
+{% extends "portal/base.html" %}
+{% load i18n %}
+{% block content %}
+    <div class="container px-4 py-3">
+        <h1 class="display-6 pb-2 border-bottom">
+            {% trans "Delete Sponsorship Tier" %}
+        </h1>
+        <p class="fs-5">
+            {% blocktrans with name=tier.name year=tier.conference.year %}Are you sure you want to delete the "{{ name }}" tier ({{ year }})?{% endblocktrans %}
+        </p>
+        <p class="text-muted">
+            {% trans "Sponsors using this tier will keep their override amount; their tier reference will be cleared." %}
+        </p>
+        <form method="post">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-danger">
+                {% trans "Delete" %}
+            </button>
+            <a href="{% url 'sponsorship:tier_list' %}" class="btn btn-secondary">{% trans "Cancel" %}</a>
+        </form>
+    </div>
+{% endblock content %}
