@@ -109,7 +109,7 @@ class SponsorshipTierForm(forms.ModelForm):
 
     class Meta:
         model = SponsorshipTier
-        fields = ["conference", "name", "amount", "description"]
+        fields = ["conference", "name", "amount", "description", "sponsor_limit"]
         widgets = {"description": forms.Textarea(attrs={"rows": 3})}
 
     def __init__(self, *args, **kwargs):

@@ -806,13 +806,13 @@ class TestSponsorshipTierCRUD:
                 "name": "Gold",
                 "amount": "1000",
                 "description": "Gold tier",
+                "sponsor_limit": "3",
             },
             follow=True,
         )
         assert response.status_code == 200
-        assert SponsorshipTier.objects.filter(
-            name="Gold", conference=conference
-        ).exists()
+        tier = SponsorshipTier.objects.get(name="Gold", conference=conference)
+        assert tier.sponsor_limit == 3
 
     def test_update(self, client, admin_user, conference):
         tier = self._tier(conference)

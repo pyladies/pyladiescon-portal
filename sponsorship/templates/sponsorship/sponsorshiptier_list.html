@@ -2,8 +2,9 @@
 {% load i18n %}
 {% block content %}
     <div class="container px-4 py-3">
-        <h1 class="display-6 pb-2 border-bottom">
+        <h1 class="display-5">
             {% trans "Sponsorship Tiers" %} — {{ selected_conference.year }}
+            <a class="btn btn-primary" href="{% url 'sponsorship:tier_new' %}">{% trans "New Tier" %}</a>
         </h1>
         {% if conferences %}
             <div class="btn-group mb-3" role="group" aria-label="Conference year">
@@ -15,11 +16,6 @@
                 {% endfor %}
             </div>
         {% endif %}
-        <p>
-            <a href="{% url 'sponsorship:tier_new' %}" class="btn btn-primary">
-                <i class="fa-solid fa-plus"></i> {% trans "New Tier" %}
-            </a>
-        </p>
         <table class="table table-hover align-middle">
             <thead class="table-light">
                 <tr>
@@ -28,6 +24,9 @@
                     </th>
                     <th>
                         {% trans "Amount" %}
+                    </th>
+                    <th>
+                        {% trans "Limit" %}
                     </th>
                     <th>
                         {% trans "Description" %}
@@ -44,6 +43,9 @@
                         </td>
                         <td>
                             ${{ tier.amount }}
+                        </td>
+                        <td>
+                            {{ tier.sponsor_limit|default:"" }}
                         </td>
                         <td>
                             {{ tier.description|truncatechars:60 }}

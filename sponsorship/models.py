@@ -30,6 +30,11 @@ class SponsorshipTier(BaseModel):
     name = models.CharField(max_length=100)  # "Championship", "Supporter", etc.
     amount = models.DecimalField(max_digits=10, decimal_places=2)  # 10000.00, etc.
     description = models.TextField()
+    sponsor_limit = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        help_text="Optional maximum number of sponsors accepted for this tier.",
+    )
 
     def __str__(self):
         # Include the conference year so tiers are distinguishable across
