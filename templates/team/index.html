@@ -5,8 +5,9 @@
 {% endblock body %}
 {% block content %}
     <div class="container px-4 py-5" id="featured-3">
-        <h1 class="pb-2 border-bottom">
+        <h1 class="display-5">
             {% trans "Teams" %} — {{ selected_conference.year }}
+            <a class="btn btn-primary" href="{% url 'team_new' %}">{% trans "New Team" %}</a>
         </h1>
         {% if conferences %}
             <div class="btn-group mb-3" role="group" aria-label="Conference year">
@@ -18,11 +19,6 @@
                 {% endfor %}
             </div>
         {% endif %}
-        <p>
-            <a href="{% url 'team_new' %}" class="btn btn-primary">
-                <i class="fa-solid fa-plus"></i> {% trans "New Team" %}
-            </a>
-        </p>
         <table class="table table-hover align-middle">
             <thead class="table-light">
                 <tr>
