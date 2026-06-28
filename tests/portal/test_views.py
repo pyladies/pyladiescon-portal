@@ -47,13 +47,15 @@ class TestPortalIndex:
         assert "Sign out" not in response.content.decode()
         assert "Login" not in response.content.decode()
 
-    def test_manage_teams_card_shown_to_superuser(self, client, admin_user, conference):
+    def test_organizer_tools_shown_to_superuser(self, client, admin_user, conference):
         PortalProfile.objects.create(user=admin_user)
         client.force_login(admin_user)
         response = client.get(reverse("index"))
         assert response.status_code == 200
-        assert "Manage Teams" in response.content.decode()
-        assert reverse("teams") in response.content.decode()
+        content = response.content.decode()
+        assert "Organizer tools" in content
+        assert reverse("teams") in content
+        assert reverse("volunteer:volunteers_list") in content
 
     def test_manage_tiers_link_shown_to_superuser(self, client, admin_user, conference):
         PortalProfile.objects.create(user=admin_user)
@@ -294,7 +296,7 @@ class TestStartNextYearGate:
         PortalProfile.objects.create(user=admin_user)
         client.force_login(admin_user)
         response = client.get(reverse("index"))
-        assert "Start Next Year's Conference" in response.content.decode()
+        assert "Start next year" in response.content.decode()
 
     def test_card_hidden_when_date_not_passed(self, client, admin_user, conference):
         PortalProfile.objects.create(user=admin_user)
@@ -302,7 +304,7 @@ class TestStartNextYearGate:
         conference.save()
         client.force_login(admin_user)
         response = client.get(reverse("index"))
-        assert "Start Next Year's Conference" not in response.content.decode()
+        assert "Start next year" not in response.content.decode()
 
 
 @pytest.mark.django_db
