@@ -1,0 +1,156 @@
+{% extends "portal/base.html" %}
+{% load allauth i18n %}
+{% load django_bootstrap5 %}
+{% block body %}
+{% endblock body %}
+{% block content %}
+    <div class="container px-4 py-4">
+        <p>
+            <a href="{% url 'teams' %}"><i class="fa-solid fa-arrow-left"></i> {% trans "All teams" %}</a>
+        </p>
+        <h1 class="display-6 d-flex align-items-center flex-wrap gap-2">
+            {{ team.short_name }}
+            <span class="badge bg-secondary fs-6 align-middle">{{ team.conference.year }}</span>
+            {% if team.open_to_new_members %}
+                <span class="badge bg-success fs-6 align-middle">{% trans "Open" %}</span>
+            {% else %}
+                <span class="badge bg-secondary fs-6 align-middle">{% trans "Closed" %}</span>
+            {% endif %}
+        </h1>
+        {% if team.description %}
+            <p class="text-secondary">
+                {{ team.description }}
+            </p>
+        {% endif %}
+        {% if can_manage_members %}
+            <div class="mb-3">
+                <a href="{% url 'team_edit' team.id %}"
+                   class="btn btn-sm btn-outline-secondary">
+                    <i class="fa-solid fa-pencil"></i> {% trans "Edit team" %}
+                </a>
+            </div>
+        {% endif %}
+        {# Stat header — same pattern as sponsorship/sponsorship_stats.html. #}
+        <div class="container border rounded-3 p-3 mb-4">
+            <div class="row text-center text-sm-start">
+                <div class="col-sm-3">
+                    <div class="card border-0">
+                        <div class="card-body">
+                            <h5 class="card-title">
+                                {% trans "Approved members" %}
+                            </h5>
+                            <h1 class="display-4 text-primary">
+                                {{ approved.count }}
+                            </h1>
+                            <span class="text-muted">{% trans "active roster" %}</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="card border-0">
+                        <div class="card-body">
+                            <h5 class="card-title">
+                                {% trans "Pending review" %}
+                            </h5>
+                            <h1 class="display-4 text-warning">
+                                {{ pending.count }}
+                            </h1>
+                            <span class="text-muted">{% trans "awaiting decision" %}</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="card border-0">
+                        <div class="card-body">
+                            <h5 class="card-title">
+                                {% trans "Waitlisted" %}
+                            </h5>
+                            <h1 class="display-4 text-secondary">
+                                {{ waitlisted.count }}
+                            </h1>
+                            <span class="text-muted">{% trans "if spots open" %}</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="card border-0">
+                        <div class="card-body">
+                            <h5 class="card-title">
+                                {% trans "Team leads" %}
+                            </h5>
+                            <h1 class="display-4">
+                                {{ team.team_leads.count }}
+                            </h1>
+                            <span class="text-muted">{% trans "managing this team" %}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {# Promoted queue — the one thing a lead has to act on. #}
+        {% if can_manage_members and pending.count %}
+            <div class="alert alert-warning d-flex align-items-center" role="alert">
+                <i class="fa-solid fa-clipboard-list fa-fw me-2"></i>
+                <span class="flex-grow-1">
+                    {% blocktranslate count counter=pending.count %}<strong>{{ counter }} application</strong> is waiting for review.{% plural %}<strong>{{ counter }} applications</strong> are waiting for review.{% endblocktranslate %}
+                </span>
+                <a href="#pending" class="btn btn-sm btn-warning">{% trans "Review queue" %}</a>
+            </div>
+        {% endif %}
+        <h3 class="h5" id="leads">
+            {% trans "Team leads" %}
+        </h3>
+        {% if team.team_leads.all %}
+            <ul class="list-inline">
+                {% for lead in team.team_leads.all %}
+                    <li class="list-inline-item">
+                        {% if can_manage_members %}
+                            <a href="{% url 'volunteer:volunteer_profile_detail' lead.id %}"
+                               class="badge text-bg-light border text-decoration-none">{{ lead.user.get_full_name|default:lead.user.username }}</a>
+                        {% else %}
+                            <span class="badge text-bg-light border">{{ lead.user.get_full_name|default:lead.user.username }}</span>
+                        {% endif %}
+                    </li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <p class="text-danger">
+                <i class="fa-solid fa-triangle-exclamation"></i> {% trans "No lead assigned." %}
+            </p>
+        {% endif %}
+        {# Pending + waitlisted are visible to leads and admins; approve/manage #}
+        {# actions inside the partial are gated on is_admin. #}
+        {% if can_manage_members %}
+            <h3 class="h5 mt-4" id="pending">
+                {% trans "Pending review" %} <span class="badge bg-warning rounded-pill">{{ pending.count }}</span>
+            </h3>
+            {% if pending.count %}
+                {% include "team/_roster_table.html" with members=pending review=True %}
+            {% else %}
+                <p class="text-secondary">
+                    {% trans "No pending members." %}
+                </p>
+            {% endif %}
+            <h3 class="h5 mt-4" id="waitlisted">
+                {% trans "Waitlisted" %} <span class="badge bg-secondary rounded-pill">{{ waitlisted.count }}</span>
+            </h3>
+            {% if waitlisted.count %}
+                {% include "team/_roster_table.html" with members=waitlisted review=True %}
+            {% else %}
+                <p class="text-secondary">
+                    {% trans "No waitlisted members." %}
+                </p>
+            {% endif %}
+        {% endif %}
+        <h3 class="h5 mt-4" id="approved">
+            {% trans "Approved members" %} <span class="badge bg-primary rounded-pill">{{ approved.count }}</span>
+        </h3>
+        {% if approved.count %}
+            {% include "team/_roster_table.html" with members=approved review=False %}
+        {% else %}
+            <p class="text-secondary">
+                {% trans "No approved members yet." %}
+            </p>
+        {% endif %}
+    </div>
+{% endblock content %}

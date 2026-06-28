@@ -10,13 +10,11 @@ from .models import PortalProfile
 
 @login_required
 def index(request):
-    context = {}
-    try:
-        profile = PortalProfile.objects.get(user=request.user)
-        context["profile_id"] = profile.id
-    except PortalProfile.DoesNotExist:
-        context["profile_id"] = None
-    return render(request, "portal_account/index.html", context)
+    # Pass the whole profile (not just its id) so the account page can render
+    # the identity summary inline instead of sending the user to a separate
+    # detail page.
+    profile = PortalProfile.objects.filter(user=request.user).first()
+    return render(request, "portal_account/index.html", {"profile": profile})
 
 
 class PortalProfileView(DetailView):

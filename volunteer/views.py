@@ -13,7 +13,11 @@ from django.views.generic.edit import CreateView, DeleteView, UpdateView
 from django_filters.views import FilterView
 from django_tables2.views import SingleTableMixin
 
-from common.mixins import AdminRequiredMixin, VolunteerOrAdminRequiredMixin
+from common.mixins import (
+    AdminRequiredMixin,
+    TeamLeadRequiredMixin,
+    VolunteerOrAdminRequiredMixin,
+)
 from common.tasks import enqueue
 from portal.models import Conference
 
@@ -368,6 +372,53 @@ class TeamView(VolunteerAdminRequiredMixin, DetailView):
         except Team.DoesNotExist:
             return redirect("teams")
         return super(TeamView, self).get(request, pk)
+
+
+class TeamDashboardView(TeamLeadRequiredMixin, DetailView):
+    """Internal management dashboard for a single team.
+
+    Reachable by an admin (superuser/staff) or a lead of this team. Surfaces the
+    same stat-card pattern as the sponsorship list, then the roster split into
+    pending / waitlisted / approved.
+
+    Two distinct capability flags drive the template:
+
+    * ``can_manage_members`` — admin OR a lead of this team. Controls whether
+      the pending/waitlisted rosters and member detail links are shown. Leads
+      need this visibility into who is waiting on their team.
+    * ``is_admin`` — superuser/staff only. Controls the approve/manage *action*
+      buttons, which link to ``ManageVolunteerProfile`` (admin-only today).
+      Keeping approval admin-only matches the "recommend, don't approve"
+      default for leads; flip these to ``can_manage_members`` if/when leads are
+      allowed to approve their own members.
+    """
+
+    model = Team
+    template_name = "team/team_dashboard.html"
+    context_object_name = "team"
+
+    def get(self, request, *args, **kwargs):
+        try:
+            self.object = Team.objects.get(pk=kwargs.get("pk"))
+        except Team.DoesNotExist:
+            return redirect("teams")
+        context = self.get_context_data(object=self.object)
+        return self.render_to_response(context)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        team = self.object
+        user = self.request.user
+        is_admin = user.is_superuser or user.is_staff
+
+        context["approved"] = team.approved_members
+        context["pending"] = team.pending_members
+        context["waitlisted"] = team.waitlisted_members
+        context["is_admin"] = is_admin
+        context["can_manage_members"] = (
+            is_admin or team.team_leads.filter(user=user).exists()
+        )
+        return context
 
 
 class TeamCreate(VolunteerAdminRequiredMixin, CreateView):

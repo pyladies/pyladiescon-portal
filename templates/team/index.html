@@ -42,7 +42,7 @@
                 {% for team in teams %}
                     <tr>
                         <td>
-                            <a href="{% url 'team_detail' team.id %}">{{ team.short_name }}</a>
+                            <a href="{% url 'team_dashboard' team.id %}">{{ team.short_name }}</a>
                         </td>
                         <td>
                             {{ team.description|truncatechars:60 }}
