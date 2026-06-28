@@ -5,6 +5,9 @@
 {% endblock body %}
 {% block content %}
     <main>
+        <p>
+            <a href="{% url 'portal_account:index' %}"><i class="fa-solid fa-arrow-left"></i> {% trans "Account" %}</a>
+        </p>
         <h1 class="display-5">
             {% if object.pk %}
                 {% trans "Edit" %}
