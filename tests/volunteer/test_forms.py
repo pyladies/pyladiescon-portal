@@ -1,9 +1,26 @@
 import pytest
+from django.contrib.auth.models import User
 
 from portal.models import Conference
 from volunteer.constants import Region
-from volunteer.forms import SelectMultipleWidget, VolunteerProfileForm
+from volunteer.forms import SelectMultipleWidget, TeamForm, VolunteerProfileForm
 from volunteer.models import Language, Team, VolunteerProfile
+
+
+@pytest.mark.django_db
+class TestTeamFormLeadLabels:
+    def test_lead_options_use_full_name_with_username_fallback(self, conference):
+        named = User.objects.create_user("jdoe", first_name="Jane", last_name="Doe")
+        nameless = User.objects.create_user("anon")
+        with_name = VolunteerProfile.objects.create(user=named, conference=conference)
+        without_name = VolunteerProfile.objects.create(
+            user=nameless, conference=conference
+        )
+
+        field = TeamForm(conference=conference).fields["team_leads"]
+
+        assert field.label_from_instance(with_name) == "Jane Doe (jdoe)"
+        assert field.label_from_instance(without_name) == "anon"
 
 
 @pytest.mark.django_db

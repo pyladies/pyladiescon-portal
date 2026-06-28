@@ -323,19 +323,31 @@ class VolunteerProfileReviewForm(ModelForm):
         return volunteer_profile
 
 
+class TeamLeadChoiceField(forms.ModelMultipleChoiceField):
+    """Label team-lead options by full name, falling back to username."""
+
+    def label_from_instance(self, obj):
+        name = obj.user.get_full_name()
+        return f"{name} ({obj.user.username})" if name else obj.user.username
+
+
 class TeamForm(ModelForm):
     """Create/edit a team through the portal (instead of Django admin)."""
+
+    team_leads = TeamLeadChoiceField(
+        queryset=VolunteerProfile.objects.none(),
+        widget=forms.CheckboxSelectMultiple,
+        required=False,
+    )
 
     class Meta:
         model = Team
         fields = ["short_name", "description", "open_to_new_members", "team_leads"]
-        widgets = {"team_leads": forms.CheckboxSelectMultiple}
 
     def __init__(self, *args, conference=None, **kwargs):
         super().__init__(*args, **kwargs)
         # Team leads must be volunteers of the team's own edition. The views
         # always pass the edition (active on create, the instance's on edit).
-        self.fields["team_leads"].required = False
         self.fields["team_leads"].queryset = VolunteerProfile.objects.filter(
             conference=conference
-        )
+        ).select_related("user")
