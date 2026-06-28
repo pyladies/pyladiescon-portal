@@ -2,6 +2,7 @@ import django_filters
 import django_tables2 as tables
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.postgres.search import SearchQuery, SearchVector
 from django.http import Http404
 from django.shortcuts import redirect, render
@@ -419,6 +420,26 @@ class TeamDashboardView(TeamLeadRequiredMixin, DetailView):
             is_admin or team.team_leads.filter(user=user).exists()
         )
         return context
+
+
+class MyTeamsView(LoginRequiredMixin, ListView):
+    """Teams the current user leads, across every edition.
+
+    A one-screen landing for leads: each team links to its dashboard. The "My
+    teams" nav entry (gated on ``leads_any_team``) points here.
+    """
+
+    model = Team
+    template_name = "team/my_teams.html"
+    context_object_name = "teams"
+
+    def get_queryset(self):
+        return (
+            Team.objects.filter(team_leads__user=self.request.user)
+            .select_related("conference")
+            .order_by("-conference__year", "short_name")
+            .distinct()
+        )
 
 
 class TeamCreate(VolunteerAdminRequiredMixin, CreateView):
