@@ -47,6 +47,14 @@ class TestPortalIndex:
         assert "Sign out" not in response.content.decode()
         assert "Login" not in response.content.decode()
 
+    def test_manage_teams_card_shown_to_superuser(self, client, admin_user, conference):
+        PortalProfile.objects.create(user=admin_user)
+        client.force_login(admin_user)
+        response = client.get(reverse("index"))
+        assert response.status_code == 200
+        assert "Manage Teams" in response.content.decode()
+        assert reverse("teams") in response.content.decode()
+
 
 @pytest.mark.django_db
 class TestPortalStats:
