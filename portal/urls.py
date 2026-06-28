@@ -53,6 +53,11 @@ urlpatterns = [
         name="teams",
     ),
     path(
+        "teams/mine/",
+        volunteer_view.MyTeamsView.as_view(),
+        name="my_teams",
+    ),
+    path(
         "teams/new/",
         volunteer_view.TeamCreate.as_view(),
         name="team_new",

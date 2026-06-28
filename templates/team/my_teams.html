@@ -1,0 +1,47 @@
+{% extends "portal/base.html" %}
+{% load i18n %}
+{% block content %}
+    <div class="container px-4 py-4">
+        <h1 class="display-6 pb-2 border-bottom">
+            {% trans "My teams" %}
+        </h1>
+        {% if teams %}
+            <table class="table table-hover align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th>
+                            {% trans "Edition" %}
+                        </th>
+                        <th>
+                            {% trans "Name" %}
+                        </th>
+                        <th>
+                            {% trans "Members" %}
+                        </th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for team in teams %}
+                        <tr>
+                            <td>
+                                {{ team.conference.year }}
+                            </td>
+                            <td>
+                                <a href="{% url 'team_dashboard' team.id %}">{{ team.short_name }}</a>
+                            </td>
+                            <td>
+                                <span class="badge bg-primary rounded-pill">{{ team.approved_members.count }}</span> {% trans "approved" %}
+                                <span class="badge bg-warning rounded-pill">{{ team.pending_members.count }}</span> {% trans "pending" %}
+                                <span class="badge bg-secondary rounded-pill">{{ team.waitlisted_members.count }}</span> {% trans "waitlisted" %}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <p class="text-secondary">
+                {% trans "You don't lead any teams yet." %}
+            </p>
+        {% endif %}
+    </div>
+{% endblock content %}

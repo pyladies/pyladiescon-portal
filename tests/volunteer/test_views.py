@@ -1380,3 +1380,55 @@ class TestTeamDashboard:
         client.force_login(portal_user)
         response = client.get(reverse("team_dashboard", kwargs={"pk": 99999}))
         assert response.status_code in (302, 403)
+
+
+@pytest.mark.django_db
+class TestMyTeams:
+    def _lead(self, user, conference):
+        profile = VolunteerProfile.objects.create(
+            user=user,
+            conference=conference,
+            application_status=ApplicationStatus.APPROVED,
+        )
+        team = Team.objects.create(
+            short_name="Led Team", description="d", conference=conference
+        )
+        team.team_leads.add(profile)
+        return team
+
+    def test_requires_login(self, client):
+        response = client.get(reverse("my_teams"))
+        assert response.status_code == 302
+
+    def test_lead_sees_only_their_teams(self, client, portal_user, conference):
+        led = self._lead(portal_user, conference)
+        other = Team.objects.create(
+            short_name="Other Team", description="d", conference=conference
+        )
+        client.force_login(portal_user)
+        response = client.get(reverse("my_teams"))
+        assert response.status_code == 200
+        teams = list(response.context["teams"])
+        assert led in teams
+        assert other not in teams
+
+    def test_non_lead_sees_empty_state(self, client, portal_user, conference):
+        Team.objects.create(
+            short_name="Some Team", description="d", conference=conference
+        )
+        client.force_login(portal_user)
+        response = client.get(reverse("my_teams"))
+        assert response.status_code == 200
+        assert list(response.context["teams"]) == []
+        assert "You don't lead any teams yet." in response.content.decode()
+
+    def test_nav_shows_my_teams_for_lead(self, client, portal_user, conference):
+        self._lead(portal_user, conference)
+        client.force_login(portal_user)
+        response = client.get(reverse("volunteer:index"))
+        assert reverse("my_teams") in response.content.decode()
+
+    def test_nav_hides_my_teams_for_non_lead(self, client, portal_user, conference):
+        client.force_login(portal_user)
+        response = client.get(reverse("volunteer:index"))
+        assert reverse("my_teams") not in response.content.decode()
