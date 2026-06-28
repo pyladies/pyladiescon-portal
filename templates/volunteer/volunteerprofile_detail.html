@@ -225,27 +225,27 @@
     <div class="mt-4">
         {% if user.is_superuser and user.username != object.user.username %}
             <a class="btn btn-secondary"
-               href="{% url 'volunteer:volunteers_list' %}">Back to Manage Volunteers</a>
+               href="{% url 'volunteer:volunteers_list' %}"><i class="fa-solid fa-arrow-left"></i> Back to Manage Volunteers</a>
             {% if object.application_status != "Cancelled" %}
                 <button type="button"
                         class="btn btn-danger ms-2"
                         data-bs-toggle="modal"
                         data-bs-target="#cancelVolunteeringModal">
-                    Cancel Volunteering
+                    <i class="fa-solid fa-ban"></i> Cancel Volunteering
                 </button>
             {% endif %}
         {% else %}
             {% if object.application_status != "Cancelled" %}
                 <a class="btn btn-primary"
-                   href="{% url 'volunteer:volunteer_profile_edit' object.pk %}">Edit Profile</a>
+                   href="{% url 'volunteer:volunteer_profile_edit' object.pk %}"><i class="fa-solid fa-pencil"></i> Edit Profile</a>
                 <button type="button"
                         class="btn btn-danger ms-2"
                         data-bs-toggle="modal"
                         data-bs-target="#cancelVolunteeringModal">
-                    Cancel My Volunteering
+                    <i class="fa-solid fa-ban"></i> Cancel My Volunteering
                 </button>
             {% endif %}
-            <a class="btn btn-secondary" href="{% url 'volunteer:index' %}">Back to Volunteer Dashboard</a>
+            <a class="btn btn-secondary" href="{% url 'volunteer:index' %}"><i class="fa-solid fa-arrow-left"></i> Back to Volunteer Dashboard</a>
         {% endif %}
     </div>
     <!-- Cancel Volunteering Modal -->
