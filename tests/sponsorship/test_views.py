@@ -917,3 +917,11 @@ class TestSponsorActionsColumn:
             "sponsorship:sponsorship_profile_edit", kwargs={"pk": profile.pk}
         )
         assert edit_url in response.content.decode()
+
+
+@pytest.mark.django_db
+class TestSponsorshipIndexRedirect:
+    def test_root_redirects_to_list(self, client):
+        response = client.get(reverse("sponsorship:index"))
+        assert response.status_code == 302
+        assert response.url == reverse("sponsorship:sponsorship_list")

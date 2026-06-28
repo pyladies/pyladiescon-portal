@@ -1,118 +1,156 @@
 {% extends "portal/base.html" %}
 {% load allauth i18n %}
 {% load django_bootstrap5 %}
-{% load portal_extras %}
 {% block body %}
 {% endblock body %}
 {% block content %}
-    {% if profile and profile.is_approved and not profile.github_username %}
-        <div class="alert alert-warning alert-dismissible fade show" role="alert">
-            <h4 class="alert-heading">
-                <i class="fa-brands fa-github"></i> GitHub Username Required
-            </h4>
-            <p>
-                Your GitHub username is currently missing. You will be added to the
-                <a href="https://github.com/orgs/pyladies/teams/pyladiescon-volunteers"
-                   target="_blank"
-                   class="alert-link">@pyladies/pyladiescon-volunteers</a>
-                GitHub team to access our repositories.
-            </p>
-            <hr>
-            <p class="mb-0">
-                Please <a href="{% url 'volunteer:volunteer_profile_edit' profile.id %}"
-    class="alert-link"><strong>update your profile</strong></a>
-                with your GitHub username and let your team lead know after you've done that.
-            </p>
-            <button type="button"
-                    class="btn-close"
-                    data-bs-dismiss="alert"
-                    aria-label="Close">
-            </button>
-        </div>
-    {% endif %}
-    {% if user.is_superuser %}
-        <h1 class="display-5">
-            Manage Volunteers
+    <div class="container px-0">
+        <h1 class="h3 mb-4">
+            {% trans "My volunteering" %}
         </h1>
-        <p>
-            Review volunteer applications and manage team members.
-        </p>
-        <ul class="list-unstyled ps-8">
-            <li>
-                <a href="{% url 'volunteer:volunteers_list' %}" class="icon-link">
-                    {% translate "Manage Volunteers" %}
-                    <i class="fa-solid fa-chevron-right"></i>
-                </a>
-            </li>
-        </ul>
-    {% endif %}
-    <h1 class="display-5">
-        {% trans "Volunteer Profile" %}
-    </h1>
-    {% if profile %}
-        <div>
-            <a class="btn btn-primary btn-lg"
-               role="button"
-               href="{% url 'volunteer:volunteer_profile_detail' profile.id %}">View my Profile</a>
-            <a class="btn btn-secondary btn-lg"
-               role="button"
-               href="{% url 'volunteer:volunteer_profile_edit' profile.id %}">Edit Profile</a>
-        </div>
-    {% else %}
-        <p class="col-md-8 fs-4">
-            {% blocktranslate %}You have not created your Volunteer Profile yet. Once you created your profile, our team will review it.
-            We will then assign you to the appropriate team that needs help so you can get set up with the
-            necessary access.{% endblocktranslate %}
-        </p>
-        <a class="btn btn-primary btn-lg"
-           role="button"
-           href="{% url 'volunteer:volunteer_profile_new' %}">{% trans "Create my Profile" %}</a>
-    {% endif %}
-    <p>
-        <h2>
-            Links and Resources
-        </h2>
-        <ul class="list-unstyled ps-8">
-            <li>
-                <a href="{% url 'volunteer:my_conferences' %}" class="icon-link">
-                    Your Conferences
-                    <i class="fa-solid fa-chevron-right"></i>
-                </a> See all the editions you have volunteered for.
-            </li>
-            {% if profile.id %}
-                <li>
-                    <a href="{% url 'volunteer:index' %}" class="icon-link">
-                        Manage your volunteer profile
-                        <i class="fa-solid fa-chevron-right"></i>
-                    </a>
-                </li>
+        {% if not profile %}
+            {# No profile yet — prompt + what to expect. #}
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h2 class="h5">
+                        {% trans "Start volunteering with PyLadiesCon" %}
+                    </h2>
+                    <p class="text-secondary">
+                        {% blocktranslate %}Create your volunteer profile and our team will review it, then match you to a team that needs help.{% endblocktranslate %}
+                    </p>
+                    <ol class="text-secondary">
+                        <li>
+                            {% trans "Fill in your profile — region, languages, and how you'd like to help." %}
+                        </li>
+                        <li>
+                            {% trans "We review it and match you to a team." %}
+                        </li>
+                        <li>
+                            {% trans "You get access to the tools and Discord once onboarded." %}
+                        </li>
+                    </ol>
+                    <a class="btn btn-primary"
+                       href="{% url 'volunteer:volunteer_profile_new' %}">{% trans "Create my volunteer profile" %}</a>
+                </div>
+            </div>
+        {% else %}
+            {# Status banner — the state-aware heart of the page. #}
+            {% if profile.is_approved %}
+                <div class="card border-success-subtle bg-success-subtle mb-4">
+                    <div class="card-body d-flex flex-wrap align-items-center gap-3">
+                        <i class="fa-solid fa-circle-check fs-3 text-success"></i>
+                        <div class="flex-grow-1">
+                            <div class="fw-semibold">
+                                {% trans "Approved volunteer" %}
+                                {% if profile.conference %}
+                                    · {{ profile.conference.year }}
+                                {% endif %}
+                            </div>
+                            <div class="small text-success-emphasis">
+                                {% if profile.region %}
+                                    {{ profile.region }}
+                                {% endif %}
+                                {% for lang in profile.language.all %}
+                                    {% if forloop.first and profile.region %}
+                                        ·
+                                    {% endif %}
+                                    {% if not forloop.first %}
+                                        ,
+                                    {% endif %}
+                                    {{ lang }}
+                                {% endfor %}
+                            </div>
+                        </div>
+                        <div class="d-flex gap-2">
+                            <a class="btn btn-sm btn-outline-secondary"
+                               href="{% url 'volunteer:volunteer_profile_detail' profile.id %}"><i class="fa-solid fa-eye"></i> {% trans "View" %}</a>
+                            <a class="btn btn-sm btn-outline-secondary"
+                               href="{% url 'volunteer:volunteer_profile_edit' profile.id %}"><i class="fa-solid fa-pencil"></i> {% trans "Edit" %}</a>
+                        </div>
+                    </div>
+                </div>
+                {% if not profile.github_username %}
+                    <div class="alert alert-warning" role="alert">
+                        <i class="fa-brands fa-github"></i>
+                        {% trans "Your GitHub username is missing — add it so we can grant repository access." %}
+                        <a href="{% url 'volunteer:volunteer_profile_edit' profile.id %}"
+                           class="alert-link">{% trans "Update profile" %}</a>
+                    </div>
+                {% endif %}
             {% else %}
-                <li>
-                    <a href="{% url 'volunteer:volunteer_profile_new' %}" class="icon-link">
-                        Volunteer Now
-                        <i class="fa-solid fa-chevron-right"></i>
-                    </a>
-                </li>
+                <div class="card border-warning-subtle bg-warning-subtle mb-4">
+                    <div class="card-body d-flex flex-wrap align-items-center gap-3">
+                        <i class="fa-solid fa-clock fs-3 text-warning"></i>
+                        <div class="flex-grow-1">
+                            <div class="fw-semibold">
+                                {% trans "Application under review" %}
+                            </div>
+                            <div class="small text-warning-emphasis">
+                                {% blocktranslate %}We'll email you once a team picks you up.{% endblocktranslate %}
+                            </div>
+                        </div>
+                        <div class="d-flex gap-2">
+                            <a class="btn btn-sm btn-outline-secondary"
+                               href="{% url 'volunteer:volunteer_profile_detail' profile.id %}"><i class="fa-solid fa-eye"></i> {% trans "View" %}</a>
+                            <a class="btn btn-sm btn-outline-secondary"
+                               href="{% url 'volunteer:volunteer_profile_edit' profile.id %}"><i class="fa-solid fa-pencil"></i> {% trans "Edit" %}</a>
+                        </div>
+                    </div>
+                </div>
             {% endif %}
-            <li>
-                <a href="https://conference.pyladies.com/docs/" class="icon-link">
-                    Team Descriptions
-                    <i class="fa-solid fa-chevron-right"></i>
-                </a> Learn about the different teams and their roles.
-            </li>
-            <li>
-                <a href="https://conference.pyladies.com/docs/roles_and_responsibilities/"
-                   class="icon-link">
-                    Volunteer Responsibilities
-                    <i class="fa-solid fa-chevron-right"></i>
-                </a> Understand the expectations and responsibilities of a volunteer.
-            </li>
-            <li>
-                <a href="https://discord.com/invite/2fUN4ddVfP" class="icon-link">
-                    Join our Discord
-                    <i class="fa-brands fa-discord"></i>
-                </a> All of our volunteers are required to be in our Discord server.
-            </li>
-        </ul>
-    </p>
+            {# My teams — leads link to the dashboard (slice 1); members are view-only. #}
+            <h2 class="h6 text-secondary mb-2">
+                {% trans "My teams" %}
+            </h2>
+            {% if my_teams %}
+                <div class="list-group mb-4">
+                    {% for team in my_teams %}
+                        <div class="list-group-item d-flex align-items-center gap-3">
+                            <i class="fa-solid fa-users-rectangle text-secondary"></i>
+                            <span class="flex-grow-1">
+                                <span class="fw-semibold">{{ team.short_name }}</span>
+                                {% if team.id in led_team_ids %}
+                                    <span class="badge text-bg-success ms-1">{% trans "Lead" %}</span>
+                                    <small class="d-block text-secondary">
+                                        {% blocktranslate count counter=team.approved_members.count %}{{ counter }} approved{% plural %}{{ counter }} approved{% endblocktranslate %}
+                                        ·
+                                        {% blocktranslate count counter=team.pending_members.count %}{{ counter }} pending review{% plural %}{{ counter }} pending review{% endblocktranslate %}
+                                    </small>
+                                {% else %}
+                                    <span class="badge text-bg-light border ms-1">{% trans "Member" %}</span>
+                                {% endif %}
+                            </span>
+                            {% if team.id in led_team_ids %}
+                                <a class="btn btn-sm btn-outline-primary"
+                                   href="{% url 'team_dashboard' team.id %}"><i class="fa-solid fa-gauge-high"></i> {% trans "Open dashboard" %}</a>
+                            {% endif %}
+                        </div>
+                    {% endfor %}
+                </div>
+            {% elif profile.is_approved %}
+                <div class="alert alert-light border mb-4">
+                    {% trans "You'll be assigned to a team soon." %}
+                </div>
+            {% else %}
+                <div class="alert alert-light border mb-4">
+                    {% trans "You'll see your team here once your application is approved." %}
+                </div>
+            {% endif %}
+            {# My conferences. #}
+            <h2 class="h6 text-secondary mb-2">
+                {% trans "My conferences" %}
+            </h2>
+            <div class="list-group mb-4">
+                <a href="{% url 'volunteer:my_conferences' %}"
+                   class="list-group-item list-group-item-action d-flex align-items-center">
+                    <i class="fa-solid fa-calendar-days fa-fw text-secondary me-3"></i>
+                    <span class="flex-grow-1">
+                        <span class="d-block">{% trans "Editions you've volunteered for" %}</span>
+                        <small class="text-secondary">{% blocktranslate count counter=conferences_count %}{{ counter }} edition{% plural %}{{ counter }} editions{% endblocktranslate %}</small>
+                    </span>
+                    <i class="fa-solid fa-chevron-right text-secondary"></i>
+                </a>
+            </div>
+        {% endif %}
+    </div>
 {% endblock content %}

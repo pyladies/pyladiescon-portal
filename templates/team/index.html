@@ -19,6 +19,69 @@
                 {% endfor %}
             </div>
         {% endif %}
+        {# Stat header — same pattern as the sponsorship list. #}
+        <div class="container border rounded-3 p-3 mb-4">
+            <div class="row text-center text-sm-start">
+                <div class="col-sm-3">
+                    <div class="card border-0">
+                        <div class="card-body">
+                            <h5 class="card-title">
+                                {% trans "Onboarded" %}
+                            </h5>
+                            <h1 class="display-4 text-primary">
+                                {{ onboarded_count }}
+                            </h1>
+                            <span class="text-muted">{% trans "approved volunteers" %}</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="card border-0">
+                        <div class="card-body">
+                            <h5 class="card-title">
+                                {% trans "Active teams" %}
+                            </h5>
+                            <h1 class="display-4">
+                                {{ teams_count }}
+                            </h1>
+                            <span class="text-muted">{% blocktranslate %}{{ open_count }} open{% endblocktranslate %}</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="card border-0">
+                        <div class="card-body">
+                            <h5 class="card-title">
+                                {% trans "Pending review" %}
+                            </h5>
+                            <h1 class="display-4 text-warning">
+                                {{ pending_total }}
+                            </h1>
+                            <span class="text-muted">{% trans "across all teams" %}</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="card border-0">
+                        <div class="card-body">
+                            <h5 class="card-title">
+                                {% trans "Languages" %}
+                            </h5>
+                            <h1 class="display-4">
+                                {{ languages_count }}
+                            </h1>
+                            <span class="text-muted">{% trans "covered" %}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% if unled_count %}
+            <div class="alert alert-warning d-flex align-items-center" role="alert">
+                <i class="fa-solid fa-triangle-exclamation fa-fw me-2"></i>
+                {% blocktranslate count counter=unled_count %}{{ counter }} team has no lead assigned.{% plural %}{{ counter }} teams have no lead assigned.{% endblocktranslate %}
+            </div>
+        {% endif %}
         <table class="table table-hover align-middle">
             <thead class="table-light">
                 <tr>
@@ -26,7 +89,7 @@
                         {% trans "Name" %}
                     </th>
                     <th>
-                        {% trans "Description" %}
+                        {% trans "Leads" %}
                     </th>
                     <th>
                         {% trans "Open" %}
@@ -45,7 +108,11 @@
                             <a href="{% url 'team_dashboard' team.id %}">{{ team.short_name }}</a>
                         </td>
                         <td>
-                            {{ team.description|truncatechars:60 }}
+                            {% for lead in team.team_leads.all %}
+                                <span class="badge text-bg-light border">{{ lead.user.get_full_name|default:lead.user.username }}</span>
+                            {% empty %}
+                                <span class="badge text-bg-danger">{% trans "unassigned" %}</span>
+                            {% endfor %}
                         </td>
                         <td>
                             {% if team.open_to_new_members %}
@@ -57,7 +124,7 @@
                         <td>
                             <span class="badge bg-primary rounded-pill" title="Approved">{{ team.approved_members.count }}</span>
                             <span class="badge bg-warning rounded-pill" title="Pending">{{ team.pending_members.count }}</span>
-                            <span class="badge bg-warning rounded-pill" title="Waitlisted">{{ team.waitlisted_members.count }}</span>
+                            <span class="badge bg-secondary rounded-pill" title="Waitlisted">{{ team.waitlisted_members.count }}</span>
                         </td>
                         <td>
                             <a href="{% url 'team_edit' team.id %}"

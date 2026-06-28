@@ -1238,6 +1238,19 @@ class TestTeamList:
         response = client.get(reverse("teams"))
         assert reverse("team_edit", kwargs={"pk": team.pk}) in response.content.decode()
 
+    def test_stats_header_zeroes_without_active_conference(
+        self, client, admin_user, conference
+    ):
+        conference.is_active = False
+        conference.save()
+        client.force_login(admin_user)
+        response = client.get(reverse("teams"))
+        assert response.status_code == 200
+        assert response.context["selected_conference"] is None
+        assert response.context["onboarded_count"] == 0
+        assert response.context["teams_count"] == 0
+        assert response.context["languages_count"] == 0
+
 
 @pytest.mark.django_db
 class TestTeamCRUD:
