@@ -21,12 +21,25 @@ from django.contrib import admin
 from django.urls import include, path
 
 from portal import views
+from portal_account import views as portal_account_views
 from volunteer import views as volunteer_view
 
 urlpatterns = [
     path("", views.index, name="index"),
     path("volunteer/", include("volunteer.urls", namespace="volunteer")),
     path("admin/", admin.site.urls),
+    # Override two allauth views so finishing returns to the account page (the
+    # hub) instead of LOGIN_REDIRECT_URL. Must precede the allauth include.
+    path(
+        "accounts/password/change/",
+        portal_account_views.AccountPasswordChangeView.as_view(),
+        name="account_change_password",
+    ),
+    path(
+        "accounts/email/",
+        portal_account_views.AccountEmailView.as_view(),
+        name="account_email",
+    ),
     path("accounts/", include("allauth.urls")),
     path("sponsorship/", include("sponsorship.urls", namespace="sponsorship")),
     path("webhooks/", include("webhooks.urls", namespace="webhooks")),

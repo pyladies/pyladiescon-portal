@@ -1,3 +1,4 @@
+from allauth.account.views import EmailView, PasswordChangeView
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import redirect, render
 from django.urls import reverse_lazy
@@ -47,7 +48,8 @@ class PortalProfileCreate(CreateView):
 class PortalProfileUpdate(UpdateView):
     model = PortalProfile
     template_name = "portal_account/portalprofile_form.html"
-    success_url = reverse_lazy("index")
+    # Editing returns to the account page (the hub), not the landing page.
+    success_url = reverse_lazy("portal_account:index")
     form_class = PortalProfileForm
 
     def get(self, request, *args, **kwargs):
@@ -60,3 +62,15 @@ class PortalProfileUpdate(UpdateView):
         kwargs = super(PortalProfileUpdate, self).get_form_kwargs()
         kwargs.update({"user": self.request.user})
         return kwargs
+
+
+class AccountEmailView(EmailView):
+    """allauth email management that returns to the account page when done."""
+
+    success_url = reverse_lazy("portal_account:index")
+
+
+class AccountPasswordChangeView(PasswordChangeView):
+    """allauth password change that returns to the account page when done."""
+
+    success_url = reverse_lazy("portal_account:index")

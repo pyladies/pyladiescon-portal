@@ -1,8 +1,52 @@
 import pytest
+from allauth.account.models import EmailAddress
 from django.urls import reverse
 from pytest_django.asserts import assertRedirects
 
 from portal_account.models import PortalProfile
+
+
+@pytest.mark.django_db
+class TestAccountRedirects:
+    """Finishing an account task returns to the account page, not the landing page."""
+
+    def test_profile_update_redirects_to_account(self, client, portal_user):
+        profile = PortalProfile.objects.create(user=portal_user)
+        client.force_login(portal_user)
+        response = client.post(
+            reverse("portal_account:portal_profile_edit", kwargs={"pk": profile.id}),
+            {"first_name": "Jane", "last_name": "Doe", "pronouns": "she/her"},
+        )
+        assertRedirects(response, reverse("portal_account:index"))
+
+    def test_password_change_redirects_to_account(self, client, portal_user):
+        portal_user.set_password("oldpass12345")
+        portal_user.save()
+        client.force_login(portal_user)
+        response = client.post(
+            reverse("account_change_password"),
+            {
+                "oldpassword": "oldpass12345",
+                "password1": "newpass67890",
+                "password2": "newpass67890",
+            },
+        )
+        assertRedirects(response, reverse("portal_account:index"))
+
+    def test_email_management_redirects_to_account(self, client, portal_user):
+        EmailAddress.objects.create(
+            user=portal_user, email="a@example.com", verified=True, primary=True
+        )
+        EmailAddress.objects.create(
+            user=portal_user, email="b@example.com", verified=True, primary=False
+        )
+        client.force_login(portal_user)
+        response = client.post(
+            reverse("account_email"),
+            {"action_primary": "", "email": "b@example.com"},
+        )
+        assertRedirects(response, reverse("portal_account:index"))
+
 
 # -----------------------------------------------------------------------------------
 # Portal Profile Tests
