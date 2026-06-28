@@ -1304,3 +1304,79 @@ class TestTeamCRUD:
         response = client.get(reverse("team_detail", kwargs={"pk": team.pk}))
         assert response.status_code == 200
         assert reverse("teams") in response.content.decode()
+
+
+@pytest.mark.django_db
+class TestTeamDashboard:
+    def _team(self, conference):
+        return Team.objects.create(
+            short_name="Comms", description="d", conference=conference
+        )
+
+    def test_admin_sees_dashboard_with_rosters(
+        self, client, admin_user, conference, django_user_model
+    ):
+        team = self._team(conference)
+        approved = VolunteerProfile.objects.create(
+            user=django_user_model.objects.create_user("m1"),
+            conference=conference,
+            application_status=ApplicationStatus.APPROVED,
+        )
+        approved.teams.add(team)
+        pending = VolunteerProfile.objects.create(
+            user=django_user_model.objects.create_user("m2"),
+            conference=conference,
+            application_status=ApplicationStatus.PENDING,
+        )
+        pending.teams.add(team)
+        client.force_login(admin_user)
+
+        response = client.get(reverse("team_dashboard", kwargs={"pk": team.pk}))
+
+        assert response.status_code == 200
+        assert response.context["is_admin"] is True
+        assert response.context["can_manage_members"] is True
+        # Admin sees the manage action into the volunteer review view.
+        assert (
+            reverse("volunteer:volunteer_profile_manage", kwargs={"pk": pending.pk})
+            in response.content.decode()
+        )
+
+    def test_team_lead_sees_dashboard_without_admin_flag(
+        self, client, portal_user, conference
+    ):
+        team = self._team(conference)
+        lead = VolunteerProfile.objects.create(
+            user=portal_user,
+            conference=conference,
+            application_status=ApplicationStatus.APPROVED,
+        )
+        team.team_leads.add(lead)
+        client.force_login(portal_user)
+
+        response = client.get(reverse("team_dashboard", kwargs={"pk": team.pk}))
+
+        assert response.status_code == 200
+        assert response.context["is_admin"] is False
+        assert response.context["can_manage_members"] is True
+
+    def test_non_lead_volunteer_denied(self, client, portal_user, conference):
+        team = self._team(conference)
+        VolunteerProfile.objects.create(
+            user=portal_user,
+            conference=conference,
+            application_status=ApplicationStatus.APPROVED,
+        )
+        client.force_login(portal_user)
+        response = client.get(reverse("team_dashboard", kwargs={"pk": team.pk}))
+        assert response.status_code in (302, 403)
+
+    def test_nonexistent_team_redirects_for_admin(self, client, admin_user):
+        client.force_login(admin_user)
+        response = client.get(reverse("team_dashboard", kwargs={"pk": 99999}))
+        assert response.status_code == 302
+
+    def test_nonexistent_team_denied_for_non_admin(self, client, portal_user):
+        client.force_login(portal_user)
+        response = client.get(reverse("team_dashboard", kwargs={"pk": 99999}))
+        assert response.status_code in (302, 403)

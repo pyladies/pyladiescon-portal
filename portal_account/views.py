@@ -1,3 +1,4 @@
+from allauth.account.views import EmailView, PasswordChangeView
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import redirect, render
 from django.urls import reverse_lazy
@@ -10,13 +11,11 @@ from .models import PortalProfile
 
 @login_required
 def index(request):
-    context = {}
-    try:
-        profile = PortalProfile.objects.get(user=request.user)
-        context["profile_id"] = profile.id
-    except PortalProfile.DoesNotExist:
-        context["profile_id"] = None
-    return render(request, "portal_account/index.html", context)
+    # Pass the whole profile (not just its id) so the account page can render
+    # the identity summary inline instead of sending the user to a separate
+    # detail page.
+    profile = PortalProfile.objects.filter(user=request.user).first()
+    return render(request, "portal_account/index.html", {"profile": profile})
 
 
 class PortalProfileView(DetailView):
@@ -49,7 +48,8 @@ class PortalProfileCreate(CreateView):
 class PortalProfileUpdate(UpdateView):
     model = PortalProfile
     template_name = "portal_account/portalprofile_form.html"
-    success_url = reverse_lazy("index")
+    # Editing returns to the account page (the hub), not the landing page.
+    success_url = reverse_lazy("portal_account:index")
     form_class = PortalProfileForm
 
     def get(self, request, *args, **kwargs):
@@ -62,3 +62,15 @@ class PortalProfileUpdate(UpdateView):
         kwargs = super(PortalProfileUpdate, self).get_form_kwargs()
         kwargs.update({"user": self.request.user})
         return kwargs
+
+
+class AccountEmailView(EmailView):
+    """allauth email management that returns to the account page when done."""
+
+    success_url = reverse_lazy("portal_account:index")
+
+
+class AccountPasswordChangeView(PasswordChangeView):
+    """allauth password change that returns to the account page when done."""
+
+    success_url = reverse_lazy("portal_account:index")

@@ -1,0 +1,69 @@
+{% load i18n %}
+{# Expects: members (iterable of VolunteerProfile), review (bool). #}
+{# Inherits can_manage_members and is_admin from the including template's context. #}
+<div class="table-responsive">
+    <table class="table table-hover table-sm align-middle">
+        <thead class="table-light">
+            <tr>
+                <th>
+                    {% trans "Member" %}
+                </th>
+                <th>
+                    {% trans "Roles" %}
+                </th>
+                <th>
+                    {% trans "Region" %}
+                </th>
+                <th>
+                    {% trans "Discord" %}
+                </th>
+                {% if is_admin %}
+                    <th>
+                        {% trans "Actions" %}
+                    </th>
+                {% endif %}
+            </tr>
+        </thead>
+        <tbody>
+            {% for member in members %}
+                <tr>
+                    <td>
+                        {% if can_manage_members %}
+                            <a href="{% url 'volunteer:volunteer_profile_detail' member.id %}">{{ member.user.get_full_name|default:member.user.username }}</a>
+                        {% else %}
+                            {{ member.user.get_full_name|default:member.user.username }}
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% for role in member.roles.all %}
+                            <span class="badge text-bg-light border">{{ role.short_name }}</span>
+                        {% empty %}
+                            <span class="text-secondary">-</span>
+                        {% endfor %}
+                    </td>
+                    <td>
+                        {{ member.region|default:"-" }}
+                    </td>
+                    <td>
+                        {{ member.discord_username|default:"-" }}
+                    </td>
+                    {% if is_admin %}
+                        <td>
+                            {% if review %}
+                                <a href="{% url 'volunteer:volunteer_profile_manage' member.id %}"
+                                   class="btn btn-sm btn-primary"
+                                   title="Review"
+                                   aria-label="Review"><i class="fa-solid fa-clipboard-check"></i></a>
+                            {% else %}
+                                <a href="{% url 'volunteer:volunteer_profile_manage' member.id %}"
+                                   class="btn btn-sm btn-outline-secondary"
+                                   title="Manage"
+                                   aria-label="Manage"><i class="fa-solid fa-gear"></i></a>
+                            {% endif %}
+                        </td>
+                    {% endif %}
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>

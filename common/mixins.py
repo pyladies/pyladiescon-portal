@@ -1,6 +1,6 @@
 from django.contrib.auth.mixins import UserPassesTestMixin
 
-from volunteer.models import VolunteerProfile
+from volunteer.models import Team, VolunteerProfile
 
 
 class AdminRequiredMixin(UserPassesTestMixin):
@@ -36,3 +36,27 @@ class VolunteerOrAdminRequiredMixin(UserPassesTestMixin):
             is_owner = True
         is_admin = self.request.user.is_superuser or self.request.user.is_staff
         return is_owner or is_admin
+
+
+class TeamLeadRequiredMixin(UserPassesTestMixin):
+    """Mixin for views scoped to a single team in the URL (``pk``).
+
+    Access is granted to admins (superuser or staff) and to volunteers who are
+    a lead of *that* team. This mirrors ``CanViewSponsorship`` scoping its
+    access to the conferences a viewer is allowed to see: a team lead only
+    reaches the teams they actually lead, never every team.
+    """
+
+    def get_team(self):
+        return Team.objects.filter(pk=self.kwargs.get("pk")).first()
+
+    def is_team_lead(self, team):
+        if team is None:
+            return False
+        return team.team_leads.filter(user=self.request.user).exists()
+
+    def test_func(self):
+        user = self.request.user
+        if user.is_superuser or user.is_staff:
+            return True
+        return self.is_team_lead(self.get_team())

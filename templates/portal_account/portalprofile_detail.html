@@ -4,6 +4,9 @@
 {% block body %}
 {% endblock body %}
 {% block content %}
+    <p>
+        <a href="{% url 'portal_account:index' %}"><i class="fa-solid fa-arrow-left"></i> {% trans "Account" %}</a>
+    </p>
     <h1 class="display-5 mb-4">
         {% trans "Your Portal Profile" %}
     </h1>
@@ -75,6 +78,5 @@
     <div class="mt-4">
         <a class="btn btn-primary"
            href="{% url 'portal_account:portal_profile_edit' object.pk %}">{% trans "Edit Profile" %}</a>
-        <a class="btn btn-secondary" href="{% url 'portal_account:index' %}">{% trans "Back to Account Management" %}</a>
     </div>
 {% endblock content %}
