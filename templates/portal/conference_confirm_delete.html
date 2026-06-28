@@ -1,0 +1,22 @@
+{% extends "portal/base.html" %}
+{% load i18n %}
+{% block content %}
+    <div class="container px-4 py-3">
+        <h1 class="display-6 pb-2 border-bottom">
+            {% trans "Delete Conference" %}
+        </h1>
+        <p class="fs-5">
+            {% blocktrans with name=conference.name %}Are you sure you want to delete "{{ name }}"?{% endblocktrans %}
+        </p>
+        <p class="text-muted">
+            {% trans "Editions with teams, volunteers, sponsors, tiers, or donations cannot be deleted." %}
+        </p>
+        <form method="post">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-danger">
+                {% trans "Delete" %}
+            </button>
+            <a href="{% url 'conference_list' %}" class="btn btn-secondary">{% trans "Cancel" %}</a>
+        </form>
+    </div>
+{% endblock content %}

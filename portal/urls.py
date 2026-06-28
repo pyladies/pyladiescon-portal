@@ -90,4 +90,19 @@ urlpatterns = [
         views.StartNewYearView.as_view(),
         name="start_new_year",
     ),
+    path(
+        "conferences/",
+        views.ConferenceList.as_view(),
+        name="conference_list",
+    ),
+    path(
+        "conferences/<int:pk>/edit/",
+        views.ConferenceUpdate.as_view(),
+        name="conference_edit",
+    ),
+    path(
+        "conferences/<int:pk>/delete/",
+        views.ConferenceDelete.as_view(),
+        name="conference_delete",
+    ),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
