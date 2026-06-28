@@ -20,6 +20,11 @@ from common.mixins import (
     VolunteerOrAdminRequiredMixin,
 )
 from common.tasks import enqueue
+from portal.common import (
+    get_volunteer_languages_stat_cache,
+    get_volunteer_onboarded_stat_cache,
+    get_volunteer_teams_stat_cache,
+)
 from portal.models import Conference
 
 from .forms import TeamForm, VolunteerProfileForm, VolunteerProfileReviewForm
@@ -38,12 +43,25 @@ from .tasks import (
 @login_required
 def index(request):
     context = {}
-    # A user can have one profile per conference; show the active edition's.
-    # ``conference=None`` (no active conference) matches nothing, so this
-    # safely yields no profile rather than an arbitrary year.
-    context["profile"] = VolunteerProfile.objects.filter(
+    # One profile per conference; show the active edition's.
+    profile = VolunteerProfile.objects.filter(
         user=request.user, conference=Conference.get_active()
     ).first()
+    context["profile"] = profile
+
+    # Personal hub data: the teams this volunteer is on, and which of those they
+    # lead (so the template can link leads to the team dashboard from slice 1).
+    if profile:
+        context["my_teams"] = list(profile.teams.all())
+        context["led_team_ids"] = set(profile.team_leads.values_list("id", flat=True))
+    else:
+        context["my_teams"] = []
+        context["led_team_ids"] = set()
+
+    # Editions volunteered for = one profile per conference for this user.
+    context["conferences_count"] = VolunteerProfile.objects.filter(
+        user=request.user
+    ).count()
     return render(request, "volunteer/index.html", context)
 
 
@@ -357,8 +375,24 @@ class TeamList(VolunteerAdminRequiredMixin, ListView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
+        conference = self.get_selected_conference()
         context["conferences"] = Conference.objects.all()
-        context["selected_conference"] = self.get_selected_conference()
+        context["selected_conference"] = conference
+
+        teams = context["teams"]
+        if conference:
+            context["onboarded_count"] = get_volunteer_onboarded_stat_cache(conference)
+            context["teams_count"] = get_volunteer_teams_stat_cache(conference)
+            context["languages_count"] = get_volunteer_languages_stat_cache(conference)
+        else:
+            context["onboarded_count"] = 0
+            context["teams_count"] = 0
+            context["languages_count"] = 0
+
+        # Cross-team aggregates the bare list never surfaced.
+        context["pending_total"] = sum(t.pending_members.count() for t in teams)
+        context["open_count"] = sum(1 for t in teams if t.open_to_new_members)
+        context["unled_count"] = sum(1 for t in teams if not t.team_leads.exists())
         return context
 
 

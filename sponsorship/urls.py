@@ -1,10 +1,18 @@
 from django.urls import path
+from django.views.generic import RedirectView
 
 from . import views
 
 app_name = "sponsorship"
 
 urlpatterns = [
+    # The list (which carries the stats header) is the sponsorship home. Make the
+    # bare /sponsorship/ resolve to it instead of 404-ing.
+    path(
+        "",
+        RedirectView.as_view(pattern_name="sponsorship:sponsorship_list"),
+        name="index",
+    ),
     path(
         "new",
         views.SponsorshipProfileCreate.as_view(),
