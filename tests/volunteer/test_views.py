@@ -1230,6 +1230,14 @@ class TestTeamList:
         )
         assert active_team in teams
 
+    def test_list_shows_edit_action(self, client, admin_user, conference):
+        team = Team.objects.create(
+            short_name="Comms", description="d", conference=conference
+        )
+        client.force_login(admin_user)
+        response = client.get(reverse("teams"))
+        assert reverse("team_edit", kwargs={"pk": team.pk}) in response.content.decode()
+
 
 @pytest.mark.django_db
 class TestTeamCRUD:
