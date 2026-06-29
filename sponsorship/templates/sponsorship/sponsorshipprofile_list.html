@@ -35,24 +35,24 @@
         {% if attention_unsigned or attention_awaiting_invoice or attention_unpaid %}
             <div class="list-group mb-3">
                 {% if attention_unsigned %}
-                    <a href="{% querystring progress_status=status_agreement_sent %}#sponsor-status"
-                       class="list-group-item list-group-item-action list-group-item-warning d-flex align-items-center">
+                    <a href="{% querystring progress_status=status_agreement_sent %}"
+                       class="js-preserve-scroll list-group-item list-group-item-action list-group-item-warning d-flex align-items-center">
                         <i class="fa-solid fa-file-signature fa-fw me-3"></i>
                         <span class="flex-grow-1">{% blocktranslate count counter=attention_unsigned %}{{ counter }} agreement awaiting signature{% plural %}{{ counter }} agreements awaiting signature{% endblocktranslate %}</span>
                         <i class="fa-solid fa-chevron-right"></i>
                     </a>
                 {% endif %}
                 {% if attention_awaiting_invoice %}
-                    <a href="{% querystring progress_status=status_agreement_signed %}#sponsor-status"
-                       class="list-group-item list-group-item-action list-group-item-warning d-flex align-items-center">
+                    <a href="{% querystring progress_status=status_agreement_signed %}"
+                       class="js-preserve-scroll list-group-item list-group-item-action list-group-item-warning d-flex align-items-center">
                         <i class="fa-solid fa-file-invoice fa-fw me-3"></i>
                         <span class="flex-grow-1">{% blocktranslate count counter=attention_awaiting_invoice %}{{ counter }} signed sponsor awaiting invoice{% plural %}{{ counter }} signed sponsors awaiting invoice{% endblocktranslate %}</span>
                         <i class="fa-solid fa-chevron-right"></i>
                     </a>
                 {% endif %}
                 {% if attention_unpaid %}
-                    <a href="{% querystring progress_status=status_invoiced %}#sponsor-status"
-                       class="list-group-item list-group-item-action list-group-item-warning d-flex align-items-center">
+                    <a href="{% querystring progress_status=status_invoiced %}"
+                       class="js-preserve-scroll list-group-item list-group-item-action list-group-item-warning d-flex align-items-center">
                         <i class="fa-solid fa-money-bill-wave fa-fw me-3"></i>
                         <span class="flex-grow-1">{% blocktranslate count counter=attention_unpaid %}{{ counter }} invoiced sponsor not yet paid{% plural %}{{ counter }} invoiced sponsors not yet paid{% endblocktranslate %}</span>
                         <i class="fa-solid fa-chevron-right"></i>
@@ -64,15 +64,14 @@
                 <i class="fa-solid fa-circle-check text-success"></i> {% trans "No sponsors need attention right now." %}
             </div>
         {% endif %}
-        <div id="sponsor-status"
-             class="mb-3 d-flex flex-wrap gap-1"
+        <div class="mb-3 d-flex flex-wrap gap-1"
              role="group"
              aria-label="Filter by status">
-            <a href="{% querystring progress_status=None %}#sponsor-status"
-               class="btn btn-sm {% if not selected_status %}btn-secondary{% else %}btn-outline-secondary{% endif %}">{% trans "All" %}</a>
+            <a href="{% querystring progress_status=None %}"
+               class="js-preserve-scroll btn btn-sm {% if not selected_status %}btn-secondary{% else %}btn-outline-secondary{% endif %}">{% trans "All" %}</a>
             {% for value, label in status_choices %}
-                <a href="{% querystring progress_status=value %}#sponsor-status"
-                   class="btn btn-sm {% if selected_status == value|stringformat:'s' %}btn-secondary{% else %}btn-outline-secondary{% endif %}">{{ label }}</a>
+                <a href="{% querystring progress_status=value %}"
+                   class="js-preserve-scroll btn btn-sm {% if selected_status == value|stringformat:'s' %}btn-secondary{% else %}btn-outline-secondary{% endif %}">{{ label }}</a>
             {% endfor %}
         </div>
     {% endif %}
@@ -88,4 +87,32 @@
         </form>
     {% endif %}
     {% render_table table %}
+    {% if can_manage_sponsorship %}
+        {# Keep the scroll position when a status filter reloads the page, so it #}
+        {# doesn't jump back to the top. #}
+        <script>
+        (function () {
+            if ("scrollRestoration" in history) {
+                history.scrollRestoration = "manual";
+            }
+            var key = "sponsorListScrollY";
+            var saved = sessionStorage.getItem(key);
+            function restore() {
+                if (saved !== null) {
+                    window.scrollTo(0, parseInt(saved, 10));
+                }
+            }
+            restore();
+            window.addEventListener("load", function () {
+                restore();
+                sessionStorage.removeItem(key);
+            });
+            document.querySelectorAll(".js-preserve-scroll").forEach(function (link) {
+                link.addEventListener("click", function () {
+                    sessionStorage.setItem(key, String(window.scrollY));
+                });
+            });
+        })();
+        </script>
+    {% endif %}
 {% endblock content %}

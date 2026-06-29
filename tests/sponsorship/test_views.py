@@ -951,7 +951,10 @@ class TestSponsorshipNeedsAttention:
         assert response.context["attention_unsigned"] == 1
         assert response.context["attention_awaiting_invoice"] == 1
         assert response.context["attention_unpaid"] == 1
-        assert "Needs attention" in response.content.decode()
+        content = response.content.decode()
+        assert "Needs attention" in content
+        # Status links preserve scroll so the page doesn't jump on filter.
+        assert "js-preserve-scroll" in content
 
     def test_no_attention_panel_for_read_only_viewer(
         self, client, portal_user, conference
