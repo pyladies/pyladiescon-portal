@@ -28,89 +28,97 @@
             {% endfor %}
         </div>
     {% endif %}
-    {% if can_manage_sponsorship %}
-        <h2 class="h6 text-secondary mb-2">
-            {% trans "Needs attention" %}
-        </h2>
-        {% if attention_unsigned or attention_awaiting_invoice or attention_unpaid %}
-            <div class="list-group mb-3">
-                {% if attention_unsigned %}
-                    <a href="{% querystring progress_status=status_agreement_sent %}"
-                       class="js-preserve-scroll list-group-item list-group-item-action list-group-item-warning d-flex align-items-center">
-                        <i class="fa-solid fa-file-signature fa-fw me-3"></i>
-                        <span class="flex-grow-1">{% blocktranslate count counter=attention_unsigned %}{{ counter }} agreement awaiting signature{% plural %}{{ counter }} agreements awaiting signature{% endblocktranslate %}</span>
-                        <i class="fa-solid fa-chevron-right"></i>
-                    </a>
-                {% endif %}
-                {% if attention_awaiting_invoice %}
-                    <a href="{% querystring progress_status=status_agreement_signed %}"
-                       class="js-preserve-scroll list-group-item list-group-item-action list-group-item-warning d-flex align-items-center">
-                        <i class="fa-solid fa-file-invoice fa-fw me-3"></i>
-                        <span class="flex-grow-1">{% blocktranslate count counter=attention_awaiting_invoice %}{{ counter }} signed sponsor awaiting invoice{% plural %}{{ counter }} signed sponsors awaiting invoice{% endblocktranslate %}</span>
-                        <i class="fa-solid fa-chevron-right"></i>
-                    </a>
-                {% endif %}
-                {% if attention_unpaid %}
-                    <a href="{% querystring progress_status=status_invoiced %}"
-                       class="js-preserve-scroll list-group-item list-group-item-action list-group-item-warning d-flex align-items-center">
-                        <i class="fa-solid fa-money-bill-wave fa-fw me-3"></i>
-                        <span class="flex-grow-1">{% blocktranslate count counter=attention_unpaid %}{{ counter }} invoiced sponsor not yet paid{% plural %}{{ counter }} invoiced sponsors not yet paid{% endblocktranslate %}</span>
-                        <i class="fa-solid fa-chevron-right"></i>
-                    </a>
-                {% endif %}
-            </div>
-        {% else %}
-            <div class="alert alert-light border mb-3">
-                <i class="fa-solid fa-circle-check text-success"></i> {% trans "No sponsors need attention right now." %}
+    <div id="sponsor-results">
+        {% if can_manage_sponsorship %}
+            <h2 class="h6 text-secondary mb-2">
+                {% trans "Needs attention" %}
+            </h2>
+            {% if attention_unsigned or attention_awaiting_invoice or attention_unpaid %}
+                <div class="list-group mb-3">
+                    {% if attention_unsigned %}
+                        <a href="{% querystring progress_status=status_agreement_sent %}"
+                           class="js-preserve-scroll list-group-item list-group-item-action list-group-item-warning d-flex align-items-center">
+                            <i class="fa-solid fa-file-signature fa-fw me-3"></i>
+                            <span class="flex-grow-1">{% blocktranslate count counter=attention_unsigned %}{{ counter }} agreement awaiting signature{% plural %}{{ counter }} agreements awaiting signature{% endblocktranslate %}</span>
+                            <i class="fa-solid fa-chevron-right"></i>
+                        </a>
+                    {% endif %}
+                    {% if attention_awaiting_invoice %}
+                        <a href="{% querystring progress_status=status_agreement_signed %}"
+                           class="js-preserve-scroll list-group-item list-group-item-action list-group-item-warning d-flex align-items-center">
+                            <i class="fa-solid fa-file-invoice fa-fw me-3"></i>
+                            <span class="flex-grow-1">{% blocktranslate count counter=attention_awaiting_invoice %}{{ counter }} signed sponsor awaiting invoice{% plural %}{{ counter }} signed sponsors awaiting invoice{% endblocktranslate %}</span>
+                            <i class="fa-solid fa-chevron-right"></i>
+                        </a>
+                    {% endif %}
+                    {% if attention_unpaid %}
+                        <a href="{% querystring progress_status=status_invoiced %}"
+                           class="js-preserve-scroll list-group-item list-group-item-action list-group-item-warning d-flex align-items-center">
+                            <i class="fa-solid fa-money-bill-wave fa-fw me-3"></i>
+                            <span class="flex-grow-1">{% blocktranslate count counter=attention_unpaid %}{{ counter }} invoiced sponsor not yet paid{% plural %}{{ counter }} invoiced sponsors not yet paid{% endblocktranslate %}</span>
+                            <i class="fa-solid fa-chevron-right"></i>
+                        </a>
+                    {% endif %}
+                </div>
+            {% else %}
+                <div class="alert alert-light border mb-3">
+                    <i class="fa-solid fa-circle-check text-success"></i> {% trans "No sponsors need attention right now." %}
+                </div>
+            {% endif %}
+            <div class="mb-3 d-flex flex-wrap gap-1"
+                 role="group"
+                 aria-label="Filter by status">
+                <a href="{% querystring progress_status=None %}"
+                   class="js-preserve-scroll btn btn-sm {% if not selected_status %}btn-secondary{% else %}btn-outline-secondary{% endif %}">{% trans "All" %}</a>
+                {% for value, label in status_choices %}
+                    <a href="{% querystring progress_status=value %}"
+                       class="js-preserve-scroll btn btn-sm {% if selected_status == value|stringformat:'s' %}btn-secondary{% else %}btn-outline-secondary{% endif %}">{{ label }}</a>
+                {% endfor %}
             </div>
         {% endif %}
-        <div class="mb-3 d-flex flex-wrap gap-1"
-             role="group"
-             aria-label="Filter by status">
-            <a href="{% querystring progress_status=None %}"
-               class="js-preserve-scroll btn btn-sm {% if not selected_status %}btn-secondary{% else %}btn-outline-secondary{% endif %}">{% trans "All" %}</a>
-            {% for value, label in status_choices %}
-                <a href="{% querystring progress_status=value %}"
-                   class="js-preserve-scroll btn btn-sm {% if selected_status == value|stringformat:'s' %}btn-secondary{% else %}btn-outline-secondary{% endif %}">{{ label }}</a>
-            {% endfor %}
-        </div>
-    {% endif %}
-    {% if filter %}
-        <form action="" method="get" class="form">
-            <input type="hidden" name="conference" value="{{ selected_conference.pk }}">
-            {% bootstrap_form filter.form %}
-            {% bootstrap_button 'Search' %}
-            {% if filter.form.is_bound %}
-                <a href="{% url 'sponsorship:sponsorship_list' %}"
-                   class="btn btn-secondary">Reset Filters</a>
-            {% endif %}
-        </form>
-    {% endif %}
-    {% render_table table %}
+        {% if filter %}
+            <form action="" method="get" class="form">
+                <input type="hidden" name="conference" value="{{ selected_conference.pk }}">
+                {% bootstrap_form filter.form %}
+                {% bootstrap_button 'Search' %}
+                {% if filter.form.is_bound %}
+                    <a href="{% url 'sponsorship:sponsorship_list' %}"
+                       class="btn btn-secondary">Reset Filters</a>
+                {% endif %}
+            </form>
+        {% endif %}
+        {% render_table table %}
+    </div>
     {% if can_manage_sponsorship %}
-        {# Keep the scroll position when a status filter reloads the page, so it #}
-        {# doesn't jump back to the top. #}
+        {# Filter chips fetch and swap just the results region, so the page does #}
+        {# not reload or jump. Without JS, the links navigate normally. #}
         <script>
         (function () {
-            if ("scrollRestoration" in history) {
-                history.scrollRestoration = "manual";
+            var container = document.getElementById("sponsor-results");
+            if (!container) {
+                return;
             }
-            var key = "sponsorListScrollY";
-            var saved = sessionStorage.getItem(key);
-            function restore() {
-                if (saved !== null) {
-                    window.scrollTo(0, parseInt(saved, 10));
+            document.addEventListener("click", function (event) {
+                var link = event.target.closest("a.js-preserve-scroll");
+                if (!link || !container.contains(link)) {
+                    return;
                 }
-            }
-            restore();
-            window.addEventListener("load", function () {
-                restore();
-                sessionStorage.removeItem(key);
-            });
-            document.querySelectorAll(".js-preserve-scroll").forEach(function (link) {
-                link.addEventListener("click", function () {
-                    sessionStorage.setItem(key, String(window.scrollY));
-                });
+                event.preventDefault();
+                fetch(link.href)
+                    .then(function (response) {
+                        return response.text();
+                    })
+                    .then(function (html) {
+                        var parsed = new DOMParser().parseFromString(
+                            html,
+                            "text/html"
+                        );
+                        var fresh = parsed.getElementById("sponsor-results");
+                        if (fresh) {
+                            container.innerHTML = fresh.innerHTML;
+                            history.pushState(null, "", link.href);
+                        }
+                    });
             });
         })();
         </script>
