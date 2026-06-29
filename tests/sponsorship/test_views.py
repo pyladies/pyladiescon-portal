@@ -85,7 +85,7 @@ class TestSponsorshipConferenceScoping:
 
         def tier_options(query=""):
             response = client.get(url + query)
-            return list(response.context["filter"].filters["sponsorship_tier"].queryset)
+            return list(response.context["tiers"])
 
         # Default (active edition) → only the active edition's tiers.
         assert active_tier in tier_options()
@@ -559,15 +559,16 @@ class TestSponsorshipCreateViews:
         qs = filter.search_fulltext(filter_queryset, "", "Alpha")
         assert qs.count() == 1  # Only Alpha Corp matches
 
-        qs = filter.filter_progress_status(
-            filter_queryset, "", SponsorshipProgressStatus.NOT_CONTACTED
+        # Status filtering is driven by the quick-filter chips (?progress_status=).
+        not_contacted = client.get(
+            url + f"?progress_status={SponsorshipProgressStatus.NOT_CONTACTED.value}"
         )
-        assert qs.count() == 1  # Only Alpha Corp has NOT_CONTACTED status
+        assert len(not_contacted.context["table"].rows) == 1  # only Alpha Corp
 
-        qs = filter.filter_progress_status(
-            filter_queryset, "", SponsorshipProgressStatus.INVOICED
+        invoiced = client.get(
+            url + f"?progress_status={SponsorshipProgressStatus.INVOICED.value}"
         )
-        assert qs.count() == 0  # No sponsors with INVOICED status
+        assert len(invoiced.context["table"].rows) == 0  # none invoiced
 
     def test_sponsorship_profile_detail_view_for_approved_volunteer(
         self, client, portal_user, conference
@@ -950,7 +951,10 @@ class TestSponsorshipNeedsAttention:
         assert response.context["attention_unsigned"] == 1
         assert response.context["attention_awaiting_invoice"] == 1
         assert response.context["attention_unpaid"] == 1
-        assert "Needs attention" in response.content.decode()
+        content = response.content.decode()
+        assert "Needs attention" in content
+        # Status links preserve scroll so the page doesn't jump on filter.
+        assert "js-preserve-scroll" in content
 
     def test_no_attention_panel_for_read_only_viewer(
         self, client, portal_user, conference
@@ -964,6 +968,31 @@ class TestSponsorshipNeedsAttention:
         response = client.get(reverse("sponsorship:sponsorship_list"))
         assert "attention_unsigned" not in response.context
         assert "Needs attention" not in response.content.decode()
+
+    def test_tier_filter_chip_narrows_list(self, client, admin_user, conference):
+        tier_a = SponsorshipTier.objects.create(
+            name="A", amount=1, description="d", conference=conference
+        )
+        tier_b = SponsorshipTier.objects.create(
+            name="B", amount=2, description="d", conference=conference
+        )
+        SponsorshipProfile.objects.create(
+            organization_name="OrgA",
+            sponsorship_tier=tier_a,
+            progress_status=SponsorshipProgressStatus.PAID,
+            conference=conference,
+        )
+        SponsorshipProfile.objects.create(
+            organization_name="OrgB",
+            sponsorship_tier=tier_b,
+            progress_status=SponsorshipProgressStatus.PAID,
+            conference=conference,
+        )
+        client.force_login(admin_user)
+        url = reverse("sponsorship:sponsorship_list") + f"?sponsorship_tier={tier_a.pk}"
+        response = client.get(url)
+        assert len(response.context["table"].rows) == 1
+        assert response.context["selected_tier"] == str(tier_a.pk)
 
     def test_status_filter_chip_narrows_list(self, client, admin_user, conference):
         self._profile(conference, SponsorshipProgressStatus.INVOICED)
