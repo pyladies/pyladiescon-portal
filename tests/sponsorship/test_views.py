@@ -145,6 +145,13 @@ class TestSponsorshipConferenceScoping:
 
 @pytest.mark.django_db
 class TestSponsorshipViews:
+    def test_anonymous_redirected_to_login_not_500(self, client):
+        # Anonymous access must redirect to login, not crash filtering on
+        # AnonymousUser.
+        response = client.get(reverse("sponsorship:sponsorship_list"))
+        assert response.status_code == 302
+        assert "/accounts/login/" in response.url
+
     def test_sponsors_list_view_forbidden_if_not_approved_volunteer(
         self, client, portal_user, conference
     ):
