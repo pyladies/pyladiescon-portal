@@ -206,12 +206,8 @@ class SponsorshipProfileFilter(django_filters.FilterSet):
     search = django_filters.CharFilter(
         label="Search by organization name", method="search_fulltext"
     )
-    progress_status = django_filters.ChoiceFilter(
-        method="filter_progress_status",
-        choices=SponsorshipProgressStatus.choices,
-        label="Progress Status",
-        field_name="progress_status",
-    )
+    # Status is filtered via the quick-filter chips (handled in the list view's
+    # get_queryset), not a form field, to avoid two controls for one thing.
     sponsorship_tier = django_filters.ModelChoiceFilter(
         queryset=SponsorshipTier.objects.none()
     )
@@ -233,7 +229,7 @@ class SponsorshipProfileFilter(django_filters.FilterSet):
 
     class Meta:
         model = SponsorshipProfile
-        fields = ["search", "sponsorship_tier", "progress_status"]
+        fields = ["search", "sponsorship_tier"]
 
     def search_fulltext(self, queryset, field_name, value):
         if not value:
@@ -241,10 +237,6 @@ class SponsorshipProfileFilter(django_filters.FilterSet):
         return queryset.annotate(  # pragma: no cover
             search=SearchVector("organization_name", "progress_status")
         ).filter(search=SearchQuery(value))
-
-    def filter_progress_status(self, queryset, name, value):
-        """Custom filtering for the progress_status field."""
-        return queryset.filter(progress_status=value)
 
     @property
     def qs(self):
@@ -290,7 +282,14 @@ class SponsorshipProfileList(CanViewSponsorship, SingleTableMixin, FilterView):
     def get_queryset(self):
         # ``conference=None`` matches nothing, so a year the viewer may not see
         # yields an empty list rather than leaking another year's sponsors.
-        return super().get_queryset().filter(conference=self.get_selected_conference())
+        queryset = (
+            super().get_queryset().filter(conference=self.get_selected_conference())
+        )
+        # Status comes from the quick-filter chips (?progress_status=<int>).
+        status = self.request.GET.get("progress_status")
+        if status and status.isdigit():
+            queryset = queryset.filter(progress_status=status)
+        return queryset
 
     def get_table_kwargs(self):
         kwargs = super().get_table_kwargs()

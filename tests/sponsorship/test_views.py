@@ -559,15 +559,16 @@ class TestSponsorshipCreateViews:
         qs = filter.search_fulltext(filter_queryset, "", "Alpha")
         assert qs.count() == 1  # Only Alpha Corp matches
 
-        qs = filter.filter_progress_status(
-            filter_queryset, "", SponsorshipProgressStatus.NOT_CONTACTED
+        # Status filtering is driven by the quick-filter chips (?progress_status=).
+        not_contacted = client.get(
+            url + f"?progress_status={SponsorshipProgressStatus.NOT_CONTACTED.value}"
         )
-        assert qs.count() == 1  # Only Alpha Corp has NOT_CONTACTED status
+        assert len(not_contacted.context["table"].rows) == 1  # only Alpha Corp
 
-        qs = filter.filter_progress_status(
-            filter_queryset, "", SponsorshipProgressStatus.INVOICED
+        invoiced = client.get(
+            url + f"?progress_status={SponsorshipProgressStatus.INVOICED.value}"
         )
-        assert qs.count() == 0  # No sponsors with INVOICED status
+        assert len(invoiced.context["table"].rows) == 0  # none invoiced
 
     def test_sponsorship_profile_detail_view_for_approved_volunteer(
         self, client, portal_user, conference
