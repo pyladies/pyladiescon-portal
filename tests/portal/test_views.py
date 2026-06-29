@@ -417,3 +417,21 @@ class TestOrganizerDashboard:
         assert response.context["pending_reviews"] == 0
         assert response.context["unled_teams"] == 0
         assert response.context["awaiting_invoice"] == 0
+
+    def test_goal_percent_rounded_and_bar_capped(self, client, admin_user, conference):
+        # A paid sponsor that beats the goal -> percent > 100 with a long decimal.
+        tier = SponsorshipTier.objects.create(
+            name="Big", amount=50000, description="d", conference=conference
+        )
+        SponsorshipProfile.objects.create(
+            organization_name="Whale",
+            sponsorship_tier=tier,
+            progress_status=SponsorshipProgressStatus.PAID,
+            conference=conference,
+        )
+        client.force_login(admin_user)
+        response = client.get(reverse("organizer_dashboard"))
+        pct = response.context["sponsorship_goal_percent"]
+        assert pct > 100  # goal exceeded
+        assert pct == int(pct)  # rounded, not a long decimal
+        assert response.context["sponsorship_bar_width"] == 100  # bar capped
