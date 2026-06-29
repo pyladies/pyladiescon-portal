@@ -1316,7 +1316,12 @@ class TestTeamCRUD:
         client.force_login(admin_user)
         response = client.get(reverse("team_detail", kwargs={"pk": team.pk}))
         assert response.status_code == 200
-        assert reverse("teams") in response.content.decode()
+        content = response.content.decode()
+        assert reverse("teams") in content
+        # Member rosters were removed (they live on the dashboard now).
+        assert "Pending Members" not in content
+        assert "Approved Members" not in content
+        assert reverse("team_dashboard", kwargs={"pk": team.pk}) in content
 
 
 @pytest.mark.django_db
@@ -1349,11 +1354,15 @@ class TestTeamDashboard:
         assert response.status_code == 200
         assert response.context["is_admin"] is True
         assert response.context["can_manage_members"] is True
+        content = response.content.decode()
         # Admin sees the manage action into the volunteer review view.
         assert (
             reverse("volunteer:volunteer_profile_manage", kwargs={"pk": pending.pk})
-            in response.content.decode()
+            in content
         )
+        # Roster status filter chips + filterable sections are present.
+        assert "js-roster-filter" in content
+        assert 'data-roster-section="pending"' in content
 
     def test_team_lead_sees_dashboard_without_admin_flag(
         self, client, portal_user, conference

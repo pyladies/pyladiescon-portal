@@ -125,39 +125,96 @@
                 <i class="fa-solid fa-triangle-exclamation"></i> {% trans "No lead assigned." %}
             </p>
         {% endif %}
+        {# Roster status filter: show all, or just one status. Client-side, so #}
+        {# no reload (all rosters are already on the page). #}
+        <div class="d-flex flex-wrap gap-1 align-items-center mt-4 mb-2"
+             role="group"
+             aria-label="Filter roster by status">
+            <span class="text-secondary small me-1">{% trans "Show" %}</span>
+            <button type="button"
+                    class="btn btn-sm btn-secondary js-roster-filter"
+                    data-roster="all">
+                {% trans "All" %}
+            </button>
+            <button type="button"
+                    class="btn btn-sm btn-outline-secondary js-roster-filter"
+                    data-roster="pending">
+                {% trans "Pending" %}
+            </button>
+            <button type="button"
+                    class="btn btn-sm btn-outline-secondary js-roster-filter"
+                    data-roster="waitlisted">
+                {% trans "Waitlisted" %}
+            </button>
+            <button type="button"
+                    class="btn btn-sm btn-outline-secondary js-roster-filter"
+                    data-roster="approved">
+                {% trans "Approved" %}
+            </button>
+        </div>
         {# Pending + waitlisted are visible to leads and admins; approve/manage #}
         {# actions inside the partial are gated on is_admin. #}
         {% if can_manage_members %}
-            <h3 class="h5 mt-4" id="pending">
-                {% trans "Pending review" %} <span class="badge bg-warning rounded-pill">{{ pending.count }}</span>
+            <div data-roster-section="pending">
+                <h3 class="h5 mt-4" id="pending">
+                    {% trans "Pending review" %} <span class="badge bg-warning rounded-pill">{{ pending.count }}</span>
+                </h3>
+                {% if pending.count %}
+                    {% include "team/_roster_table.html" with members=pending review=True %}
+                {% else %}
+                    <p class="text-secondary">
+                        {% trans "No pending members." %}
+                    </p>
+                {% endif %}
+            </div>
+            <div data-roster-section="waitlisted">
+                <h3 class="h5 mt-4" id="waitlisted">
+                    {% trans "Waitlisted" %} <span class="badge bg-secondary rounded-pill">{{ waitlisted.count }}</span>
+                </h3>
+                {% if waitlisted.count %}
+                    {% include "team/_roster_table.html" with members=waitlisted review=True %}
+                {% else %}
+                    <p class="text-secondary">
+                        {% trans "No waitlisted members." %}
+                    </p>
+                {% endif %}
+            </div>
+        {% endif %}
+        <div data-roster-section="approved">
+            <h3 class="h5 mt-4" id="approved">
+                {% trans "Approved members" %} <span class="badge bg-primary rounded-pill">{{ approved.count }}</span>
             </h3>
-            {% if pending.count %}
-                {% include "team/_roster_table.html" with members=pending review=True %}
+            {% if approved.count %}
+                {% include "team/_roster_table.html" with members=approved review=False %}
             {% else %}
                 <p class="text-secondary">
-                    {% trans "No pending members." %}
+                    {% trans "No approved members yet." %}
                 </p>
             {% endif %}
-            <h3 class="h5 mt-4" id="waitlisted">
-                {% trans "Waitlisted" %} <span class="badge bg-secondary rounded-pill">{{ waitlisted.count }}</span>
-            </h3>
-            {% if waitlisted.count %}
-                {% include "team/_roster_table.html" with members=waitlisted review=True %}
-            {% else %}
-                <p class="text-secondary">
-                    {% trans "No waitlisted members." %}
-                </p>
-            {% endif %}
-        {% endif %}
-        <h3 class="h5 mt-4" id="approved">
-            {% trans "Approved members" %} <span class="badge bg-primary rounded-pill">{{ approved.count }}</span>
-        </h3>
-        {% if approved.count %}
-            {% include "team/_roster_table.html" with members=approved review=False %}
-        {% else %}
-            <p class="text-secondary">
-                {% trans "No approved members yet." %}
-            </p>
-        {% endif %}
+        </div>
+        <script>
+        (function () {
+            var buttons = document.querySelectorAll(".js-roster-filter");
+            var sections = document.querySelectorAll("[data-roster-section]");
+            buttons.forEach(function (button) {
+                button.addEventListener("click", function () {
+                    var target = button.dataset.roster;
+                    buttons.forEach(function (other) {
+                        other.classList.toggle("btn-secondary", other === button);
+                        other.classList.toggle(
+                            "btn-outline-secondary",
+                            other !== button
+                        );
+                    });
+                    sections.forEach(function (section) {
+                        section.hidden = !(
+                            target === "all"
+                            || section.dataset.rosterSection === target
+                        );
+                    });
+                });
+            });
+        })();
+        </script>
     </div>
 {% endblock content %}

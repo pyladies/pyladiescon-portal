@@ -39,61 +39,13 @@
                 </li>
             {% endfor %}
         </ul>
-        {% if user.is_superuser %}
-            <h3 id="pending-members">
-                Pending Members <span class="badge bg-warning rounded-pill">{{ team.pending_members.count }}</span>
-            </h3>
-            {% if team.pending_members.count == 0 %}
-                No pending members.
-            {% else %}
-                <ul>
-                    {% for member in team.pending_members.all %}
-                        <li>
-                            {% if user.is_superuser %}
-                                <a href="{% url 'volunteer:volunteer_profile_manage' member.id %}">{{ member.user.get_full_name }}</a>
-                            {% else %}
-                                {{ member.user.get_full_name }}
-                            {% endif %}
-                        </li>
-                    {% endfor %}
-                </ul>
-            {% endif %}
-            <h3 id="waitlisted-members">
-                Waitlisted Members <span class="badge bg-warning rounded-pill">{{ team.waitlisted_members.count }}</span>
-            </h3>
-            {% if team.waitlisted_members.count == 0 %}
-                No waitlisted members.
-            {% else %}
-                <ul>
-                    {% for member in team.waitlisted_members.all %}
-                        <li>
-                            {% if user.is_superuser %}
-                                <a href="{% url 'volunteer:volunteer_profile_manage' member.id %}">{{ member.user.get_full_name }}</a>
-                            {% else %}
-                                {{ member.user.get_full_name }}
-                            {% endif %}
-                        </li>
-                    {% endfor %}
-                </ul>
-            {% endif %}
-        {% endif %}
-        <h3 id="approved-members">
-            Approved Members <span class="badge bg-primary rounded-pill">{{ team.approved_members.count }}</span>
-        </h3>
-        {% if team.approved_members.count == 0 %}
-            No approved members.
-        {% else %}
-            <ul>
-                {% for member in team.approved_members.all %}
-                    <li>
-                        {% if user.is_superuser %}
-                            <a href="{% url 'volunteer:volunteer_profile_detail' member.id %}">{{ member.user.get_full_name }}</a>
-                        {% else %}
-                            {{ member.user.get_full_name }}
-                        {% endif %}
-                    </li>
-                {% endfor %}
-            </ul>
+        {# Member rosters live on the team dashboard (stats + tables); not #}
+        {# duplicated here. #}
+        {% if is_organizer %}
+            <a href="{% url 'team_dashboard' team.id %}" class="icon-link">
+                {% trans "Open team dashboard" %}
+                <i class="fa-solid fa-arrow-right"></i>
+            </a>
         {% endif %}
     </div>
 {% endblock content %}
