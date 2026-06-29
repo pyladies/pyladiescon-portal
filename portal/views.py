@@ -144,14 +144,16 @@ class OrganizerDashboardView(AdminRequiredMixin, TemplateView):
 
         # Top-line cross-app numbers (clean keys for the template).
         context["onboarded_count"] = stats.get(CACHE_KEY_VOLUNTEER_ONBOARDED_COUNT, 0)
-        context["sponsorship_goal_percent"] = stats.get(
-            CACHE_KEY_SPONSORSHIP_TOWARDS_GOAL_PERCENT, 0
-        )
+        # Goal percentages are raw divisions (can be long decimals and exceed
+        # 100% once the goal is beaten). Round for display; cap the bar at 100%.
+        sponsorship_percent = stats.get(CACHE_KEY_SPONSORSHIP_TOWARDS_GOAL_PERCENT, 0)
+        donation_percent = stats.get(CACHE_KEY_DONATION_TOWARDS_GOAL_PERCENT, 0)
+        context["sponsorship_goal_percent"] = round(sponsorship_percent)
+        context["sponsorship_bar_width"] = min(round(sponsorship_percent), 100)
         context["sponsorship_committed"] = stats.get(CACHE_KEY_SPONSORSHIP_COMMITTED, 0)
         context["sponsorship_goal"] = stats.get(SPONSORSHIP_GOAL, 0)
-        context["donation_goal_percent"] = stats.get(
-            CACHE_KEY_DONATION_TOWARDS_GOAL_PERCENT, 0
-        )
+        context["donation_goal_percent"] = round(donation_percent)
+        context["donation_bar_width"] = min(round(donation_percent), 100)
         context["donations_total"] = stats.get(CACHE_KEY_DONATIONS_TOTAL_AMOUNT, 0)
         context["donation_goal"] = conference.donation_goal if conference else 0
         context["attendee_count"] = stats.get(CACHE_KEY_ATTENDEE_COUNT, 0)
