@@ -3,6 +3,10 @@
 {% load django_bootstrap5 %}
 {% block body %}
 {% endblock body %}
+{% block breadcrumb %}
+    {% trans "Volunteer" as bc_section %}
+    {% include "portal/_breadcrumbs.html" with section=bc_section %}
+{% endblock breadcrumb %}
 {% block content %}
     <div class="container px-0">
         <h1 class="h3 mb-4">

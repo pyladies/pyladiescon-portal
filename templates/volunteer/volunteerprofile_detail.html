@@ -3,6 +3,12 @@
 {% load django_bootstrap5 %}
 {% block body %}
 {% endblock body %}
+{% block breadcrumb %}
+    {% url 'volunteer:index' as bc_url %}
+    {% trans "Volunteer" as bc_section %}
+    {% trans "Profile" as bc_page %}
+    {% include "portal/_breadcrumbs.html" with section=bc_section section_url=bc_url page=bc_page %}
+{% endblock breadcrumb %}
 {% block content %}
     <h1 class="display-5 mb-4">
         {% if user.is_superuser and user.username != object.user.username %}

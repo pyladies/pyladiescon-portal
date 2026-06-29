@@ -1,5 +1,9 @@
 {% extends "portal/base.html" %}
 {% load i18n %}
+{% block breadcrumb %}
+    {% trans "Conferences" as bc_section %}
+    {% include "portal/_breadcrumbs.html" with section=bc_section %}
+{% endblock breadcrumb %}
 {% block content %}
     <div class="container px-4 py-3">
         <h1 class="display-6 pb-2 border-bottom">

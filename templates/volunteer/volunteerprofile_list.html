@@ -4,6 +4,10 @@
 {% load render_table from django_tables2 %}
 {% block body %}
 {% endblock body %}
+{% block breadcrumb %}
+    {% trans "Volunteers" as bc_section %}
+    {% include "portal/_breadcrumbs.html" with section=bc_section %}
+{% endblock breadcrumb %}
 {% block content %}
     <h1 class="display-5">
         Manage Volunteers

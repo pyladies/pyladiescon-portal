@@ -3,11 +3,18 @@
 {% load django_bootstrap5 %}
 {% block body %}
 {% endblock body %}
+{% block breadcrumb %}
+    {% if is_organizer %}
+        {% url 'teams' as bc_url %}
+        {% trans "Teams" as bc_section %}
+    {% else %}
+        {% url 'my_teams' as bc_url %}
+        {% trans "My teams" as bc_section %}
+    {% endif %}
+    {% include "portal/_breadcrumbs.html" with section=bc_section section_url=bc_url page=team.short_name %}
+{% endblock breadcrumb %}
 {% block content %}
     <div class="container px-4 py-4">
-        <p>
-            <a href="{% url 'teams' %}"><i class="fa-solid fa-arrow-left"></i> {% trans "All teams" %}</a>
-        </p>
         <h1 class="display-6 d-flex align-items-center flex-wrap gap-2">
             {{ team.short_name }}
             <span class="badge bg-secondary fs-6 align-middle">{{ team.conference.year }}</span>

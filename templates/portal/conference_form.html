@@ -1,11 +1,14 @@
 {% extends "portal/base.html" %}
 {% load i18n %}
 {% load django_bootstrap5 %}
+{% block breadcrumb %}
+    {% url 'conference_list' as bc_url %}
+    {% trans "Conferences" as bc_section %}
+    {% trans "Edit" as bc_page %}
+    {% include "portal/_breadcrumbs.html" with section=bc_section section_url=bc_url page=bc_page %}
+{% endblock breadcrumb %}
 {% block content %}
     <div class="container px-4 py-3">
-        <p>
-            <a href="{% url 'conference_list' %}"><i class="fa-solid fa-arrow-left"></i> {% trans "All conferences" %}</a>
-        </p>
         <h1 class="display-6 pb-2 border-bottom">
             {% trans "Edit Conference" %}: {{ object.name }}
         </h1>
