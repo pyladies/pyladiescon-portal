@@ -26,6 +26,11 @@ from volunteer import views as volunteer_view
 
 urlpatterns = [
     path("", views.index, name="index"),
+    path(
+        "organize/",
+        views.OrganizerDashboardView.as_view(),
+        name="organizer_dashboard",
+    ),
     path("volunteer/", include("volunteer.urls", namespace="volunteer")),
     path("admin/", admin.site.urls),
     # Override two allauth views so finishing returns to the account page (the

@@ -1,0 +1,190 @@
+{% extends "portal/base.html" %}
+{% load allauth i18n %}
+{% load django_bootstrap5 %}
+{% load portal_extras %}
+{% block body %}
+{% endblock body %}
+{% block content %}
+    <div class="container px-0">
+        <h1 class="h3 mb-1">
+            {% trans "Organizer dashboard" %}
+        </h1>
+        <p class="text-secondary mb-4">
+            {% if conference %}
+                {% blocktranslate with year=conference.year %}PyLadiesCon {{ year }} — everything that needs your eyes, in one place.{% endblocktranslate %}
+            {% else %}
+                {% trans "No active conference edition." %}
+            {% endif %}
+        </p>
+        {# ---- Cross-app top line ---- #}
+        <div class="row row-cols-2 row-cols-md-4 g-3 mb-4">
+            <div class="col">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <div class="text-secondary small mb-1">
+                            <i class="fa-solid fa-user-check"></i> {% trans "Onboarded" %}
+                        </div>
+                        <div class="fs-3 fw-medium">
+                            {{ onboarded_count }}
+                        </div>
+                        <div class="text-muted small">
+                            {% trans "approved volunteers" %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <div class="text-secondary small mb-1">
+                            <i class="fa-solid fa-hand-holding-dollar"></i> {% trans "Sponsorship" %}
+                        </div>
+                        <div class="fs-3 fw-medium">
+                            {{ sponsorship_goal_percent }}%
+                        </div>
+                        <div class="text-muted small">
+                            {{ sponsorship_committed|as_currency }} {% trans "of" %} {{ sponsorship_goal|as_currency }}
+                        </div>
+                        {# djlint:off #}
+                        <div class="progress mt-2" role="progressbar" style="height: 5px;">
+                            <div class="progress-bar" style="width: {{ sponsorship_goal_percent }}%"></div>
+                        </div>
+                        {# djlint:on #}
+                    </div>
+                </div>
+            </div>
+            <div class="col">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <div class="text-secondary small mb-1">
+                            <i class="fa-solid fa-heart"></i> {% trans "Donations" %}
+                        </div>
+                        <div class="fs-3 fw-medium">
+                            {{ donation_goal_percent }}%
+                        </div>
+                        <div class="text-muted small">
+                            {{ donations_total|as_currency }} {% trans "of" %} {{ donation_goal|as_currency }}
+                        </div>
+                        {# djlint:off #}
+                        <div class="progress mt-2" role="progressbar" style="height: 5px;">
+                            <div class="progress-bar" style="width: {{ donation_goal_percent }}%"></div>
+                        </div>
+                        {# djlint:on #}
+                    </div>
+                </div>
+            </div>
+            <div class="col">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <div class="text-secondary small mb-1">
+                            <i class="fa-solid fa-ticket"></i> {% trans "Attendees" %}
+                        </div>
+                        <div class="fs-3 fw-medium">
+                            {{ attendee_count }}
+                        </div>
+                        <div class="text-muted small">
+                            {% blocktranslate count counter=attendee_first_time_count %}{{ counter }} first-time{% plural %}{{ counter }} first-time{% endblocktranslate %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {# ---- Needs attention ---- #}
+        <h2 class="h6 text-secondary mb-2">
+            {% trans "Needs attention" %}
+        </h2>
+        {% if pending_reviews or unled_teams or awaiting_invoice %}
+            <div class="list-group mb-4">
+                {% if pending_reviews %}
+                    <a href="{% url 'teams' %}"
+                       class="list-group-item list-group-item-action list-group-item-warning d-flex align-items-center">
+                        <i class="fa-solid fa-clipboard-list fa-fw me-3"></i>
+                        <span class="flex-grow-1">{% blocktranslate count counter=pending_reviews %}<strong>{{ counter }} volunteer application</strong> pending review.{% plural %}<strong>{{ counter }} volunteer applications</strong> pending review across teams.{% endblocktranslate %}</span>
+                        <i class="fa-solid fa-chevron-right"></i>
+                    </a>
+                {% endif %}
+                {% if unled_teams %}
+                    <a href="{% url 'teams' %}"
+                       class="list-group-item list-group-item-action list-group-item-warning d-flex align-items-center">
+                        <i class="fa-solid fa-user-slash fa-fw me-3"></i>
+                        <span class="flex-grow-1">{% blocktranslate count counter=unled_teams %}<strong>{{ counter }} team</strong> has no lead assigned.{% plural %}<strong>{{ counter }} teams</strong> have no lead assigned.{% endblocktranslate %}</span>
+                        <i class="fa-solid fa-chevron-right"></i>
+                    </a>
+                {% endif %}
+                {% if awaiting_invoice %}
+                    <a href="{% url 'sponsorship:sponsorship_list' %}"
+                       class="list-group-item list-group-item-action list-group-item-warning d-flex align-items-center">
+                        <i class="fa-solid fa-file-invoice fa-fw me-3"></i>
+                        <span class="flex-grow-1">{% blocktranslate count counter=awaiting_invoice %}<strong>{{ counter }} sponsor</strong> committed but not yet invoiced.{% plural %}<strong>{{ counter }} sponsors</strong> committed but not yet invoiced.{% endblocktranslate %}</span>
+                        <i class="fa-solid fa-chevron-right"></i>
+                    </a>
+                {% endif %}
+            </div>
+        {% else %}
+            <div class="alert alert-light border mb-4">
+                <i class="fa-solid fa-circle-check text-success"></i> {% trans "Nothing needs your attention right now." %}
+            </div>
+        {% endif %}
+        {# ---- Quick actions ---- #}
+        <h2 class="h6 text-secondary mb-2">
+            {% trans "Quick actions" %}
+        </h2>
+        <div class="row row-cols-2 row-cols-md-3 g-3">
+            <div class="col">
+                <a href="{% url 'volunteer:volunteers_list' %}"
+                   class="card h-100 text-decoration-none">
+                    <div class="card-body d-flex align-items-center gap-3">
+                        <i class="fa-solid fa-users fs-5 text-primary"></i>
+                        <span class="text-body">{% trans "Review volunteers" %}</span>
+                    </div>
+                </a>
+            </div>
+            <div class="col">
+                <a href="{% url 'teams' %}" class="card h-100 text-decoration-none">
+                    <div class="card-body d-flex align-items-center gap-3">
+                        <i class="fa-solid fa-users-rectangle fs-5 text-primary"></i>
+                        <span class="text-body">{% trans "Manage teams" %}</span>
+                    </div>
+                </a>
+            </div>
+            <div class="col">
+                <a href="{% url 'sponsorship:sponsorship_profile_new' %}"
+                   class="card h-100 text-decoration-none">
+                    <div class="card-body d-flex align-items-center gap-3">
+                        <i class="fa-solid fa-plus fs-5 text-primary"></i>
+                        <span class="text-body">{% trans "Add sponsor" %}</span>
+                    </div>
+                </a>
+            </div>
+            <div class="col">
+                <a href="{% url 'conference_list' %}"
+                   class="card h-100 text-decoration-none">
+                    <div class="card-body d-flex align-items-center gap-3">
+                        <i class="fa-solid fa-calendar-days fs-5 text-primary"></i>
+                        <span class="text-body">{% trans "Conferences" %}</span>
+                    </div>
+                </a>
+            </div>
+            {% if can_start_next_year %}
+                <div class="col">
+                    <a href="{% url 'start_new_year' %}"
+                       class="card h-100 text-decoration-none">
+                        <div class="card-body d-flex align-items-center gap-3">
+                            <i class="fa-solid fa-calendar-plus fs-5 text-primary"></i>
+                            <span class="text-body">{% trans "Start next year" %}</span>
+                        </div>
+                    </a>
+                </div>
+            {% endif %}
+            <div class="col">
+                <a href="{% url 'admin:index' %}"
+                   class="card h-100 text-decoration-none">
+                    <div class="card-body d-flex align-items-center gap-3">
+                        <i class="fa-solid fa-user-shield fs-5 text-primary"></i>
+                        <span class="text-body">{% trans "Admin area" %}</span>
+                    </div>
+                </a>
+            </div>
+        </div>
+    </div>
+{% endblock content %}

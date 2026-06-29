@@ -218,6 +218,14 @@ SPONSOR_PENDING_STATUS = [
     SponsorshipProgressStatus.AGREEMENT_SIGNED,
     SponsorshipProgressStatus.INVOICED,
 ]
+# "Committed but not yet invoiced" = committed statuses minus INVOICED/PAID.
+# Used by the organizer dashboard's needs-attention queue.
+SPONSOR_AWAITING_INVOICE_STATUS = [
+    SponsorshipProgressStatus.ACCEPTED,
+    SponsorshipProgressStatus.APPROVED,
+    SponsorshipProgressStatus.AGREEMENT_SENT,
+    SponsorshipProgressStatus.AGREEMENT_SIGNED,
+]
 
 
 def get_sponsorship_total_count_stats_cache(conference):
