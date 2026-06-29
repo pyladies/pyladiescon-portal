@@ -208,6 +208,36 @@
                 </div>
             </div>
         </nav>
+        {% if active_conference.banner_text %}
+            <div id="conference-banner"
+                 class="alert alert-info alert-dismissible rounded-0 text-center mb-0"
+                 role="alert"
+                 data-banner="{{ active_conference.banner_text }}">
+                {{ active_conference.banner_text }}
+                <button type="button"
+                        class="btn-close"
+                        data-bs-dismiss="alert"
+                        aria-label="Close">
+                </button>
+            </div>
+            <script>
+            (function () {
+                var banner = document.getElementById("conference-banner");
+                if (!banner) {
+                    return;
+                }
+                var key = "dismissedConferenceBanner";
+                // Keep it dismissed until the announcement text changes.
+                if (localStorage.getItem(key) === banner.dataset.banner) {
+                    banner.remove();
+                    return;
+                }
+                banner.addEventListener("closed.bs.alert", function () {
+                    localStorage.setItem(key, banner.dataset.banner);
+                });
+            })();
+            </script>
+        {% endif %}
         <div class="container my-5">
             {% block breadcrumb %}
             {% endblock breadcrumb %}

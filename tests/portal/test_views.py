@@ -435,3 +435,17 @@ class TestOrganizerDashboard:
         assert pct > 100  # goal exceeded
         assert pct == int(pct)  # rounded, not a long decimal
         assert response.context["sponsorship_bar_width"] == 100  # bar capped
+
+
+@pytest.mark.django_db
+class TestConferenceBanner:
+    def test_banner_shown_when_set(self, client, conference):
+        conference.banner_text = "Call for proposals is open!"
+        conference.save()
+        content = client.get(reverse("chapters")).content.decode()
+        assert 'id="conference-banner"' in content
+        assert "Call for proposals is open!" in content
+
+    def test_no_banner_when_empty(self, client, conference):
+        content = client.get(reverse("chapters")).content.decode()
+        assert 'id="conference-banner"' not in content
