@@ -1,6 +1,16 @@
 {% extends "portal/base.html" %}
 {% load i18n %}
 {% load django_bootstrap5 %}
+{% block breadcrumb %}
+    {% url 'teams' as bc_url %}
+    {% trans "Teams" as bc_section %}
+    {% if form.instance.pk %}
+        {% trans "Edit team" as bc_page %}
+    {% else %}
+        {% trans "New team" as bc_page %}
+    {% endif %}
+    {% include "portal/_breadcrumbs.html" with section=bc_section section_url=bc_url page=bc_page %}
+{% endblock breadcrumb %}
 {% block content %}
     <div class="container px-4 py-3">
         <h1 class="display-6 pb-2 border-bottom">

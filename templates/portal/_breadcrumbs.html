@@ -1,0 +1,29 @@
+{% load i18n %}
+{% comment %}
+Reusable breadcrumb. Always starts at Home. Pass:
+section / section_url (optional middle crumb; linked when section_url given),
+page (optional final, current-page crumb).
+{% endcomment %}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item">
+            <a href="{% url 'index' %}">{% trans "Home" %}</a>
+        </li>
+        {% if section %}
+            {% if section_url %}
+                <li class="breadcrumb-item">
+                    <a href="{{ section_url }}">{{ section }}</a>
+                </li>
+            {% else %}
+                <li class="breadcrumb-item active" aria-current="page">
+                    {{ section }}
+                </li>
+            {% endif %}
+        {% endif %}
+        {% if page %}
+            <li class="breadcrumb-item active" aria-current="page">
+                {{ page }}
+            </li>
+        {% endif %}
+    </ol>
+</nav>

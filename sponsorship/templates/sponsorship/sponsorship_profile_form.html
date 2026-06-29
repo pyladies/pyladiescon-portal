@@ -5,6 +5,16 @@
 {% block extra_head %}
     {{ block.super }}
 {% endblock extra_head %}
+{% block breadcrumb %}
+    {% url 'sponsorship:sponsorship_list' as bc_url %}
+    {% trans "Sponsorship" as bc_section %}
+    {% if object.pk %}
+        {% trans "Edit" as bc_page %}
+    {% else %}
+        {% trans "New" as bc_page %}
+    {% endif %}
+    {% include "portal/_breadcrumbs.html" with section=bc_section section_url=bc_url page=bc_page %}
+{% endblock breadcrumb %}
 {% block content %}
     <main>
         <h1 class="display-5">

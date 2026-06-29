@@ -1445,3 +1445,43 @@ class TestMyTeams:
         client.force_login(portal_user)
         response = client.get(reverse("volunteer:index"))
         assert reverse("my_teams") not in response.content.decode()
+
+
+@pytest.mark.django_db
+class TestBreadcrumbs:
+    def test_list_breadcrumb_links_home(self, client, admin_user, conference):
+        client.force_login(admin_user)
+        response = client.get(reverse("teams"))
+        content = response.content.decode()
+        assert 'aria-label="breadcrumb"' in content
+        assert reverse("index") in content
+        # The template comment must not leak into the rendered page.
+        assert "Reusable breadcrumb" not in content
+
+    def test_dashboard_breadcrumb_for_admin_points_to_teams(
+        self, client, admin_user, conference
+    ):
+        team = Team.objects.create(
+            short_name="Comms", description="d", conference=conference
+        )
+        client.force_login(admin_user)
+        response = client.get(reverse("team_dashboard", kwargs={"pk": team.pk}))
+        content = response.content.decode()
+        assert 'aria-label="breadcrumb"' in content
+        assert reverse("teams") in content
+
+    def test_dashboard_breadcrumb_for_lead_points_to_my_teams(
+        self, client, portal_user, conference
+    ):
+        team = Team.objects.create(
+            short_name="Comms", description="d", conference=conference
+        )
+        lead = VolunteerProfile.objects.create(
+            user=portal_user,
+            conference=conference,
+            application_status=ApplicationStatus.APPROVED,
+        )
+        team.team_leads.add(lead)
+        client.force_login(portal_user)
+        response = client.get(reverse("team_dashboard", kwargs={"pk": team.pk}))
+        assert reverse("my_teams") in response.content.decode()

@@ -203,6 +203,8 @@
             </div>
         </nav>
         <div class="container my-5">
+            {% block breadcrumb %}
+            {% endblock breadcrumb %}
             {% block content %}
             {% endblock content %}
         </div>
