@@ -38,6 +38,38 @@ class TestVolunteer:
         assert response.context["profile"] == profile
         assert response.status_code == 200
 
+    def test_pending_applied_teams_marked_under_review(
+        self, client, portal_user, conference
+    ):
+        profile = VolunteerProfile.objects.create(
+            user=portal_user,
+            conference=conference,
+            application_status=ApplicationStatus.PENDING,
+        )
+        team = Team.objects.create(
+            short_name="Comms", description="d", conference=conference
+        )
+        profile.teams.add(team)
+        client.force_login(portal_user)
+        content = client.get(reverse("volunteer:index")).content.decode()
+        assert "Teams you applied to" in content
+        assert "Under review" in content
+
+    def test_approved_teams_shown_as_member(self, client, portal_user, conference):
+        profile = VolunteerProfile.objects.create(
+            user=portal_user,
+            conference=conference,
+            application_status=ApplicationStatus.APPROVED,
+        )
+        team = Team.objects.create(
+            short_name="Comms", description="d", conference=conference
+        )
+        profile.teams.add(team)
+        client.force_login(portal_user)
+        content = client.get(reverse("volunteer:index")).content.decode()
+        assert "Member" in content
+        assert "Under review" not in content
+
     def test_volunteer_profile_update_own_profile(
         self, client, portal_user, conference
     ):

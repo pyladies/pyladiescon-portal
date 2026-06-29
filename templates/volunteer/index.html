@@ -104,9 +104,18 @@
             {% endif %}
             {# My teams — leads link to the dashboard (slice 1); members are view-only. #}
             <h2 class="h6 text-secondary mb-2">
-                {% trans "My teams" %}
+                {% if profile.is_approved %}
+                    {% trans "My teams" %}
+                {% else %}
+                    {% trans "Teams you applied to" %}
+                {% endif %}
             </h2>
             {% if my_teams %}
+                {% if not profile.is_approved %}
+                    <p class="small text-secondary mb-2">
+                        {% trans "These applications are still under review: you are not a confirmed team member yet." %}
+                    </p>
+                {% endif %}
                 <div class="list-group mb-4">
                     {% for team in my_teams %}
                         <div class="list-group-item d-flex align-items-center gap-3">
@@ -120,8 +129,10 @@
                                         ·
                                         {% blocktranslate count counter=team.pending_members.count %}{{ counter }} pending review{% plural %}{{ counter }} pending review{% endblocktranslate %}
                                     </small>
-                                {% else %}
+                                {% elif profile.is_approved %}
                                     <span class="badge text-bg-light border ms-1">{% trans "Member" %}</span>
+                                {% else %}
+                                    <span class="badge text-bg-warning ms-1">{% trans "Under review" %}</span>
                                 {% endif %}
                             </span>
                             {% if team.id in led_team_ids %}
