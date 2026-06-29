@@ -4,11 +4,25 @@ from django.db.models import ProtectedError
 from django.http import JsonResponse
 from django.shortcuts import redirect, render
 from django.urls import reverse_lazy
-from django.views.generic import ListView
+from django.views.generic import ListView, TemplateView
 from django.views.generic.edit import DeleteView, FormView, UpdateView
 
-from common.mixins import SuperuserRequiredMixin
-from portal.common import get_historical_comparison_data, get_stats_cached_values
+from common.mixins import AdminRequiredMixin, SuperuserRequiredMixin
+from portal.common import (
+    SPONSOR_AWAITING_INVOICE_STATUS,
+    get_historical_comparison_data,
+    get_stats_cached_values,
+)
+from portal.constants import (
+    CACHE_KEY_ATTENDEE_COUNT,
+    CACHE_KEY_ATTENDEE_FIRST_TIME_COUNT,
+    CACHE_KEY_DONATION_TOWARDS_GOAL_PERCENT,
+    CACHE_KEY_DONATIONS_TOTAL_AMOUNT,
+    CACHE_KEY_SPONSORSHIP_COMMITTED,
+    CACHE_KEY_SPONSORSHIP_TOWARDS_GOAL_PERCENT,
+    CACHE_KEY_VOLUNTEER_ONBOARDED_COUNT,
+    SPONSORSHIP_GOAL,
+)
 from portal.forms import ConferenceForm, StartNewYearForm
 from portal.models import Conference
 from portal.services import (
@@ -17,7 +31,8 @@ from portal.services import (
     clone_teams,
 )
 from portal_account.models import PortalProfile
-from volunteer.models import VolunteerProfile
+from sponsorship.models import SponsorshipProfile
+from volunteer.models import Team, VolunteerProfile
 
 
 def index(request):
@@ -32,6 +47,9 @@ def index(request):
     if user.is_authenticated:
         if not PortalProfile.objects.filter(user=user).exists():
             return redirect("portal_account:portal_profile_new")
+        # Organizers land on their command center, not the volunteer landing.
+        if user.is_superuser or user.is_staff:
+            return redirect("organizer_dashboard")
         volunteer_profile = VolunteerProfile.objects.filter(
             user=user, conference=Conference.get_active()
         ).first()
@@ -103,6 +121,58 @@ def dashboard_gallery(request):
     context = {}
 
     return render(request, "portal/dashboard_gallery.html", context)
+
+
+class OrganizerDashboardView(AdminRequiredMixin, TemplateView):
+    """Cross-app command center for organizers (superuser/staff).
+
+    A router, not a reimplementation: the top row reuses the same cached stats
+    as the public Stats page, and every action/attention item links to the
+    existing list views. Nothing here duplicates those surfaces.
+    """
+
+    template_name = "portal/organizer_dashboard.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        conference = Conference.get_active()
+        # Stats helpers assume an edition; with none active, fall back to empties
+        # so the dashboard renders zeros instead of erroring.
+        stats = get_stats_cached_values(conference) if conference else {}
+        context["conference"] = conference
+        context["can_start_next_year"] = Conference.can_start_next_year()
+
+        # Top-line cross-app numbers (clean keys for the template).
+        context["onboarded_count"] = stats.get(CACHE_KEY_VOLUNTEER_ONBOARDED_COUNT, 0)
+        context["sponsorship_goal_percent"] = stats.get(
+            CACHE_KEY_SPONSORSHIP_TOWARDS_GOAL_PERCENT, 0
+        )
+        context["sponsorship_committed"] = stats.get(CACHE_KEY_SPONSORSHIP_COMMITTED, 0)
+        context["sponsorship_goal"] = stats.get(SPONSORSHIP_GOAL, 0)
+        context["donation_goal_percent"] = stats.get(
+            CACHE_KEY_DONATION_TOWARDS_GOAL_PERCENT, 0
+        )
+        context["donations_total"] = stats.get(CACHE_KEY_DONATIONS_TOTAL_AMOUNT, 0)
+        context["donation_goal"] = conference.donation_goal if conference else 0
+        context["attendee_count"] = stats.get(CACHE_KEY_ATTENDEE_COUNT, 0)
+        context["attendee_first_time_count"] = stats.get(
+            CACHE_KEY_ATTENDEE_FIRST_TIME_COUNT, 0
+        )
+
+        # Needs-attention queue - all derivable, no new model fields.
+        if conference:
+            teams = Team.objects.filter(conference=conference)
+            context["pending_reviews"] = sum(t.pending_members.count() for t in teams)
+            context["unled_teams"] = sum(1 for t in teams if not t.team_leads.exists())
+            context["awaiting_invoice"] = SponsorshipProfile.objects.filter(
+                conference=conference,
+                progress_status__in=SPONSOR_AWAITING_INVOICE_STATUS,
+            ).count()
+        else:
+            context["pending_reviews"] = 0
+            context["unled_teams"] = 0
+            context["awaiting_invoice"] = 0
+        return context
 
 
 class StartNewYearView(SuperuserRequiredMixin, FormView):

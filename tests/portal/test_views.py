@@ -5,7 +5,11 @@ from pytest_django.asserts import assertRedirects
 
 from portal.models import Conference
 from portal_account.models import PortalProfile
-from sponsorship.models import SponsorshipTier
+from sponsorship.models import (
+    SponsorshipProfile,
+    SponsorshipProgressStatus,
+    SponsorshipTier,
+)
 from volunteer.constants import ApplicationStatus
 from volunteer.models import PyladiesChapter, Team, VolunteerProfile
 
@@ -47,22 +51,17 @@ class TestPortalIndex:
         assert "Sign out" not in response.content.decode()
         assert "Login" not in response.content.decode()
 
-    def test_organizer_tools_shown_to_superuser(self, client, admin_user, conference):
+    def test_organizer_redirected_to_dashboard(self, client, admin_user, conference):
         PortalProfile.objects.create(user=admin_user)
         client.force_login(admin_user)
         response = client.get(reverse("index"))
-        assert response.status_code == 200
-        content = response.content.decode()
-        assert "Organizer tools" in content
-        assert reverse("teams") in content
-        assert reverse("volunteer:volunteers_list") in content
+        assertRedirects(response, reverse("organizer_dashboard"))
 
-    def test_manage_tiers_link_shown_to_superuser(self, client, admin_user, conference):
-        PortalProfile.objects.create(user=admin_user)
-        client.force_login(admin_user)
+    def test_non_organizer_sees_landing(self, client, portal_user, conference):
+        PortalProfile.objects.create(user=portal_user)
+        client.force_login(portal_user)
         response = client.get(reverse("index"))
         assert response.status_code == 200
-        assert reverse("sponsorship:tier_list") in response.content.decode()
 
 
 @pytest.mark.django_db
@@ -293,17 +292,15 @@ class TestStartNextYearGate:
 
     def test_card_shown_when_date_passed(self, client, admin_user, conference):
         # autouse conference_date is in the past -> can start next year
-        PortalProfile.objects.create(user=admin_user)
         client.force_login(admin_user)
-        response = client.get(reverse("index"))
+        response = client.get(reverse("organizer_dashboard"))
         assert "Start next year" in response.content.decode()
 
     def test_card_hidden_when_date_not_passed(self, client, admin_user, conference):
-        PortalProfile.objects.create(user=admin_user)
         conference.conference_date = None
         conference.save()
         client.force_login(admin_user)
-        response = client.get(reverse("index"))
+        response = client.get(reverse("organizer_dashboard"))
         assert "Start next year" not in response.content.decode()
 
 
@@ -365,3 +362,58 @@ class TestConferenceCRUD:
         ]
         for url in urls:
             assert client.get(url).status_code in (302, 403)
+
+
+@pytest.mark.django_db
+class TestOrganizerDashboard:
+    def test_requires_admin(self, client, portal_user):
+        client.force_login(portal_user)
+        response = client.get(reverse("organizer_dashboard"))
+        assert response.status_code in (302, 403)
+
+    def test_renders_for_admin(self, client, admin_user, conference):
+        client.force_login(admin_user)
+        response = client.get(reverse("organizer_dashboard"))
+        assert response.status_code == 200
+        assert "Organizer dashboard" in response.content.decode()
+        assert response.context["conference"] == conference
+
+    def test_needs_attention_counts(
+        self, client, admin_user, conference, django_user_model
+    ):
+        # An unled team with a pending member.
+        team = Team.objects.create(
+            short_name="Comms", description="d", conference=conference
+        )
+        member = VolunteerProfile.objects.create(
+            user=django_user_model.objects.create_user("m1"),
+            conference=conference,
+            application_status=ApplicationStatus.PENDING,
+        )
+        member.teams.add(team)
+        # A committed-but-uninvoiced sponsor.
+        tier = SponsorshipTier.objects.create(
+            name="Gold", amount=1000, description="g", conference=conference
+        )
+        SponsorshipProfile.objects.create(
+            organization_name="Corp",
+            sponsorship_tier=tier,
+            progress_status=SponsorshipProgressStatus.APPROVED,
+            conference=conference,
+        )
+        client.force_login(admin_user)
+        response = client.get(reverse("organizer_dashboard"))
+        assert response.context["pending_reviews"] == 1
+        assert response.context["unled_teams"] == 1
+        assert response.context["awaiting_invoice"] == 1
+
+    def test_no_active_conference_renders_zeros(self, client, admin_user, conference):
+        conference.is_active = False
+        conference.save()
+        client.force_login(admin_user)
+        response = client.get(reverse("organizer_dashboard"))
+        assert response.status_code == 200
+        assert response.context["conference"] is None
+        assert response.context["pending_reviews"] == 0
+        assert response.context["unled_teams"] == 0
+        assert response.context["awaiting_invoice"] == 0

@@ -110,6 +110,12 @@
                                    aria-expanded="false">{% trans "Organize" %}</a>
                                 <ul class="dropdown-menu" aria-labelledby="navOrganize">
                                     <li>
+                                        <a class="dropdown-item" href="{% url 'organizer_dashboard' %}">{% trans "Dashboard" %}</a>
+                                    </li>
+                                    <li>
+                                        <hr class="dropdown-divider">
+                                    </li>
+                                    <li>
                                         <a class="dropdown-item" href="{% url 'volunteer:volunteers_list' %}">{% trans "Volunteers" %}</a>
                                     </li>
                                     <li>
