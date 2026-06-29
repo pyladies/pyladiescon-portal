@@ -206,30 +206,12 @@ class SponsorshipProfileFilter(django_filters.FilterSet):
     search = django_filters.CharFilter(
         label="Search by organization name", method="search_fulltext"
     )
-    # Status is filtered via the quick-filter chips (handled in the list view's
-    # get_queryset), not a form field, to avoid two controls for one thing.
-    sponsorship_tier = django_filters.ModelChoiceFilter(
-        queryset=SponsorshipTier.objects.none()
-    )
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        # Tiers are per-edition, so the dropdown should only offer the tiers of
-        # the conference being viewed (matching the conference-scoped list),
-        # not every year's tiers.
-        param = self.request.GET.get("conference") if self.request else None
-        conference = None
-        if param:
-            conference = Conference.objects.filter(pk=param).first()
-        if conference is None:
-            conference = Conference.get_active()
-        self.filters["sponsorship_tier"].queryset = SponsorshipTier.objects.filter(
-            conference=conference
-        )
+    # Status and tier are filtered via the quick-filter chips (handled in the
+    # list view's get_queryset), not form fields, to avoid duplicate controls.
 
     class Meta:
         model = SponsorshipProfile
-        fields = ["search", "sponsorship_tier"]
+        fields = ["search"]
 
     def search_fulltext(self, queryset, field_name, value):
         if not value:
@@ -285,10 +267,13 @@ class SponsorshipProfileList(CanViewSponsorship, SingleTableMixin, FilterView):
         queryset = (
             super().get_queryset().filter(conference=self.get_selected_conference())
         )
-        # Status comes from the quick-filter chips (?progress_status=<int>).
+        # Status and tier come from the quick-filter chips.
         status = self.request.GET.get("progress_status")
         if status and status.isdigit():
             queryset = queryset.filter(progress_status=status)
+        tier = self.request.GET.get("sponsorship_tier")
+        if tier and tier.isdigit():
+            queryset = queryset.filter(sponsorship_tier=tier)
         return queryset
 
     def get_table_kwargs(self):
@@ -318,9 +303,14 @@ class SponsorshipProfileList(CanViewSponsorship, SingleTableMixin, FilterView):
         context["conferences"] = self.viewable_conferences()
         context["selected_conference"] = selected_conference
 
-        # One-click status filtering: chips link to ?progress_status=<value>.
+        # One-click status/tier filtering: chips link to ?progress_status= /
+        # ?sponsorship_tier=. Tiers are scoped to the edition being viewed.
         context["status_choices"] = SponsorshipProgressStatus.choices
         context["selected_status"] = self.request.GET.get("progress_status", "")
+        context["tiers"] = SponsorshipTier.objects.filter(
+            conference=selected_conference
+        )
+        context["selected_tier"] = self.request.GET.get("sponsorship_tier", "")
 
         # Needs-attention buckets for managers: each is a single status that
         # signals an action is owed, and links to the list filtered to it.

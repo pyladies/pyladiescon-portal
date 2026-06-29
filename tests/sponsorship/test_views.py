@@ -85,7 +85,7 @@ class TestSponsorshipConferenceScoping:
 
         def tier_options(query=""):
             response = client.get(url + query)
-            return list(response.context["filter"].filters["sponsorship_tier"].queryset)
+            return list(response.context["tiers"])
 
         # Default (active edition) → only the active edition's tiers.
         assert active_tier in tier_options()
@@ -968,6 +968,31 @@ class TestSponsorshipNeedsAttention:
         response = client.get(reverse("sponsorship:sponsorship_list"))
         assert "attention_unsigned" not in response.context
         assert "Needs attention" not in response.content.decode()
+
+    def test_tier_filter_chip_narrows_list(self, client, admin_user, conference):
+        tier_a = SponsorshipTier.objects.create(
+            name="A", amount=1, description="d", conference=conference
+        )
+        tier_b = SponsorshipTier.objects.create(
+            name="B", amount=2, description="d", conference=conference
+        )
+        SponsorshipProfile.objects.create(
+            organization_name="OrgA",
+            sponsorship_tier=tier_a,
+            progress_status=SponsorshipProgressStatus.PAID,
+            conference=conference,
+        )
+        SponsorshipProfile.objects.create(
+            organization_name="OrgB",
+            sponsorship_tier=tier_b,
+            progress_status=SponsorshipProgressStatus.PAID,
+            conference=conference,
+        )
+        client.force_login(admin_user)
+        url = reverse("sponsorship:sponsorship_list") + f"?sponsorship_tier={tier_a.pk}"
+        response = client.get(url)
+        assert len(response.context["table"].rows) == 1
+        assert response.context["selected_tier"] == str(tier_a.pk)
 
     def test_status_filter_chip_narrows_list(self, client, admin_user, conference):
         self._profile(conference, SponsorshipProgressStatus.INVOICED)
