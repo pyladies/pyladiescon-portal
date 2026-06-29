@@ -925,3 +925,56 @@ class TestSponsorshipIndexRedirect:
         response = client.get(reverse("sponsorship:index"))
         assert response.status_code == 302
         assert response.url == reverse("sponsorship:sponsorship_list")
+
+
+@pytest.mark.django_db
+class TestSponsorshipNeedsAttention:
+    def _profile(self, conference, status):
+        tier = SponsorshipTier.objects.create(
+            name="T", amount=1, description="d", conference=conference
+        )
+        return SponsorshipProfile.objects.create(
+            organization_name="Org",
+            sponsorship_tier=tier,
+            progress_status=status,
+            conference=conference,
+        )
+
+    def test_attention_counts_for_manager(self, client, admin_user, conference):
+        self._profile(conference, SponsorshipProgressStatus.AGREEMENT_SENT)
+        self._profile(conference, SponsorshipProgressStatus.AGREEMENT_SIGNED)
+        self._profile(conference, SponsorshipProgressStatus.INVOICED)
+        self._profile(conference, SponsorshipProgressStatus.PAID)  # not flagged
+        client.force_login(admin_user)
+        response = client.get(reverse("sponsorship:sponsorship_list"))
+        assert response.context["attention_unsigned"] == 1
+        assert response.context["attention_awaiting_invoice"] == 1
+        assert response.context["attention_unpaid"] == 1
+        assert "Needs attention" in response.content.decode()
+
+    def test_no_attention_panel_for_read_only_viewer(
+        self, client, portal_user, conference
+    ):
+        VolunteerProfile.objects.create(
+            user=portal_user,
+            application_status=ApplicationStatus.APPROVED,
+            conference=conference,
+        )
+        client.force_login(portal_user)
+        response = client.get(reverse("sponsorship:sponsorship_list"))
+        assert "attention_unsigned" not in response.context
+        assert "Needs attention" not in response.content.decode()
+
+    def test_status_filter_chip_narrows_list(self, client, admin_user, conference):
+        self._profile(conference, SponsorshipProgressStatus.INVOICED)
+        self._profile(conference, SponsorshipProgressStatus.PAID)
+        client.force_login(admin_user)
+        url = (
+            reverse("sponsorship:sponsorship_list")
+            + f"?progress_status={SponsorshipProgressStatus.INVOICED.value}"
+        )
+        response = client.get(url)
+        assert len(response.context["table"].rows) == 1
+        assert response.context["selected_status"] == str(
+            SponsorshipProgressStatus.INVOICED.value
+        )

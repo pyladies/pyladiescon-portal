@@ -318,6 +318,29 @@ class SponsorshipProfileList(CanViewSponsorship, SingleTableMixin, FilterView):
         )
         context["conferences"] = self.viewable_conferences()
         context["selected_conference"] = selected_conference
+
+        # One-click status filtering: chips link to ?progress_status=<value>.
+        context["status_choices"] = SponsorshipProgressStatus.choices
+        context["selected_status"] = self.request.GET.get("progress_status", "")
+
+        # Needs-attention buckets for managers: each is a single status that
+        # signals an action is owed, and links to the list filtered to it.
+        if self.request.user.is_superuser or self.request.user.is_staff:
+            base = SponsorshipProfile.objects.filter(conference=selected_conference)
+            context["status_agreement_sent"] = SponsorshipProgressStatus.AGREEMENT_SENT
+            context["status_agreement_signed"] = (
+                SponsorshipProgressStatus.AGREEMENT_SIGNED
+            )
+            context["status_invoiced"] = SponsorshipProgressStatus.INVOICED
+            context["attention_unsigned"] = base.filter(
+                progress_status=SponsorshipProgressStatus.AGREEMENT_SENT
+            ).count()
+            context["attention_awaiting_invoice"] = base.filter(
+                progress_status=SponsorshipProgressStatus.AGREEMENT_SIGNED
+            ).count()
+            context["attention_unpaid"] = base.filter(
+                progress_status=SponsorshipProgressStatus.INVOICED
+            ).count()
         return context
 
 

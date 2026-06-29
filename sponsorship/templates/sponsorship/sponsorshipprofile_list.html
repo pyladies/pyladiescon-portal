@@ -28,6 +28,53 @@
             {% endfor %}
         </div>
     {% endif %}
+    {% if can_manage_sponsorship %}
+        <h2 class="h6 text-secondary mb-2">
+            {% trans "Needs attention" %}
+        </h2>
+        {% if attention_unsigned or attention_awaiting_invoice or attention_unpaid %}
+            <div class="list-group mb-3">
+                {% if attention_unsigned %}
+                    <a href="{% querystring progress_status=status_agreement_sent %}"
+                       class="list-group-item list-group-item-action list-group-item-warning d-flex align-items-center">
+                        <i class="fa-solid fa-file-signature fa-fw me-3"></i>
+                        <span class="flex-grow-1">{% blocktranslate count counter=attention_unsigned %}{{ counter }} agreement awaiting signature{% plural %}{{ counter }} agreements awaiting signature{% endblocktranslate %}</span>
+                        <i class="fa-solid fa-chevron-right"></i>
+                    </a>
+                {% endif %}
+                {% if attention_awaiting_invoice %}
+                    <a href="{% querystring progress_status=status_agreement_signed %}"
+                       class="list-group-item list-group-item-action list-group-item-warning d-flex align-items-center">
+                        <i class="fa-solid fa-file-invoice fa-fw me-3"></i>
+                        <span class="flex-grow-1">{% blocktranslate count counter=attention_awaiting_invoice %}{{ counter }} signed sponsor awaiting invoice{% plural %}{{ counter }} signed sponsors awaiting invoice{% endblocktranslate %}</span>
+                        <i class="fa-solid fa-chevron-right"></i>
+                    </a>
+                {% endif %}
+                {% if attention_unpaid %}
+                    <a href="{% querystring progress_status=status_invoiced %}"
+                       class="list-group-item list-group-item-action list-group-item-warning d-flex align-items-center">
+                        <i class="fa-solid fa-money-bill-wave fa-fw me-3"></i>
+                        <span class="flex-grow-1">{% blocktranslate count counter=attention_unpaid %}{{ counter }} invoiced sponsor not yet paid{% plural %}{{ counter }} invoiced sponsors not yet paid{% endblocktranslate %}</span>
+                        <i class="fa-solid fa-chevron-right"></i>
+                    </a>
+                {% endif %}
+            </div>
+        {% else %}
+            <div class="alert alert-light border mb-3">
+                <i class="fa-solid fa-circle-check text-success"></i> {% trans "No sponsors need attention right now." %}
+            </div>
+        {% endif %}
+        <div class="mb-3 d-flex flex-wrap gap-1"
+             role="group"
+             aria-label="Filter by status">
+            <a href="{% querystring progress_status=None %}"
+               class="btn btn-sm {% if not selected_status %}btn-secondary{% else %}btn-outline-secondary{% endif %}">{% trans "All" %}</a>
+            {% for value, label in status_choices %}
+                <a href="{% querystring progress_status=value %}"
+                   class="btn btn-sm {% if selected_status == value|stringformat:'s' %}btn-secondary{% else %}btn-outline-secondary{% endif %}">{{ label }}</a>
+            {% endfor %}
+        </div>
+    {% endif %}
     {% if filter %}
         <form action="" method="get" class="form">
             <input type="hidden" name="conference" value="{{ selected_conference.pk }}">
