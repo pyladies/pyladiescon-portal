@@ -19,8 +19,8 @@ RUN apt-get update && apt-get install -y gettext
 ###############################################################################
 FROM base AS dev
 
-ARG USER_ID
-ARG GROUP_ID
+ARG USER_ID=1000
+ARG GROUP_ID=1000
 
 RUN groupadd -o -g $GROUP_ID -r usergrp
 RUN useradd -o -m -u $USER_ID -g $GROUP_ID user
