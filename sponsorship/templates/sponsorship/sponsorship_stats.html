@@ -20,7 +20,7 @@
                     <h5 class="card-title">
                         Sponsorship Paid
                     </h5>
-                    <h1 class="display-4 text-success">
+                    <h1 class="display-4 text-success text-nowrap">
                         {{ stats.sponsorship_paid_amount| as_currency }}
                     </h1>
                     <span class="text-muted">from {{ stats.sponsorship_paid_count }} sponsors</span>
@@ -33,7 +33,7 @@
                     <h5 class="card-title">
                         Pending Sponsorship Amount
                     </h5>
-                    <h1 class="display-4 text-warning">
+                    <h1 class="display-4 text-warning text-nowrap">
                         {{ stats.sponsorship_pending_amount | as_currency }}
                     </h1>
                     <span class="text-muted">from {{ stats.sponsorship_pending_count }} sponsors</span>
@@ -46,7 +46,7 @@
                     <h5 class="card-title">
                         Total Sponsorship Committed
                     </h5>
-                    <h1 class="display-4 text-success">
+                    <h1 class="display-4 text-success text-nowrap">
                         {{ stats.sponsorship_committed_amount| as_currency }}
                     </h1>
                 </div>
@@ -61,7 +61,7 @@
                         <h5 class="card-title">
                             Total Donations Received
                         </h5>
-                        <h1 class="display-4 text-info">
+                        <h1 class="display-4 text-info text-nowrap">
                             {{ stats.donation_breakdown.total_donations_amount | as_currency }}
                         </h1>
                         <span class="text-muted">from {{ stats.donation_breakdown.donors_count }} individual donors</span>
@@ -103,7 +103,7 @@
                     <h5 class="card-title">
                         Total Funds Raised
                     </h5>
-                    <h1 class="display-4 text-success">
+                    <h1 class="display-4 text-success text-nowrap">
                         {{ stats.total_funds_raised| as_currency }}
                     </h1>
                     <span class="text-muted">from sponsorships and donations</span>
