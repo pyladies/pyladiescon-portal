@@ -1,0 +1,26 @@
+{% load i18n %}
+{% comment %}
+Teams rail (Stage B). Expects in context:
+    sidebar_teams           — the scoped team queryset (master list)
+    sidebar_current_team_id — id of the team being viewed, or None on the list
+    is_organizer            — capability flag (context processor)
+The "all teams" entry points organizers to the full list and leads to My teams.
+{% endcomment %}
+{% if is_organizer %}
+    {% url 'teams' as all_teams_url %}
+{% else %}
+    {% url 'my_teams' as all_teams_url %}
+{% endif %}
+{% if sidebar_current_team_id %}
+    {% include "portal/_sidebar_item.html" with url=all_teams_url label=_("All teams") icon="fa-list" %}
+{% else %}
+    {% include "portal/_sidebar_item.html" with url=all_teams_url label=_("All teams") icon="fa-list" active=True %}
+{% endif %}
+{% for team in sidebar_teams %}
+    {% url 'team_dashboard' team.id as team_url %}
+    {% if team.id == sidebar_current_team_id %}
+        {% include "portal/_sidebar_item.html" with url=team_url label=team.short_name icon="fa-users-rectangle" active=True %}
+    {% else %}
+        {% include "portal/_sidebar_item.html" with url=team_url label=team.short_name icon="fa-users-rectangle" %}
+    {% endif %}
+{% endfor %}

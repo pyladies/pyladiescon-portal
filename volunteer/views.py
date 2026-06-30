@@ -354,6 +354,21 @@ class VolunteerProfileDelete(DeleteView):
     success_url = reverse_lazy("volunteer:index")
 
 
+def sidebar_teams_for(user, conference):
+    """Teams to show in the Teams rail, scoped to what ``user`` may open.
+
+    Organizers (staff/superuser) see every team in the edition; a lead sees only
+    the teams they lead. Mirrors the scoping of the views the rail links to, so
+    it never leaks team names a lead cannot reach.
+    """
+    if conference is None:
+        return Team.objects.none()
+    teams = Team.objects.filter(conference=conference)
+    if not (user.is_superuser or user.is_staff):
+        teams = teams.filter(team_leads__user=user)
+    return teams.order_by("short_name").distinct()
+
+
 class TeamList(VolunteerAdminRequiredMixin, ListView):
     model = Team
     template_name = "team/index.html"
@@ -393,6 +408,11 @@ class TeamList(VolunteerAdminRequiredMixin, ListView):
         context["pending_total"] = sum(t.pending_members.count() for t in teams)
         context["open_count"] = sum(1 for t in teams if t.open_to_new_members)
         context["unled_count"] = sum(1 for t in teams if not t.team_leads.exists())
+
+        # Teams rail (Stage B): the master list. No current team on this page,
+        # so the rail's "All teams" entry is the active one.
+        context["sidebar_teams"] = sidebar_teams_for(self.request.user, conference)
+        context["sidebar_current_team_id"] = None
         return context
 
 
@@ -453,6 +473,11 @@ class TeamDashboardView(TeamLeadRequiredMixin, DetailView):
         context["can_manage_members"] = (
             is_admin or team.team_leads.filter(user=user).exists()
         )
+
+        # Teams rail (Stage B): sibling teams in this edition the user may open,
+        # with the current team highlighted.
+        context["sidebar_teams"] = sidebar_teams_for(user, team.conference)
+        context["sidebar_current_team_id"] = team.id
         return context
 
 

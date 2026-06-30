@@ -1,9 +1,6 @@
-{% extends "portal/base.html" %}
-{% load allauth i18n %}
-{% load django_bootstrap5 %}
+{% extends "portal/base_sidebar.html" %}
+{% load i18n %}
 {% load portal_extras %}
-{% block body %}
-{% endblock body %}
 {% block breadcrumb %}
     {% if is_organizer %}
         {% url 'teams' as bc_url %}
@@ -14,8 +11,14 @@
     {% endif %}
     {% include "portal/_breadcrumbs.html" with section=bc_section section_url=bc_url page=team.short_name %}
 {% endblock breadcrumb %}
+{% block sidebar_title %}
+    {% trans "Teams" %}
+{% endblock sidebar_title %}
+{% block sidebar %}
+    {% include "team/_team_rail.html" %}
+{% endblock sidebar %}
 {% block content %}
-    <div class="container px-4 py-4">
+    <div>
         <h1 class="display-6 d-flex align-items-center flex-wrap gap-2">
             {{ team.short_name }}
             <span class="badge bg-secondary fs-6 align-middle">{{ team.conference.year }}</span>

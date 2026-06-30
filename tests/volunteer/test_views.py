@@ -1446,6 +1446,84 @@ class TestTeamDashboard:
 
 
 @pytest.mark.django_db
+class TestTeamsRail:
+    """Stage B: the master-detail Teams rail and its scoping."""
+
+    def _profile(self, user, conference):
+        return VolunteerProfile.objects.create(
+            user=user,
+            conference=conference,
+            application_status=ApplicationStatus.APPROVED,
+        )
+
+    def test_list_rail_lists_all_teams_no_current(self, client, admin_user, conference):
+        a = Team.objects.create(
+            short_name="Alpha", description="d", conference=conference
+        )
+        b = Team.objects.create(
+            short_name="Bravo", description="d", conference=conference
+        )
+        client.force_login(admin_user)
+        response = client.get(reverse("teams"))
+        assert response.status_code == 200
+        assert response.context["sidebar_current_team_id"] is None
+        rail = list(response.context["sidebar_teams"])
+        assert a in rail and b in rail
+        content = response.content.decode()
+        assert reverse("team_dashboard", kwargs={"pk": a.pk}) in content
+        assert reverse("team_dashboard", kwargs={"pk": b.pk}) in content
+        # No current team -> the "All teams" entry is the active one.
+        assert "nav-link d-flex align-items-center active" in content
+
+    def test_list_rail_empty_without_active_conference(self, client, admin_user):
+        client.force_login(admin_user)
+        response = client.get(reverse("teams"))
+        assert response.status_code == 200
+        assert list(response.context["sidebar_teams"]) == []
+
+    def test_admin_dashboard_rail_lists_all_siblings_current_active(
+        self, client, admin_user, conference
+    ):
+        a = Team.objects.create(
+            short_name="Alpha", description="d", conference=conference
+        )
+        b = Team.objects.create(
+            short_name="Bravo", description="d", conference=conference
+        )
+        client.force_login(admin_user)
+        response = client.get(reverse("team_dashboard", kwargs={"pk": a.pk}))
+        assert response.status_code == 200
+        assert response.context["sidebar_current_team_id"] == a.id
+        rail = list(response.context["sidebar_teams"])
+        assert a in rail and b in rail  # admins see every team in the edition
+        content = response.content.decode()
+        assert reverse("team_dashboard", kwargs={"pk": b.pk}) in content  # siblings
+        assert "nav-link d-flex align-items-center active" in content  # a highlighted
+
+    def test_lead_dashboard_rail_lists_only_their_teams(
+        self, client, portal_user, conference, django_user_model
+    ):
+        led = Team.objects.create(
+            short_name="LedTeam", description="d", conference=conference
+        )
+        other = Team.objects.create(
+            short_name="OtherTeam", description="d", conference=conference
+        )
+        led.team_leads.add(self._profile(portal_user, conference))
+        other.team_leads.add(
+            self._profile(django_user_model.objects.create_user("ol"), conference)
+        )
+        client.force_login(portal_user)
+        response = client.get(reverse("team_dashboard", kwargs={"pk": led.pk}))
+        assert response.status_code == 200
+        rail = list(response.context["sidebar_teams"])
+        assert led in rail
+        assert other not in rail  # a lead never sees teams they don't lead
+        # ...and the unreachable team's name never leaks onto the page.
+        assert "OtherTeam" not in response.content.decode()
+
+
+@pytest.mark.django_db
 class TestMyTeams:
     def _lead(self, user, conference):
         profile = VolunteerProfile.objects.create(
