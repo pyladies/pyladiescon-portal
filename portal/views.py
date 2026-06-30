@@ -58,6 +58,8 @@ def index(request):
     else:
         context["volunteer_profile"] = None
         context["roles"] = []
+        # Public landing social proof: how many editions we have run.
+        context["editions_count"] = Conference.objects.count()
 
     context["stats"] = get_stats_cached_values()
     context["can_start_next_year"] = Conference.can_start_next_year()

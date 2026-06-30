@@ -24,6 +24,16 @@ class TestPortalIndex:
         assert "Sign up" in response.content.decode()
         assert "Login" in response.content.decode()
 
+    def test_public_landing_sections_and_real_numbers(self, client, conference):
+        response = client.get(reverse("index"))
+        assert response.status_code == 200
+        content = response.content.decode()
+        assert "How volunteering works" in content
+        assert "Find your team" in content
+        assert "Sign up to volunteer" in content
+        # The editions tile is bound to a real aggregate, not a literal.
+        assert response.context["editions_count"] == 1
+
     def test_navbar_shows_active_conference_year(self, client, conference):
         response = client.get(reverse("index"))
         assert response.status_code == 200
