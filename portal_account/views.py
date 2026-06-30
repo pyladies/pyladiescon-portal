@@ -27,6 +27,13 @@ class PortalProfileView(DetailView):
             return redirect("portal_account:index")
         return super(PortalProfileView, self).get(request, *args, **kwargs)
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        # Account settings rail (Stage E).
+        context["profile"] = self.object
+        context["account_active"] = "profile_view"
+        return context
+
 
 class PortalProfileCreate(CreateView):
     model = PortalProfile
@@ -43,6 +50,13 @@ class PortalProfileCreate(CreateView):
         kwargs = super(PortalProfileCreate, self).get_form_kwargs()
         kwargs.update({"user": self.request.user})
         return kwargs
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        # No profile yet, so the rail offers "Create my profile" (Stage E).
+        context["profile"] = None
+        context["account_active"] = "profile_new"
+        return context
 
 
 class PortalProfileUpdate(UpdateView):
@@ -62,6 +76,13 @@ class PortalProfileUpdate(UpdateView):
         kwargs = super(PortalProfileUpdate, self).get_form_kwargs()
         kwargs.update({"user": self.request.user})
         return kwargs
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        # Account settings rail (Stage E).
+        context["profile"] = self.object
+        context["account_active"] = "profile_edit"
+        return context
 
 
 class AccountEmailView(EmailView):

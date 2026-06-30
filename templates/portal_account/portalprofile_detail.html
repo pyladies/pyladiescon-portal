@@ -1,14 +1,18 @@
-{% extends "portal/base.html" %}
+{% extends "portal/base_sidebar.html" %}
 {% load allauth i18n %}
 {% load django_bootstrap5 %}
-{% block body %}
-{% endblock body %}
 {% block breadcrumb %}
     {% url 'portal_account:index' as bc_url %}
     {% trans "Account" as bc_section %}
     {% trans "Profile" as bc_page %}
     {% include "portal/_breadcrumbs.html" with section=bc_section section_url=bc_url page=bc_page %}
 {% endblock breadcrumb %}
+{% block sidebar_title %}
+    {% trans "Account" %}
+{% endblock sidebar_title %}
+{% block sidebar %}
+    {% include "portal_account/_account_rail.html" %}
+{% endblock sidebar %}
 {% block content %}
     <h1 class="display-5 mb-4">
         {% trans "Your Portal Profile" %}
