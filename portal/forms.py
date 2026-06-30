@@ -96,6 +96,10 @@ class ConferenceForm(forms.ModelForm):
             "end_date",
             "conference_date",
             "banner_text",
+            "sponsors_url",
+            "coc_url",
+            "donate_url",
+            "schedule_url",
         ]
         widgets = {
             "start_date": forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"),
