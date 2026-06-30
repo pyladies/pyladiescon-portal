@@ -11,6 +11,9 @@
             {% block head_title %}
             {% endblock head_title %}
         </title>
+        <link rel="icon"
+              type="image/svg+xml"
+              href="{% static 'pyladiescon-logo.svg' %}" />
         <link rel="icon" type="image/png" href="{% static 'favicon.png' %}" />
         <link rel="apple-touch-icon"
               type="image/png"
@@ -35,6 +38,11 @@
         {% endblock extra_head %}
         {% bootstrap_css %}
         {% bootstrap_javascript %}
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet"
+              href="https://fonts.googleapis.com/css2?family=Blinker:wght@400;600;700&family=Orbitron:wght@500;700&display=swap">
+        <link rel="stylesheet" href="{% static 'css/portal.css' %}">
         {# Display django.contrib.messages as Bootstrap alerts #}
         {% bootstrap_messages %}
     </head>
@@ -44,7 +52,15 @@
         <nav class="navbar navbar-expand-md navbar-dark bg-dark"
              aria-label="Main navigation">
             <div class="container-fluid">
-                <a class="navbar-brand" href="{% url "index" %}">PyLadiesCon Portal</a>
+                <a class="navbar-brand d-inline-flex align-items-center gap-2"
+                   href="{% url "index" %}">
+                    <img src="{% static 'pyladiescon-logo.svg' %}"
+                         alt="PyLadiesCon"
+                         width="34"
+                         height="34"
+                         class="navbar-logo rounded">
+                    PyLadiesCon Portal
+                </a>
                 {% if active_conference %}
                     <span class="badge bg-secondary me-2" title="Active conference edition">{{ active_conference.year }}</span>
                 {% endif %}

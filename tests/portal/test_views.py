@@ -449,3 +449,12 @@ class TestConferenceBanner:
     def test_no_banner_when_empty(self, client, conference):
         content = client.get(reverse("chapters")).content.decode()
         assert 'id="conference-banner"' not in content
+
+
+@pytest.mark.django_db
+class TestBranding:
+    def test_brand_assets_loaded(self, client, conference):
+        content = client.get(reverse("chapters")).content.decode()
+        # PyLadiesCon logo (navbar + favicon) and the brand display font.
+        assert "pyladiescon-logo" in content
+        assert "Orbitron" in content

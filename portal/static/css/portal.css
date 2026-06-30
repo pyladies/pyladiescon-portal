@@ -1,0 +1,70 @@
+/* PyLadiesCon portal brand styling.
+   Palette + fonts taken from conference.pyladies.com (pyladies/global-conference
+   theme.json + base.css): raspberry #ee264d, navy #152035, Blinker + Orbitron. */
+
+:root {
+    --pyl-primary: #ee264d;
+    --pyl-primary-dark: #c01f3f;
+    --pyl-navy: #152035;
+
+    --bs-primary: #ee264d;
+    --bs-primary-rgb: 238, 38, 77;
+    --bs-primary-text-emphasis: #c01f3f;
+    --bs-dark: #152035;
+    --bs-dark-rgb: 21, 32, 53;
+    --bs-link-color: #ee264d;
+    --bs-link-color-rgb: 238, 38, 77;
+    --bs-link-hover-color: #c01f3f;
+    --bs-link-hover-color-rgb: 192, 31, 63;
+}
+
+body {
+    font-family: "Blinker", system-ui, sans-serif;
+}
+
+/* Display headings, the brand wordmark, and the active-conference badge use the
+   conference's geometric display face. */
+.navbar-brand,
+.display-1,
+.display-2,
+.display-3,
+.display-4,
+.display-5,
+.display-6 {
+    font-family: "Orbitron", system-ui, sans-serif;
+    letter-spacing: 0.01em;
+}
+
+.btn-primary {
+    --bs-btn-bg: #ee264d;
+    --bs-btn-border-color: #ee264d;
+    --bs-btn-hover-bg: #d11f42;
+    --bs-btn-hover-border-color: #d11f42;
+    --bs-btn-active-bg: #c01f3f;
+    --bs-btn-active-border-color: #c01f3f;
+    --bs-btn-disabled-bg: #ee264d;
+    --bs-btn-disabled-border-color: #ee264d;
+}
+
+.btn-outline-primary {
+    --bs-btn-color: #ee264d;
+    --bs-btn-border-color: #ee264d;
+    --bs-btn-hover-bg: #ee264d;
+    --bs-btn-hover-border-color: #ee264d;
+    --bs-btn-active-bg: #ee264d;
+    --bs-btn-active-border-color: #ee264d;
+}
+
+.text-primary {
+    color: #ee264d !important;
+}
+
+.bg-primary {
+    background-color: #ee264d !important;
+}
+
+/* The colorful logo needs a light chip to read on the navy navbar. */
+.navbar-logo {
+    background: #fff;
+    padding: 3px;
+}
