@@ -251,6 +251,11 @@ class ConferenceList(SuperuserRequiredMixin, ListView):
     template_name = "portal/conference_list.html"
     context_object_name = "conferences"
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["can_start_next_year"] = Conference.can_start_next_year()
+        return context
+
 
 class ConferenceUpdate(SuperuserRequiredMixin, UpdateView):
     model = Conference
