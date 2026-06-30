@@ -1526,3 +1526,24 @@ class TestBreadcrumbs:
         client.force_login(portal_user)
         response = client.get(reverse("team_dashboard", kwargs={"pk": team.pk}))
         assert reverse("my_teams") in response.content.decode()
+
+
+@pytest.mark.django_db
+class TestTeamMarkdownDescription:
+    def test_dashboard_renders_markdown(self, client, admin_user, conference):
+        team = Team.objects.create(
+            short_name="Comms", description="**Bold** intro", conference=conference
+        )
+        client.force_login(admin_user)
+        content = client.get(
+            reverse("team_dashboard", kwargs={"pk": team.pk})
+        ).content.decode()
+        assert "<strong>Bold</strong>" in content
+
+    def test_long_description_allowed(self, conference):
+        long_text = "x" * 2000  # beyond the old 1000-char CharField limit
+        team = Team.objects.create(
+            short_name="T", description=long_text, conference=conference
+        )
+        team.refresh_from_db()
+        assert len(team.description) == 2000
