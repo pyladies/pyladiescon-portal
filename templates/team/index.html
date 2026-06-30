@@ -1,14 +1,17 @@
-{% extends "portal/base.html" %}
-{% load allauth i18n %}
-{% load django_bootstrap5 %}
-{% block body %}
-{% endblock body %}
+{% extends "portal/base_sidebar.html" %}
+{% load i18n %}
 {% block breadcrumb %}
     {% trans "Teams" as bc_section %}
     {% include "portal/_breadcrumbs.html" with section=bc_section %}
 {% endblock breadcrumb %}
+{% block sidebar_title %}
+    {% trans "Teams" %}
+{% endblock sidebar_title %}
+{% block sidebar %}
+    {% include "team/_team_rail.html" %}
+{% endblock sidebar %}
 {% block content %}
-    <div class="container px-4 py-5" id="featured-3">
+    <div id="featured-3">
         <h1 class="display-5">
             {% trans "Teams" %} — {{ selected_conference.year }}
             <a class="btn btn-primary" href="{% url 'team_new' %}">{% trans "New Team" %}</a>
