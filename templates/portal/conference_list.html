@@ -6,9 +6,16 @@
 {% endblock breadcrumb %}
 {% block content %}
     <div class="container px-4 py-3">
-        <h1 class="display-6 pb-2 border-bottom">
-            {% trans "Conferences" %}
-        </h1>
+        <div class="d-flex flex-wrap justify-content-between align-items-center pb-2 mb-3 border-bottom gap-2">
+            <h1 class="display-6 mb-0">
+                {% trans "Conferences" %}
+            </h1>
+            {% if can_start_next_year %}
+                <a href="{% url 'start_new_year' %}" class="btn btn-primary">
+                    <i class="fa-solid fa-plus"></i> {% trans "Start next conference" %}
+                </a>
+            {% endif %}
+        </div>
         <table class="table table-hover align-middle">
             <thead class="table-light">
                 <tr>

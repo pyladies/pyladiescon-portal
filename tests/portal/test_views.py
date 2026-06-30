@@ -365,6 +365,24 @@ class TestConferenceCRUD:
         assert response.status_code == 200
         assert conference in response.context["conferences"]
 
+    def test_list_shows_start_button_when_edition_over(
+        self, client, admin_user, conference
+    ):
+        conference.conference_date = "2000-01-01"  # past -> next year can start
+        conference.save()
+        client.force_login(admin_user)
+        response = client.get(reverse("conference_list"))
+        assert reverse("start_new_year") in response.content.decode()
+
+    def test_list_hides_start_button_while_edition_upcoming(
+        self, client, admin_user, conference
+    ):
+        conference.conference_date = None  # date unset -> not yet startable
+        conference.save()
+        client.force_login(admin_user)
+        response = client.get(reverse("conference_list"))
+        assert reverse("start_new_year") not in response.content.decode()
+
     def test_update_conference(self, client, admin_user, conference):
         client.force_login(admin_user)
         response = client.post(
