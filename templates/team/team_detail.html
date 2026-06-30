@@ -1,6 +1,7 @@
 {% extends "portal/base.html" %}
 {% load allauth i18n %}
 {% load django_bootstrap5 %}
+{% load portal_extras %}
 {% block body %}
 {% endblock body %}
 {% block breadcrumb %}
@@ -22,8 +23,8 @@
                    class="btn btn-sm btn-outline-danger"><i class="fa-solid fa-trash"></i> {% trans "Delete" %}</a>
             </div>
         {% endif %}
-        <div class="row g-4 py-5 row-cols-1 row-cols-lg-3">
-            {{ team.description }}
+        <div class="py-4">
+            {{ team.description|markdownify }}
         </div>
         <h3 id="team-leads">
             Team Leads

@@ -1,6 +1,7 @@
 {% extends "portal/base.html" %}
 {% load allauth i18n %}
 {% load django_bootstrap5 %}
+{% load portal_extras %}
 {% block body %}
 {% endblock body %}
 {% block breadcrumb %}
@@ -25,9 +26,9 @@
             {% endif %}
         </h1>
         {% if team.description %}
-            <p class="text-secondary">
-                {{ team.description }}
-            </p>
+            <div class="text-secondary mb-3">
+                {{ team.description|markdownify }}
+            </div>
         {% endif %}
         {% if can_manage_members %}
             <div class="mb-3">

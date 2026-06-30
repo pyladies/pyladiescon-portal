@@ -54,7 +54,8 @@ class Team(BaseModel):
         related_name="teams",
     )
     short_name = models.CharField("name", max_length=40)
-    description = models.CharField("description", max_length=1000)
+    # Markdown, rendered with the ``markdownify`` template filter.
+    description = models.TextField("description")
     team_leads = models.ManyToManyField(
         "volunteer.VolunteerProfile",
         verbose_name="team leads",
