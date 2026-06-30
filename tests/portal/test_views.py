@@ -65,15 +65,13 @@ class TestPortalIndex:
         assertRedirects(response, reverse("portal_account:portal_profile_new"))
 
     def test_index_authenticated_profile_already_created(self, client, portal_user):
-
+        # Volunteers land on their hub, not a second portal landing page.
         portal_profile = PortalProfile(user=portal_user)
         portal_profile.save()
 
         client.force_login(portal_user)
         response = client.get(reverse("index"))
-        assert response.status_code == 200
-        assert "Sign out" not in response.content.decode()
-        assert "Login" not in response.content.decode()
+        assertRedirects(response, reverse("volunteer:index"))
 
     def test_organizer_redirected_to_dashboard(self, client, admin_user, conference):
         PortalProfile.objects.create(user=admin_user)
@@ -81,11 +79,13 @@ class TestPortalIndex:
         response = client.get(reverse("index"))
         assertRedirects(response, reverse("organizer_dashboard"))
 
-    def test_non_organizer_sees_landing(self, client, portal_user, conference):
+    def test_non_organizer_redirected_to_volunteer_hub(
+        self, client, portal_user, conference
+    ):
         PortalProfile.objects.create(user=portal_user)
         client.force_login(portal_user)
         response = client.get(reverse("index"))
-        assert response.status_code == 200
+        assertRedirects(response, reverse("volunteer:index"))
 
 
 @pytest.mark.django_db
