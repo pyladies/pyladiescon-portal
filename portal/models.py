@@ -78,6 +78,13 @@ class Conference(BaseModel):
     conference_date = models.DateField(null=True, blank=True)
     banner_text = models.CharField(max_length=255, blank=True)
 
+    # Per-edition external links. Organizers set these per year; when blank the
+    # templates fall back to a sensible default.
+    sponsors_url = models.URLField(blank=True, null=True)
+    coc_url = models.URLField(blank=True, null=True)
+    donate_url = models.URLField(blank=True, null=True)
+    schedule_url = models.URLField(blank=True, null=True)
+
     # snapshot of closed-out year metrics (used when no portal data exists,
     # e.g. for 2023 and 2024, and for "freezing" past years)
     historical_snapshot = models.JSONField(blank=True, default=dict)

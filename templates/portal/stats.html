@@ -162,13 +162,13 @@
                         </p>
                     </div>
                     <div class="col-md-4 text-md-end mt-3 mt-md-0">
-                        <a href="https://2025.conference.pyladies.com/en/sponsors/"
+                        <a href="{{ active_conference.sponsors_url|default:'https://2025.conference.pyladies.com/en/sponsors/' }}"
                            target="_blank"
                            rel="noopener noreferrer"
                            class="btn btn-primary btn-lg me-2 mb-2">
                             <i class="bi bi-building"></i> Sponsor Us
                         </a>
-                        <a href="https://2025.conference.pyladies.com/en/donate/"
+                        <a href="{{ active_conference.donate_url|default:'https://2025.conference.pyladies.com/en/donate/' }}"
                            target="_blank"
                            rel="noopener noreferrer"
                            class="btn btn-success btn-lg mb-2">

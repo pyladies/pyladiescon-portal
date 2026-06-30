@@ -531,3 +531,35 @@ class TestAlltimeLandingStats:
         stats = get_alltime_landing_stats()
         assert stats["volunteers"] == 2
         assert stats["chapters"] == 1  # both in the same chapter -> distinct = 1
+
+
+@pytest.mark.django_db
+class TestConferenceUrls:
+    def test_form_saves_custom_urls(self, client, admin_user, conference):
+        client.force_login(admin_user)
+        client.post(
+            reverse("conference_edit", kwargs={"pk": conference.pk}),
+            {
+                "year": conference.year,
+                "name": conference.name,
+                "slug": conference.slug,
+                "sponsorship_goal": "15000",
+                "donation_goal": "2500",
+                "proposals_count": "0",
+                "sponsors_url": "https://2026.example.com/sponsors/",
+                "donate_url": "https://2026.example.com/donate/",
+            },
+            follow=True,
+        )
+        conference.refresh_from_db()
+        assert conference.sponsors_url == "https://2026.example.com/sponsors/"
+
+    def test_template_uses_custom_url_when_set(self, client, conference):
+        conference.sponsors_url = "https://2026.example.com/sponsors/"
+        conference.save()
+        content = client.get(reverse("portal_stats")).content.decode()
+        assert "https://2026.example.com/sponsors/" in content
+
+    def test_template_falls_back_to_default_when_blank(self, client, conference):
+        content = client.get(reverse("portal_stats")).content.decode()
+        assert "2025.conference.pyladies.com/en/sponsors/" in content
