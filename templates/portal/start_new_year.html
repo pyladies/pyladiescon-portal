@@ -15,6 +15,9 @@
                 {% trans "No previous edition exists yet, so there is nothing to carry over." %}
             </p>
         {% endif %}
+        <p class="text-muted small">
+            {% trans "Fields marked with * are required; everything else is optional." %}
+        </p>
         <form method="post" class="col-md-8">
             {% csrf_token %}
             {% bootstrap_form form %}

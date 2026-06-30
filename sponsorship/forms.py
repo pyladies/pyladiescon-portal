@@ -11,7 +11,7 @@ class SponsorshipProfileForm(forms.ModelForm):
     main_contact_user = forms.ModelChoiceField(
         queryset=User.objects.filter(is_staff=True),
         help_text="Required. Main contact person from PyLadiesCon. Defaults to the person who creates the profile.",
-        label="Internal Contact *",
+        label="Internal Contact",
     )
     conference = forms.ModelChoiceField(
         queryset=Conference.objects.all(),
@@ -52,8 +52,8 @@ class SponsorshipProfileForm(forms.ModelForm):
             " Keep blank to use the default tier amount.",
         }
         labels = {
-            "organization_name": "Organization Name *",
-            "progress_status": "Progress Status *",
+            "organization_name": "Organization Name",
+            "progress_status": "Progress Status",
         }
 
     def __init__(self, *args, **kwargs):
