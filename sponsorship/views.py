@@ -33,6 +33,11 @@ class CanViewSponsorship(UserPassesTestMixin):
 
     def viewable_conferences(self):
         user = self.request.user
+        # Anonymous users have no viewable conferences; filtering on them would
+        # try to coerce AnonymousUser to a user id and raise (a 500 instead of
+        # the login redirect).
+        if not user.is_authenticated:
+            return Conference.objects.none()
         if user.is_superuser or user.is_staff:
             return Conference.objects.all()
         return Conference.objects.filter(
