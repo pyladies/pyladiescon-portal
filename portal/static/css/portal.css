@@ -76,3 +76,12 @@ body {
     content: " *";
     color: var(--bs-danger);
 }
+
+/* Contextual left rail (portal/base_sidebar.html): pinned alongside content on
+   desktop, an off-canvas drawer on mobile (handled by Bootstrap offcanvas-md). */
+@media (min-width: 768px) {
+    .app-sidebar {
+        position: sticky;
+        top: 1rem;
+    }
+}

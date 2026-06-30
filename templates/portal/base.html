@@ -257,8 +257,13 @@
         <div class="container my-5">
             {% block breadcrumb %}
             {% endblock breadcrumb %}
-            {% block content %}
-            {% endblock content %}
+            {# Layout slot: full-width by default. Pages with internal depth #}
+            {# extend portal/base_sidebar.html, which overrides this with a #}
+            {# two-column shell (a contextual left rail + the content). #}
+            {% block layout %}
+                {% block content %}
+                {% endblock content %}
+            {% endblock layout %}
         </div>
         <footer class="footer mt-auto py-3 bg-dark text-white">
             <div class="container d-flex align-items-center justify-content-between">
