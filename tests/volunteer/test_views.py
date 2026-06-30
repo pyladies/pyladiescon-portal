@@ -1302,6 +1302,15 @@ class TestTeamCRUD:
         assert team.conference == conference  # the active edition
         assert team.open_to_new_members is True
 
+    def test_team_form_notes_markdown_support(self, client, admin_user, conference):
+        client.force_login(admin_user)
+        response = client.get(reverse("team_new"))
+        assert response.status_code == 200
+        content = response.content.decode()
+        assert "Markdown supported" in content
+        # Required fields carry the wrapper class the stylesheet turns into "*".
+        assert 'class="mb-3 required"' in content
+
     def test_update_team(self, client, admin_user, conference):
         team = Team.objects.create(
             short_name="Comms", description="old", conference=conference

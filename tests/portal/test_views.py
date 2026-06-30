@@ -218,6 +218,14 @@ class TestStartNewYear:
         assert response.status_code == 200
         assert response.context["source"] == conference  # most recent edition
 
+    def test_form_marks_required_fields(self, client, admin_user, conference):
+        client.force_login(admin_user)
+        content = client.get(reverse("start_new_year")).content.decode()
+        # Legend explains the asterisk; required fields carry the wrapper class
+        # that the stylesheet turns into a "*" marker.
+        assert "Fields marked with * are required" in content
+        assert 'class="mb-3 required"' in content
+
     def test_creates_carries_over_and_activates(self, client, admin_user, conference):
         conference.sponsorship_goal = 15000
         conference.donation_goal = 2500

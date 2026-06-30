@@ -343,6 +343,12 @@ class TeamForm(ModelForm):
     class Meta:
         model = Team
         fields = ["short_name", "description", "open_to_new_members", "team_leads"]
+        help_texts = {
+            "description": (
+                "Markdown supported: headings, lists, links, **bold**, "
+                "and *italics*."
+            ),
+        }
 
     def __init__(self, *args, conference=None, **kwargs):
         super().__init__(*args, **kwargs)
