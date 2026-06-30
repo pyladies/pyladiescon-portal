@@ -1,6 +1,7 @@
 {% extends "portal/base.html" %}
 {% load allauth i18n %}
 {% load django_bootstrap5 %}
+{% load static %}
 {% block body %}
 {% endblock body %}
 {% block content %}
@@ -244,50 +245,58 @@
                         <a href="{% url 'account_login' %}"
                            class="btn btn-outline-primary btn-lg">{% trans "Sign in" %}</a>
                     </div>
-                    <p class="text-body-secondary mb-0">
-                        {% blocktranslate count counter=stats.volunteer_signups_count %}Join {{ counter }} volunteer who has already signed up.{% plural %}Join {{ counter }} volunteers who have already signed up.{% endblocktranslate %}
-                    </p>
+                    {# This year's momentum — only once someone has signed up. #}
+                    {% if stats.volunteer_signups_count %}
+                        <p class="text-body-secondary mb-0">
+                            {% blocktranslate count counter=stats.volunteer_signups_count with year=active_conference.year %}Join {{ counter }} volunteer who has already signed up for PyLadiesCon {{ year }}.{% plural %}Join {{ counter }} volunteers who have already signed up for PyLadiesCon {{ year }}.{% endblocktranslate %}
+                        </p>
+                    {% endif %}
                 </div>
                 <div class="col-lg-5 text-center">
-                    <img src="https://conference.pyladies.com/img/banner.png"
+                    <img src="{% static 'img/landing-hero.png' %}"
                          alt="PyLadiesCon"
-                         width="1200"
-                         height="630"
+                         width="2240"
+                         height="1260"
                          class="img-fluid rounded-3">
                 </div>
             </div>
-            {# Stats band: real aggregates from view context, no literals. #}
-            <div class="row row-cols-2 row-cols-md-4 g-3 py-4 border-top border-bottom text-center">
-                <div class="col">
-                    <div class="display-5 fw-bold text-primary">
-                        {{ stats.volunteer_signups_count }}
-                    </div>
-                    <div class="text-body-secondary">
-                        {% trans "Volunteers" %}
-                    </div>
+            {# Stats band: cumulative across all editions, from view context. #}
+            <div class="py-4 border-top border-bottom">
+                <div class="text-center text-uppercase text-body-secondary small fw-semibold mb-3">
+                    {% trans "Across all editions" %}
                 </div>
-                <div class="col">
-                    <div class="display-5 fw-bold text-primary">
-                        {{ stats.volunteer_languages_count }}
+                <div class="row row-cols-2 row-cols-md-4 g-3 text-center">
+                    <div class="col">
+                        <div class="display-5 fw-bold text-primary">
+                            {{ landing_stats.volunteers }}
+                        </div>
+                        <div class="text-body-secondary">
+                            {% trans "Volunteers" %}
+                        </div>
                     </div>
-                    <div class="text-body-secondary">
-                        {% trans "Languages" %}
+                    <div class="col">
+                        <div class="display-5 fw-bold text-primary">
+                            {{ landing_stats.languages }}
+                        </div>
+                        <div class="text-body-secondary">
+                            {% trans "Languages" %}
+                        </div>
                     </div>
-                </div>
-                <div class="col">
-                    <div class="display-5 fw-bold text-primary">
-                        {{ stats.volunteer_pyladies_chapters_count }}
+                    <div class="col">
+                        <div class="display-5 fw-bold text-primary">
+                            {{ landing_stats.chapters }}
+                        </div>
+                        <div class="text-body-secondary">
+                            {% trans "PyLadies chapters" %}
+                        </div>
                     </div>
-                    <div class="text-body-secondary">
-                        {% trans "PyLadies chapters" %}
-                    </div>
-                </div>
-                <div class="col">
-                    <div class="display-5 fw-bold text-primary">
-                        {{ editions_count }}
-                    </div>
-                    <div class="text-body-secondary">
-                        {% trans "Editions" %}
+                    <div class="col">
+                        <div class="display-5 fw-bold text-primary">
+                            {{ landing_stats.editions }}
+                        </div>
+                        <div class="text-body-secondary">
+                            {% trans "Editions" %}
+                        </div>
                     </div>
                 </div>
             </div>
