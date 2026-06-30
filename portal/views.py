@@ -33,38 +33,33 @@ from portal.services import (
 )
 from portal_account.models import PortalProfile
 from sponsorship.models import SponsorshipProfile
-from volunteer.models import Team, VolunteerProfile
+from volunteer.models import Team
 
 
 def index(request):
     """
-    Show personalized dashboard if user is authenticated and has a profile.
-    Redirect to profile creation page if user is authenticated but has not completed their profile.
-    Show landing page if user is not authenticated.
-    """
-    context = {}
+    Send authenticated users to their personalized hub, anonymous visitors to
+    the public landing page.
 
+    - No portal profile yet: create one first.
+    - Organizers (staff/superuser): the organizer dashboard.
+    - Everyone else: the volunteer hub (one consistent home, not a second
+      landing page).
+    """
     user = get_user(request)
     if user.is_authenticated:
         if not PortalProfile.objects.filter(user=user).exists():
             return redirect("portal_account:portal_profile_new")
-        # Organizers land on their command center, not the volunteer landing.
         if user.is_superuser or user.is_staff:
             return redirect("organizer_dashboard")
-        volunteer_profile = VolunteerProfile.objects.filter(
-            user=user, conference=Conference.get_active()
-        ).first()
-        context["volunteer_profile"] = volunteer_profile
-        context["roles"] = volunteer_profile.roles.all() if volunteer_profile else []
-    else:
-        context["volunteer_profile"] = None
-        context["roles"] = []
-        # Public landing band: cumulative numbers across all editions.
-        context["landing_stats"] = get_alltime_landing_stats()
+        return redirect("volunteer:index")
 
-    context["stats"] = get_stats_cached_values()
-    context["can_start_next_year"] = Conference.can_start_next_year()
-
+    context = {
+        # Public landing band: cumulative numbers across all editions, plus this
+        # year's signup momentum.
+        "landing_stats": get_alltime_landing_stats(),
+        "stats": get_stats_cached_values(),
+    }
     return render(request, "portal/index.html", context)
 
 
