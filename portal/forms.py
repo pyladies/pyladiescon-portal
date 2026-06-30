@@ -48,6 +48,24 @@ class StartNewYearForm(forms.Form):
     year = forms.IntegerField(min_value=2000, label="Year")
     name = forms.CharField(max_length=100, label="Name")
     slug = forms.SlugField(label="Slug")
+    start_date = forms.DateField(
+        required=False,
+        widget=forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"),
+        label="Start date",
+    )
+    end_date = forms.DateField(
+        required=False,
+        widget=forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"),
+        label="End date",
+    )
+    conference_date = forms.DateField(
+        required=False,
+        widget=forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"),
+        label="Conference date",
+    )
+    pretix_event_slug = forms.CharField(
+        required=False, max_length=100, label="Pretix event slug"
+    )
     clone_teams = forms.BooleanField(
         required=False, initial=True, label="Clone teams from the previous edition"
     )
