@@ -1,0 +1,57 @@
+{% extends "portal/base.html" %}
+{% load i18n %}
+{# Two-column shell for apps with internal depth: a contextual left rail that #}
+{# is pinned on desktop (md+) and a slide-in drawer on mobile, plus the page #}
+{# content. The rail is always LOCAL to the app — never the global nav. #}
+{# Children fill: sidebar_title, sidebar (rail items), and content. #}
+{% block layout %}
+    <div class="row g-4">
+        {# Mobile-only toggle; the rail is static and always visible at md+. #}
+        <div class="col-12 d-md-none">
+            <button class="btn btn-outline-secondary"
+                    type="button"
+                    data-bs-toggle="offcanvas"
+                    data-bs-target="#appSidebar"
+                    aria-controls="appSidebar">
+                <i class="fa-solid fa-bars"></i>
+                {% block sidebar_toggle_label %}
+                    {% trans "Sections" %}
+                {% endblock sidebar_toggle_label %}
+            </button>
+        </div>
+        <aside class="col-md-4 col-lg-3">
+            <div class="offcanvas-md offcanvas-start app-sidebar"
+                 tabindex="-1"
+                 id="appSidebar"
+                 aria-labelledby="appSidebarLabel">
+                <div class="offcanvas-header">
+                    <h2 class="offcanvas-title h6 mb-0" id="appSidebarLabel">
+                        {% block sidebar_title %}
+                        {% endblock sidebar_title %}
+                    </h2>
+                    <button type="button"
+                            class="btn-close"
+                            data-bs-dismiss="offcanvas"
+                            data-bs-target="#appSidebar"
+                            aria-label="Close">
+                    </button>
+                </div>
+                <div class="offcanvas-body d-md-block p-0">
+                    <div class="d-none d-md-block text-uppercase text-secondary small fw-semibold mb-2">
+                        {% block sidebar_title_desktop %}
+                        {% endblock sidebar_title_desktop %}
+                    </div>
+                    <nav class="nav nav-pills flex-column gap-1"
+                         aria-label="Section navigation">
+                        {% block sidebar %}
+                        {% endblock sidebar %}
+                    </nav>
+                </div>
+            </div>
+        </aside>
+        <div class="col">
+            {% block content %}
+            {% endblock content %}
+        </div>
+    </div>
+{% endblock layout %}
