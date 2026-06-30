@@ -144,6 +144,48 @@ class TestSponsorshipConferenceScoping:
 
 
 @pytest.mark.django_db
+class TestSponsorshipRail:
+    """Stage D: the sponsorship left rail and the collapsed top-nav link."""
+
+    def test_manager_sees_rail_with_tiers_and_add(self, client, admin_user, conference):
+        client.force_login(admin_user)
+        content = client.get(reverse("sponsorship:sponsorship_list")).content.decode()
+        assert 'id="appSidebar"' in content  # rail present for managers
+        assert reverse("sponsorship:tier_list") in content
+        assert reverse("sponsorship:sponsorship_profile_new") in content
+        # On the list, the "Sponsors" rail entry is the active one.
+        assert "nav-link d-flex align-items-center active" in content
+
+    def test_tier_list_highlights_tiers_section(self, client, admin_user, conference):
+        client.force_login(admin_user)
+        content = client.get(reverse("sponsorship:tier_list")).content.decode()
+        assert 'id="appSidebar"' in content
+        assert reverse("sponsorship:sponsorship_list") in content  # sibling section
+        assert "nav-link d-flex align-items-center active" in content  # Tiers active
+
+    def test_readonly_viewer_gets_no_rail(self, client, portal_user, conference):
+        # An approved volunteer can view the list but has a single destination,
+        # so no rail is rendered (full-width, as before).
+        VolunteerProfile.objects.create(
+            user=portal_user,
+            conference=conference,
+            application_status=ApplicationStatus.APPROVED,
+            discord_username="d",
+        )
+        client.force_login(portal_user)
+        content = client.get(reverse("sponsorship:sponsorship_list")).content.decode()
+        assert 'id="appSidebar"' not in content
+        assert reverse("sponsorship:tier_list") not in content
+        assert reverse("sponsorship:sponsorship_profile_new") not in content
+
+    def test_top_nav_collapses_to_single_link(self, client, admin_user, conference):
+        client.force_login(admin_user)
+        content = client.get(reverse("sponsorship:sponsorship_list")).content.decode()
+        assert 'id="navSponsorship"' not in content  # dropdown removed
+        assert "Manage tiers" not in content  # old dropdown item label gone
+
+
+@pytest.mark.django_db
 class TestSponsorshipViews:
     def test_anonymous_redirected_to_login_not_500(self, client):
         # Anonymous access must redirect to login, not crash filtering on

@@ -88,30 +88,10 @@
                                 <a class="nav-link" href="{% url 'my_teams' %}">{% trans "My teams" %}</a>
                             </li>
                         {% endif %}
-                        {# Sponsorship: a dropdown of actions for managers, a plain #}
-                        {# link for read-only viewers, nothing for everyone else. #}
-                        {% if can_manage_sponsorship %}
-                            <li class="nav-item dropdown">
-                                <a class="nav-link dropdown-toggle"
-                                   href="#"
-                                   id="navSponsorship"
-                                   role="button"
-                                   data-bs-toggle="dropdown"
-                                   aria-expanded="false">{% trans "Sponsorship" %}</a>
-                                <ul class="dropdown-menu" aria-labelledby="navSponsorship">
-                                    <li>
-                                        <a class="dropdown-item" href="{% url 'sponsorship:sponsorship_list' %}">{% trans "All sponsors" %}</a>
-                                    </li>
-                                    <li>
-                                        <a class="dropdown-item"
-                                           href="{% url 'sponsorship:sponsorship_profile_new' %}">{% trans "Add sponsor" %}</a>
-                                    </li>
-                                    <li>
-                                        <a class="dropdown-item" href="{% url 'sponsorship:tier_list' %}">{% trans "Manage tiers" %}</a>
-                                    </li>
-                                </ul>
-                            </li>
-                        {% elif can_view_sponsorship %}
+                        {# Sponsorship: a single link for anyone who can view; #}
+                        {# managers reach Add/Tiers from the in-app left rail #}
+                        {# (Stage D) rather than a duplicate top-nav dropdown. #}
+                        {% if can_view_sponsorship %}
                             <li class="nav-item">
                                 <a class="nav-link" href="{% url 'sponsorship:sponsorship_list' %}">{% trans "Sponsorship" %}</a>
                             </li>
