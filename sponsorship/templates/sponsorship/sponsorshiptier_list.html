@@ -1,4 +1,4 @@
-{% extends "portal/base.html" %}
+{% extends can_manage_sponsorship|yesno:"portal/base_sidebar.html,portal/base.html" %}
 {% load i18n %}
 {% block breadcrumb %}
     {% url 'sponsorship:sponsorship_list' as bc_url %}
@@ -6,6 +6,12 @@
     {% trans "Tiers" as bc_page %}
     {% include "portal/_breadcrumbs.html" with section=bc_section section_url=bc_url page=bc_page %}
 {% endblock breadcrumb %}
+{% block sidebar_title %}
+    {% trans "Sponsorship" %}
+{% endblock sidebar_title %}
+{% block sidebar %}
+    {% include "sponsorship/_sponsorship_rail.html" with active="tiers" %}
+{% endblock sidebar %}
 {% block content %}
     <div class="container px-4 py-3">
         <h1 class="display-5">

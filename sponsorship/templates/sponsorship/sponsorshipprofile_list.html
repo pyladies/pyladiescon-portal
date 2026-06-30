@@ -1,4 +1,4 @@
-{% extends "portal/base.html" %}
+{% extends can_manage_sponsorship|yesno:"portal/base_sidebar.html,portal/base.html" %}
 {% load allauth i18n %}
 {% load django_bootstrap5 %}
 {% load render_table from django_tables2 %}
@@ -8,6 +8,12 @@
     {% trans "Sponsorship" as bc_section %}
     {% include "portal/_breadcrumbs.html" with section=bc_section %}
 {% endblock breadcrumb %}
+{% block sidebar_title %}
+    {% trans "Sponsorship" %}
+{% endblock sidebar_title %}
+{% block sidebar %}
+    {% include "sponsorship/_sponsorship_rail.html" with active="sponsors" %}
+{% endblock sidebar %}
 {% block content %}
     <h1 class="display-5">
         {% if request.user.is_superuser %}

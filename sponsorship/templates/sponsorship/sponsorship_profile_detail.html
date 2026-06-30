@@ -1,6 +1,12 @@
-{% extends "portal/base.html" %}
+{% extends can_manage_sponsorship|yesno:"portal/base_sidebar.html,portal/base.html" %}
 {% load allauth i18n %}
 {% load django_bootstrap5 %}
+{% block sidebar_title %}
+    {% trans "Sponsorship" %}
+{% endblock sidebar_title %}
+{% block sidebar %}
+    {% include "sponsorship/_sponsorship_rail.html" with active="sponsors" %}
+{% endblock sidebar %}
 {% block content %}
     <div class="container">
         <div class="row">
