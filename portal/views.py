@@ -10,6 +10,7 @@ from django.views.generic.edit import DeleteView, FormView, UpdateView
 from common.mixins import AdminRequiredMixin, SuperuserRequiredMixin
 from portal.common import (
     SPONSOR_AWAITING_INVOICE_STATUS,
+    get_alltime_landing_stats,
     get_historical_comparison_data,
     get_stats_cached_values,
 )
@@ -58,6 +59,8 @@ def index(request):
     else:
         context["volunteer_profile"] = None
         context["roles"] = []
+        # Public landing band: cumulative numbers across all editions.
+        context["landing_stats"] = get_alltime_landing_stats()
 
     context["stats"] = get_stats_cached_values()
     context["can_start_next_year"] = Conference.can_start_next_year()

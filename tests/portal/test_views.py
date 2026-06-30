@@ -3,6 +3,7 @@ from django.contrib.auth.models import User
 from django.urls import reverse
 from pytest_django.asserts import assertRedirects
 
+from portal.common import get_alltime_landing_stats
 from portal.models import Conference
 from portal_account.models import PortalProfile
 from sponsorship.models import (
@@ -23,6 +24,29 @@ class TestPortalIndex:
         assert response.status_code == 200
         assert "Sign up" in response.content.decode()
         assert "Login" in response.content.decode()
+
+    def test_public_landing_sections_and_real_numbers(self, client, conference):
+        response = client.get(reverse("index"))
+        assert response.status_code == 200
+        content = response.content.decode()
+        assert "How volunteering works" in content
+        assert "Find your team" in content
+        assert "Sign up to volunteer" in content
+        assert "Across all editions" in content  # band is cumulative
+        # The band is bound to cumulative aggregates, not literals.
+        assert response.context["landing_stats"]["editions"] == 1
+
+    def test_hero_shows_this_year_signups_with_year(
+        self, client, portal_user, conference
+    ):
+        VolunteerProfile.objects.create(user=portal_user, conference=conference)
+        content = client.get(reverse("index")).content.decode()  # anonymous
+        assert "already signed up for PyLadiesCon" in content
+        assert str(conference.year) in content
+
+    def test_hero_hides_signups_when_no_profiles_this_year(self, client, conference):
+        content = client.get(reverse("index")).content.decode()
+        assert "already signed up" not in content
 
     def test_navbar_shows_active_conference_year(self, client, conference):
         response = client.get(reverse("index"))
@@ -458,3 +482,31 @@ class TestBranding:
         # PyLadiesCon logo (navbar + favicon) and the brand display font.
         assert "pyladiescon-logo" in content
         assert "Orbitron" in content
+
+
+@pytest.mark.django_db
+class TestAlltimeLandingStats:
+    def test_keys_and_caching(self, conference):
+        first = get_alltime_landing_stats()
+        second = get_alltime_landing_stats()  # served from cache
+        assert first == second
+        assert set(first) == {"volunteers", "languages", "chapters", "editions"}
+        assert first["editions"] == 1
+
+    def test_counts_distinct(self, conference, django_user_model):
+        chapter = PyladiesChapter.objects.create(
+            chapter_name="vancouver", chapter_description="Vancouver"
+        )
+        VolunteerProfile.objects.create(
+            user=django_user_model.objects.create_user("v1"),
+            conference=conference,
+            chapter=chapter,
+        )
+        VolunteerProfile.objects.create(
+            user=django_user_model.objects.create_user("v2"),
+            conference=conference,
+            chapter=chapter,
+        )
+        stats = get_alltime_landing_stats()
+        assert stats["volunteers"] == 2
+        assert stats["chapters"] == 1  # both in the same chapter -> distinct = 1
