@@ -261,6 +261,27 @@ class TestStartNewYear:
         assert new.teams.count() == 0
         assert new.sponsorship_tiers.count() == 0
 
+    def test_creates_with_dates_and_pretix(self, client, admin_user, conference):
+        client.force_login(admin_user)
+        client.post(
+            reverse("start_new_year"),
+            {
+                "year": 2028,
+                "name": "PyLadiesCon 2028",
+                "slug": "2028",
+                "start_date": "2028-12-01",
+                "end_date": "2028-12-03",
+                "conference_date": "2028-12-02",
+                "pretix_event_slug": "2028",
+            },
+            follow=True,
+        )
+        new = Conference.objects.get(year=2028)
+        assert str(new.start_date) == "2028-12-01"
+        assert str(new.end_date) == "2028-12-03"
+        assert str(new.conference_date) == "2028-12-02"
+        assert new.pretix_event_slug == "2028"
+
     def test_duplicate_year_rejected(self, client, admin_user, conference):
         client.force_login(admin_user)
         response = client.post(

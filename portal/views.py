@@ -212,6 +212,10 @@ class StartNewYearView(SuperuserRequiredMixin, FormView):
         source = self._previous_edition()
 
         conference = Conference(year=data["year"], name=data["name"], slug=data["slug"])
+        conference.start_date = data.get("start_date")
+        conference.end_date = data.get("end_date")
+        conference.conference_date = data.get("conference_date")
+        conference.pretix_event_slug = data.get("pretix_event_slug") or ""
         if source and data["copy_goals"]:
             conference.sponsorship_goal = source.sponsorship_goal
             conference.donation_goal = source.donation_goal
