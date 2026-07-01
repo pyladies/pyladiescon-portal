@@ -25,6 +25,13 @@ class TestPortalIndex:
         assert "Sign up" in response.content.decode()
         assert "Login" in response.content.decode()
 
+    def test_index_survives_no_active_conference(self, client):
+        # It is valid to have no active edition; the public landing must not 500
+        # (regression: get_stats_cached_values dereferenced conference.year).
+        Conference.objects.all().delete()
+        response = client.get(reverse("index"))
+        assert response.status_code == 200
+
     def test_public_landing_sections_and_real_numbers(self, client, conference):
         response = client.get(reverse("index"))
         assert response.status_code == 200
@@ -95,6 +102,12 @@ class TestPortalStats:
         response = client.get(reverse("portal_stats"))
         assert response.status_code == 200
         assert "PyLadiesCon Stats" in response.content.decode()
+
+    def test_stats_survives_no_active_conference(self, client):
+        # No active edition must render the stats page, not 500.
+        Conference.objects.all().delete()
+        response = client.get(reverse("portal_stats"))
+        assert response.status_code == 200
 
     def test_stats_defaults_to_active_conference(self, client, conference):
         response = client.get(reverse("portal_stats"))
