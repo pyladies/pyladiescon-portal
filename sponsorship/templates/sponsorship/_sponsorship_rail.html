@@ -8,18 +8,18 @@ the manager layout (base_sidebar); Tiers and Add are manager-only.
 {% endcomment %}
 {% url 'sponsorship:sponsorship_list' as sponsors_url %}
 {% if active == "sponsors" %}
-    {% include "portal/_sidebar_item.html" with url=sponsors_url label=_("Sponsors") icon="fa-handshake" active=True %}
+    {% include "portal/_sidebar_item.html" with url=sponsors_url label=_("Sponsors") icon="fa-handshake" active=True only %}
 {% else %}
-    {% include "portal/_sidebar_item.html" with url=sponsors_url label=_("Sponsors") icon="fa-handshake" %}
+    {% include "portal/_sidebar_item.html" with url=sponsors_url label=_("Sponsors") icon="fa-handshake" only %}
 {% endif %}
 {% if can_manage_sponsorship %}
     {% url 'sponsorship:tier_list' as tiers_url %}
     {% if active == "tiers" %}
-        {% include "portal/_sidebar_item.html" with url=tiers_url label=_("Tiers") icon="fa-layer-group" active=True %}
+        {% include "portal/_sidebar_item.html" with url=tiers_url label=_("Tiers") icon="fa-layer-group" active=True only %}
     {% else %}
-        {% include "portal/_sidebar_item.html" with url=tiers_url label=_("Tiers") icon="fa-layer-group" %}
+        {% include "portal/_sidebar_item.html" with url=tiers_url label=_("Tiers") icon="fa-layer-group" only %}
     {% endif %}
     <hr class="my-2">
     {% url 'sponsorship:sponsorship_profile_new' as add_url %}
-    {% include "portal/_sidebar_item.html" with url=add_url label=_("Add sponsor") icon="fa-plus" %}
+    {% include "portal/_sidebar_item.html" with url=add_url label=_("Add sponsor") icon="fa-plus" only %}
 {% endif %}
