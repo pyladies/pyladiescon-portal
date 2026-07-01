@@ -147,21 +147,29 @@ class TestSponsorshipConferenceScoping:
 class TestSponsorshipRail:
     """Stage D: the sponsorship left rail and the collapsed top-nav link."""
 
+    def _active_href(self, content, url):
+        # The rail anchor spans lines; flatten whitespace, then check whether the
+        # active class sits on the link to `url`.
+        flat = " ".join(content.split())
+        return f'active" href="{url}"' in flat
+
     def test_manager_sees_rail_with_tiers_and_add(self, client, admin_user, conference):
         client.force_login(admin_user)
         content = client.get(reverse("sponsorship:sponsorship_list")).content.decode()
         assert 'id="appSidebar"' in content  # rail present for managers
         assert reverse("sponsorship:tier_list") in content
         assert reverse("sponsorship:sponsorship_profile_new") in content
-        # On the list, the "Sponsors" rail entry is the active one.
-        assert "nav-link d-flex align-items-center active" in content
+        # Only the current section highlights: Sponsors active, Tiers not.
+        assert self._active_href(content, reverse("sponsorship:sponsorship_list"))
+        assert not self._active_href(content, reverse("sponsorship:tier_list"))
 
     def test_tier_list_highlights_tiers_section(self, client, admin_user, conference):
         client.force_login(admin_user)
         content = client.get(reverse("sponsorship:tier_list")).content.decode()
         assert 'id="appSidebar"' in content
-        assert reverse("sponsorship:sponsorship_list") in content  # sibling section
-        assert "nav-link d-flex align-items-center active" in content  # Tiers active
+        # The highlight moves to Tiers; Sponsors is no longer active.
+        assert self._active_href(content, reverse("sponsorship:tier_list"))
+        assert not self._active_href(content, reverse("sponsorship:sponsorship_list"))
 
     def test_readonly_viewer_gets_no_rail(self, client, portal_user, conference):
         # An approved volunteer can view the list but has a single destination,

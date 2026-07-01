@@ -12,15 +12,15 @@ The "all teams" entry points organizers to the full list and leads to My teams.
     {% url 'my_teams' as all_teams_url %}
 {% endif %}
 {% if sidebar_current_team_id %}
-    {% include "portal/_sidebar_item.html" with url=all_teams_url label=_("All teams") icon="fa-list" %}
+    {% include "portal/_sidebar_item.html" with url=all_teams_url label=_("All teams") icon="fa-list" only %}
 {% else %}
-    {% include "portal/_sidebar_item.html" with url=all_teams_url label=_("All teams") icon="fa-list" active=True %}
+    {% include "portal/_sidebar_item.html" with url=all_teams_url label=_("All teams") icon="fa-list" active=True only %}
 {% endif %}
 {% for team in sidebar_teams %}
     {% url 'team_dashboard' team.id as team_url %}
     {% if team.id == sidebar_current_team_id %}
-        {% include "portal/_sidebar_item.html" with url=team_url label=team.short_name icon="fa-users-rectangle" active=True %}
+        {% include "portal/_sidebar_item.html" with url=team_url label=team.short_name icon="fa-users-rectangle" active=True only %}
     {% else %}
-        {% include "portal/_sidebar_item.html" with url=team_url label=team.short_name icon="fa-users-rectangle" %}
+        {% include "portal/_sidebar_item.html" with url=team_url label=team.short_name icon="fa-users-rectangle" only %}
     {% endif %}
 {% endfor %}

@@ -85,3 +85,10 @@ body {
         top: 1rem;
     }
 }
+
+/* Bootstrap compiles the active pill colour to a literal blue, so overriding
+   --bs-primary alone never reaches it. Point the rail's active item at the
+   brand colour instead. */
+.app-sidebar .nav-pills {
+    --bs-nav-pills-link-active-bg: var(--bs-primary);
+}
