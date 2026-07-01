@@ -107,7 +107,9 @@
                 {% endif %}
             </form>
         {% endif %}
-        {% render_table table %}
+        <div class="table-responsive">
+            {% render_table table %}
+        </div>
     </div>
     {# Filter chips fetch and swap just the results region, so the page does #}
     {# not reload or jump. Without JS, the links navigate normally. #}

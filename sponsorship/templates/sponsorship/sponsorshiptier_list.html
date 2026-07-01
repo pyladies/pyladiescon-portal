@@ -13,7 +13,7 @@
     {% include "sponsorship/_sponsorship_rail.html" with active="tiers" %}
 {% endblock sidebar %}
 {% block content %}
-    <div class="container px-4 py-3">
+    <div class="py-3">
         <h1 class="display-5">
             {% trans "Sponsorship Tiers" %} — {{ selected_conference.year }}
             <a class="btn btn-primary" href="{% url 'sponsorship:tier_new' %}">{% trans "New Tier" %}</a>
