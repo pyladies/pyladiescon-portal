@@ -19,7 +19,11 @@
     {% trans "Sponsorship" %}
 {% endblock sidebar_title %}
 {% block sidebar %}
-    {% include "sponsorship/_sponsorship_rail.html" with active="sponsors" %}
+    {% if object.pk %}
+        {% include "sponsorship/_sponsorship_rail.html" with active="sponsors" %}
+    {% else %}
+        {% include "sponsorship/_sponsorship_rail.html" with active="add" %}
+    {% endif %}
 {% endblock sidebar %}
 {% block content %}
     <main>

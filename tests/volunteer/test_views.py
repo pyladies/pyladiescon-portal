@@ -1388,9 +1388,7 @@ class TestTeamCRUD:
         content = client.get(reverse("team_new")).content.decode()
         assert 'name="conference"' in content
 
-    def test_edit_team_form_renders_with_selector(
-        self, client, admin_user, conference
-    ):
+    def test_edit_team_form_renders_with_selector(self, client, admin_user, conference):
         team = Team.objects.create(
             short_name="Comms", description="d", conference=conference
         )
