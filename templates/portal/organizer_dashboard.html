@@ -93,8 +93,16 @@
         <h2 class="h6 text-secondary mb-2">
             {% trans "Needs attention" %}
         </h2>
-        {% if pending_reviews or unled_teams or awaiting_invoice %}
+        {% if not conference or pending_reviews or unled_teams or awaiting_invoice %}
             <div class="list-group mb-4">
+                {% if not conference %}
+                    <a href="{% url 'conference_list' %}"
+                       class="list-group-item list-group-item-action list-group-item-danger d-flex align-items-center">
+                        <i class="fa-solid fa-calendar-xmark fa-fw me-3"></i>
+                        <span class="flex-grow-1"><strong>{% trans "No active conference." %}</strong> {% trans "Activate a conference so the portal reports on the current year." %}</span>
+                        <i class="fa-solid fa-chevron-right"></i>
+                    </a>
+                {% endif %}
                 {% if pending_reviews %}
                     <a href="{% url 'teams' %}"
                        class="list-group-item list-group-item-action list-group-item-warning d-flex align-items-center">
@@ -144,6 +152,15 @@
                     <div class="card-body d-flex align-items-center gap-3">
                         <i class="fa-solid fa-users-rectangle fs-5 text-primary"></i>
                         <span class="text-body">{% trans "Manage teams" %}</span>
+                    </div>
+                </a>
+            </div>
+            <div class="col">
+                <a href="{% url 'sponsorship:sponsorship_list' %}"
+                   class="card h-100 text-decoration-none">
+                    <div class="card-body d-flex align-items-center gap-3">
+                        <i class="fa-solid fa-hand-holding-dollar fs-5 text-primary"></i>
+                        <span class="text-body">{% trans "Manage sponsors" %}</span>
                     </div>
                 </a>
             </div>
