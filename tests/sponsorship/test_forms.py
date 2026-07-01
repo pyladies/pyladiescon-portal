@@ -1,7 +1,7 @@
 import pytest
 
 from portal.models import Conference
-from sponsorship.forms import SponsorshipProfileForm
+from sponsorship.forms import SponsorshipProfileForm, SponsorshipTierForm
 from sponsorship.models import (
     SponsorshipProfile,
     SponsorshipProgressStatus,
@@ -48,6 +48,14 @@ class TestSponsorshipProfileForm:
         assert form.is_valid()
         profile = form.save()
         assert profile.conference == past
+
+    def test_errors_when_no_conference_and_none_active(self, form_data):
+        # No conference chosen and no active edition to default to: a form
+        # error, not a 500 on the required conference FK at save time.
+        Conference.objects.all().delete()
+        form = SponsorshipProfileForm(data=form_data)
+        assert not form.is_valid()
+        assert "conference" in form.errors
 
     def test_tier_choices_scoped_to_active_conference(self, conference):
         past = Conference.objects.create(
@@ -195,3 +203,29 @@ class TestSponsorshipProfileForm:
 
         assert past_tier in tiers  # the sponsor's own edition
         assert active_tier not in tiers
+
+
+@pytest.mark.django_db
+class TestSponsorshipTierForm:
+    def test_conference_is_required(self):
+        # Tiers are conference-scoped; the form requires an explicit conference,
+        # so it never 500s on the required FK even with no active edition.
+        Conference.objects.all().delete()
+        form = SponsorshipTierForm(
+            data={"name": "Gold", "amount": "1000", "description": "d"}
+        )
+        assert not form.is_valid()
+        assert "conference" in form.errors
+
+    def test_saves_for_chosen_conference(self, conference):
+        form = SponsorshipTierForm(
+            data={
+                "conference": conference.pk,
+                "name": "Gold",
+                "amount": "1000",
+                "description": "d",
+            }
+        )
+        assert form.is_valid()
+        tier = form.save()
+        assert tier.conference == conference

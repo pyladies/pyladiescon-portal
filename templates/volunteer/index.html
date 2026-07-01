@@ -33,8 +33,15 @@
                             {% trans "You get access to the tools and Discord once onboarded." %}
                         </li>
                     </ol>
-                    <a class="btn btn-primary"
-                       href="{% url 'volunteer:volunteer_profile_new' %}">{% trans "Create my volunteer profile" %}</a>
+                    {% if active_conference %}
+                        <a class="btn btn-primary"
+                           href="{% url 'volunteer:volunteer_profile_new' %}">{% trans "Create my volunteer profile" %}</a>
+                    {% else %}
+                        <p class="mb-0 text-secondary">
+                            <i class="fa-solid fa-circle-info"></i>
+                            {% trans "Volunteer sign-ups open once the next conference is active." %}
+                        </p>
+                    {% endif %}
                 </div>
             </div>
         {% else %}

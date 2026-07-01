@@ -83,6 +83,14 @@ class SponsorshipProfileForm(forms.ModelForm):
         cleaned_data = super().clean()
         tier = cleaned_data.get("sponsorship_tier")
         conference = cleaned_data.get("conference") or Conference.get_active()
+        # The conference field defaults to the active edition; with none active
+        # and none chosen there is nothing to attach the sponsor to. Surface a
+        # form error instead of failing on the required FK at save time.
+        if conference is None:
+            self.add_error(
+                "conference",
+                "Select a conference. There is no active edition to default to.",
+            )
         # Guard the (selector vs dropdown) gap: a tier must belong to the same
         # conference the sponsorship is for.
         if tier and conference and tier.conference_id != conference.pk:
