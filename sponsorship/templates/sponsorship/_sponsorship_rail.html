@@ -21,5 +21,9 @@ the manager layout (base_sidebar); Tiers and Add are manager-only.
     {% endif %}
     <hr class="my-2">
     {% url 'sponsorship:sponsorship_profile_new' as add_url %}
-    {% include "portal/_sidebar_item.html" with url=add_url label=_("Add sponsor") icon="fa-plus" only %}
+    {% if active == "add" %}
+        {% include "portal/_sidebar_item.html" with url=add_url label=_("Add sponsor") icon="fa-plus" active=True only %}
+    {% else %}
+        {% include "portal/_sidebar_item.html" with url=add_url label=_("Add sponsor") icon="fa-plus" only %}
+    {% endif %}
 {% endif %}
