@@ -192,6 +192,35 @@ class TestSponsorshipRail:
         assert 'id="navSponsorship"' not in content  # dropdown removed
         assert "Manage tiers" not in content  # old dropdown item label gone
 
+    def test_add_sponsor_page_highlights_add(self, client, admin_user, conference):
+        client.force_login(admin_user)
+        content = client.get(
+            reverse("sponsorship:sponsorship_profile_new")
+        ).content.decode()
+        # The "Add sponsor" rail entry is current here, not "Sponsors".
+        assert self._active_href(
+            content, reverse("sponsorship:sponsorship_profile_new")
+        )
+        assert not self._active_href(content, reverse("sponsorship:sponsorship_list"))
+
+    def test_edit_sponsor_page_highlights_sponsors(
+        self, client, admin_user, conference
+    ):
+        sponsor = SponsorshipProfile.objects.create(
+            organization_name="Acme",
+            conference=conference,
+            progress_status=SponsorshipProgressStatus.PAID,
+        )
+        client.force_login(admin_user)
+        content = client.get(
+            reverse("sponsorship:sponsorship_profile_edit", kwargs={"pk": sponsor.pk})
+        ).content.decode()
+        # Editing an existing sponsor lives under "Sponsors", not "Add sponsor".
+        assert self._active_href(content, reverse("sponsorship:sponsorship_list"))
+        assert not self._active_href(
+            content, reverse("sponsorship:sponsorship_profile_new")
+        )
+
 
 @pytest.mark.django_db
 class TestSponsorshipViews:
