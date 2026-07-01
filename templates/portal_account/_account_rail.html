@@ -12,24 +12,24 @@ their own layout (and their own back-link to Account).
 {% if profile %}
     {% url 'portal_account:portal_profile_edit' profile.id as edit_url %}
     {% if account_active == "profile_edit" %}
-        {% include "portal/_sidebar_item.html" with url=edit_url label=_("Edit profile") icon="fa-id-card" active=True %}
+        {% include "portal/_sidebar_item.html" with url=edit_url label=_("Edit profile") icon="fa-id-card" active=True only %}
     {% else %}
-        {% include "portal/_sidebar_item.html" with url=edit_url label=_("Edit profile") icon="fa-id-card" %}
+        {% include "portal/_sidebar_item.html" with url=edit_url label=_("Edit profile") icon="fa-id-card" only %}
     {% endif %}
     {% url 'portal_account:portal_profile_detail' profile.id as view_url %}
     {% if account_active == "profile_view" %}
-        {% include "portal/_sidebar_item.html" with url=view_url label=_("View my profile") icon="fa-eye" active=True %}
+        {% include "portal/_sidebar_item.html" with url=view_url label=_("View my profile") icon="fa-eye" active=True only %}
     {% else %}
-        {% include "portal/_sidebar_item.html" with url=view_url label=_("View my profile") icon="fa-eye" %}
+        {% include "portal/_sidebar_item.html" with url=view_url label=_("View my profile") icon="fa-eye" only %}
     {% endif %}
 {% else %}
     {% url 'portal_account:portal_profile_new' as new_url %}
-    {% include "portal/_sidebar_item.html" with url=new_url label=_("Create my profile") icon="fa-id-card" active=True %}
+    {% include "portal/_sidebar_item.html" with url=new_url label=_("Create my profile") icon="fa-id-card" active=True only %}
 {% endif %}
 <div class="text-uppercase text-secondary small fw-semibold mb-1 mt-3">
     {% trans "Account and security" %}
 </div>
 {% url 'account_email' as email_url %}
-{% include "portal/_sidebar_item.html" with url=email_url label=_("Email addresses") icon="fa-envelope" %}
+{% include "portal/_sidebar_item.html" with url=email_url label=_("Email addresses") icon="fa-envelope" only %}
 {% url 'account_change_password' as password_url %}
-{% include "portal/_sidebar_item.html" with url=password_url label=_("Password") icon="fa-lock" %}
+{% include "portal/_sidebar_item.html" with url=password_url label=_("Password") icon="fa-lock" only %}
