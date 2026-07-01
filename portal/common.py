@@ -49,10 +49,18 @@ from volunteer.models import Team, VolunteerProfile
 
 
 def get_stats_cached_values(conference=None):
-    """Collect some stats and return them in a dictionary."""
+    """Collect some stats and return them in a dictionary.
+
+    Returns an empty dict when there is no conference to report on (e.g. no
+    active edition yet). Every stats helper keys its cache on
+    ``conference.year``, so a ``None`` conference has nothing to compute;
+    callers read stats with ``.get``/template lookups that tolerate the gap.
+    """
     if conference is None:
         conference = Conference.get_active()
     stats_dict = {}
+    if conference is None:
+        return stats_dict
 
     stats_dict.update(get_volunteer_stats_dict(conference))
 

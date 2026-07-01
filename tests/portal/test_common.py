@@ -84,6 +84,14 @@ class TestGetStatsCachedValues:
         result = get_stats_cached_values(conference)
         assert result.get(CACHE_KEY_VOLUNTEER_SIGNUPS_COUNT) == 2
 
+    def test_get_stats_cached_values_no_active_conference(self):
+        # No active edition: every stats helper keys its cache on
+        # ``conference.year``, so with no conference there is nothing to compute.
+        # Return an empty dict instead of raising AttributeError on None.
+        Conference.objects.all().delete()  # drop the autouse fixture's edition
+        assert Conference.get_active() is None
+        assert get_stats_cached_values() == {}
+
     def test_get_sponsorship_total_counts_stats_does_not_count_not_contacted(
         self, conference
     ):
