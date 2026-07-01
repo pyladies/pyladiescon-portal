@@ -48,6 +48,50 @@ class TestAccountRedirects:
         assertRedirects(response, reverse("portal_account:index"))
 
 
+@pytest.mark.django_db
+class TestAccountRail:
+    """Stage E: the settings rail on the deep account pages."""
+
+    def test_detail_page_rail_highlights_view(self, client, portal_user):
+        profile = PortalProfile.objects.create(user=portal_user)
+        client.force_login(portal_user)
+        response = client.get(
+            reverse("portal_account:portal_profile_detail", kwargs={"pk": profile.id})
+        )
+        assert response.status_code == 200
+        assert response.context["account_active"] == "profile_view"
+        content = response.content.decode()
+        assert 'id="appSidebar"' in content  # rail present
+        assert reverse("account_email") in content  # Account-and-security group
+        assert reverse("account_change_password") in content
+        assert "nav-link d-flex align-items-center active" in content  # View active
+
+    def test_edit_page_rail_highlights_edit(self, client, portal_user):
+        profile = PortalProfile.objects.create(user=portal_user)
+        client.force_login(portal_user)
+        response = client.get(
+            reverse("portal_account:portal_profile_edit", kwargs={"pk": profile.id})
+        )
+        assert response.status_code == 200
+        assert response.context["account_active"] == "profile_edit"
+        content = response.content.decode()
+        assert 'id="appSidebar"' in content
+        assert (
+            reverse("portal_account:portal_profile_detail", kwargs={"pk": profile.id})
+            in content
+        )
+
+    def test_create_page_rail_offers_create(self, client, portal_user):
+        # No profile yet -> the rail's Profile group offers "Create my profile".
+        client.force_login(portal_user)
+        response = client.get(reverse("portal_account:portal_profile_new"))
+        assert response.status_code == 200
+        assert response.context["account_active"] == "profile_new"
+        content = response.content.decode()
+        assert 'id="appSidebar"' in content
+        assert "Create my profile" in content
+
+
 # -----------------------------------------------------------------------------------
 # Portal Profile Tests
 # -----------------------------------------------------------------------------------

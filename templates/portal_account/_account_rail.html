@@ -1,0 +1,35 @@
+{% load i18n %}
+{% comment %}
+Account settings rail (Stage E). Expects:
+    profile        — the user's PortalProfile, or None
+    account_active — current section: "profile_edit" / "profile_view" / "profile_new"
+The Account-and-security entries link to the allauth manage pages, which keep
+their own layout (and their own back-link to Account).
+{% endcomment %}
+<div class="text-uppercase text-secondary small fw-semibold mb-1">
+    {% trans "Profile" %}
+</div>
+{% if profile %}
+    {% url 'portal_account:portal_profile_edit' profile.id as edit_url %}
+    {% if account_active == "profile_edit" %}
+        {% include "portal/_sidebar_item.html" with url=edit_url label=_("Edit profile") icon="fa-id-card" active=True %}
+    {% else %}
+        {% include "portal/_sidebar_item.html" with url=edit_url label=_("Edit profile") icon="fa-id-card" %}
+    {% endif %}
+    {% url 'portal_account:portal_profile_detail' profile.id as view_url %}
+    {% if account_active == "profile_view" %}
+        {% include "portal/_sidebar_item.html" with url=view_url label=_("View my profile") icon="fa-eye" active=True %}
+    {% else %}
+        {% include "portal/_sidebar_item.html" with url=view_url label=_("View my profile") icon="fa-eye" %}
+    {% endif %}
+{% else %}
+    {% url 'portal_account:portal_profile_new' as new_url %}
+    {% include "portal/_sidebar_item.html" with url=new_url label=_("Create my profile") icon="fa-id-card" active=True %}
+{% endif %}
+<div class="text-uppercase text-secondary small fw-semibold mb-1 mt-3">
+    {% trans "Account and security" %}
+</div>
+{% url 'account_email' as email_url %}
+{% include "portal/_sidebar_item.html" with url=email_url label=_("Email addresses") icon="fa-envelope" %}
+{% url 'account_change_password' as password_url %}
+{% include "portal/_sidebar_item.html" with url=password_url label=_("Password") icon="fa-lock" %}
