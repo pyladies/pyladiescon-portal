@@ -111,6 +111,29 @@ class TestVolunteer:
         response = client.get(reverse("volunteer:volunteer_profile_new"))
         assert response.status_code == 200
 
+    def test_create_blocked_without_active_conference(
+        self, client, portal_user, conference
+    ):
+        # A profile is tied to the active edition; with none active, don't offer
+        # (or accept) the form — redirect back to the hub instead of 500-ing.
+        conference.is_active = False
+        conference.save()
+        client.force_login(portal_user)
+        response = client.get(reverse("volunteer:volunteer_profile_new"), follow=True)
+        assert response.status_code == 200
+        assert response.request["PATH_INFO"] == reverse("volunteer:index")
+        assert not VolunteerProfile.objects.filter(user=portal_user).exists()
+
+    def test_hub_hides_create_button_without_active_conference(
+        self, client, portal_user, conference
+    ):
+        conference.is_active = False
+        conference.save()
+        client.force_login(portal_user)
+        content = client.get(reverse("volunteer:index")).content.decode()
+        assert "Volunteer sign-ups open once" in content
+        assert reverse("volunteer:volunteer_profile_new") not in content
+
     def test_volunteer_profile_teams_available(self, client, portal_user, conference):
         """Display team list if there are teams that are still accepting new members."""
 
@@ -1291,6 +1314,7 @@ class TestTeamCRUD:
         response = client.post(
             reverse("team_new"),
             {
+                "conference": conference.pk,
                 "short_name": "Comms",
                 "description": "Communications",
                 "open_to_new_members": "on",
@@ -1299,7 +1323,7 @@ class TestTeamCRUD:
         )
         assert response.status_code == 200
         team = Team.objects.get(short_name="Comms")
-        assert team.conference == conference  # the active edition
+        assert team.conference == conference  # the chosen edition
         assert team.open_to_new_members is True
 
     def test_team_form_notes_markdown_support(self, client, admin_user, conference):
@@ -1318,13 +1342,62 @@ class TestTeamCRUD:
         client.force_login(admin_user)
         response = client.post(
             reverse("team_edit", kwargs={"pk": team.pk}),
-            {"short_name": "Comms", "description": "new description"},
+            {
+                "conference": conference.pk,
+                "short_name": "Comms",
+                "description": "new description",
+            },
             follow=True,
         )
         assert response.status_code == 200
         team.refresh_from_db()
         assert team.description == "new description"
         assert team.open_to_new_members is False  # unchecked
+
+    def test_create_team_for_a_chosen_non_active_conference(
+        self, client, admin_user, conference
+    ):
+        past = Conference.objects.create(
+            year=2020, name="PyLadiesCon 2020", slug="2020"
+        )
+        client.force_login(admin_user)
+        client.post(
+            reverse("team_new"),
+            {"conference": past.pk, "short_name": "Comms", "description": "d"},
+            follow=True,
+        )
+        assert Team.objects.get(short_name="Comms").conference == past
+
+    def test_create_team_works_without_active_conference(
+        self, client, admin_user, conference
+    ):
+        # The conference is chosen on the form, so team creation no longer
+        # depends on an active edition existing.
+        conference.is_active = False
+        conference.save()
+        client.force_login(admin_user)
+        client.post(
+            reverse("team_new"),
+            {"conference": conference.pk, "short_name": "Infra", "description": "d"},
+            follow=True,
+        )
+        assert Team.objects.get(short_name="Infra").conference == conference
+
+    def test_team_form_shows_conference_selector(self, client, admin_user, conference):
+        client.force_login(admin_user)
+        content = client.get(reverse("team_new")).content.decode()
+        assert 'name="conference"' in content
+
+    def test_edit_team_form_renders_with_selector(
+        self, client, admin_user, conference
+    ):
+        team = Team.objects.create(
+            short_name="Comms", description="d", conference=conference
+        )
+        client.force_login(admin_user)
+        response = client.get(reverse("team_edit", kwargs={"pk": team.pk}))
+        assert response.status_code == 200
+        assert 'name="conference"' in response.content.decode()
 
     def test_delete_team(self, client, admin_user, conference):
         team = Team.objects.create(
