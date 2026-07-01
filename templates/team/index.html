@@ -89,63 +89,65 @@
                 {% blocktranslate count counter=unled_count %}{{ counter }} team has no lead assigned.{% plural %}{{ counter }} teams have no lead assigned.{% endblocktranslate %}
             </div>
         {% endif %}
-        <table class="table table-hover align-middle">
-            <thead class="table-light">
-                <tr>
-                    <th>
-                        {% trans "Name" %}
-                    </th>
-                    <th>
-                        {% trans "Leads" %}
-                    </th>
-                    <th>
-                        {% trans "Open" %}
-                    </th>
-                    <th>
-                        {% trans "Members" %}
-                    </th>
-                    <th>
-                    </th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for team in teams %}
+        <div class="table-responsive">
+            <table class="table table-hover align-middle">
+                <thead class="table-light">
                     <tr>
-                        <td>
-                            <a href="{% url 'team_dashboard' team.id %}">{{ team.short_name }}</a>
-                        </td>
-                        <td>
-                            {% for lead in team.team_leads.all %}
-                                <span class="badge text-bg-light border">{{ lead.user.get_full_name|default:lead.user.username }}</span>
-                            {% empty %}
-                                <span class="badge text-bg-danger">{% trans "unassigned" %}</span>
-                            {% endfor %}
-                        </td>
-                        <td>
-                            {% if team.open_to_new_members %}
-                                <span class="badge bg-success">{% trans "Open" %}</span>
-                            {% else %}
-                                <span class="badge bg-secondary">{% trans "Closed" %}</span>
-                            {% endif %}
-                        </td>
-                        <td>
-                            <span class="badge bg-primary rounded-pill" title="Approved">{{ team.approved_members.count }}</span>
-                            <span class="badge bg-warning rounded-pill" title="Pending">{{ team.pending_members.count }}</span>
-                            <span class="badge bg-secondary rounded-pill" title="Waitlisted">{{ team.waitlisted_members.count }}</span>
-                        </td>
-                        <td>
-                            <a href="{% url 'team_edit' team.id %}"
-                               class="btn btn-sm btn-outline-primary"
-                               title="Edit"
-                               aria-label="Edit"><i class="fa-solid fa-pencil"></i></a>
-                            <a href="{% url 'team_delete' team.id %}"
-                               class="btn btn-sm btn-outline-danger"
-                               title="Delete"
-                               aria-label="Delete"><i class="fa-solid fa-trash"></i></a>
-                        </td>
+                        <th>
+                            {% trans "Name" %}
+                        </th>
+                        <th>
+                            {% trans "Leads" %}
+                        </th>
+                        <th>
+                            {% trans "Open" %}
+                        </th>
+                        <th>
+                            {% trans "Members" %}
+                        </th>
+                        <th>
+                        </th>
                     </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+                </thead>
+                <tbody>
+                    {% for team in teams %}
+                        <tr>
+                            <td>
+                                <a href="{% url 'team_dashboard' team.id %}">{{ team.short_name }}</a>
+                            </td>
+                            <td>
+                                {% for lead in team.team_leads.all %}
+                                    <span class="badge text-bg-light border">{{ lead.user.get_full_name|default:lead.user.username }}</span>
+                                {% empty %}
+                                    <span class="badge text-bg-danger">{% trans "unassigned" %}</span>
+                                {% endfor %}
+                            </td>
+                            <td>
+                                {% if team.open_to_new_members %}
+                                    <span class="badge bg-success">{% trans "Open" %}</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">{% trans "Closed" %}</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <span class="badge bg-primary rounded-pill" title="Approved">{{ team.approved_members.count }}</span>
+                                <span class="badge bg-warning rounded-pill" title="Pending">{{ team.pending_members.count }}</span>
+                                <span class="badge bg-secondary rounded-pill" title="Waitlisted">{{ team.waitlisted_members.count }}</span>
+                            </td>
+                            <td>
+                                <a href="{% url 'team_edit' team.id %}"
+                                   class="btn btn-sm btn-outline-primary"
+                                   title="Edit"
+                                   aria-label="Edit"><i class="fa-solid fa-pencil"></i></a>
+                                <a href="{% url 'team_delete' team.id %}"
+                                   class="btn btn-sm btn-outline-danger"
+                                   title="Delete"
+                                   aria-label="Delete"><i class="fa-solid fa-trash"></i></a>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
     </div>
 {% endblock content %}

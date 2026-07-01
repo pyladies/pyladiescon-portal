@@ -92,3 +92,11 @@ body {
 .app-sidebar .nav-pills {
     --bs-nav-pills-link-active-bg: var(--bs-primary);
 }
+
+/* Flex items default to min-width:auto, so a wide table would stretch the
+   content column past its grid share and make pages with wide vs narrow
+   content render at different widths. Let the column shrink to its share; wide
+   tables scroll inside it (wrap them in .table-responsive). */
+.app-content {
+    min-width: 0;
+}
