@@ -485,11 +485,54 @@ class TeamDashboardView(TeamLeadRequiredMixin, DetailView):
             is_admin or team.team_leads.filter(user=user).exists()
         )
 
+        # Applicants who applied to this edition without picking a team. A lead
+        # can pull one onto their team; no other roster surfaces them.
+        context["unassigned_applicants"] = (
+            VolunteerProfile.objects.filter(
+                conference=team.conference,
+                application_status=ApplicationStatus.PENDING,
+                teams__isnull=True,
+            )
+            .select_related("user")
+            .order_by("user__username")
+        )
+
         # Teams rail (Stage B): sibling teams in this edition the user may open,
         # with the current team highlighted.
         context["sidebar_teams"] = sidebar_teams_for(user, team.conference)
         context["sidebar_current_team_id"] = team.id
         return context
+
+
+class AddApplicantToTeamView(TeamLeadRequiredMixin, View):
+    """Let a lead (or admin) pull an unassigned applicant onto their team.
+
+    Scoped by ``TeamLeadRequiredMixin`` to the team in the URL. Only a genuinely
+    unassigned, pending applicant from the same edition can be added; they join
+    the team's pending roster and still go through the normal approval.
+    """
+
+    def post(self, request, pk, profile_pk):
+        team = Team.objects.filter(pk=pk).first()
+        if team is None:
+            return redirect("teams")
+
+        applicant = VolunteerProfile.objects.filter(pk=profile_pk).first()
+        if (
+            applicant is None
+            or applicant.conference_id != team.conference_id
+            or applicant.application_status != ApplicationStatus.PENDING
+            or applicant.teams.exists()
+        ):
+            messages.warning(
+                request, "That volunteer is no longer available to add to this team."
+            )
+            return redirect("team_dashboard", pk=team.pk)
+
+        applicant.teams.add(team)
+        name = applicant.user.get_full_name() or applicant.user.username
+        messages.success(request, f"Added {name} to {team.short_name}.")
+        return redirect("team_dashboard", pk=team.pk)
 
 
 class MyTeamsView(LoginRequiredMixin, ListView):

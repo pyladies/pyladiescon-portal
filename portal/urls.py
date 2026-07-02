@@ -83,6 +83,11 @@ urlpatterns = [
         name="team_dashboard",
     ),
     path(
+        "teams/<int:pk>/applicants/<int:profile_pk>/add/",
+        volunteer_view.AddApplicantToTeamView.as_view(),
+        name="team_add_applicant",
+    ),
+    path(
         "teams/<int:pk>/edit/",
         volunteer_view.TeamUpdate.as_view(),
         name="team_edit",

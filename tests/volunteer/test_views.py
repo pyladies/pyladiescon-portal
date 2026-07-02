@@ -1670,6 +1670,148 @@ class TestTeamsRail:
 
 
 @pytest.mark.django_db
+class TestUnassignedApplicants:
+    """Leads can see, and pull in, applicants who picked no team."""
+
+    def _lead_team(self, portal_user, conference):
+        team = Team.objects.create(
+            short_name="Comms", description="d", conference=conference
+        )
+        lead = VolunteerProfile.objects.create(
+            user=portal_user,
+            conference=conference,
+            application_status=ApplicationStatus.APPROVED,
+        )
+        team.team_leads.add(lead)
+        return team
+
+    def _applicant(self, django_user_model, username, conference, **kwargs):
+        return VolunteerProfile.objects.create(
+            user=django_user_model.objects.create_user(username),
+            conference=conference,
+            application_status=kwargs.get("status", ApplicationStatus.PENDING),
+        )
+
+    def test_lead_sees_unassigned_applicants(
+        self, client, portal_user, conference, django_user_model
+    ):
+        team = self._lead_team(portal_user, conference)
+        applicant = self._applicant(django_user_model, "app", conference)
+        client.force_login(portal_user)
+        response = client.get(reverse("team_dashboard", kwargs={"pk": team.pk}))
+        assert applicant in list(response.context["unassigned_applicants"])
+        content = response.content.decode()
+        assert "Applicants without a team" in content
+        assert (
+            reverse(
+                "team_add_applicant",
+                kwargs={"pk": team.pk, "profile_pk": applicant.pk},
+            )
+            in content
+        )
+
+    def test_assigned_and_nonpending_are_excluded(
+        self, client, portal_user, conference, django_user_model
+    ):
+        team = self._lead_team(portal_user, conference)
+        other = Team.objects.create(
+            short_name="Other", description="d", conference=conference
+        )
+        assigned = self._applicant(django_user_model, "assigned", conference)
+        assigned.teams.add(other)
+        approved = self._applicant(
+            django_user_model,
+            "appr",
+            conference,
+            status=ApplicationStatus.APPROVED,
+        )
+        client.force_login(portal_user)
+        unassigned = list(
+            client.get(reverse("team_dashboard", kwargs={"pk": team.pk})).context[
+                "unassigned_applicants"
+            ]
+        )
+        assert assigned not in unassigned  # already on a team
+        assert approved not in unassigned  # not pending
+
+    def test_lead_can_add_applicant_to_their_team(
+        self, client, portal_user, conference, django_user_model
+    ):
+        team = self._lead_team(portal_user, conference)
+        applicant = self._applicant(django_user_model, "app", conference)
+        client.force_login(portal_user)
+        response = client.post(
+            reverse(
+                "team_add_applicant",
+                kwargs={"pk": team.pk, "profile_pk": applicant.pk},
+            )
+        )
+        assertRedirects(response, reverse("team_dashboard", kwargs={"pk": team.pk}))
+        assert team in applicant.teams.all()
+        # ...and now shows in the team's pending roster.
+        assert applicant in Team.objects.get(pk=team.pk).pending_members
+
+    def test_non_lead_cannot_add(
+        self, client, portal_user, conference, django_user_model
+    ):
+        team = Team.objects.create(
+            short_name="Comms", description="d", conference=conference
+        )
+        applicant = self._applicant(django_user_model, "app", conference)
+        client.force_login(portal_user)  # not a lead of this team
+        response = client.post(
+            reverse(
+                "team_add_applicant",
+                kwargs={"pk": team.pk, "profile_pk": applicant.pk},
+            )
+        )
+        assert response.status_code in (302, 403)
+        assert applicant.teams.count() == 0
+
+    def test_add_rejects_already_assigned_applicant(
+        self, client, admin_user, conference, django_user_model
+    ):
+        team = Team.objects.create(
+            short_name="Comms", description="d", conference=conference
+        )
+        other = Team.objects.create(
+            short_name="Other", description="d", conference=conference
+        )
+        applicant = self._applicant(django_user_model, "app", conference)
+        applicant.teams.add(other)
+        client.force_login(admin_user)
+        client.post(
+            reverse(
+                "team_add_applicant",
+                kwargs={"pk": team.pk, "profile_pk": applicant.pk},
+            )
+        )
+        assert list(applicant.teams.all()) == [other]  # unchanged
+
+    def test_add_missing_applicant_warns(self, client, admin_user, conference):
+        team = Team.objects.create(
+            short_name="Comms", description="d", conference=conference
+        )
+        client.force_login(admin_user)
+        response = client.post(
+            reverse("team_add_applicant", kwargs={"pk": team.pk, "profile_pk": 99999})
+        )
+        assertRedirects(response, reverse("team_dashboard", kwargs={"pk": team.pk}))
+
+    def test_add_missing_team_redirects(
+        self, client, admin_user, conference, django_user_model
+    ):
+        applicant = self._applicant(django_user_model, "app", conference)
+        client.force_login(admin_user)
+        response = client.post(
+            reverse(
+                "team_add_applicant", kwargs={"pk": 99999, "profile_pk": applicant.pk}
+            )
+        )
+        assertRedirects(response, reverse("teams"))
+
+
+@pytest.mark.django_db
 class TestMyTeams:
     def _lead(self, user, conference):
         profile = VolunteerProfile.objects.create(
