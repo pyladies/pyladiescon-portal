@@ -196,6 +196,63 @@
                 </p>
             {% endif %}
         </div>
+        {# Applicants who applied without a team: leads can pull one onto their #}
+        {# team. Outside the roster filter (they are not team members yet). #}
+        {% if can_manage_members and unassigned_applicants %}
+            <div class="mt-5">
+                <h3 class="h5">
+                    <i class="fa-solid fa-user-plus text-primary"></i>
+                    {% trans "Applicants without a team" %}
+                    <span class="badge bg-primary rounded-pill">{{ unassigned_applicants.count }}</span>
+                </h3>
+                <p class="small text-secondary">
+                    {% trans "These volunteers applied but no team has picked them up yet. Add anyone who'd be a fit for yours." %}
+                </p>
+                <div class="table-responsive">
+                    <table class="table table-hover table-sm align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>
+                                    {% trans "Volunteer" %}
+                                </th>
+                                <th>
+                                    {% trans "Region" %}
+                                </th>
+                                <th>
+                                    {% trans "Discord" %}
+                                </th>
+                                <th>
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for applicant in unassigned_applicants %}
+                                <tr>
+                                    <td>
+                                        {{ applicant.user.get_full_name|default:applicant.user.username }}
+                                    </td>
+                                    <td>
+                                        {{ applicant.region|default:"-" }}
+                                    </td>
+                                    <td>
+                                        {{ applicant.discord_username|default:"-" }}
+                                    </td>
+                                    <td>
+                                        <form method="post"
+                                              action="{% url 'team_add_applicant' team.id applicant.id %}">
+                                            {% csrf_token %}
+                                            <button type="submit" class="btn btn-sm btn-outline-primary">
+                                                <i class="fa-solid fa-plus"></i> {% trans "Add to team" %}
+                                            </button>
+                                        </form>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        {% endif %}
         <script>
         (function () {
             var buttons = document.querySelectorAll(".js-roster-filter");
