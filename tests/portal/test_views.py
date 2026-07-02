@@ -43,6 +43,18 @@ class TestPortalIndex:
         # The band is bound to cumulative aggregates, not literals.
         assert response.context["landing_stats"]["editions"] == 1
 
+    def test_landing_footer_shows_grouped_resources(self, client, conference):
+        content = client.get(reverse("index")).content.decode()
+        # The role-grouped external reference links live in the footer.
+        assert "Keynote speaker guide" in content  # footer-only marker
+        assert "Team descriptions" in content
+        assert "Code of Conduct" in content
+
+    def test_inner_page_keeps_minimal_footer(self, client, conference):
+        # Pages that don't opt into footer_resources keep the minimal footer.
+        content = client.get(reverse("chapters")).content.decode()
+        assert "Keynote speaker guide" not in content
+
     def test_hero_shows_this_year_signups_with_year(
         self, client, portal_user, conference
     ):

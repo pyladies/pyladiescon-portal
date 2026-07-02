@@ -245,8 +245,10 @@
                 {% endblock content %}
             {% endblock layout %}
         </div>
-        <footer class="footer mt-auto py-3 bg-dark text-white">
-            <div class="container d-flex align-items-center justify-content-between">
+        <footer class="footer mt-auto bg-dark text-white">
+            {% block footer_resources %}
+            {% endblock footer_resources %}
+            <div class="container py-3 d-flex align-items-center justify-content-between">
                 <span>
                     Problems with this site? File an issue in our
                     <a href="https://github.com/pyladies/pyladiescon-portal">GitHub repository</a>, or open a pull request.
