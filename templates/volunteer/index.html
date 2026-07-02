@@ -88,6 +88,31 @@
                            class="alert-link">{% trans "Update profile" %}</a>
                     </div>
                 {% endif %}
+            {% elif profile.is_cancelled %}
+                <div class="card border-secondary-subtle bg-body-secondary mb-4">
+                    <div class="card-body d-flex flex-wrap align-items-center gap-3">
+                        <i class="fa-solid fa-circle-xmark fs-3 text-secondary"></i>
+                        <div class="flex-grow-1">
+                            <div class="fw-semibold">
+                                {% trans "Application cancelled" %}
+                            </div>
+                            <div class="small text-secondary">
+                                {% blocktranslate with year=profile.conference.year %}You've withdrawn from volunteering for PyLadiesCon {{ year }}.{% endblocktranslate %}
+                            </div>
+                        </div>
+                        <div class="d-flex gap-2">
+                            <form method="post"
+                                  action="{% url 'volunteer:reapply_volunteering' profile.id %}">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-sm btn-primary">
+                                    <i class="fa-solid fa-rotate-right"></i> {% trans "Volunteer again" %}
+                                </button>
+                            </form>
+                            <a class="btn btn-sm btn-outline-secondary"
+                               href="{% url 'volunteer:volunteer_profile_detail' profile.id %}"><i class="fa-solid fa-eye"></i> {% trans "View" %}</a>
+                        </div>
+                    </div>
+                </div>
             {% else %}
                 <div class="card border-warning-subtle bg-warning-subtle mb-4">
                     <div class="card-body d-flex flex-wrap align-items-center gap-3">
@@ -110,53 +135,56 @@
                 </div>
             {% endif %}
             {# My teams — leads link to the dashboard (slice 1); members are view-only. #}
-            <h2 class="h6 text-secondary mb-2">
-                {% if profile.is_approved %}
-                    {% trans "My teams" %}
-                {% else %}
-                    {% trans "Teams you applied to" %}
-                {% endif %}
-            </h2>
-            {% if my_teams %}
-                {% if not profile.is_approved %}
-                    <p class="small text-secondary mb-2">
-                        {% trans "These applications are still under review: you are not a confirmed team member yet." %}
-                    </p>
-                {% endif %}
-                <div class="list-group mb-4">
-                    {% for team in my_teams %}
-                        <div class="list-group-item d-flex align-items-center gap-3">
-                            <i class="fa-solid fa-users-rectangle text-secondary"></i>
-                            <span class="flex-grow-1">
-                                <span class="fw-semibold">{{ team.short_name }}</span>
+            {# A cancelled volunteer is no longer on any team, so skip this. #}
+            {% if not profile.is_cancelled %}
+                <h2 class="h6 text-secondary mb-2">
+                    {% if profile.is_approved %}
+                        {% trans "My teams" %}
+                    {% else %}
+                        {% trans "Teams you applied to" %}
+                    {% endif %}
+                </h2>
+                {% if my_teams %}
+                    {% if not profile.is_approved %}
+                        <p class="small text-secondary mb-2">
+                            {% trans "These applications are still under review: you are not a confirmed team member yet." %}
+                        </p>
+                    {% endif %}
+                    <div class="list-group mb-4">
+                        {% for team in my_teams %}
+                            <div class="list-group-item d-flex align-items-center gap-3">
+                                <i class="fa-solid fa-users-rectangle text-secondary"></i>
+                                <span class="flex-grow-1">
+                                    <span class="fw-semibold">{{ team.short_name }}</span>
+                                    {% if team.id in led_team_ids %}
+                                        <span class="badge text-bg-success ms-1">{% trans "Lead" %}</span>
+                                        <small class="d-block text-secondary">
+                                            {% blocktranslate count counter=team.approved_members.count %}{{ counter }} approved{% plural %}{{ counter }} approved{% endblocktranslate %}
+                                            ·
+                                            {% blocktranslate count counter=team.pending_members.count %}{{ counter }} pending review{% plural %}{{ counter }} pending review{% endblocktranslate %}
+                                        </small>
+                                    {% elif profile.is_approved %}
+                                        <span class="badge text-bg-light border ms-1">{% trans "Member" %}</span>
+                                    {% else %}
+                                        <span class="badge text-bg-warning ms-1">{% trans "Under review" %}</span>
+                                    {% endif %}
+                                </span>
                                 {% if team.id in led_team_ids %}
-                                    <span class="badge text-bg-success ms-1">{% trans "Lead" %}</span>
-                                    <small class="d-block text-secondary">
-                                        {% blocktranslate count counter=team.approved_members.count %}{{ counter }} approved{% plural %}{{ counter }} approved{% endblocktranslate %}
-                                        ·
-                                        {% blocktranslate count counter=team.pending_members.count %}{{ counter }} pending review{% plural %}{{ counter }} pending review{% endblocktranslate %}
-                                    </small>
-                                {% elif profile.is_approved %}
-                                    <span class="badge text-bg-light border ms-1">{% trans "Member" %}</span>
-                                {% else %}
-                                    <span class="badge text-bg-warning ms-1">{% trans "Under review" %}</span>
+                                    <a class="btn btn-sm btn-outline-primary"
+                                       href="{% url 'team_dashboard' team.id %}"><i class="fa-solid fa-gauge-high"></i> {% trans "Open dashboard" %}</a>
                                 {% endif %}
-                            </span>
-                            {% if team.id in led_team_ids %}
-                                <a class="btn btn-sm btn-outline-primary"
-                                   href="{% url 'team_dashboard' team.id %}"><i class="fa-solid fa-gauge-high"></i> {% trans "Open dashboard" %}</a>
-                            {% endif %}
-                        </div>
-                    {% endfor %}
-                </div>
-            {% elif profile.is_approved %}
-                <div class="alert alert-light border mb-4">
-                    {% trans "You'll be assigned to a team soon." %}
-                </div>
-            {% else %}
-                <div class="alert alert-light border mb-4">
-                    {% trans "You'll see your team here once your application is approved." %}
-                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% elif profile.is_approved %}
+                    <div class="alert alert-light border mb-4">
+                        {% trans "You'll be assigned to a team soon." %}
+                    </div>
+                {% else %}
+                    <div class="alert alert-light border mb-4">
+                        {% trans "You'll see your team here once your application is approved." %}
+                    </div>
+                {% endif %}
             {% endif %}
             {# My conferences. #}
             <h2 class="h6 text-secondary mb-2">

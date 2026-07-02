@@ -104,10 +104,10 @@
                     </a>
                 {% endif %}
                 {% if pending_reviews %}
-                    <a href="{% url 'teams' %}"
+                    <a href="{% url 'volunteer:volunteers_list' %}?application_status={{ pending_status|urlencode }}"
                        class="list-group-item list-group-item-action list-group-item-warning d-flex align-items-center">
                         <i class="fa-solid fa-clipboard-list fa-fw me-3"></i>
-                        <span class="flex-grow-1">{% blocktranslate count counter=pending_reviews %}<strong>{{ counter }} volunteer application</strong> pending review.{% plural %}<strong>{{ counter }} volunteer applications</strong> pending review across teams.{% endblocktranslate %}</span>
+                        <span class="flex-grow-1">{% blocktranslate count counter=pending_reviews %}<strong>{{ counter }} volunteer application</strong> pending review.{% plural %}<strong>{{ counter }} volunteer applications</strong> pending review.{% endblocktranslate %}</span>
                         <i class="fa-solid fa-chevron-right"></i>
                     </a>
                 {% endif %}
