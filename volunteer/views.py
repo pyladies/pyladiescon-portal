@@ -674,6 +674,32 @@ class CancelVolunteeringView(VolunteerOrAdminRequiredMixin, View):
             return redirect("volunteer:volunteer_profile_detail", pk=pk)
 
 
+class ReapplyVolunteeringView(VolunteerOrAdminRequiredMixin, View):
+    """Re-open a previously cancelled volunteer application.
+
+    Cancelling keeps the profile row (for the edition it was for), so a
+    volunteer can rejoin without starting over: flip it back to pending and send
+    them to the form to refresh their details and pick teams again.
+    """
+
+    def post(self, request, pk):
+        profile = VolunteerProfile.objects.filter(pk=pk).first()
+        if profile is None:
+            return redirect("volunteer:index")
+        if profile.application_status != ApplicationStatus.CANCELLED:
+            messages.info(request, "This volunteer application is already active.")
+            return redirect("volunteer:index")
+
+        profile.application_status = ApplicationStatus.PENDING
+        profile.save()
+        messages.success(
+            request,
+            "Welcome back! Your application is under review again — "
+            "update your profile to pick the teams you'd like to join.",
+        )
+        return redirect("volunteer:volunteer_profile_edit", pk=profile.pk)
+
+
 class PyladiesChaptersList(ListView):
     """View to display all the PyLadies Chapters we have in the System."""
 

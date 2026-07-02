@@ -33,7 +33,8 @@ from portal.services import (
 )
 from portal_account.models import PortalProfile
 from sponsorship.models import SponsorshipProfile
-from volunteer.models import Team
+from volunteer.constants import ApplicationStatus
+from volunteer.models import Team, VolunteerProfile
 
 
 def index(request):
@@ -162,7 +163,15 @@ class OrganizerDashboardView(AdminRequiredMixin, TemplateView):
         # Needs-attention queue - all derivable, no new model fields.
         if conference:
             teams = Team.objects.filter(conference=conference)
-            context["pending_reviews"] = sum(t.pending_members.count() for t in teams)
+            # Count every pending application, whether or not the volunteer
+            # picked a team: a team-less applicant still needs review, and is
+            # only reachable from the volunteers list (no team dashboard lists
+            # them). Counting profiles (not per-team members) also avoids
+            # double-counting someone who applied to several teams.
+            context["pending_reviews"] = VolunteerProfile.objects.filter(
+                conference=conference,
+                application_status=ApplicationStatus.PENDING,
+            ).count()
             context["unled_teams"] = sum(1 for t in teams if not t.team_leads.exists())
             context["awaiting_invoice"] = SponsorshipProfile.objects.filter(
                 conference=conference,
@@ -172,6 +181,7 @@ class OrganizerDashboardView(AdminRequiredMixin, TemplateView):
             context["pending_reviews"] = 0
             context["unled_teams"] = 0
             context["awaiting_invoice"] = 0
+        context["pending_status"] = ApplicationStatus.PENDING.value
         return context
 
 

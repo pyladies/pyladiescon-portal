@@ -501,6 +501,64 @@ class TestOrganizerDashboard:
         assert response.context["unled_teams"] == 1
         assert response.context["awaiting_invoice"] == 1
 
+    def test_cancelled_volunteers_excluded_from_pending_reviews(
+        self, client, admin_user, conference, django_user_model
+    ):
+        team = Team.objects.create(
+            short_name="Comms", description="d", conference=conference
+        )
+        pending = VolunteerProfile.objects.create(
+            user=django_user_model.objects.create_user("p1"),
+            conference=conference,
+            application_status=ApplicationStatus.PENDING,
+        )
+        pending.teams.add(team)
+        # A cancelled volunteer, even if still linked to the team, must not be
+        # counted as needing review.
+        cancelled = VolunteerProfile.objects.create(
+            user=django_user_model.objects.create_user("c1"),
+            conference=conference,
+            application_status=ApplicationStatus.CANCELLED,
+        )
+        cancelled.teams.add(team)
+        client.force_login(admin_user)
+        response = client.get(reverse("organizer_dashboard"))
+        assert response.context["pending_reviews"] == 1  # only the pending one
+
+    def test_pending_volunteer_without_a_team_is_counted(
+        self, client, admin_user, conference, django_user_model
+    ):
+        # A volunteer who applied without picking a team still needs review;
+        # it is only reachable from the volunteers list (no team lists it).
+        VolunteerProfile.objects.create(
+            user=django_user_model.objects.create_user("noteam"),
+            conference=conference,
+            application_status=ApplicationStatus.PENDING,
+        )
+        client.force_login(admin_user)
+        response = client.get(reverse("organizer_dashboard"))
+        assert response.context["pending_reviews"] == 1
+        # The alert points at the volunteers list, filtered to pending, so the
+        # organizer can find team-less applicants.
+        content = response.content.decode()
+        assert reverse("volunteer:volunteers_list") in content
+        assert "application_status=Pending%20Review" in content
+
+    def test_pending_across_multiple_teams_counts_the_volunteer_once(
+        self, client, admin_user, conference, django_user_model
+    ):
+        a = Team.objects.create(short_name="A", description="d", conference=conference)
+        b = Team.objects.create(short_name="B", description="d", conference=conference)
+        applicant = VolunteerProfile.objects.create(
+            user=django_user_model.objects.create_user("multi"),
+            conference=conference,
+            application_status=ApplicationStatus.PENDING,
+        )
+        applicant.teams.add(a, b)
+        client.force_login(admin_user)
+        response = client.get(reverse("organizer_dashboard"))
+        assert response.context["pending_reviews"] == 1  # one volunteer, not two
+
     def test_no_active_conference_renders_zeros(self, client, admin_user, conference):
         conference.is_active = False
         conference.save()

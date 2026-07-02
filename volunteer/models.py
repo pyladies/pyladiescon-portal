@@ -184,6 +184,11 @@ class VolunteerProfile(BaseModel):
         """Returns False if the volunteer profile is pending."""
         return self.application_status == ApplicationStatus.PENDING
 
+    @cached_property
+    def is_cancelled(self):
+        """Returns True if the volunteer withdrew their application."""
+        return self.application_status == ApplicationStatus.CANCELLED
+
     def bring_forward_to(self, target_conference):
         """Carry a returning volunteer into another edition without re-applying.
 
