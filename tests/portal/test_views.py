@@ -483,6 +483,12 @@ class TestOrganizerDashboard:
         # Quick actions include managing the sponsor list, not just adding one.
         assert "Manage sponsors" in content
         assert reverse("sponsorship:sponsorship_list") in content
+        # Contextual sponsorship resources below Quick actions, not the footer.
+        assert "Sponsorship resources" in content
+        assert "Sponsorship prospectus" in content
+        # The footer resources stay on the logged-out landing only.
+        assert "Keynote speaker guide" not in content
+        assert "Portal documentation" not in content
 
     def test_needs_attention_counts(
         self, client, admin_user, conference, django_user_model

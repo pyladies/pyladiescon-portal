@@ -202,5 +202,9 @@
                 </a>
             </div>
         {% endif %}
+        {# Contextual reference links: volunteering for everyone here; speaking #}
+        {# stays here until speaker profiles exist and give it a real home. #}
+        {% include "portal/_resources_card.html" with group="volunteering" %}
+        {% include "portal/_resources_card.html" with group="speaking" %}
     </div>
 {% endblock content %}

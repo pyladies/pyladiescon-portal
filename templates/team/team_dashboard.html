@@ -253,6 +253,10 @@
                 </div>
             </div>
         {% endif %}
+        {# Reference links leads point new members at (descriptions, duties). #}
+        <div class="mt-4">
+            {% include "portal/_resources_card.html" with group="volunteering" %}
+        </div>
         <script>
         (function () {
             var buttons = document.querySelectorAll(".js-roster-filter");

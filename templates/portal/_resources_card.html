@@ -1,0 +1,72 @@
+{% load i18n %}
+{% comment %}
+Contextual external-resources card. Reference material belongs where its
+audience already works, not in sitewide chrome. Include with a group:
+
+    {% include "portal/_resources_card.html" with group="volunteering" %}
+
+Groups: "volunteering", "speaking", "sponsorship".
+Renders a compact card; external links carry an out-of-app icon.
+Placement map (one group per surface):
+    volunteer hub (index)          -> volunteering (+ speaking, see handoff)
+    sponsorship list (managers)    -> sponsorship
+    organizer dashboard            -> sponsorship (prospectus is the org-facing one)
+    team dashboard (leads)         -> volunteering
+{% endcomment %}
+<div class="card mb-4">
+    <div class="card-body py-3">
+        <h2 class="h6 text-secondary mb-2">
+            {% if group == "volunteering" %}
+                {% trans "Volunteer resources" %}
+            {% elif group == "speaking" %}
+                {% trans "Speaker resources" %}
+            {% elif group == "sponsorship" %}
+                {% trans "Sponsorship resources" %}
+            {% else %}
+                {% trans "Resources" %}
+            {% endif %}
+        </h2>
+        <ul class="list-inline mb-0 small">
+            {% if group == "volunteering" %}
+                <li class="list-inline-item me-3 mb-1">
+                    <a href="https://conference.pyladies.com/docs/"
+                       class="icon-link text-decoration-none">
+                        {% trans "Team descriptions" %} <i class="fa-solid fa-arrow-up-right-from-square fa-xs"></i>
+                    </a>
+                </li>
+                <li class="list-inline-item me-3 mb-1">
+                    <a href="https://conference.pyladies.com/docs/roles_and_responsibilities/"
+                       class="icon-link text-decoration-none">
+                        {% trans "Responsibilities" %} <i class="fa-solid fa-arrow-up-right-from-square fa-xs"></i>
+                    </a>
+                </li>
+                <li class="list-inline-item me-3 mb-1">
+                    <a href="https://discord.com/invite/2fUN4ddVfP"
+                       class="icon-link text-decoration-none">
+                        {% trans "Discord" %} <i class="fa-brands fa-discord fa-xs"></i>
+                    </a>
+                </li>
+            {% elif group == "speaking" %}
+                <li class="list-inline-item me-3 mb-1">
+                    <a href="https://conference.pyladies.com/docs/speakers/speaker_guide/"
+                       class="icon-link text-decoration-none">
+                        {% trans "Speaker guide" %} <i class="fa-solid fa-arrow-up-right-from-square fa-xs"></i>
+                    </a>
+                </li>
+                <li class="list-inline-item me-3 mb-1">
+                    <a href="https://conference.pyladies.com/docs/speakers/keynote_speaker_guide/"
+                       class="icon-link text-decoration-none">
+                        {% trans "Keynote speaker guide" %} <i class="fa-solid fa-arrow-up-right-from-square fa-xs"></i>
+                    </a>
+                </li>
+            {% elif group == "sponsorship" %}
+                <li class="list-inline-item me-3 mb-1">
+                    <a href="{{ active_conference.sponsors_url|default:'https://2025.conference.pyladies.com/en/sponsors/' }}"
+                       class="icon-link text-decoration-none">
+                        {% trans "Sponsorship prospectus" %} <i class="fa-solid fa-arrow-up-right-from-square fa-xs"></i>
+                    </a>
+                </li>
+            {% endif %}
+        </ul>
+    </div>
+</div>

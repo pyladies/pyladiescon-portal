@@ -111,6 +111,12 @@
             {% render_table table %}
         </div>
     </div>
+    {% if can_manage_sponsorship %}
+        {# Outside #sponsor-results so filter swaps leave it untouched. #}
+        <div class="mt-3">
+            {% include "portal/_resources_card.html" with group="sponsorship" %}
+        </div>
+    {% endif %}
     {# Filter chips fetch and swap just the results region, so the page does #}
     {# not reload or jump. Without JS, the links navigate normally. #}
     <script>
