@@ -57,4 +57,9 @@ urlpatterns = [
         login_required(views.CancelVolunteeringView.as_view()),
         name="cancel_volunteering",
     ),
+    path(
+        "reapply/<int:pk>/",
+        login_required(views.ReapplyVolunteeringView.as_view()),
+        name="reapply_volunteering",
+    ),
 ]

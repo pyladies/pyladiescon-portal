@@ -85,6 +85,66 @@ class TestVolunteer:
         assert "Application under review" not in content
         assert "Teams you applied to" not in content
 
+    def test_cancelled_hub_offers_volunteer_again(
+        self, client, portal_user, conference
+    ):
+        profile = VolunteerProfile.objects.create(
+            user=portal_user,
+            conference=conference,
+            application_status=ApplicationStatus.CANCELLED,
+        )
+        client.force_login(portal_user)
+        content = client.get(reverse("volunteer:index")).content.decode()
+        assert "Volunteer again" in content
+        assert (
+            reverse("volunteer:reapply_volunteering", kwargs={"pk": profile.pk})
+            in content
+        )
+
+    def test_reapply_reactivates_cancelled_application(
+        self, client, portal_user, conference
+    ):
+        profile = VolunteerProfile.objects.create(
+            user=portal_user,
+            conference=conference,
+            application_status=ApplicationStatus.CANCELLED,
+        )
+        client.force_login(portal_user)
+        response = client.post(
+            reverse("volunteer:reapply_volunteering", kwargs={"pk": profile.pk})
+        )
+        # Sent to the form to pick teams again; status is pending once more.
+        assertRedirects(
+            response,
+            reverse("volunteer:volunteer_profile_edit", kwargs={"pk": profile.pk}),
+        )
+        profile.refresh_from_db()
+        assert profile.application_status == ApplicationStatus.PENDING
+
+    def test_reapply_is_a_noop_when_not_cancelled(
+        self, client, portal_user, conference
+    ):
+        profile = VolunteerProfile.objects.create(
+            user=portal_user,
+            conference=conference,
+            application_status=ApplicationStatus.APPROVED,
+        )
+        client.force_login(portal_user)
+        response = client.post(
+            reverse("volunteer:reapply_volunteering", kwargs={"pk": profile.pk})
+        )
+        assertRedirects(response, reverse("volunteer:index"))
+        profile.refresh_from_db()
+        assert profile.application_status == ApplicationStatus.APPROVED
+
+    def test_reapply_missing_profile_redirects(self, client, admin_user):
+        # An admin clears the owner-or-admin gate even for a missing pk.
+        client.force_login(admin_user)
+        response = client.post(
+            reverse("volunteer:reapply_volunteering", kwargs={"pk": 99999})
+        )
+        assertRedirects(response, reverse("volunteer:index"))
+
     def test_volunteer_profile_update_own_profile(
         self, client, portal_user, conference
     ):

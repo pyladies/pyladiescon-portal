@@ -101,6 +101,13 @@
                             </div>
                         </div>
                         <div class="d-flex gap-2">
+                            <form method="post"
+                                  action="{% url 'volunteer:reapply_volunteering' profile.id %}">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-sm btn-primary">
+                                    <i class="fa-solid fa-rotate-right"></i> {% trans "Volunteer again" %}
+                                </button>
+                            </form>
                             <a class="btn btn-sm btn-outline-secondary"
                                href="{% url 'volunteer:volunteer_profile_detail' profile.id %}"><i class="fa-solid fa-eye"></i> {% trans "View" %}</a>
                         </div>
