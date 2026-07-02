@@ -342,7 +342,13 @@ class TeamForm(ModelForm):
 
     class Meta:
         model = Team
-        fields = ["short_name", "description", "open_to_new_members", "team_leads"]
+        fields = [
+            "conference",
+            "short_name",
+            "description",
+            "open_to_new_members",
+            "team_leads",
+        ]
         help_texts = {
             "description": (
                 "Markdown supported: headings, lists, links, **bold**, "
@@ -352,8 +358,23 @@ class TeamForm(ModelForm):
 
     def __init__(self, *args, conference=None, **kwargs):
         super().__init__(*args, **kwargs)
-        # Team leads must be volunteers of the team's own edition. The views
-        # always pass the edition (active on create, the instance's on edit).
+        # The edition the team belongs to is now chosen on the form, so it works
+        # even when no edition is active. Default a new team to the caller's hint
+        # (the active edition).
+        if not self.instance.pk and conference is not None:
+            self.fields["conference"].initial = conference
+
+        # Team leads must be volunteers of the *team's own* edition. Scope the
+        # options to the conference in play: the submitted one on a bound form,
+        # else the instance's, else the caller's hint.
+        lead_conference = conference
+        if self.is_bound:
+            selected = self.data.get("conference")
+            lead_conference = (
+                Conference.objects.filter(pk=selected).first() if selected else None
+            )
+        elif self.instance.pk:
+            lead_conference = self.instance.conference
         self.fields["team_leads"].queryset = VolunteerProfile.objects.filter(
-            conference=conference
+            conference=lead_conference
         ).select_related("user")

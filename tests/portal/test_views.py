@@ -465,8 +465,12 @@ class TestOrganizerDashboard:
         client.force_login(admin_user)
         response = client.get(reverse("organizer_dashboard"))
         assert response.status_code == 200
-        assert "Organizer dashboard" in response.content.decode()
+        content = response.content.decode()
+        assert "Organizer dashboard" in content
         assert response.context["conference"] == conference
+        # Quick actions include managing the sponsor list, not just adding one.
+        assert "Manage sponsors" in content
+        assert reverse("sponsorship:sponsorship_list") in content
 
     def test_needs_attention_counts(
         self, client, admin_user, conference, django_user_model
@@ -507,6 +511,18 @@ class TestOrganizerDashboard:
         assert response.context["pending_reviews"] == 0
         assert response.context["unled_teams"] == 0
         assert response.context["awaiting_invoice"] == 0
+
+    def test_no_active_conference_flagged_in_needs_attention(
+        self, client, admin_user, conference
+    ):
+        conference.is_active = False
+        conference.save()
+        client.force_login(admin_user)
+        content = client.get(reverse("organizer_dashboard")).content.decode()
+        assert "No active conference." in content
+        assert reverse("conference_list") in content
+        # It is an attention item, not the "nothing to do" state.
+        assert "Nothing needs your attention" not in content
 
     def test_goal_percent_rounded_and_bar_capped(self, client, admin_user, conference):
         # A paid sponsor that beats the goal -> percent > 100 with a long decimal.

@@ -313,6 +313,17 @@ class VolunteerProfileCreate(CreateView):
     success_url = reverse_lazy("volunteer:index")
     form_class = VolunteerProfileForm
 
+    def dispatch(self, request, *args, **kwargs):
+        # Volunteer profiles are tied to the active edition; with none active
+        # there is nothing to sign up for, so don't offer (or accept) the form.
+        if request.user.is_authenticated and Conference.get_active() is None:
+            messages.info(
+                request,
+                "Volunteer sign-ups open once the next conference is active.",
+            )
+            return redirect("volunteer:index")
+        return super().dispatch(request, *args, **kwargs)
+
     def get(self, request, *args, **kwargs):
         # Only block if they have already applied for the *active* conference;
         # returning volunteers may apply afresh each year.
@@ -508,13 +519,9 @@ class TeamCreate(VolunteerAdminRequiredMixin, CreateView):
 
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()
+        # A hint for the form's default conference; the field is now selectable.
         kwargs["conference"] = Conference.get_active()
         return kwargs
-
-    def form_valid(self, form):
-        # New teams belong to the active edition.
-        form.instance.conference = Conference.get_active()
-        return super().form_valid(form)
 
     def get_success_url(self):
         return reverse("team_detail", kwargs={"pk": self.object.pk})
