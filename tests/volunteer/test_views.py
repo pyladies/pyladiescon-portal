@@ -70,6 +70,21 @@ class TestVolunteer:
         assert "Member" in content
         assert "Under review" not in content
 
+    def test_cancelled_volunteer_not_shown_under_review(
+        self, client, portal_user, conference
+    ):
+        # After cancelling, the hub reflects the withdrawal, not "under review".
+        VolunteerProfile.objects.create(
+            user=portal_user,
+            conference=conference,
+            application_status=ApplicationStatus.CANCELLED,
+        )
+        client.force_login(portal_user)
+        content = client.get(reverse("volunteer:index")).content.decode()
+        assert "Application cancelled" in content
+        assert "Application under review" not in content
+        assert "Teams you applied to" not in content
+
     def test_volunteer_profile_update_own_profile(
         self, client, portal_user, conference
     ):

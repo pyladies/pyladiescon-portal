@@ -501,6 +501,30 @@ class TestOrganizerDashboard:
         assert response.context["unled_teams"] == 1
         assert response.context["awaiting_invoice"] == 1
 
+    def test_cancelled_volunteers_excluded_from_pending_reviews(
+        self, client, admin_user, conference, django_user_model
+    ):
+        team = Team.objects.create(
+            short_name="Comms", description="d", conference=conference
+        )
+        pending = VolunteerProfile.objects.create(
+            user=django_user_model.objects.create_user("p1"),
+            conference=conference,
+            application_status=ApplicationStatus.PENDING,
+        )
+        pending.teams.add(team)
+        # A cancelled volunteer, even if still linked to the team, must not be
+        # counted as needing review.
+        cancelled = VolunteerProfile.objects.create(
+            user=django_user_model.objects.create_user("c1"),
+            conference=conference,
+            application_status=ApplicationStatus.CANCELLED,
+        )
+        cancelled.teams.add(team)
+        client.force_login(admin_user)
+        response = client.get(reverse("organizer_dashboard"))
+        assert response.context["pending_reviews"] == 1  # only the pending one
+
     def test_no_active_conference_renders_zeros(self, client, admin_user, conference):
         conference.is_active = False
         conference.save()
