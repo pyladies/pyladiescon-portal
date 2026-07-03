@@ -96,37 +96,11 @@
                                 <a class="nav-link" href="{% url 'sponsorship:sponsorship_list' %}">{% trans "Sponsorship" %}</a>
                             </li>
                         {% endif %}
+                        {# Organize: one coarse link; the shared Organize rail #}
+                        {# on every organizer page carries the detailed nav. #}
                         {% if is_organizer %}
-                            <li class="nav-item dropdown">
-                                <a class="nav-link dropdown-toggle"
-                                   href="#"
-                                   id="navOrganize"
-                                   role="button"
-                                   data-bs-toggle="dropdown"
-                                   aria-expanded="false">{% trans "Organize" %}</a>
-                                <ul class="dropdown-menu" aria-labelledby="navOrganize">
-                                    <li>
-                                        <a class="dropdown-item" href="{% url 'organizer_dashboard' %}">{% trans "Dashboard" %}</a>
-                                    </li>
-                                    <li>
-                                        <hr class="dropdown-divider">
-                                    </li>
-                                    <li>
-                                        <a class="dropdown-item" href="{% url 'volunteer:volunteers_list' %}">{% trans "Volunteers" %}</a>
-                                    </li>
-                                    <li>
-                                        <a class="dropdown-item" href="{% url 'teams' %}">{% trans "Teams" %}</a>
-                                    </li>
-                                    <li>
-                                        <a class="dropdown-item" href="{% url 'conference_list' %}">{% trans "Conferences" %}</a>
-                                    </li>
-                                    <li>
-                                        <hr class="dropdown-divider">
-                                    </li>
-                                    <li>
-                                        <a class="dropdown-item" href="{% url 'admin:index' %}">{% trans "Admin area" %}</a>
-                                    </li>
-                                </ul>
+                            <li class="nav-item">
+                                <a class="nav-link" href="{% url 'organizer_dashboard' %}">{% trans "Organize" %}</a>
                             </li>
                         {% endif %}
                         <li class="nav-item dropdown">

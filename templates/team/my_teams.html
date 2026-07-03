@@ -1,9 +1,15 @@
-{% extends "portal/base.html" %}
+{% extends "portal/base_sidebar.html" %}
 {% load i18n %}
 {% block breadcrumb %}
     {% trans "My teams" as bc_section %}
     {% include "portal/_breadcrumbs.html" with section=bc_section %}
 {% endblock breadcrumb %}
+{% block sidebar_title %}
+    {% trans "My volunteering" %}
+{% endblock sidebar_title %}
+{% block sidebar %}
+    {% include "volunteer/_volunteer_rail.html" with active="teams" %}
+{% endblock sidebar %}
 {% block content %}
     <div class="container px-4 py-4">
         <h1 class="display-6 pb-2 border-bottom">

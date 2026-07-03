@@ -1615,8 +1615,10 @@ class TestTeamDashboard:
 
 
 @pytest.mark.django_db
-class TestTeamsRail:
-    """Stage B: the master-detail Teams rail and its scoping."""
+class TestUnifiedRails:
+    """One rule everywhere: rails are menus of sections + actions, never data
+    rows. Organizer pages share the Organize rail; a non-staff lead never sees
+    it (its links would 403 for them)."""
 
     def _profile(self, user, conference):
         return VolunteerProfile.objects.create(
@@ -1625,32 +1627,26 @@ class TestTeamsRail:
             application_status=ApplicationStatus.APPROVED,
         )
 
-    def test_list_rail_lists_all_teams_no_current(self, client, admin_user, conference):
-        a = Team.objects.create(
-            short_name="Alpha", description="d", conference=conference
-        )
-        b = Team.objects.create(
-            short_name="Bravo", description="d", conference=conference
-        )
-        client.force_login(admin_user)
-        response = client.get(reverse("teams"))
-        assert response.status_code == 200
-        assert response.context["sidebar_current_team_id"] is None
-        rail = list(response.context["sidebar_teams"])
-        assert a in rail and b in rail
-        content = response.content.decode()
-        assert reverse("team_dashboard", kwargs={"pk": a.pk}) in content
-        assert reverse("team_dashboard", kwargs={"pk": b.pk}) in content
-        # No current team -> the "All teams" entry is the active one.
-        assert "nav-link d-flex align-items-center active" in content
+    def _active_href(self, content, url):
+        flat = " ".join(content.split())
+        return f'active" href="{url}"' in flat
 
-    def test_list_rail_empty_without_active_conference(self, client, admin_user):
+    def test_team_list_shows_organize_rail_teams_active(
+        self, client, admin_user, conference
+    ):
+        Team.objects.create(short_name="Alpha", description="d", conference=conference)
         client.force_login(admin_user)
-        response = client.get(reverse("teams"))
-        assert response.status_code == 200
-        assert list(response.context["sidebar_teams"]) == []
+        content = client.get(reverse("teams")).content.decode()
+        assert 'id="appSidebar"' in content
+        # All four sections plus the sponsorship group are one click away.
+        assert reverse("organizer_dashboard") in content
+        assert reverse("volunteer:volunteers_list") in content
+        assert reverse("conference_list") in content
+        assert reverse("sponsorship:sponsorship_list") in content
+        assert self._active_href(content, reverse("teams"))
+        assert not self._active_href(content, reverse("organizer_dashboard"))
 
-    def test_admin_dashboard_rail_lists_all_siblings_current_active(
+    def test_dashboard_rail_has_no_sibling_team_rows(
         self, client, admin_user, conference
     ):
         a = Team.objects.create(
@@ -1660,16 +1656,16 @@ class TestTeamsRail:
             short_name="Bravo", description="d", conference=conference
         )
         client.force_login(admin_user)
-        response = client.get(reverse("team_dashboard", kwargs={"pk": a.pk}))
-        assert response.status_code == 200
-        assert response.context["sidebar_current_team_id"] == a.id
-        rail = list(response.context["sidebar_teams"])
-        assert a in rail and b in rail  # admins see every team in the edition
-        content = response.content.decode()
-        assert reverse("team_dashboard", kwargs={"pk": b.pk}) in content  # siblings
-        assert "nav-link d-flex align-items-center active" in content  # a highlighted
+        content = client.get(
+            reverse("team_dashboard", kwargs={"pk": a.pk})
+        ).content.decode()
+        assert 'id="appSidebar"' in content
+        assert self._active_href(content, reverse("teams"))
+        # The rail is a menu, not a master list: no sibling team rows anywhere.
+        assert reverse("team_dashboard", kwargs={"pk": b.pk}) not in content
+        assert "Bravo" not in content
 
-    def test_lead_dashboard_rail_lists_only_their_teams(
+    def test_lead_gets_plain_layout_not_organize_rail(
         self, client, portal_user, conference, django_user_model
     ):
         led = Team.objects.create(
@@ -1685,11 +1681,119 @@ class TestTeamsRail:
         client.force_login(portal_user)
         response = client.get(reverse("team_dashboard", kwargs={"pk": led.pk}))
         assert response.status_code == 200
-        rail = list(response.context["sidebar_teams"])
-        assert led in rail
-        assert other not in rail  # a lead never sees teams they don't lead
-        # ...and the unreachable team's name never leaks onto the page.
-        assert "OtherTeam" not in response.content.decode()
+        content = response.content.decode()
+        # No Organize rail: its links (volunteers, conferences) would 403.
+        assert 'id="appSidebar"' not in content
+        assert reverse("volunteer:volunteers_list") not in content
+        assert reverse("conference_list") not in content
+        # Other teams' names still never leak onto the page.
+        assert "OtherTeam" not in content
+
+    def test_volunteers_list_and_review_show_rail_volunteers_active(
+        self, client, admin_user, portal_user, conference
+    ):
+        profile = VolunteerProfile.objects.create(
+            user=portal_user, conference=conference
+        )
+        client.force_login(admin_user)
+        volunteers_url = reverse("volunteer:volunteers_list")
+        for url in (
+            volunteers_url,
+            reverse("volunteer:volunteer_profile_manage", kwargs={"pk": profile.pk}),
+        ):
+            content = client.get(url).content.decode()
+            assert 'id="appSidebar"' in content
+            assert self._active_href(content, volunteers_url)
+
+    def test_start_next_year_in_rail_on_every_organizer_page(
+        self, client, admin_user, conference
+    ):
+        # autouse conference_date is in the past -> the action is available,
+        # and the shared rail carries it even on pages that never passed the
+        # flag themselves (the team list here).
+        client.force_login(admin_user)
+        content = client.get(reverse("teams")).content.decode()
+        assert reverse("start_new_year") in content
+
+    def test_start_next_year_hidden_while_edition_running(
+        self, client, admin_user, conference
+    ):
+        conference.conference_date = None
+        conference.save()
+        client.force_login(admin_user)
+        content = client.get(reverse("teams")).content.decode()
+        assert reverse("start_new_year") not in content
+
+
+@pytest.mark.django_db
+class TestVolunteerRail:
+    """The personal rail: identical on the hub, My teams, and My conferences."""
+
+    def _active_href(self, content, url):
+        flat = " ".join(content.split())
+        return f'active" href="{url}"' in flat
+
+    def _assert_personal_rail(self, content):
+        assert 'id="appSidebar"' in content
+        assert reverse("volunteer:index") in content
+        assert reverse("my_teams") in content
+        assert reverse("volunteer:my_conferences") in content
+
+    def test_hub_shows_rail_overview_active(self, client, portal_user, conference):
+        client.force_login(portal_user)
+        content = client.get(reverse("volunteer:index")).content.decode()
+        self._assert_personal_rail(content)
+        assert self._active_href(content, reverse("volunteer:index"))
+        # No profile yet -> no "My profile" item.
+        assert "My profile" not in content
+
+    def test_my_teams_shows_rail_teams_active(self, client, portal_user, conference):
+        client.force_login(portal_user)
+        content = client.get(reverse("my_teams")).content.decode()
+        self._assert_personal_rail(content)
+        assert self._active_href(content, reverse("my_teams"))
+
+    def test_my_conferences_shows_rail_conferences_active(
+        self, client, portal_user, conference
+    ):
+        client.force_login(portal_user)
+        content = client.get(reverse("volunteer:my_conferences")).content.decode()
+        self._assert_personal_rail(content)
+        assert self._active_href(content, reverse("volunteer:my_conferences"))
+
+    def test_own_profile_shows_rail_profile_active(
+        self, client, portal_user, conference
+    ):
+        profile = VolunteerProfile.objects.create(
+            user=portal_user, conference=conference
+        )
+        client.force_login(portal_user)
+        detail_url = reverse(
+            "volunteer:volunteer_profile_detail", kwargs={"pk": profile.pk}
+        )
+        content = client.get(detail_url).content.decode()
+        self._assert_personal_rail(content)
+        assert self._active_href(content, detail_url)
+
+    def test_staff_viewing_other_profile_gets_plain_layout(
+        self, client, admin_user, portal_user, conference
+    ):
+        profile = VolunteerProfile.objects.create(
+            user=portal_user, conference=conference
+        )
+        client.force_login(admin_user)
+        content = client.get(
+            reverse("volunteer:volunteer_profile_detail", kwargs={"pk": profile.pk})
+        ).content.decode()
+        # Someone else's profile is not "my volunteering": no personal rail.
+        assert 'id="appSidebar"' not in content
+
+    def test_profile_form_shows_rail(self, client, portal_user, conference):
+        client.force_login(portal_user)
+        content = client.get(
+            reverse("volunteer:volunteer_profile_new")
+        ).content.decode()
+        self._assert_personal_rail(content)
 
 
 @pytest.mark.django_db
@@ -1875,14 +1979,16 @@ class TestMyTeams:
         assert "You don't lead any teams yet." in response.content.decode()
 
     def test_nav_shows_my_teams_for_lead(self, client, portal_user, conference):
+        # Asserted on a page without the personal rail (which always offers
+        # My teams), so this exercises the top-nav gating specifically.
         self._lead(portal_user, conference)
         client.force_login(portal_user)
-        response = client.get(reverse("volunteer:index"))
+        response = client.get(reverse("chapters"))
         assert reverse("my_teams") in response.content.decode()
 
     def test_nav_hides_my_teams_for_non_lead(self, client, portal_user, conference):
         client.force_login(portal_user)
-        response = client.get(reverse("volunteer:index"))
+        response = client.get(reverse("chapters"))
         assert reverse("my_teams") not in response.content.decode()
 
 

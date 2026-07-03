@@ -1,9 +1,15 @@
-{% extends "portal/base.html" %}
+{% extends "portal/base_sidebar.html" %}
 {% load allauth i18n %}
 {% load django_bootstrap5 %}
 {% load portal_extras %}
 {% block body %}
 {% endblock body %}
+{% block sidebar_title %}
+    {% trans "Organize" %}
+{% endblock sidebar_title %}
+{% block sidebar %}
+    {% include "portal/_organize_rail.html" with active="dashboard" %}
+{% endblock sidebar %}
 {% block content %}
     <div class="container px-0">
         <h1 class="h3 mb-1">

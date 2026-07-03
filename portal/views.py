@@ -139,7 +139,6 @@ class OrganizerDashboardView(AdminRequiredMixin, TemplateView):
         # so the dashboard renders zeros instead of erroring.
         stats = get_stats_cached_values(conference) if conference else {}
         context["conference"] = conference
-        context["can_start_next_year"] = Conference.can_start_next_year()
 
         # Top-line cross-app numbers (clean keys for the template).
         context["onboarded_count"] = stats.get(CACHE_KEY_VOLUNTEER_ONBOARDED_COUNT, 0)
@@ -255,11 +254,6 @@ class ConferenceList(SuperuserRequiredMixin, ListView):
     model = Conference
     template_name = "portal/conference_list.html"
     context_object_name = "conferences"
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context["can_start_next_year"] = Conference.can_start_next_year()
-        return context
 
 
 class ConferenceUpdate(SuperuserRequiredMixin, UpdateView):

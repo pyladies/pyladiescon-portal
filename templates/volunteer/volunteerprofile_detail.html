@@ -1,4 +1,4 @@
-{% extends "portal/base.html" %}
+{% extends is_own_profile|yesno:"portal/base_sidebar.html,portal/base.html" %}
 {% load allauth i18n %}
 {% load django_bootstrap5 %}
 {% block body %}
@@ -9,6 +9,12 @@
     {% trans "Profile" as bc_page %}
     {% include "portal/_breadcrumbs.html" with section=bc_section section_url=bc_url page=bc_page %}
 {% endblock breadcrumb %}
+{% block sidebar_title %}
+    {% trans "My volunteering" %}
+{% endblock sidebar_title %}
+{% block sidebar %}
+    {% include "volunteer/_volunteer_rail.html" with active="profile" %}
+{% endblock sidebar %}
 {% block content %}
     <h1 class="display-5 mb-4">
         {% if user.is_superuser and user.username != object.user.username %}

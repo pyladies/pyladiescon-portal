@@ -389,6 +389,48 @@ class TestStartNextYearGate:
 
 
 @pytest.mark.django_db
+class TestOrganizeRail:
+    """The shared Organize rail and the collapsed top-nav Organize link."""
+
+    def _active_href(self, content, url):
+        flat = " ".join(content.split())
+        return f'active" href="{url}"' in flat
+
+    def test_dashboard_shows_rail_dashboard_active(
+        self, client, admin_user, conference
+    ):
+        client.force_login(admin_user)
+        content = client.get(reverse("organizer_dashboard")).content.decode()
+        assert 'id="appSidebar"' in content
+        assert self._active_href(content, reverse("organizer_dashboard"))
+        # Sponsorship is one click away from the dashboard.
+        assert reverse("sponsorship:sponsorship_list") in content
+        assert reverse("sponsorship:tier_list") in content
+
+    def test_conference_list_shows_rail_conferences_active(
+        self, client, admin_user, conference
+    ):
+        client.force_login(admin_user)
+        content = client.get(reverse("conference_list")).content.decode()
+        assert 'id="appSidebar"' in content
+        assert self._active_href(content, reverse("conference_list"))
+        assert not self._active_href(content, reverse("organizer_dashboard"))
+
+    def test_top_nav_organize_collapses_to_single_link(
+        self, client, admin_user, conference
+    ):
+        client.force_login(admin_user)
+        content = client.get(reverse("organizer_dashboard")).content.decode()
+        # The dropdown is gone; the rail carries the detailed navigation.
+        assert 'id="navOrganize"' not in content
+
+    def test_regular_user_gets_no_organize_link(self, client, portal_user, conference):
+        client.force_login(portal_user)
+        content = client.get(reverse("volunteer:index")).content.decode()
+        assert reverse("organizer_dashboard") not in content
+
+
+@pytest.mark.django_db
 class TestConferenceCRUD:
     def test_list_shows_conferences(self, client, admin_user, conference):
         client.force_login(admin_user)

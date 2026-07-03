@@ -22,6 +22,9 @@ def user_capabilities(request):
     * ``can_view_sponsorship``  — organizer OR an approved volunteer (read-only)
     * ``active_volunteer_profile`` — this user's profile for the active edition
     * ``leads_any_team``        — true if they lead at least one team
+    * ``can_start_next_year``   — organizer AND a new edition can be started;
+      the shared Organize rail renders on every organizer page, so the flag
+      must be available everywhere, not just in the views that used to pass it
     """
     user = getattr(request, "user", None)
     if user is None or not user.is_authenticated:
@@ -31,6 +34,7 @@ def user_capabilities(request):
             "can_view_sponsorship": False,
             "active_volunteer_profile": None,
             "leads_any_team": False,
+            "can_start_next_year": False,
         }
 
     is_organizer = user.is_superuser or user.is_staff
@@ -45,4 +49,5 @@ def user_capabilities(request):
         "can_view_sponsorship": is_organizer or is_approved,
         "active_volunteer_profile": profile,
         "leads_any_team": bool(profile and profile.team_leads.exists()),
+        "can_start_next_year": is_organizer and Conference.can_start_next_year(),
     }

@@ -5,10 +5,10 @@
     {% include "portal/_breadcrumbs.html" with section=bc_section %}
 {% endblock breadcrumb %}
 {% block sidebar_title %}
-    {% trans "Teams" %}
+    {% trans "Organize" %}
 {% endblock sidebar_title %}
 {% block sidebar %}
-    {% include "team/_team_rail.html" %}
+    {% include "portal/_organize_rail.html" with active="teams" %}
 {% endblock sidebar %}
 {% block content %}
     <div id="featured-3">
