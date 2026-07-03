@@ -86,32 +86,23 @@ class SponsorshipProfileDelete(AdminRequiredMixin, DeleteView):
 
 
 class SponsorshipProfileTable(tables.Table):
+    """Compact pipeline view, like the team and conference lists: who, at what
+    tier and amount, in what state, and the actions. Logo, GitHub issue, and
+    dates live on the sponsor detail page."""
 
-    creation_date = tables.Column(
-        accessor="creation_date", verbose_name="Creation Date"
-    )
-    updated_date = tables.Column(accessor="modified_date", verbose_name="Last Updated")
     amount = tables.Column(accessor="sponsorship_tier__amount", verbose_name="Amount")
     actions = tables.Column(accessor="id", verbose_name="Actions")
     tier_name = tables.Column(
         accessor="sponsorship_tier__name", verbose_name="Sponsorship Tier"
-    )
-    logo = tables.Column(accessor="logo", verbose_name="Logo")
-    github_issue_url = tables.Column(
-        accessor="github_issue_url", verbose_name="GitHub Issue"
     )
 
     class Meta:
         model = SponsorshipProfile
         fields = (
             "organization_name",
-            "logo",
             "tier_name",
             "amount",
             "progress_status",
-            "github_issue_url",
-            "creation_date",
-            "updated_date",
             "actions",
         )
         attrs = {
@@ -125,17 +116,6 @@ class SponsorshipProfileTable(tables.Table):
             "sponsorship:sponsorship_profile_detail", args=[record.pk]
         )
         return format_html('<a href="{}">{}</a>', detail_url, value)
-
-    def render_logo(self, value, record):
-        """Render the logo as a small image with link to the full image."""
-        if value:
-            return format_html(
-                '<a href="{value}"><img src="{value}" alt="Logo of {name}" class="img-fluid" width="100" height="100"></a>',
-                value=value.url,
-                name=record.organization_name,
-            )
-        else:
-            return ""
 
     def render_progress_status(self, value):
         """Render the progress status with a badge."""
@@ -195,16 +175,6 @@ class SponsorshipProfileTable(tables.Table):
             edit_url,
             delete_url,
         )
-
-    def render_github_issue_url(self, value, record):
-        """Render the GitHub Issue URL if exists."""
-        if value:
-            return format_html(
-                '<a href="{}" target="_blank"><i class="fa-brands fa-github"></i></a>',
-                value,
-            )
-        else:
-            return ""
 
 
 class SponsorshipProfileFilter(django_filters.FilterSet):

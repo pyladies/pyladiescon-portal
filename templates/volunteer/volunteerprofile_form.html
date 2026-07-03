@@ -42,7 +42,13 @@
     {% trans "My volunteering" %}
 {% endblock sidebar_title %}
 {% block sidebar %}
-    {% include "volunteer/_volunteer_rail.html" with active="profile" %}
+    {# No profile exists yet while creating, so the rail has no My profile #}
+    {# item to highlight; Overview is where the flow starts and returns. #}
+    {% if object.pk %}
+        {% include "volunteer/_volunteer_rail.html" with active="profile" %}
+    {% else %}
+        {% include "volunteer/_volunteer_rail.html" with active="overview" %}
+    {% endif %}
 {% endblock sidebar %}
 {% block content %}
     <main>

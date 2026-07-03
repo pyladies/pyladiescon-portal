@@ -551,10 +551,8 @@ class TestManageVolunteers:
         expected_team_render = f'<a href="{expected_team_url}" class="badge bg-secondary">{team.short_name}</a> '
         assert team_render == expected_team_render
 
-        role_render = volunteer_table.render_roles(role, another_profile)
-        assert (
-            role_render == f'<span class="badge bg-secondary">{role.short_name}</span> '
-        )
+        name_render = volunteer_table.render_name(None, another_profile)
+        assert name_render == another_user.get_full_name()
 
         render_username_for_superuser = volunteer_table.render_username(
             portal_user, profile
@@ -1665,7 +1663,7 @@ class TestUnifiedRails:
         assert reverse("team_dashboard", kwargs={"pk": b.pk}) not in content
         assert "Bravo" not in content
 
-    def test_lead_gets_plain_layout_not_organize_rail(
+    def test_lead_gets_personal_rail_not_organize_rail(
         self, client, portal_user, conference, django_user_model
     ):
         led = Team.objects.create(
@@ -1682,8 +1680,10 @@ class TestUnifiedRails:
         response = client.get(reverse("team_dashboard", kwargs={"pk": led.pk}))
         assert response.status_code == 200
         content = response.content.decode()
-        # No Organize rail: its links (volunteers, conferences) would 403.
-        assert 'id="appSidebar"' not in content
+        # A non-staff lead gets their personal rail, My teams current...
+        assert 'id="appSidebar"' in content
+        assert self._active_href(content, reverse("my_teams"))
+        # ...never the Organize rail, whose links would 403 for them.
         assert reverse("volunteer:volunteers_list") not in content
         assert reverse("conference_list") not in content
         # Other teams' names still never leak onto the page.
@@ -1775,7 +1775,7 @@ class TestVolunteerRail:
         self._assert_personal_rail(content)
         assert self._active_href(content, detail_url)
 
-    def test_staff_viewing_other_profile_gets_plain_layout(
+    def test_staff_viewing_other_profile_gets_organize_rail(
         self, client, admin_user, portal_user, conference
     ):
         profile = VolunteerProfile.objects.create(
@@ -1785,15 +1785,37 @@ class TestVolunteerRail:
         content = client.get(
             reverse("volunteer:volunteer_profile_detail", kwargs={"pk": profile.pk})
         ).content.decode()
-        # Someone else's profile is not "my volunteering": no personal rail.
-        assert 'id="appSidebar"' not in content
+        # Someone else's profile is not "my volunteering": the organizer is
+        # reviewing volunteers, so the Organize rail is current there.
+        assert 'id="appSidebar"' in content
+        assert self._active_href(content, reverse("volunteer:volunteers_list"))
+        assert reverse("my_teams") not in content
 
-    def test_profile_form_shows_rail(self, client, portal_user, conference):
+    def test_create_form_shows_rail_overview_active(
+        self, client, portal_user, conference
+    ):
+        # No profile exists yet, so there is no My profile item to highlight;
+        # the flow starts and returns at Overview.
         client.force_login(portal_user)
         content = client.get(
             reverse("volunteer:volunteer_profile_new")
         ).content.decode()
         self._assert_personal_rail(content)
+        assert self._active_href(content, reverse("volunteer:index"))
+
+    def test_edit_form_shows_rail_profile_active(self, client, portal_user, conference):
+        profile = VolunteerProfile.objects.create(
+            user=portal_user, conference=conference
+        )
+        client.force_login(portal_user)
+        content = client.get(
+            reverse("volunteer:volunteer_profile_edit", kwargs={"pk": profile.pk})
+        ).content.decode()
+        self._assert_personal_rail(content)
+        assert self._active_href(
+            content,
+            reverse("volunteer:volunteer_profile_detail", kwargs={"pk": profile.pk}),
+        )
 
 
 @pytest.mark.django_db

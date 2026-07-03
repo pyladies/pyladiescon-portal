@@ -117,36 +117,21 @@ class VolunteerProfileFilter(django_filters.FilterSet):
 
 
 class VolunteerProfileTable(tables.Table):
+    """Compact review queue, like the team and conference lists: who applied,
+    where they landed, what state they're in, and the action. Everything else
+    (Discord, roles, dates) lives on the profile detail and review pages."""
 
-    date_joined = tables.Column(
-        accessor="user__date_joined", verbose_name="Joined Date"
-    )
-    application_date = tables.Column(
-        accessor="creation_date", verbose_name="Application Date"
-    )
-    updated_date = tables.Column(
-        accessor="modified_date", verbose_name="Application Last Updated"
-    )
-    discord_username = tables.Column(
-        accessor="discord_username", verbose_name="Discord Username"
-    )
     actions = tables.Column(accessor="id", verbose_name="Actions")
     username = tables.Column(accessor="user__username", verbose_name="Username")
+    name = tables.Column(accessor="user__first_name", verbose_name="Name")
     teams = tables.Column(accessor="teams", verbose_name="Teams")
-    roles = tables.Column(accessor="roles", verbose_name="Roles")
 
     class Meta:
         model = VolunteerProfile
         fields = (
             "username",
-            "user__first_name",
-            "user__last_name",
-            "discord_username",
+            "name",
             "teams",
-            "roles",
-            "date_joined",
-            "application_date",
-            "updated_date",
             "application_status",
             "actions",
         )
@@ -219,16 +204,9 @@ class VolunteerProfileTable(tables.Table):
             )
         return html_content
 
-    def render_roles(self, value, record):
-        """Render the roles as badges."""
-        html_content = ""
-        for role in record.roles.all():
-            html_content = format_html(
-                '{}<span class="badge bg-secondary">{}</span> ',
-                html_content,
-                role.short_name,
-            )
-        return html_content
+    def render_name(self, value, record):
+        """Render the volunteer's full name."""
+        return record.user.get_full_name()
 
 
 class VolunteerProfileList(VolunteerAdminRequiredMixin, SingleTableMixin, FilterView):

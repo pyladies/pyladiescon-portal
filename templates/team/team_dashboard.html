@@ -1,4 +1,4 @@
-{% extends is_organizer|yesno:"portal/base_sidebar.html,portal/base.html" %}
+{% extends "portal/base_sidebar.html" %}
 {% load i18n %}
 {% load portal_extras %}
 {% block breadcrumb %}
@@ -11,11 +11,21 @@
     {% endif %}
     {% include "portal/_breadcrumbs.html" with section=bc_section section_url=bc_url page=team.short_name %}
 {% endblock breadcrumb %}
+{# Organizers get the Organize rail; a non-staff lead gets their personal #}
+{# rail (the Organize links would 403 for them), with My teams current. #}
 {% block sidebar_title %}
-    {% trans "Organize" %}
+    {% if is_organizer %}
+        {% trans "Organize" %}
+    {% else %}
+        {% trans "My volunteering" %}
+    {% endif %}
 {% endblock sidebar_title %}
 {% block sidebar %}
-    {% include "portal/_organize_rail.html" with active="teams" %}
+    {% if is_organizer %}
+        {% include "portal/_organize_rail.html" with active="teams" %}
+    {% else %}
+        {% include "volunteer/_volunteer_rail.html" with active="teams" %}
+    {% endif %}
 {% endblock sidebar %}
 {% block content %}
     <div>

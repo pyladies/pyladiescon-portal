@@ -1,5 +1,4 @@
 import pytest
-from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
 from pytest_django.asserts import assertRedirects
 
@@ -320,74 +319,19 @@ class TestSponsorshipViews:
         progress_status_render = sponsors_table.render_progress_status(status)
         assert css_class in progress_status_render
 
-    def test_sponsors_table_render_logo(
-        self,
-        client,
-        admin_user,
-        conference,
-    ):
-        tier = SponsorshipTier.objects.create(
-            name="Gold",
-            amount=5000.00,
-            description="Gold tier sponsorship",
-            conference=conference,
-        )
-
-        profile = SponsorshipProfile.objects.create(
-            organization_name="Override Corp",
-            sponsorship_tier=tier,
-            progress_status=SponsorshipProgressStatus.PAID,
-            conference=conference,
-        )
-
-        profile.logo = SimpleUploadedFile(
-            name="test_image.jpg",
-            content=open("./tests/sponsorship/test_img.png", "rb").read(),
-            content_type="image/jpeg",
-        )
-
+    def test_sponsors_table_is_compact(self, client, admin_user, conference):
+        # The list is a compact pipeline view; logo, GitHub issue, and dates
+        # moved to the sponsor detail page so the actions stay in reach.
         client.force_login(admin_user)
-        url = reverse("sponsorship:sponsorship_list")
-        response = client.get(url)
-
-        assert response.status_code == 200
-        assert isinstance(response.context["table"], SponsorshipProfileTable)
-
-        sponsors_table = response.context["table"]
-        logo_render = sponsors_table.render_logo(profile.logo, profile)
-        assert profile.logo.url in logo_render
-        assert f'alt="Logo of {profile.organization_name}"' in logo_render
-
-    def test_sponsors_table_render_no_logo(
-        self,
-        client,
-        admin_user,
-        conference,
-    ):
-        tier = SponsorshipTier.objects.create(
-            name="Gold",
-            amount=5000.00,
-            description="Gold tier sponsorship",
-            conference=conference,
-        )
-
-        profile = SponsorshipProfile.objects.create(
-            organization_name="Override Corp",
-            sponsorship_tier=tier,
-            progress_status=SponsorshipProgressStatus.PAID,
-            conference=conference,
-        )
-
-        client.force_login(admin_user)
-        url = reverse("sponsorship:sponsorship_list")
-        response = client.get(url)
-
-        assert response.status_code == 200
-        assert isinstance(response.context["table"], SponsorshipProfileTable)
-
-        sponsors_table = response.context["table"]
-        logo_render = sponsors_table.render_logo(profile.logo, profile)
-        assert logo_render == ""
+        response = client.get(reverse("sponsorship:sponsorship_list"))
+        columns = [c.name for c in response.context["table"].columns]
+        assert columns == [
+            "organization_name",
+            "tier_name",
+            "amount",
+            "progress_status",
+            "actions",
+        ]
 
     @pytest.mark.parametrize(
         "status,css_class,is_visible",
@@ -533,30 +477,6 @@ class TestSponsorshipViews:
             reverse("sponsorship:sponsorship_profile_edit", args=[profile.pk])
             in action_button
         )
-
-    def test_sponsors_table_render_github_issue_url(
-        self, client, admin_user, conference
-    ):
-
-        profile = SponsorshipProfile.objects.create(
-            organization_name="Override Corp",
-            conference=conference,
-        )
-
-        client.force_login(admin_user)
-        url = reverse("sponsorship:sponsorship_list")
-
-        response = client.get(url)
-        sponsors_table = response.context["table"]
-        gh_url_render = sponsors_table.render_github_issue_url("", profile)
-        assert gh_url_render == ""
-
-        profile.github_issue_url = "https://github.com/python/cpython/issues/1234"
-        profile.save()
-        gh_url_render = sponsors_table.render_github_issue_url(
-            profile.github_issue_url, profile
-        )
-        assert profile.github_issue_url in gh_url_render
 
 
 @pytest.mark.django_db
