@@ -137,7 +137,7 @@
             {# My teams — leads link to the dashboard (slice 1); members are view-only. #}
             {# A cancelled volunteer is no longer on any team, so skip this. #}
             {% if not profile.is_cancelled %}
-                <h2 class="h6 text-secondary mb-2">
+                <h2 class="h6 text-body-emphasis mb-2">
                     {% if profile.is_approved %}
                         {% trans "My teams" %}
                     {% else %}
@@ -187,7 +187,7 @@
                 {% endif %}
             {% endif %}
             {# My conferences. #}
-            <h2 class="h6 text-secondary mb-2">
+            <h2 class="h6 text-body-emphasis mb-2">
                 {% trans "My conferences" %}
             </h2>
             <div class="list-group mb-4">
@@ -202,5 +202,9 @@
                 </a>
             </div>
         {% endif %}
+        {# Contextual reference links: volunteering for everyone here; speaking #}
+        {# stays here until speaker profiles exist and give it a real home. #}
+        {% include "portal/_resources_card.html" with group="volunteering" %}
+        {% include "portal/_resources_card.html" with group="speaking" %}
     </div>
 {% endblock content %}

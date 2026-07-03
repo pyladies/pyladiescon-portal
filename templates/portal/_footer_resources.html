@@ -1,0 +1,74 @@
+{% load i18n %}
+{# External reference links for the footer of landing pages, grouped by role. #}
+{# Included via the footer_resources block in portal/base.html. #}
+<div class="container py-4 border-bottom border-secondary">
+    <div class="row row-cols-2 row-cols-md-4 g-4">
+        <div class="col">
+            <h3 class="h6 text-white-50 text-uppercase mb-3 footer-heading">
+                {% trans "Volunteering" %}
+            </h3>
+            <ul class="list-unstyled small mb-0">
+                <li class="mb-2">
+                    <a class="link-light text-decoration-none"
+                       href="https://conference.pyladies.com/docs/">{% trans "Team descriptions" %}</a>
+                </li>
+                <li class="mb-2">
+                    <a class="link-light text-decoration-none"
+                       href="https://conference.pyladies.com/docs/roles_and_responsibilities/">{% trans "Responsibilities" %}</a>
+                </li>
+                <li class="mb-2">
+                    <a class="link-light text-decoration-none"
+                       href="https://discord.com/invite/2fUN4ddVfP">{% trans "Join our Discord" %}</a>
+                </li>
+            </ul>
+        </div>
+        <div class="col">
+            <h3 class="h6 text-white-50 text-uppercase mb-3 footer-heading">
+                {% trans "Speaking" %}
+            </h3>
+            <ul class="list-unstyled small mb-0">
+                <li class="mb-2">
+                    <a class="link-light text-decoration-none"
+                       href="https://conference.pyladies.com/docs/speakers/speaker_guide/">{% trans "Speaker guide" %}</a>
+                </li>
+                <li class="mb-2">
+                    <a class="link-light text-decoration-none"
+                       href="https://conference.pyladies.com/docs/speakers/keynote_speaker_guide/">{% trans "Keynote speaker guide" %}</a>
+                </li>
+            </ul>
+        </div>
+        <div class="col">
+            <h3 class="h6 text-white-50 text-uppercase mb-3 footer-heading">
+                {% trans "Sponsorship" %}
+            </h3>
+            <ul class="list-unstyled small mb-0">
+                <li class="mb-2">
+                    <a class="link-light text-decoration-none"
+                       href="{{ active_conference.sponsors_url|default:'https://2025.conference.pyladies.com/en/sponsors/' }}">{% trans "Sponsorship prospectus" %}</a>
+                </li>
+            </ul>
+        </div>
+        <div class="col">
+            <h3 class="h6 text-white-50 text-uppercase mb-3 footer-heading">
+                {% trans "About" %}
+            </h3>
+            <ul class="list-unstyled small mb-0">
+                <li class="mb-2">
+                    <a class="link-light text-decoration-none"
+                       href="https://conference.pyladies.com">{% trans "Conference site" %}</a>
+                </li>
+                <li class="mb-2">
+                    <a class="link-light text-decoration-none" href="https://pyladies.com">{% trans "PyLadies" %}</a>
+                </li>
+                <li class="mb-2">
+                    <a class="link-light text-decoration-none"
+                       href="{{ active_conference.coc_url|default:'https://2025.conference.pyladies.com/en/coc/' }}">{% trans "Code of Conduct" %}</a>
+                </li>
+                <li class="mb-2">
+                    <a class="link-light text-decoration-none"
+                       href="https://pyladiescon-portal-docs.netlify.app/">{% trans "Portal documentation" %}</a>
+                </li>
+            </ul>
+        </div>
+    </div>
+</div>

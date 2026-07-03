@@ -90,7 +90,7 @@
             </div>
         </div>
         {# ---- Needs attention ---- #}
-        <h2 class="h6 text-secondary mb-2">
+        <h2 class="h6 text-body-emphasis mb-2">
             {% trans "Needs attention" %}
         </h2>
         {% if not conference or pending_reviews or unled_teams or awaiting_invoice %}
@@ -134,7 +134,7 @@
             </div>
         {% endif %}
         {# ---- Quick actions ---- #}
-        <h2 class="h6 text-secondary mb-2">
+        <h2 class="h6 text-body-emphasis mb-2">
             {% trans "Quick actions" %}
         </h2>
         <div class="row row-cols-2 row-cols-md-3 g-3">
@@ -202,6 +202,10 @@
                     </div>
                 </a>
             </div>
+        </div>
+        {# The prospectus is the org-facing external reference. #}
+        <div class="mt-4">
+            {% include "portal/_resources_card.html" with group="sponsorship" %}
         </div>
     </div>
 {% endblock content %}

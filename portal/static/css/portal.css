@@ -100,3 +100,8 @@ body {
 .app-content {
     min-width: 0;
 }
+
+/* Footer resource group headings (portal/_footer_resources.html). */
+.footer-heading {
+    letter-spacing: 0.04em;
+}

@@ -28,6 +28,17 @@ class TestVolunteer:
         assert response.status_code == 200
         assert response.context["profile"] is None
 
+    def test_hub_shows_contextual_resources(self, client, portal_user, conference):
+        # The hub shows the volunteering and speaking resource cards, not the
+        # sitewide footer (that stays on the logged-out landing only).
+        client.force_login(portal_user)
+        content = client.get(reverse("volunteer:index")).content.decode()
+        assert "Volunteer resources" in content
+        assert "Team descriptions" in content
+        assert "Speaker resources" in content
+        assert "Keynote speaker guide" in content
+        assert "Portal documentation" not in content  # footer-only marker
+
     def test_volunteer_profile_view_with_profile(self, client, portal_user, conference):
         profile = VolunteerProfile(user=portal_user, conference=conference)
         profile.save()
@@ -1568,6 +1579,18 @@ class TestTeamDashboard:
         assert response.status_code == 200
         assert response.context["is_admin"] is False
         assert response.context["can_manage_members"] is True
+
+    def test_dashboard_shows_volunteering_resources(
+        self, client, admin_user, conference
+    ):
+        # Leads point new members at the team descriptions/responsibilities.
+        team = self._team(conference)
+        client.force_login(admin_user)
+        content = client.get(
+            reverse("team_dashboard", kwargs={"pk": team.pk})
+        ).content.decode()
+        assert "Volunteer resources" in content
+        assert "Responsibilities" in content
 
     def test_non_lead_volunteer_denied(self, client, portal_user, conference):
         team = self._team(conference)

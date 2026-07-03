@@ -267,6 +267,29 @@ class TestSponsorshipViews:
         response = client.get(url)
         assert response.status_code == 200
 
+    def test_manager_sees_sponsorship_resources_card(
+        self, client, admin_user, conference
+    ):
+        # Managers get the sponsorship resources card below the sponsor table.
+        client.force_login(admin_user)
+        content = client.get(reverse("sponsorship:sponsorship_list")).content.decode()
+        assert "Sponsorship resources" in content
+        assert "Sponsorship prospectus" in content
+
+    def test_readonly_viewer_gets_no_resources_card(
+        self, client, portal_user, conference
+    ):
+        # The card is manager-facing; approved volunteers browsing the list
+        # don't need the prospectus.
+        VolunteerProfile.objects.create(
+            user=portal_user,
+            application_status=ApplicationStatus.APPROVED,
+            conference=conference,
+        )
+        client.force_login(portal_user)
+        content = client.get(reverse("sponsorship:sponsorship_list")).content.decode()
+        assert "Sponsorship resources" not in content
+
     @pytest.mark.parametrize(
         "status,css_class",
         [
