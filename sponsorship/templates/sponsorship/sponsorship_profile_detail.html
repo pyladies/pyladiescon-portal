@@ -2,10 +2,10 @@
 {% load allauth i18n %}
 {% load django_bootstrap5 %}
 {% block sidebar_title %}
-    {% trans "Sponsorship" %}
+    {% trans "Organize" %}
 {% endblock sidebar_title %}
 {% block sidebar %}
-    {% include "sponsorship/_sponsorship_rail.html" with active="sponsors" %}
+    {% include "portal/_organize_rail.html" with active="sponsors" %}
 {% endblock sidebar %}
 {% block content %}
     <div class="py-3">

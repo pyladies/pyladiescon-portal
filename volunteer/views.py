@@ -117,36 +117,21 @@ class VolunteerProfileFilter(django_filters.FilterSet):
 
 
 class VolunteerProfileTable(tables.Table):
+    """Compact review queue, like the team and conference lists: who applied,
+    where they landed, what state they're in, and the action. Everything else
+    (Discord, roles, dates) lives on the profile detail and review pages."""
 
-    date_joined = tables.Column(
-        accessor="user__date_joined", verbose_name="Joined Date"
-    )
-    application_date = tables.Column(
-        accessor="creation_date", verbose_name="Application Date"
-    )
-    updated_date = tables.Column(
-        accessor="modified_date", verbose_name="Application Last Updated"
-    )
-    discord_username = tables.Column(
-        accessor="discord_username", verbose_name="Discord Username"
-    )
     actions = tables.Column(accessor="id", verbose_name="Actions")
     username = tables.Column(accessor="user__username", verbose_name="Username")
+    name = tables.Column(accessor="user__first_name", verbose_name="Name")
     teams = tables.Column(accessor="teams", verbose_name="Teams")
-    roles = tables.Column(accessor="roles", verbose_name="Roles")
 
     class Meta:
         model = VolunteerProfile
         fields = (
             "username",
-            "user__first_name",
-            "user__last_name",
-            "discord_username",
+            "name",
             "teams",
-            "roles",
-            "date_joined",
-            "application_date",
-            "updated_date",
             "application_status",
             "actions",
         )
@@ -219,16 +204,9 @@ class VolunteerProfileTable(tables.Table):
             )
         return html_content
 
-    def render_roles(self, value, record):
-        """Render the roles as badges."""
-        html_content = ""
-        for role in record.roles.all():
-            html_content = format_html(
-                '{}<span class="badge bg-secondary">{}</span> ',
-                html_content,
-                role.short_name,
-            )
-        return html_content
+    def render_name(self, value, record):
+        """Render the volunteer's full name."""
+        return record.user.get_full_name()
 
 
 class VolunteerProfileList(VolunteerAdminRequiredMixin, SingleTableMixin, FilterView):
@@ -274,6 +252,13 @@ class VolunteerProfileView(DetailView):
         ):
             return redirect("volunteer:index")
         return super(VolunteerProfileView, self).get(request, *args, **kwargs)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        # The personal rail belongs to the profile's owner; staff viewing
+        # someone else's profile get the plain layout instead.
+        context["is_own_profile"] = self.object.user == self.request.user
+        return context
 
 
 class ManageVolunteerProfile(VolunteerAdminRequiredMixin, UpdateView):
@@ -365,21 +350,6 @@ class VolunteerProfileDelete(DeleteView):
     success_url = reverse_lazy("volunteer:index")
 
 
-def sidebar_teams_for(user, conference):
-    """Teams to show in the Teams rail, scoped to what ``user`` may open.
-
-    Organizers (staff/superuser) see every team in the edition; a lead sees only
-    the teams they lead. Mirrors the scoping of the views the rail links to, so
-    it never leaks team names a lead cannot reach.
-    """
-    if conference is None:
-        return Team.objects.none()
-    teams = Team.objects.filter(conference=conference)
-    if not (user.is_superuser or user.is_staff):
-        teams = teams.filter(team_leads__user=user)
-    return teams.order_by("short_name").distinct()
-
-
 class TeamList(VolunteerAdminRequiredMixin, ListView):
     model = Team
     template_name = "team/index.html"
@@ -419,11 +389,6 @@ class TeamList(VolunteerAdminRequiredMixin, ListView):
         context["pending_total"] = sum(t.pending_members.count() for t in teams)
         context["open_count"] = sum(1 for t in teams if t.open_to_new_members)
         context["unled_count"] = sum(1 for t in teams if not t.team_leads.exists())
-
-        # Teams rail (Stage B): the master list. No current team on this page,
-        # so the rail's "All teams" entry is the active one.
-        context["sidebar_teams"] = sidebar_teams_for(self.request.user, conference)
-        context["sidebar_current_team_id"] = None
         return context
 
 
@@ -496,11 +461,6 @@ class TeamDashboardView(TeamLeadRequiredMixin, DetailView):
             .select_related("user")
             .order_by("user__username")
         )
-
-        # Teams rail (Stage B): sibling teams in this edition the user may open,
-        # with the current team highlighted.
-        context["sidebar_teams"] = sidebar_teams_for(user, team.conference)
-        context["sidebar_current_team_id"] = team.id
         return context
 
 

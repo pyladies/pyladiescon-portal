@@ -691,6 +691,9 @@ def get_attendee_experience_breakdown(attendee_profiles):
         attendee_profiles.filter(experience_level__isnull=False)
         .values("experience_level")
         .annotate(count=Count("id"))
+        # Without an explicit order the DB returns ties in arbitrary order,
+        # which made the chart (and its test) nondeterministic.
+        .order_by("experience_level")
     )
     for data in attendees_by_experience:
         experience_breakdown.append([data["experience_level"], data["count"]])
@@ -714,7 +717,8 @@ def get_attendee_current_position_breakdown(attendee_profiles):
                 current_positions[current_position] + data["count"]
             )
     current_position_breakdown = [
-        [curren_position, count] for curren_position, count in current_positions.items()
+        [current_position, count]
+        for current_position, count in sorted(current_positions.items())
     ]
     return current_position_breakdown
 

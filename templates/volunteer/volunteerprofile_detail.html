@@ -1,4 +1,4 @@
-{% extends "portal/base.html" %}
+{% extends "portal/base_sidebar.html" %}
 {% load allauth i18n %}
 {% load django_bootstrap5 %}
 {% block body %}
@@ -9,6 +9,22 @@
     {% trans "Profile" as bc_page %}
     {% include "portal/_breadcrumbs.html" with section=bc_section section_url=bc_url page=bc_page %}
 {% endblock breadcrumb %}
+{# Whose profile decides whose rail: the owner is in "my volunteering"; an #}
+{# organizer opening someone else's profile is reviewing volunteers. #}
+{% block sidebar_title %}
+    {% if is_own_profile %}
+        {% trans "My volunteering" %}
+    {% else %}
+        {% trans "Organize" %}
+    {% endif %}
+{% endblock sidebar_title %}
+{% block sidebar %}
+    {% if is_own_profile %}
+        {% include "volunteer/_volunteer_rail.html" with active="profile" %}
+    {% else %}
+        {% include "portal/_organize_rail.html" with active="volunteers" %}
+    {% endif %}
+{% endblock sidebar %}
 {% block content %}
     <h1 class="display-5 mb-4">
         {% if user.is_superuser and user.username != object.user.username %}

@@ -1,4 +1,4 @@
-{% extends "portal/base.html" %}
+{% extends "portal/base_sidebar.html" %}
 {% load allauth i18n %}
 {% load django_bootstrap5 %}
 {% load static %}
@@ -7,6 +7,12 @@
     {% trans "Volunteers" as bc_section %}
     {% include "portal/_breadcrumbs.html" with section=bc_section section_url=bc_url page=object.user.username %}
 {% endblock breadcrumb %}
+{% block sidebar_title %}
+    {% trans "Organize" %}
+{% endblock sidebar_title %}
+{% block sidebar %}
+    {% include "portal/_organize_rail.html" with active="volunteers" %}
+{% endblock sidebar %}
 {% block content %}
     <main>
         <h1 class="display-5">

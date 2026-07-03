@@ -1,0 +1,38 @@
+{% load i18n %}
+{% comment %}
+Personal rail for the volunteer hub and its sub-pages.
+
+Rule: rails are menus (sections + actions), never data rows. The teams a
+volunteer is on are listed in content (My teams page), not here.
+
+Expects:
+    active: one of: "overview", "profile", "teams", "conferences".
+Uses from the user_capabilities context processor:
+    active_volunteer_profile (the "My profile" item is hidden until one exists)
+{% endcomment %}
+{% url 'volunteer:index' as overview_url %}
+{% if active == "overview" %}
+    {% include "portal/_sidebar_item.html" with url=overview_url label=_("Overview") icon="fa-house" active=True only %}
+{% else %}
+    {% include "portal/_sidebar_item.html" with url=overview_url label=_("Overview") icon="fa-house" only %}
+{% endif %}
+{% if active_volunteer_profile %}
+    {% url 'volunteer:volunteer_profile_detail' active_volunteer_profile.id as profile_url %}
+    {% if active == "profile" %}
+        {% include "portal/_sidebar_item.html" with url=profile_url label=_("My profile") icon="fa-id-card" active=True only %}
+    {% else %}
+        {% include "portal/_sidebar_item.html" with url=profile_url label=_("My profile") icon="fa-id-card" only %}
+    {% endif %}
+{% endif %}
+{% url 'my_teams' as my_teams_url %}
+{% if active == "teams" %}
+    {% include "portal/_sidebar_item.html" with url=my_teams_url label=_("My teams") icon="fa-users-rectangle" active=True only %}
+{% else %}
+    {% include "portal/_sidebar_item.html" with url=my_teams_url label=_("My teams") icon="fa-users-rectangle" only %}
+{% endif %}
+{% url 'volunteer:my_conferences' as my_conferences_url %}
+{% if active == "conferences" %}
+    {% include "portal/_sidebar_item.html" with url=my_conferences_url label=_("My conferences") icon="fa-calendar-days" active=True only %}
+{% else %}
+    {% include "portal/_sidebar_item.html" with url=my_conferences_url label=_("My conferences") icon="fa-calendar-days" only %}
+{% endif %}

@@ -23,6 +23,7 @@ class TestUserCapabilities:
         assert caps["can_view_sponsorship"] is False
         assert caps["active_volunteer_profile"] is None
         assert caps["leads_any_team"] is False
+        assert caps["can_start_next_year"] is False
 
     def test_anonymous_user(self):
         caps = user_capabilities(_request(AnonymousUser()))
@@ -34,6 +35,22 @@ class TestUserCapabilities:
         assert caps["is_organizer"] is True
         assert caps["can_manage_sponsorship"] is True
         assert caps["can_view_sponsorship"] is True
+        # The fixture edition's date has passed, so the action is available.
+        assert caps["can_start_next_year"] is True
+
+    def test_can_start_next_year_requires_organizer(self, portal_user, conference):
+        # Even when a new edition could be started, the flag is organizer-only:
+        # it feeds the Organize rail's action item.
+        caps = user_capabilities(_request(portal_user))
+        assert caps["can_start_next_year"] is False
+
+    def test_can_start_next_year_false_while_edition_running(
+        self, admin_user, conference
+    ):
+        conference.conference_date = None
+        conference.save()
+        caps = user_capabilities(_request(admin_user))
+        assert caps["can_start_next_year"] is False
 
     def test_approved_volunteer_is_read_only_viewer(self, portal_user, conference):
         VolunteerProfile.objects.create(

@@ -11,11 +11,21 @@
     {% endif %}
     {% include "portal/_breadcrumbs.html" with section=bc_section section_url=bc_url page=team.short_name %}
 {% endblock breadcrumb %}
+{# Organizers get the Organize rail; a non-staff lead gets their personal #}
+{# rail (the Organize links would 403 for them), with My teams current. #}
 {% block sidebar_title %}
-    {% trans "Teams" %}
+    {% if is_organizer %}
+        {% trans "Organize" %}
+    {% else %}
+        {% trans "My volunteering" %}
+    {% endif %}
 {% endblock sidebar_title %}
 {% block sidebar %}
-    {% include "team/_team_rail.html" %}
+    {% if is_organizer %}
+        {% include "portal/_organize_rail.html" with active="teams" %}
+    {% else %}
+        {% include "volunteer/_volunteer_rail.html" with active="teams" %}
+    {% endif %}
 {% endblock sidebar %}
 {% block content %}
     <div>

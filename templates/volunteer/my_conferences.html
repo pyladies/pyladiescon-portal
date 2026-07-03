@@ -1,4 +1,4 @@
-{% extends "portal/base.html" %}
+{% extends "portal/base_sidebar.html" %}
 {% load i18n %}
 {% block breadcrumb %}
     {% url 'volunteer:index' as bc_url %}
@@ -6,6 +6,12 @@
     {% trans "My conferences" as bc_page %}
     {% include "portal/_breadcrumbs.html" with section=bc_section section_url=bc_url page=bc_page %}
 {% endblock breadcrumb %}
+{% block sidebar_title %}
+    {% trans "My volunteering" %}
+{% endblock sidebar_title %}
+{% block sidebar %}
+    {% include "volunteer/_volunteer_rail.html" with active="conferences" %}
+{% endblock sidebar %}
 {% block content %}
     <div class="container px-4 py-3">
         <h1 class="display-5">
