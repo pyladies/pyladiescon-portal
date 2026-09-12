@@ -42,6 +42,7 @@ nav:
     - Deployment: developer/deployment.md
   - Architecture:
     - Multi-Year Conferences: architecture/multi-year-conferences.md
+    - Signup Abuse Protection: architecture/signup-abuse-protection.md
   - User Guide:
     - Get started: user/get_started.md
     - Core Team: user/core_team.md

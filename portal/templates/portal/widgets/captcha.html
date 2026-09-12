@@ -1,0 +1,28 @@
+{% load i18n %}
+{% comment %}
+Signup CAPTCHA widget. Replaces django-simple-captcha's default, which makes
+the image itself the audio link with only a hover title, so the audio
+alternative is never discovered. Here the audio is an inline player next to
+the image (a bare link would download the file rather than play it).
+Context (image, audio, widget) comes from CaptchaTextInput.get_context.
+{% endcomment %}
+<div class="d-flex flex-wrap align-items-center gap-3 mb-2">
+    <img src="{{ image }}"
+         alt="{% trans "CAPTCHA image" %}"
+         width="{{ image_width }}"
+         height="{{ image_height }}"
+         class="captcha rounded border">
+    {% if audio %}
+        <div>
+            <span class="form-text d-block mb-1">{% trans "Or listen to the characters:" %}</span>
+            {# djlint:off #}
+            <audio controls preload="none" src="{{ audio }}" style="height: 36px;">
+                <a href="{{ audio }}">{% trans "Download the audio" %}</a>
+            </audio>
+            {# djlint:on #}
+        </div>
+    {% endif %}
+</div>
+{% for subwidget in widget.subwidgets %}
+    {% include subwidget.template_name with widget=subwidget %}
+{% endfor %}

@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 """
 
 import os
+import shutil
 import sys
 from pathlib import Path
 
@@ -76,6 +77,8 @@ INSTALLED_APPS = [
     "import_export",
     "allauth",
     "allauth.account",
+    "captcha",
+    "django_celery_beat",
     "storages",
     "portal",
     "volunteer",
@@ -252,6 +255,32 @@ ACCOUNT_LOGOUT_ON_GET = True
 
 # Use custom signup form
 ACCOUNT_FORMS = {"signup": "portal.forms.CustomSignupForm"}
+ACCOUNT_ADAPTER = "portal.adapter.PortalAccountAdapter"
+
+# Accounts whose email address is never verified are deleted after this many
+# days. The verification email quotes this number, so keep it and the cleanup
+# job reading the same setting.
+UNVERIFIED_ACCOUNT_RETENTION_DAYS = int(
+    os.getenv("UNVERIFIED_ACCOUNT_RETENTION_DAYS", "7")
+)
+
+# Signup rate limits, merged over allauth's defaults. Defence in depth behind
+# the CAPTCHA; see docs/architecture/signup-abuse-protection.md before changing.
+ACCOUNT_RATE_LIMITS = {"signup": "5/h/ip,20/d/ip"}
+
+# CAPTCHA on the signup form (django-simple-captcha: generated locally, no
+# third-party service or script). See docs/architecture/signup-abuse-protection.md
+# before changing.
+CAPTCHA_LENGTH = 6
+CAPTCHA_FONT_SIZE = 40  # package default is 22, too small to read comfortably
+CAPTCHA_IMAGE_SIZE = (320, 90)  # auto-sizing crops rotated glyphs at the edges
+CAPTCHA_LETTER_ROTATION = (-20, 20)  # default +/-35 clips tall letters
+CAPTCHA_TIMEOUT = 10  # minutes a challenge stays valid; the form is long
+# Audio alternative for the image, offered only when flite is installed.
+CAPTCHA_FLITE_PATH = shutil.which("flite")
+# Mixes random noise into each audio file so the audio for a given challenge
+# is never byte-identical (no precomputed audio-to-answer lookup).
+CAPTCHA_SOX_PATH = shutil.which("sox")
 
 # Default settings
 BOOTSTRAP5 = {
@@ -347,6 +376,12 @@ PRETIX_WEBHOOK_SECRET = os.getenv("PRETIX_WEBHOOK_SECRET")
 # Redis add-on is provisioned (its value is often a masked secret), so the
 # broker works without copying that secret into a second env var.
 CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL") or os.environ.get("REDIS_URL")
+
+# Periodic tasks live in the database (django-celery-beat) and are edited in
+# the Django admin under "Periodic tasks". The `beat` process in the Procfile
+# reads them. The unverified-account deletion job is seeded by
+# portal_account migration 0004 and runs daily at 03:00 UTC.
+CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
 
 # This makes Celery run tasks synchronously during tests
 if "test" in sys.argv or "pytest" in sys.modules:

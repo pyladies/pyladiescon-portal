@@ -1,5 +1,6 @@
 from django.contrib.auth.mixins import UserPassesTestMixin
 
+from portal_account.permissions import is_maintainer
 from volunteer.models import Team, VolunteerProfile
 
 
@@ -12,6 +13,18 @@ class AdminRequiredMixin(UserPassesTestMixin):
 
     def test_func(self):
         return self.request.user.is_superuser or self.request.user.is_staff
+
+
+class MaintainerRequiredMixin(UserPassesTestMixin):
+    """Mixin for the Maintenance section (infra, not conference organizing).
+
+    Gated on the ``portal_account.view_maintenance`` permission, which the
+    "Infra maintainers" group grants. Independent of staff/organizer status:
+    a person can hold either, or both.
+    """
+
+    def test_func(self):
+        return is_maintainer(self.request.user)
 
 
 class SuperuserRequiredMixin(UserPassesTestMixin):

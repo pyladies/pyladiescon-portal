@@ -15,6 +15,11 @@ class PortalProfile(BaseModel):
         upload_to="profile_pictures", blank=True, null=True
     )
 
+    class Meta:
+        permissions = [
+            ("view_maintenance", "Can view the maintenance section"),
+        ]
+
     def get_absolute_url(self):
         return reverse("portal_account:portal_profile_edit", kwargs={"pk": self.pk})
 

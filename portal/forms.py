@@ -1,7 +1,23 @@
 from allauth.account.forms import SignupForm
+from captcha.conf import settings as captcha_settings
+from captcha.fields import CaptchaField, CaptchaTextInput
 from django import forms
 
 from portal.models import Conference
+
+
+class PortalCaptchaTextInput(CaptchaTextInput):
+    """The package widget with a visible, labelled audio alternative."""
+
+    template_name = "portal/widgets/captcha.html"
+
+    def get_context(self, name, value, attrs):
+        context = super().get_context(name, value, attrs)
+        # Intrinsic size on the <img> so the form does not shift as it loads.
+        context["image_width"], context["image_height"] = (
+            captcha_settings.CAPTCHA_IMAGE_SIZE
+        )
+        return context
 
 
 class CustomSignupForm(SignupForm):
@@ -24,6 +40,13 @@ class CustomSignupForm(SignupForm):
         required=True,
         label="I agree to the Terms of Service",
         help_text="You must agree to our Terms of Service to use this site.",
+    )
+    captcha = CaptchaField(
+        label="Verification",
+        help_text="Type the characters shown in the image.",
+        widget=PortalCaptchaTextInput(
+            attrs={"class": "form-control", "autocomplete": "off"}
+        ),
     )
 
     def save(self, request):

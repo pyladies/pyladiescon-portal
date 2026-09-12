@@ -50,9 +50,9 @@ class TestCustomSignupForm:
         assert form.fields["first_name"].label == "First Name"
         assert form.fields["last_name"].label == "Last Name"
 
-    def test_form_save_method(self, form_data, request_with_session):
+    def test_form_save_method(self, form_data, request_with_session, captcha_solution):
         """Check that the form saves user with correct fields"""
-        form = CustomSignupForm(data=form_data)
+        form = CustomSignupForm(data={**form_data, **captcha_solution})
         assert form.is_valid()
 
         user = form.save(request_with_session)
@@ -73,6 +73,14 @@ class TestCustomSignupForm:
         assert not form.is_valid()
         assert "first_name" in form.errors
         assert "last_name" in form.errors
+
+    def test_form_has_captcha_field(self):
+        """The CAPTCHA is part of the form.
+
+        If this fails because the field was removed, read
+        docs/architecture/signup-abuse-protection.md first.
+        """
+        assert "captcha" in CustomSignupForm.base_fields
 
     def test_form_widget_attrs(self):
         """Ensure widget attributes are set correctly"""

@@ -72,3 +72,45 @@ class TestSignupView:
         assertContains(
             response, "form-control", status_code=200
         )  # Verify Bootstrap styling
+
+
+@pytest.mark.django_db
+class TestVerificationEmail:
+    """The email sent on signup goes to an address the signer-up controls only
+    if they are honest, so it must not carry attacker-chosen text and must tell
+    an unwilling recipient what happens if they ignore it."""
+
+    signup_data = {
+        "username": "newuser",
+        "email": "newuser@example.com",
+        "first_name": "New",
+        "last_name": "User",
+        "password1": "a-long-enough-password",
+        "password2": "a-long-enough-password",
+        "coc_agreement": "on",
+        "tos_agreement": "on",
+    }
+
+    def test_email_quotes_retention_days_and_omits_username(
+        self, client, settings, mailoutbox, captcha_solution
+    ):
+        settings.UNVERIFIED_ACCOUNT_RETENTION_DAYS = 3
+        response = client.post(
+            reverse("account_signup"), {**self.signup_data, **captcha_solution}
+        )
+
+        assert response.status_code == 302
+        assert len(mailoutbox) == 1
+        body = mailoutbox[0].body
+        assert "not verified within 3 days is deleted without notice" in body
+        assert "newuser" not in body
+
+    def test_email_singular_retention_day(
+        self, client, settings, mailoutbox, captcha_solution
+    ):
+        settings.UNVERIFIED_ACCOUNT_RETENTION_DAYS = 1
+        client.post(reverse("account_signup"), {**self.signup_data, **captcha_solution})
+
+        assert "not verified within 1 day is deleted without notice" in (
+            mailoutbox[0].body
+        )

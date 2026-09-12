@@ -1,3 +1,4 @@
+from portal_account.permissions import is_maintainer
 from volunteer.models import VolunteerProfile
 
 from .models import Conference
@@ -25,6 +26,8 @@ def user_capabilities(request):
     * ``can_start_next_year``   — organizer AND a new edition can be started;
       the shared Organize rail renders on every organizer page, so the flag
       must be available everywhere, not just in the views that used to pass it
+    * ``is_maintainer``         - holds ``portal_account.view_maintenance``;
+      independent of organizer status (see MaintainerRequiredMixin)
     """
     user = getattr(request, "user", None)
     if user is None or not user.is_authenticated:
@@ -35,6 +38,7 @@ def user_capabilities(request):
             "active_volunteer_profile": None,
             "leads_any_team": False,
             "can_start_next_year": False,
+            "is_maintainer": False,
         }
 
     is_organizer = user.is_superuser or user.is_staff
@@ -50,4 +54,5 @@ def user_capabilities(request):
         "active_volunteer_profile": profile,
         "leads_any_team": bool(profile and profile.team_leads.exists()),
         "can_start_next_year": is_organizer and Conference.can_start_next_year(),
+        "is_maintainer": is_maintainer(user),
     }

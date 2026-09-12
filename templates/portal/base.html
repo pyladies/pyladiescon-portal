@@ -149,10 +149,19 @@
                                data-bs-toggle="dropdown"
                                aria-expanded="false">{% trans "Welcome, " %}{{ user.username }}</a>
                             <ul class="dropdown-menu dropdown-menu-end text-small">
-                                {% if is_organizer %}
-                                    <li>
-                                        <a class="dropdown-item" href="{% url 'admin:index' %}">{% trans "Admin Area" %}</a>
-                                    </li>
+                                {# Admin Area follows the organizer flag; Maintenance follows #}
+                                {# its own permission. A person may see either or both. #}
+                                {% if is_organizer or is_maintainer %}
+                                    {% if is_organizer %}
+                                        <li>
+                                            <a class="dropdown-item" href="{% url 'admin:index' %}">{% trans "Admin Area" %}</a>
+                                        </li>
+                                    {% endif %}
+                                    {% if is_maintainer %}
+                                        <li>
+                                            <a class="dropdown-item" href="{% url 'maintenance_accounts' %}">{% trans "Maintenance" %}</a>
+                                        </li>
+                                    {% endif %}
                                     <li>
                                         <hr class="dropdown-divider">
                                     </li>
