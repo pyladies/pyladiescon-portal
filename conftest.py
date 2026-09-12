@@ -2,6 +2,7 @@ import unittest
 from datetime import date, timedelta
 
 import pytest
+from captcha.models import CaptchaStore
 
 from attendee.models import (
     PRETIX_ANONYMOUS_DONATION_QUESTION_IDENTIFIER,
@@ -104,3 +105,15 @@ def pretix_order_data():
         "url": "https://someurl/",
         "cancellation_date": None,
     }
+
+
+@pytest.fixture
+def captcha_solution(db):
+    """POST data that solves a freshly generated CAPTCHA challenge.
+
+    Any test that submits the signup form needs to merge this in; the field
+    rejects a missing or wrong answer.
+    """
+    key = CaptchaStore.generate_key()
+    answer = CaptchaStore.objects.get(hashkey=key).response
+    return {"captcha_0": key, "captcha_1": answer}

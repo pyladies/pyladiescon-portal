@@ -2,11 +2,14 @@ from allauth.account.views import EmailView, PasswordChangeView
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import redirect, render
 from django.urls import reverse_lazy
-from django.views.generic import DetailView
+from django.views.generic import DetailView, TemplateView
 from django.views.generic.edit import CreateView, UpdateView
+
+from common.mixins import MaintainerRequiredMixin
 
 from .forms import PortalProfileForm
 from .models import PortalProfile
+from .stats import DAILY_RANGES, DEFAULT_DAILY_RANGE, account_signup_stats
 
 
 @login_required
@@ -95,3 +98,30 @@ class AccountPasswordChangeView(PasswordChangeView):
     """allauth password change that returns to the account page when done."""
 
     success_url = reverse_lazy("portal_account:index")
+
+
+class MaintenanceAccountsView(MaintainerRequiredMixin, TemplateView):
+    """Maintenance > Accounts: signup volume and verification, at a glance.
+
+    Read-only and computed on request. This is the page that would have shown
+    the 2026 signup flood in its first week; see
+    docs/architecture/signup-abuse-protection.md.
+    """
+
+    template_name = "portal_account/maintenance_accounts.html"
+
+    def get_days(self):
+        try:
+            days = int(self.request.GET.get("days", DEFAULT_DAILY_RANGE))
+        except ValueError:
+            return DEFAULT_DAILY_RANGE
+        return days if days in DAILY_RANGES else DEFAULT_DAILY_RANGE
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        days = self.get_days()
+        context.update(account_signup_stats(days))
+        context["daily_ranges"] = DAILY_RANGES
+        # One axis label a week on the 30-day view, one a fortnight on 90.
+        context["label_every"] = 7 if days <= 31 else 15
+        return context

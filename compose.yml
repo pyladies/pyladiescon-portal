@@ -86,6 +86,31 @@ services:
         condition: service_started
     restart: unless-stopped
 
+  # Scheduler only: reads the django-celery-beat periodic tasks from the
+  # database and hands them to the worker. Mirrors the Procfile's `beat`.
+  beat:
+    build:
+      target: dev
+      args:
+        USER_ID: ${USER_ID:-1000}
+        GROUP_ID: ${GROUP_ID:-1000}
+    image: pyladiescon-portal-beat:docker-compose
+    command: celery -A portal beat --loglevel=info
+    working_dir: /code
+    volumes:
+      - .:/code
+    environment:
+      CELERY_BROKER_URL: redis://redis:6379/0
+      DATABASE_URL: postgresql://pyladiescon:pyladiescon@postgres:5432/pyladiescon
+      SECRET_KEY: verysecure
+      DEBUG: True
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
   maildev:
     image: maildev/maildev:2.2.1
     ports:

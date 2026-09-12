@@ -31,6 +31,11 @@ urlpatterns = [
         views.OrganizerDashboardView.as_view(),
         name="organizer_dashboard",
     ),
+    path(
+        "maintenance/",
+        portal_account_views.MaintenanceAccountsView.as_view(),
+        name="maintenance_accounts",
+    ),
     path("volunteer/", include("volunteer.urls", namespace="volunteer")),
     path("admin/", admin.site.urls),
     # Override two allauth views so finishing returns to the account page (the
@@ -46,6 +51,7 @@ urlpatterns = [
         name="account_email",
     ),
     path("accounts/", include("allauth.urls")),
+    path("captcha/", include("captcha.urls")),
     path("sponsorship/", include("sponsorship.urls", namespace="sponsorship")),
     path("webhooks/", include("webhooks.urls", namespace="webhooks")),
     path(

@@ -1,0 +1,15 @@
+{% load i18n %}
+{% comment %}
+"Maintenance" rail: infra and upkeep pages, for people who look after the
+portal itself rather than the conference. Gated on is_maintainer, never on
+is_organizer; the two are independent.
+
+Expects:
+    active: one of: "accounts". Anything else = no item highlighted.
+{% endcomment %}
+{% url 'maintenance_accounts' as accounts_url %}
+{% if active == "accounts" %}
+    {% include "portal/_sidebar_item.html" with url=accounts_url label=_("Accounts") icon="fa-user-shield" active=True only %}
+{% else %}
+    {% include "portal/_sidebar_item.html" with url=accounts_url label=_("Accounts") icon="fa-user-shield" only %}
+{% endif %}

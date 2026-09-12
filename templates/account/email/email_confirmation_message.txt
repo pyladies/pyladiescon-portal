@@ -1,9 +1,10 @@
 {% extends "account/email/base_message.txt" %}
-{% load account %}
 {% load i18n %}
 
-{% block content %}{% autoescape off %}{% user_display user as user_display %}{% blocktranslate with site_name=current_site.name site_domain=current_site.domain %}You're receiving this email because user {{ user_display }} has given your email address to register an account on {{ site_domain }}.{% endblocktranslate %}
+{% block content %}{% autoescape off %}{% blocktranslate with site_domain=current_site.domain %}You're receiving this email because someone used this email address to register an account on {{ site_domain }}.{% endblocktranslate %}
 
-{% if code %}{% blocktranslate %}Your email verification code is listed below. Please enter it in your open browser window.{% endblocktranslate %}
+{% if code %}{% blocktranslate %}If that was you, your email verification code is listed below. Please enter it in your open browser window.{% endblocktranslate %}
 
-{{ code }}{% else %}{% blocktranslate %}To confirm this is correct, go to {{ activate_url }}{% endblocktranslate %}{% endif %}{% endautoescape %}{% endblock content %}
+{{ code }}{% else %}{% blocktranslate %}If that was you, confirm it by going to {{ activate_url }}{% endblocktranslate %}{% endif %}
+
+{% blocktranslate count days=unverified_account_retention_days %}If that was not you, no action is needed: an account that is not verified within {{ days }} day is deleted without notice.{% plural %}If that was not you, no action is needed: an account that is not verified within {{ days }} days is deleted without notice.{% endblocktranslate %}{% endautoescape %}{% endblock content %}

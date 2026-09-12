@@ -1,0 +1,222 @@
+{% extends "portal/base_sidebar.html" %}
+{% load i18n %}
+{% block head_title %}
+    {% trans "Maintenance: Accounts" %}
+{% endblock head_title %}
+{% block extra_head %}
+    {# Same library and loading pattern as the public Stats page. #}
+    <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+    {{ chart_rows|json_script:"signup-chart-rows" }}
+    <script type="text/javascript">
+    google.charts.load('current', { 'packages': ['corechart'] });
+    google.charts.setOnLoadCallback(drawSignupChart);
+    function drawSignupChart() {
+        var rows = JSON.parse(document.getElementById('signup-chart-rows').textContent);
+        var data = new google.visualization.DataTable();
+        data.addColumn('string', '{{ _("Day")|escapejs }}');
+        data.addColumn('number', '{{ _("Verified")|escapejs }}');
+        data.addColumn('number', '{{ _("Unverified")|escapejs }}');
+        data.addRows(rows);
+        var options = {
+            isStacked: true,
+            colors: ['#2a78d6', '#eb6834'],
+            legend: { position: 'top' },
+            bar: { groupWidth: '80%' },
+            hAxis: { showTextEvery: {{ label_every }}, slantedText: false },
+            vAxis: { minValue: 0, format: '0', gridlines: { count: 4 } },
+            chartArea: { width: '90%', height: '70%' },
+            tooltip: { isHtml: false }
+        };
+        var chart = new google.visualization.ColumnChart(document.getElementById('signup-chart'));
+        chart.draw(data, options);
+    }
+    </script>
+{% endblock extra_head %}
+{% block sidebar_title %}
+    {% trans "Maintenance" %}
+{% endblock sidebar_title %}
+{% block sidebar_title_desktop %}
+    {% trans "Maintenance" %}
+{% endblock sidebar_title_desktop %}
+{% block sidebar %}
+    {% include "portal/_maintenance_rail.html" with active="accounts" %}
+{% endblock sidebar %}
+{% block content %}
+    <div class="container px-0">
+        <h1 class="h3 mb-1">
+            {% trans "Accounts" %}
+        </h1>
+        <p class="text-secondary mb-4">
+            {% trans "Signup volume and email verification across every account on the portal. Computed now, not cached." %}
+        </p>
+        {# ---- Totals ---- #}
+        <div class="row row-cols-2 row-cols-md-4 g-3 mb-4">
+            <div class="col">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <div class="text-secondary small mb-1">
+                            <i class="fa-solid fa-users"></i> {% trans "Accounts" %}
+                        </div>
+                        <div class="fs-3 fw-medium">
+                            {{ totals.accounts }}
+                        </div>
+                        <div class="text-muted small">
+                            {% blocktranslate with count=totals.never_logged_in %}{{ count }} never logged in{% endblocktranslate %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <div class="text-secondary small mb-1">
+                            <i class="fa-solid fa-envelope-circle-check"></i> {% trans "Verified" %}
+                        </div>
+                        <div class="fs-3 fw-medium">
+                            {{ totals.verified }}
+                        </div>
+                        <div class="text-muted small">
+                            {% trans "confirmed an email address" %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <div class="text-secondary small mb-1">
+                            <i class="fa-solid fa-envelope"></i> {% trans "Unverified" %}
+                        </div>
+                        <div class="fs-3 fw-medium">
+                            {{ totals.unverified }}
+                        </div>
+                        <div class="text-muted small">
+                            {% trans "never confirmed an address" %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <div class="text-secondary small mb-1">
+                            <i class="fa-solid fa-broom"></i> {% trans "Pending deletion" %}
+                        </div>
+                        <div class="fs-3 fw-medium">
+                            {{ totals.pending_deletion }}
+                        </div>
+                        <div class="text-muted small">
+                            {% blocktranslate with days=retention_days %}unverified for over {{ days }} days{% endblocktranslate %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {# ---- Recent windows ---- #}
+        <div class="card mb-4">
+            <div class="card-header">
+                {% trans "Recent signups" %}
+            </div>
+            <div class="table-responsive">
+                <table class="table table-sm mb-0">
+                    <thead>
+                        <tr>
+                            <th scope="col">
+                                {% trans "Period" %}
+                            </th>
+                            <th scope="col" class="text-end">
+                                {% trans "Signups" %}
+                            </th>
+                            <th scope="col" class="text-end">
+                                {% trans "Verified" %}
+                            </th>
+                            <th scope="col" class="text-end">
+                                {% trans "Verified rate" %}
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for window in windows %}
+                            <tr>
+                                <td>
+                                    {{ window.label }}
+                                </td>
+                                <td class="text-end">
+                                    {{ window.signups }}
+                                </td>
+                                <td class="text-end">
+                                    {{ window.verified }}
+                                </td>
+                                <td class="text-end">
+                                    {{ window.verified_percent }}%
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {# ---- Daily series ---- #}
+        <div class="card">
+            <div class="card-header d-flex align-items-center justify-content-between">
+                <span>{% blocktranslate with days=days %}Signups per day, last {{ days }} days{% endblocktranslate %}</span>
+                <div class="btn-group btn-group-sm"
+                     role="group"
+                     aria-label="{% trans "Range" %}">
+                    {% for range in daily_ranges %}
+                        <a class="btn btn-outline-secondary{% if range == days %} active{% endif %}"
+                           href="?days={{ range }}">{{ range }}</a>
+                    {% endfor %}
+                </div>
+            </div>
+            <div class="card-body">
+                {# djlint:off #}
+                <div id="signup-chart" style="height: 300px;" aria-hidden="true"></div>
+                {# djlint:on #}
+                <details class="mt-3">
+                    <summary class="small text-secondary">
+                        {% trans "Show as table" %}
+                    </summary>
+                    <div class="table-responsive mt-2">
+                        <table class="table table-sm mb-0">
+                            <thead>
+                                <tr>
+                                    <th scope="col">
+                                        {% trans "Day" %}
+                                    </th>
+                                    <th scope="col" class="text-end">
+                                        {% trans "Signups" %}
+                                    </th>
+                                    <th scope="col" class="text-end">
+                                        {% trans "Verified" %}
+                                    </th>
+                                    <th scope="col" class="text-end">
+                                        {% trans "Unverified" %}
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for row in daily %}
+                                    <tr>
+                                        <td>
+                                            {{ row.date|date:"Y-m-d" }}
+                                        </td>
+                                        <td class="text-end">
+                                            {{ row.signups }}
+                                        </td>
+                                        <td class="text-end">
+                                            {{ row.verified }}
+                                        </td>
+                                        <td class="text-end">
+                                            {{ row.unverified }}
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </details>
+            </div>
+        </div>
+    </div>
+{% endblock content %}
