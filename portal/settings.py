@@ -86,6 +86,7 @@ INSTALLED_APPS = [
     "widget_tweaks",
     "sponsorship",
     "attendee",
+    "speakers",
 ]
 DJANGO_TABLES2_TEMPLATE = "portal/base-tables-responsive.html"
 
