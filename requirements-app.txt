@@ -18,6 +18,7 @@ django-celery-beat==2.9.0
 pillow==11.3.0
 django-import-export[all]==4.3.12
 markdown==3.7
+nh3==0.3.7
 bleach==6.3.0
 sentry-sdk[django]==2.43.0
 requests==2.32.5

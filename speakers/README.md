@@ -67,9 +67,12 @@ reverse accessor named after every child model (`basemodel.role`,
 
 ### Activity log
 
-There is no `ActivityLog` model in the portal today. Stage 1.1 adds
-`speakers.ActivityLog` (edition-scoped, generic target, actor nullable for
-automatic events) and later stages write to it.
+There was no `ActivityLog` model in the portal before this app.
+`speakers.ActivityLog` (`speakers/models.py`) is edition-scoped, points at any
+speakers record through a generic foreign key, and has a nullable `actor` so
+automatic events ("pretix order paid, registration marked done") are told
+apart from things a person did. Write through `ActivityLog.record(...)`, read
+with `ActivityLog.for_target(obj)`.
 
 ### The volunteer app (nearest existing pattern)
 
@@ -128,9 +131,10 @@ the design's inline interactions will bring htmx in when Stage 2.5 needs it.
 ### Markdown
 
 `portal/templatetags/portal_extras.py` has a `markdownify` filter
-(python-markdown + bleach) used for team descriptions. Stage 1.1 adds
-`speakers.markdown.render_md()` on `nh3` as the task list specifies, and
-speaker-facing markdown fields render through it.
+(python-markdown + bleach) used for team descriptions. Speaker-facing markdown
+(`*_md` fields) renders through `speakers.markdown.render_md()` (python-markdown
++ `nh3`) and the `speaker_md` filter in `speakers/templatetags/speakers_extras.py`.
+The source is stored, never the HTML.
 
 ### Tests
 
@@ -153,4 +157,9 @@ installed; this app keeps small factory functions in `tests/speakers/factories.p
 - Organizer predicate: `speakers.permissions.is_speaker_organizer`
   (superuser or staff, matching the rest of the portal).
 - Every model: `conference` FK, admin registration, factory function,
-  isolation test.
+  isolation test. Join and child rows (`SessionPresenter`, `ScheduleSlot`)
+  carry a non-editable `conference` copied from their session on save.
+- Status changes are model methods on `Session` (`mark_invited`, `confirm`,
+  `schedule`, `publish`, `cancel`) that raise `speakers.models.TransitionError`
+  when a precondition fails; views turn that into a message.
+- Enumerations live in `speakers/constants.py` as `TextChoices`.
