@@ -1,7 +1,10 @@
 import django_filters
+from django.contrib.auth.models import User
+from django.db.models import Q
 
 from .constants import SessionKind, SessionStatus
-from .models import Session
+from .forms import liaison_candidates
+from .models import Presenter, Session
 
 
 class SessionFilter(django_filters.FilterSet):
@@ -18,3 +21,26 @@ class SessionFilter(django_filters.FilterSet):
     class Meta:
         model = Session
         fields = ["status", "kind", "search"]
+
+
+class PresenterFilter(django_filters.FilterSet):
+    search = django_filters.CharFilter(method="filter_search", label="Name or email")
+    liaison = django_filters.ModelChoiceFilter(
+        queryset=User.objects.none(), empty_label="Any liaison"
+    )
+
+    class Meta:
+        model = Presenter
+        fields = ["search", "liaison"]
+
+    def __init__(self, *args, conference=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.filters["liaison"].queryset = liaison_candidates(conference)
+        self.filters["liaison"].field.label_from_instance = (
+            lambda user: user.get_full_name() or user.username
+        )
+
+    def filter_search(self, queryset, name, value):
+        return queryset.filter(
+            Q(display_name__icontains=value) | Q(email__icontains=value)
+        )

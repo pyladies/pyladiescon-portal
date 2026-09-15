@@ -2,7 +2,7 @@ import django_tables2 as tables
 from django.utils.html import format_html, format_html_join
 
 from .constants import SessionStatus
-from .models import Session
+from .models import InvitationStatus, Presenter, Session
 
 STATUS_BADGE_CLASSES = {
     SessionStatus.DRAFT: "text-bg-secondary",
@@ -83,3 +83,82 @@ class SessionTable(tables.Table):
 
     def render_title(self, value, record):
         return format_html('<a href="{}">{}</a>', record.get_absolute_url(), value)
+
+
+INVITATION_BADGE_CLASSES = {
+    InvitationStatus.DRAFT: "text-bg-secondary",
+    InvitationStatus.SENT: "text-bg-warning",
+    InvitationStatus.OPENED: "text-bg-warning",
+    InvitationStatus.ACCEPTED: "text-bg-success",
+    InvitationStatus.DECLINED: "text-bg-dark",
+    InvitationStatus.EXPIRED: "text-bg-danger",
+    InvitationStatus.CANCELLED: "text-bg-secondary",
+}
+
+
+def invitation_badge(invitation):
+    if invitation is None:
+        return format_html('<span class="text-secondary">—</span>')
+    status = invitation.status
+    return format_html(
+        '<span class="badge {}">{}</span>',
+        INVITATION_BADGE_CLASSES[status],
+        status.label,
+    )
+
+
+class PresenterTable(tables.Table):
+    """The presenter list: who, how to reach them, what they are on, where
+    their invitation stands, who looks after them."""
+
+    display_name = tables.Column(verbose_name="Name")
+    email = tables.Column()
+    sessions = tables.Column(empty_values=(), orderable=False)
+    invitation = tables.Column(empty_values=(), orderable=False)
+    account = tables.Column(empty_values=(), orderable=False)
+    liaison = tables.Column(accessor="liaison", orderable=False)
+
+    class Meta:
+        model = Presenter
+        fields = (
+            "display_name",
+            "email",
+            "sessions",
+            "invitation",
+            "account",
+            "liaison",
+        )
+        attrs = {
+            "class": "table table-hover table-bordered table-sm",
+            "thead": {"class": "table-light"},
+        }
+
+    def render_display_name(self, value, record):
+        return format_html('<a href="{}">{}</a>', record.get_absolute_url(), value)
+
+    def render_sessions(self, record):
+        if not record.session_links:
+            return format_html('<span class="text-secondary">—</span>')
+        return format_html_join(
+            ", ",
+            '<a href="{}">{}</a> <span class="badge text-bg-light border">{}</span>',
+            (
+                (
+                    link.session.get_absolute_url(),
+                    link.session.title,
+                    link.get_role_display(),
+                )
+                for link in record.session_links
+            ),
+        )
+
+    def render_invitation(self, record):
+        return invitation_badge(record.latest_invitation)
+
+    def render_account(self, record):
+        if record.user_id is None:
+            return format_html('<span class="text-secondary">not yet</span>')
+        return format_html('<i class="fa-solid fa-check text-success"></i> linked')
+
+    def render_liaison(self, value):
+        return value.get_full_name() or value.username

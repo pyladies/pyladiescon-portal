@@ -3,7 +3,7 @@ from django.utils.safestring import mark_safe
 
 from speakers.constants import SessionStatus
 from speakers.markdown import render_md
-from speakers.tables import STATUS_BADGE_CLASSES
+from speakers.tables import INVITATION_BADGE_CLASSES, STATUS_BADGE_CLASSES
 
 register = template.Library()
 
@@ -18,3 +18,15 @@ def speaker_md(value):
 def session_status_class(session):
     """Bootstrap badge class for a session's status chip."""
     return STATUS_BADGE_CLASSES[SessionStatus(session.status)]
+
+
+@register.filter
+def invitation_status_class(invitation):
+    """Bootstrap badge class for an invitation's status chip."""
+    return INVITATION_BADGE_CLASSES[invitation.status]
+
+
+@register.filter
+def user_label(user):
+    """Full name, or the username when the profile has none."""
+    return user.get_full_name() or user.username

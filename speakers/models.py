@@ -26,7 +26,7 @@ from .constants import (
     SessionLevel,
     SessionStatus,
 )
-from .querysets import SessionQuerySet
+from .querysets import PresenterQuerySet, SessionQuerySet
 
 
 class TimestampedModel(models.Model):
@@ -276,6 +276,8 @@ class Presenter(TimestampedModel):
         "the name still appears on their sessions.",
     )
 
+    objects = PresenterQuerySet.as_manager()
+
     class Meta:
         ordering = ["display_name"]
         constraints = [
@@ -309,6 +311,17 @@ class Presenter(TimestampedModel):
     @property
     def tzinfo(self):
         return zoneinfo.ZoneInfo(self.timezone)
+
+    def get_absolute_url(self):
+        return reverse("speakers:presenter_detail", kwargs={"pk": self.pk})
+
+    @property
+    def latest_invitation(self):
+        """Newest invitation, from the listing prefetch when available."""
+        history = getattr(self, "invitation_history", None)
+        if history is None:
+            return self.invitations.order_by("-creation_date", "-id").first()
+        return history[0] if history else None
 
 
 class PresenterRole(TimestampedModel):
@@ -681,6 +694,8 @@ class SessionPresenter(TimestampedModel):
 
     def clean(self):
         super().clean()
+        if self.session_id is None or self.presenter_id is None:
+            return  # a form with a missing field reports that itself
         if self.session.conference_id != self.presenter.conference_id:
             raise ValidationError(
                 "The session and the presenter belong to different editions."

@@ -31,3 +31,35 @@ class SessionQuerySet(models.QuerySet):
                 to_attr="presenter_links",
             )
         )
+
+
+class PresenterQuerySet(models.QuerySet):
+    def for_conference(self, conference):
+        return self.filter(conference=conference)
+
+    def visible_to(self, user):
+        """Organizers see everyone; a liaison only their own presenters."""
+        if user.is_superuser or user.is_staff:
+            return self
+        return self.filter(liaison=user)
+
+    def with_listing_data(self):
+        """Sessions, account, liaison and invitations in a fixed query count."""
+        from .models import Invitation, SessionPresenter
+
+        return self.select_related("user", "liaison").prefetch_related(
+            models.Prefetch(
+                "session_presenters",
+                queryset=SessionPresenter.objects.select_related("session").order_by(
+                    "session__title"
+                ),
+                to_attr="session_links",
+            ),
+            models.Prefetch(
+                "invitations",
+                queryset=Invitation.objects.select_related("session").order_by(
+                    "-creation_date", "-id"
+                ),
+                to_attr="invitation_history",
+            ),
+        )

@@ -1,0 +1,228 @@
+{% extends "speakers/_organize_shell.html" %}
+{% load i18n %}
+{% load speakers_extras %}
+{% block head_title %}
+    {{ presenter.display_name }}
+{% endblock head_title %}
+{% block breadcrumb %}
+    {% url 'speakers:presenter_list' as bc_url %}
+    {% trans "Presenters" as bc_section %}
+    {% include "portal/_breadcrumbs.html" with section=bc_section section_url=bc_url page=presenter.display_name %}
+{% endblock breadcrumb %}
+{% block content %}
+    <div class="d-flex flex-wrap align-items-start justify-content-between gap-2 mb-3">
+        <div class="d-flex align-items-center gap-3">
+            {% if presenter.headshot %}
+                <img src="{{ presenter.headshot.url }}"
+                     alt=""
+                     width="64"
+                     height="64"
+                     class="rounded-circle object-fit-cover">
+            {% endif %}
+            <div>
+                <h1 class="h3 mb-0">
+                    {{ presenter.display_name }}
+                    {% if presenter.pronouns %}
+                        <small class="text-secondary fs-6">({{ presenter.pronouns }})</small>
+                    {% endif %}
+                </h1>
+                <div class="text-secondary">
+                    {{ presenter.email }}
+                    {% if presenter.location %}
+                        · {{ presenter.location }}
+                    {% endif %}
+                    · {{ presenter.timezone }}
+                </div>
+            </div>
+        </div>
+        <a class="btn btn-outline-primary"
+           href="{% url 'speakers:presenter_edit' presenter.pk %}">
+            <i class="fa-solid fa-pen"></i> {% trans "Edit" %}
+        </a>
+    </div>
+    <div class="row g-4">
+        <div class="col-lg-7">
+            {% if presenter.bio_md %}
+                <h2 class="h6 text-uppercase text-secondary">
+                    {% trans "Bio" %}
+                </h2>
+                <div class="mb-4">
+                    {{ presenter.bio_md|speaker_md }}
+                </div>
+            {% endif %}
+            <h2 class="h6 text-uppercase text-secondary">
+                {% trans "Invitations" %}
+            </h2>
+            {% if invitations %}
+                <div class="table-responsive mb-4">
+                    <table class="table table-sm table-bordered align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>
+                                    {% trans "Session" %}
+                                </th>
+                                <th>
+                                    {% trans "Status" %}
+                                </th>
+                                <th>
+                                    {% trans "Sent" %}
+                                </th>
+                                <th>
+                                    {% trans "Opened" %}
+                                </th>
+                                <th>
+                                    {% trans "Answered" %}
+                                </th>
+                                {% if is_organizer %}
+                                    <th>
+                                    </th>
+                                {% endif %}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for invitation in invitations %}
+                                <tr>
+                                    <td>
+                                        {% if invitation.session %}
+                                            <a href="{{ invitation.session.get_absolute_url }}">{{ invitation.session.title }}</a>
+                                        {% else %}
+                                            <span class="text-secondary">{% trans "Conference" %}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <span class="badge {{ invitation|invitation_status_class }}">{{ invitation.status.label }}</span>
+                                    </td>
+                                    <td>
+                                        {{ invitation.sent_at|date:"j M H:i"|default:"—" }}
+                                    </td>
+                                    <td>
+                                        {{ invitation.opened_at|date:"j M H:i"|default:"—" }}
+                                    </td>
+                                    <td>
+                                        {% if invitation.accepted_at %}
+                                            {{ invitation.accepted_at|date:"j M H:i" }}
+                                        {% elif invitation.declined_at %}
+                                            {{ invitation.declined_at|date:"j M H:i" }}
+                                        {% else %}
+                                            —
+                                        {% endif %}
+                                    </td>
+                                    {% if is_organizer %}
+                                        <td class="text-nowrap">
+                                            {% if invitation.status != "ACCEPTED" %}
+                                                <form method="post"
+                                                      class="d-inline"
+                                                      action="{% url 'speakers:invitation_resend' invitation.pk %}">
+                                                    {% csrf_token %}
+                                                    <button class="btn btn-sm btn-outline-primary" type="submit">
+                                                        {% trans "Resend" %}
+                                                    </button>
+                                                </form>
+                                            {% endif %}
+                                            {% if invitation.is_open %}
+                                                <form method="post"
+                                                      class="d-inline"
+                                                      action="{% url 'speakers:invitation_cancel' invitation.pk %}">
+                                                    {% csrf_token %}
+                                                    <button class="btn btn-sm btn-outline-secondary" type="submit">
+                                                        {% trans "Cancel" %}
+                                                    </button>
+                                                </form>
+                                            {% endif %}
+                                        </td>
+                                    {% endif %}
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <p class="text-secondary">
+                    {% trans "No invitation sent yet. Invite from the session page." %}
+                </p>
+            {% endif %}
+        </div>
+        <div class="col-lg-5">
+            <div class="card mb-3">
+                <div class="card-header">
+                    {% trans "Sessions" %}
+                </div>
+                <ul class="list-group list-group-flush">
+                    {% for link in session_links %}
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            <span>
+                                <a href="{{ link.session.get_absolute_url }}">{{ link.session.title }}</a>
+                                <span class="badge text-bg-light border">{{ link.get_role_display }}</span>
+                            </span>
+                            {% if link.is_confirmed %}
+                                <i class="fa-solid fa-check text-success"></i>
+                            {% else %}
+                                <i class="fa-regular fa-clock text-secondary"></i>
+                            {% endif %}
+                        </li>
+                    {% empty %}
+                        <li class="list-group-item text-secondary">
+                            {% trans "Not on any session yet." %}
+                        </li>
+                    {% endfor %}
+                </ul>
+            </div>
+            <div class="card mb-3">
+                <div class="card-header">
+                    {% trans "Details" %}
+                </div>
+                <div class="card-body small">
+                    <div>
+                        <strong>{% trans "Account" %}:</strong>
+                        {% if presenter.user %}
+                            {{ presenter.user.username }}
+                        {% else %}
+                            {% trans "not linked yet" %}
+                        {% endif %}
+                    </div>
+                    <div>
+                        <strong>{% trans "Liaison" %}:</strong>
+                        {% if presenter.liaison %}
+                            {{ presenter.liaison|user_label }}
+                        {% else %}
+                            —
+                        {% endif %}
+                    </div>
+                    <div>
+                        <strong>{% trans "Public bio" %}:</strong> {{ presenter.is_public|yesno }}
+                    </div>
+                    {% if presenter.website_url %}
+                        <div>
+                            <a href="{{ presenter.website_url }}" rel="noopener">{{ presenter.website_url }}</a>
+                        </div>
+                    {% endif %}
+                    {% if presenter.github_username %}
+                        <div>
+                            GitHub: {{ presenter.github_username }}
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-header">
+                    {% trans "Activity" %}
+                </div>
+                <ul class="list-group list-group-flush small">
+                    {% for entry in activity %}
+                        <li class="list-group-item">
+                            <span class="text-secondary">{{ entry.creation_date|date:"j M H:i" }}</span>
+                            {{ entry.action }}
+                            {% if entry.actor %}
+                                · {{ entry.actor.username }}
+                            {% endif %}
+                        </li>
+                    {% empty %}
+                        <li class="list-group-item text-secondary">
+                            {% trans "Nothing yet." %}
+                        </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+    </div>
+{% endblock content %}

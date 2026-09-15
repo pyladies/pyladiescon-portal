@@ -1,6 +1,6 @@
 {% extends "speakers/_organize_shell.html" %}
 {% load i18n %}
-{% load speakers_extras %}
+{% load portal_extras speakers_extras %}
 {% block head_title %}
     {{ session.title }}
 {% endblock head_title %}
@@ -80,24 +80,104 @@
                 {% trans "Not yet confirmed" as pending_label %}
                 <ul class="list-group list-group-flush">
                     {% for link in presenter_links %}
-                        <li class="list-group-item d-flex justify-content-between align-items-center">
-                            <span>
-                                {{ link.presenter.display_name }}
-                                <span class="badge text-bg-light border">{{ link.get_role_display }}</span>
-                            </span>
-                            {% if link.is_confirmed %}
-                                <i class="fa-solid fa-check text-success" title="{{ confirmed_label }}"></i>
-                            {% else %}
-                                <i class="fa-regular fa-clock text-secondary"
-                                   title="{{ pending_label }}"></i>
-                            {% endif %}
-                        </li>
+                        {% with invitation=invitations_by_presenter|get_item:link.presenter_id %}
+                            <li class="list-group-item">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <span>
+                                        <a href="{{ link.presenter.get_absolute_url }}">{{ link.presenter.display_name }}</a>
+                                        <span class="badge text-bg-light border">{{ link.get_role_display }}</span>
+                                        {% if not link.is_required %}
+                                            <span class="badge text-bg-light border">{% trans "optional" %}</span>
+                                        {% endif %}
+                                    </span>
+                                    {% if link.is_confirmed %}
+                                        <i class="fa-solid fa-check text-success" title="{{ confirmed_label }}"></i>
+                                    {% else %}
+                                        <i class="fa-regular fa-clock text-secondary"
+                                           title="{{ pending_label }}"></i>
+                                    {% endif %}
+                                </div>
+                                {% if invitation %}
+                                    <div class="small mt-1">
+                                        <span class="badge {{ invitation|invitation_status_class }}">{{ invitation.status.label }}</span>
+                                        {% if invitation.sent_at %}
+                                            <span class="text-secondary">{% trans "sent" %} {{ invitation.sent_at|date:"j M" }}</span>
+                                        {% endif %}
+                                    </div>
+                                {% endif %}
+                                {% if is_organizer and not link.is_confirmed %}
+                                    <details class="mt-2">
+                                        <summary class="small">
+                                            {% if invitation and invitation.sent_at %}
+                                                {% trans "Resend invitation" %}
+                                            {% else %}
+                                                {% trans "Send invitation" %}
+                                            {% endif %}
+                                        </summary>
+                                        <form method="post"
+                                              class="mt-2"
+                                              action="{% url 'speakers:session_invite' session.pk link.pk %}">
+                                            {% csrf_token %}
+                                            <label class="form-label small" for="message-{{ link.pk }}">
+                                                {% trans "Personal message (markdown, optional)" %}
+                                            </label>
+                                            <textarea class="form-control form-control-sm mb-2"
+                                                      id="message-{{ link.pk }}"
+                                                      name="message_md"
+                                                      rows="3">{% if invitation %}{{ invitation.message_md }}{% endif %}</textarea>
+                                            <button class="btn btn-sm btn-primary" type="submit">
+                                                <i class="fa-solid fa-paper-plane"></i> {% trans "Send" %}
+                                            </button>
+                                        </form>
+                                    </details>
+                                {% endif %}
+                                {% if is_organizer %}
+                                    <form method="post"
+                                          class="mt-1"
+                                          action="{% url 'speakers:session_remove_presenter' session.pk link.pk %}">
+                                        {% csrf_token %}
+                                        <button class="btn btn-link btn-sm text-danger p-0" type="submit">
+                                            {% trans "Remove from session" %}
+                                        </button>
+                                    </form>
+                                {% endif %}
+                            </li>
+                        {% endwith %}
                     {% empty %}
                         <li class="list-group-item text-secondary">
                             {% trans "No presenters yet." %}
                         </li>
                     {% endfor %}
                 </ul>
+                {% if is_organizer %}
+                    <div class="card-body border-top">
+                        <form method="post"
+                              action="{% url 'speakers:session_add_presenter' session.pk %}">
+                            {% csrf_token %}
+                            <div class="small fw-semibold mb-2">
+                                {% trans "Add presenter" %}
+                            </div>
+                            <div class="mb-2">
+                                {{ add_presenter_form.presenter }}
+                            </div>
+                            <div class="d-flex gap-2 mb-2">
+                                {{ add_presenter_form.role }}
+                                {{ add_presenter_form.order }}
+                            </div>
+                            <div class="form-check mb-2">
+                                {{ add_presenter_form.is_required }}
+                                <label class="form-check-label small"
+                                       for="{{ add_presenter_form.is_required.id_for_label }}">
+                                    {% trans "Required to confirm the session" %}
+                                </label>
+                            </div>
+                            <button class="btn btn-sm btn-outline-primary" type="submit">
+                                {% trans "Add" %}
+                            </button>
+                            <a class="small ms-2" href="{% url 'speakers:presenter_create' %}">{% trans "New presenter" %}</a>
+                        </form>
+                    </div>
+                {% endif %}
             </div>
             <div class="card mb-3">
                 <div class="card-header">

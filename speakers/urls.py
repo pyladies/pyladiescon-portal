@@ -28,4 +28,45 @@ urlpatterns = [
         views.SessionUpdateView.as_view(),
         name="session_edit",
     ),
+    path(
+        "sessions/<int:pk>/presenters/add/",
+        views.SessionAddPresenterView.as_view(),
+        name="session_add_presenter",
+    ),
+    path(
+        "sessions/<int:pk>/presenters/<int:link_pk>/remove/",
+        views.SessionRemovePresenterView.as_view(),
+        name="session_remove_presenter",
+    ),
+    path(
+        "sessions/<int:pk>/presenters/<int:link_pk>/invite/",
+        views.SessionInviteView.as_view(),
+        name="session_invite",
+    ),
+    path("presenters/", views.PresenterListView.as_view(), name="presenter_list"),
+    path(
+        "presenters/new/",
+        views.PresenterCreateView.as_view(),
+        name="presenter_create",
+    ),
+    path(
+        "presenters/<int:pk>/",
+        views.PresenterDetailView.as_view(),
+        name="presenter_detail",
+    ),
+    path(
+        "presenters/<int:pk>/edit/",
+        views.PresenterUpdateView.as_view(),
+        name="presenter_edit",
+    ),
+    path(
+        "invitations/<int:pk>/resend/",
+        views.InvitationResendView.as_view(),
+        name="invitation_resend",
+    ),
+    path(
+        "invitations/<int:pk>/cancel/",
+        views.InvitationCancelView.as_view(),
+        name="invitation_cancel",
+    ),
 ]
