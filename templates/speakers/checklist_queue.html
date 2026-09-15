@@ -1,0 +1,87 @@
+{% extends "speakers/_organize_shell.html" %}
+{% load i18n %}
+{% block head_title %}
+    {% trans "My queue" %}
+{% endblock head_title %}
+{% block breadcrumb %}
+    {% trans "My queue" as bc_section %}
+    {% include "portal/_breadcrumbs.html" with section=bc_section %}
+{% endblock breadcrumb %}
+{% block content %}
+    <h1 class="h3 mb-1">
+        {% trans "My queue" %}
+    </h1>
+    <p class="text-secondary">
+        {% trans "Organizer items assigned to you, soonest first." %}
+    </p>
+    <div class="table-responsive">
+        <table class="table table-sm table-bordered align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>
+                        {% trans "Item" %}
+                    </th>
+                    <th>
+                        {% trans "For" %}
+                    </th>
+                    <th>
+                        {% trans "Due" %}
+                    </th>
+                    <th>
+                    </th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in items %}
+                    <tr id="item-{{ item.pk }}"
+                        class="{% if item.overdue %}table-warning{% elif item.status == 'BLOCKED' %}table-danger{% endif %}">
+                        <td>
+                            {{ item.title }}
+                            {% if item.session %}
+                                <div class="small text-secondary">
+                                    {{ item.session.title }}
+                                </div>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if item.presenter %}
+                                <a href="{{ item.presenter.get_absolute_url }}">{{ item.presenter.display_name }}</a>
+                            {% elif item.session %}
+                                <a href="{{ item.session.get_absolute_url }}">{{ item.session.title }}</a>
+                            {% endif %}
+                        </td>
+                        <td class="text-nowrap">
+                            {% if item.due_date %}
+                                <span {% if item.overdue %}class="text-danger fw-semibold"{% endif %}>{{ item.due_date|date:"j M" }}</span>
+                            {% else %}
+                                —
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if not item.is_automatic %}
+                                <form method="post" action="{% url 'speakers:item_status' item.pk %}">
+                                    {% csrf_token %}
+                                    <input type="hidden"
+                                           name="next"
+                                           value="{% url 'speakers:checklist_queue' %}">
+                                    <button class="btn btn-sm btn-outline-success"
+                                            name="status"
+                                            value="DONE"
+                                            type="submit">
+                                        <i class="fa-solid fa-check"></i> {% trans "Done" %}
+                                    </button>
+                                </form>
+                            {% endif %}
+                        </td>
+                    </tr>
+                {% empty %}
+                    <tr>
+                        <td colspan="4" class="text-secondary">
+                            {% trans "Nothing assigned to you. Enjoy the quiet." %}
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+{% endblock content %}

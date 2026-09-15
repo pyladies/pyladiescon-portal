@@ -99,6 +99,22 @@ urlpatterns = [
         views.SpeakerItemToggleView.as_view(),
         name="my_item_toggle",
     ),
+    path("checklists/", views.ChecklistBoardView.as_view(), name="checklist_board"),
+    path(
+        "checklists/export/",
+        views.ChecklistBoardExportView.as_view(),
+        name="checklist_board_export",
+    ),
+    path(
+        "checklists/queue/", views.ChecklistQueueView.as_view(), name="checklist_queue"
+    ),
+    path("items/<int:pk>/status/", views.ItemStatusView.as_view(), name="item_status"),
+    path("items/<int:pk>/assign/", views.ItemAssignView.as_view(), name="item_assign"),
+    path(
+        "presenters/<int:pk>/items/add/",
+        views.PresenterAddItemView.as_view(),
+        name="presenter_add_item",
+    ),
     path(
         "invitations/<int:pk>/resend/",
         views.InvitationResendView.as_view(),

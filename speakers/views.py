@@ -4,7 +4,8 @@ from django.contrib.auth import logout
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import PermissionDenied
 from django.db import transaction
-from django.db.models import Q
+from django.db.models import F, Q
+from django.http import HttpResponse, HttpResponseBadRequest
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -16,10 +17,20 @@ from django_tables2.views import SingleTableMixin
 
 from common.tasks import enqueue
 
-from .checklists import ChecklistError, complete_item, reopen_item
-from .constants import ItemOwner, SessionStatus
+from .board import build_board, write_board_csv
+from .checklists import (
+    ChecklistError,
+    add_adhoc_item,
+    assign_item,
+    complete_item,
+    reopen_item,
+    skip_item,
+)
+from .constants import OPEN_ITEM_STATUSES, ItemOwner, ItemStatus, SessionStatus
 from .filters import PresenterFilter, SessionFilter
 from .forms import (
+    AdhocItemForm,
+    AssignItemForm,
     InviteForm,
     PresenterForm,
     PresenterRoleForm,
@@ -47,7 +58,7 @@ from .models import (
     Session,
     SessionType,
 )
-from .permissions import can_work_sessions
+from .permissions import can_work_sessions, is_speaker_organizer
 from .services import (
     InvitationError,
     accept_invitation,
@@ -346,6 +357,28 @@ class PresenterDetailView(PresenterScopedMixin, DetailView):
         context["session_links"] = self.object.session_links
         context["invitations"] = self.object.invitation_history
         context["activity"] = ActivityLog.for_target(self.object)[:20]
+        today = timezone.now().date()
+        items = list(
+            self.object.checklist_items.select_related("assignee", "session").order_by(
+                "session__title", "order", "id"
+            )
+        )
+        for item in items:
+            item.overdue = (
+                item.is_open and item.due_date is not None and item.due_date < today
+            )
+        context["speaker_items"] = [i for i in items if i.owner == ItemOwner.SPEAKER]
+        context["organizer_items"] = [
+            i for i in items if i.owner == ItemOwner.ORGANIZER
+        ]
+        context["assign_forms"] = {
+            item.pk: AssignItemForm(
+                initial={"assignee": item.assignee_id}, conference=self.conference
+            )
+            for item in items
+        }
+        context["adhoc_form"] = AdhocItemForm(conference=self.conference)
+        context["can_assign"] = True
         return context
 
 
@@ -840,3 +873,170 @@ class PresenterRoleUpdateView(ProgramTypeFormMixin, UpdateView):
     model = PresenterRole
     form_class = PresenterRoleForm
     template_name = "speakers/presenter_role_form.html"
+# ---- Organizer checklists: board, queue, item actions -----------------------
+
+
+class ChecklistBoardView(LoginRequiredMixin, SpeakerStaffRequiredMixin, TemplateView):
+    """Design §9.6: one tab per owner, a colour per cell, sorted by most overdue."""
+
+    template_name = "speakers/checklist_board.html"
+
+    def get_tab(self):
+        tab = self.request.GET.get("tab", "speaker").upper()
+        return tab if tab in ItemOwner.values else ItemOwner.SPEAKER
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        tab = self.get_tab()
+        context.update(
+            {
+                "conference": self.conference,
+                "rail_active": "checklists",
+                "tab": tab,
+                "sort": self.request.GET.get("sort", "overdue"),
+                "board": build_board(
+                    self.conference,
+                    self.request.user,
+                    tab,
+                    sort=self.request.GET.get("sort", "overdue"),
+                ),
+            }
+        )
+        return context
+
+
+class ChecklistBoardExportView(ChecklistBoardView):
+    def get(self, request, *args, **kwargs):
+        tab = self.get_tab()
+        board = build_board(self.conference, request.user, tab)
+        response = HttpResponse(content_type="text/csv")
+        response["Content-Disposition"] = (
+            f'attachment; filename="checklists-{tab.lower()}-{self.conference.slug}.csv"'
+        )
+        write_board_csv(board, response)
+        return response
+
+
+class ChecklistQueueView(LoginRequiredMixin, SpeakerStaffRequiredMixin, TemplateView):
+    """Organizer items assigned to me, soonest first (design §9.6)."""
+
+    template_name = "speakers/checklist_queue.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        items = (
+            ChecklistItem.objects.filter(
+                conference=self.conference,
+                owner=ItemOwner.ORGANIZER,
+                assignee=self.request.user,
+                status__in=list(OPEN_ITEM_STATUSES),
+            )
+            .select_related("presenter", "session")
+            .order_by(F("due_date").asc(nulls_last=True), "order", "id")
+        )
+        today = timezone.now().date()
+        for item in items:
+            item.overdue = item.due_date is not None and item.due_date < today
+        context.update(
+            {
+                "conference": self.conference,
+                "rail_active": "queue",
+                "items": list(items),
+                "today": today,
+            }
+        )
+        return context
+
+
+class ItemActionMixin(LoginRequiredMixin, SpeakerStaffRequiredMixin):
+    """An item this organizer or liaison may act on."""
+
+    def get_item(self):
+        item = get_object_or_404(
+            ChecklistItem.objects.select_related(
+                "presenter", "presenter__liaison", "session", "assignee"
+            ),
+            pk=self.kwargs["pk"],
+            conference=self.conference,
+        )
+        if not is_speaker_organizer(self.request.user) and (
+            item.presenter is None or item.presenter.liaison_id != self.request.user.pk
+        ):
+            raise PermissionDenied("This item belongs to a presenter you don't liaise.")
+        return item
+
+    def respond(self, request, item):
+        """An htmx request gets the refreshed row; a plain form goes back."""
+        if request.headers.get("HX-Request"):
+            item.overdue = (
+                item.is_open and item.due_date and item.due_date < timezone.now().date()
+            )
+            return render(
+                request,
+                "speakers/_organizer_item_row.html",
+                {
+                    "item": item,
+                    "assign_form": AssignItemForm(
+                        initial={"assignee": item.assignee_id},
+                        conference=self.conference,
+                    ),
+                    "can_assign": is_speaker_organizer(request.user)
+                    or item.presenter is not None,
+                },
+            )
+        target = request.POST.get("next") or (
+            item.presenter.get_absolute_url()
+            if item.presenter
+            else item.session.get_absolute_url()
+        )
+        return redirect(target)
+
+
+class ItemStatusView(ItemActionMixin, View):
+    def post(self, request, pk):
+        item = self.get_item()
+        status = request.POST.get("status", "")
+        note = request.POST.get("note")
+        try:
+            if status == ItemStatus.DONE:
+                complete_item(item, actor=request.user, note=note)
+            elif status == ItemStatus.TODO:
+                reopen_item(item, actor=request.user)
+            elif status == ItemStatus.SKIPPED:
+                skip_item(item, actor=request.user, note=note)
+            else:
+                return HttpResponseBadRequest("Unknown status.")
+        except ChecklistError as exc:
+            messages.error(request, str(exc))
+        return self.respond(request, item)
+
+
+class ItemAssignView(ItemActionMixin, View):
+    def post(self, request, pk):
+        item = self.get_item()
+        form = AssignItemForm(request.POST, conference=self.conference)
+        if not form.is_valid():
+            return HttpResponseBadRequest("Unknown assignee.")
+        assign_item(item, form.cleaned_data["assignee"], actor=request.user)
+        return self.respond(request, item)
+
+
+class PresenterAddItemView(PresenterScopedMixin, View):
+    def post(self, request, pk):
+        presenter = get_object_or_404(self.get_queryset(), pk=pk)
+        form = AdhocItemForm(request.POST, conference=self.conference)
+        if form.is_valid():
+            add_adhoc_item(
+                self.conference,
+                form.cleaned_data["title"],
+                form.cleaned_data["owner"],
+                presenter=presenter,
+                due_date=form.cleaned_data["due_date"],
+                assignee=form.cleaned_data["assignee"],
+                description_md=form.cleaned_data["description_md"],
+                actor=request.user,
+            )
+            messages.success(request, f"Added “{form.cleaned_data['title']}”.")
+        else:
+            messages.error(request, "Could not add the item: give it a title.")
+        return redirect(presenter.get_absolute_url())

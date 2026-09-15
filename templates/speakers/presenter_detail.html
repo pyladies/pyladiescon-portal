@@ -53,6 +53,50 @@
                 </div>
             {% endif %}
             <h2 class="h6 text-uppercase text-secondary">
+                {% trans "Their to-dos" %}
+            </h2>
+            <div class="mb-4">
+                {% trans "No speaker items yet; they appear when the invitation is accepted." as empty_speaker %}
+                {% include "speakers/_organizer_item_table.html" with items=speaker_items assign_forms=assign_forms can_assign=can_assign empty=empty_speaker %}
+            </div>
+            <h2 class="h6 text-uppercase text-secondary">
+                {% trans "What we're doing for them" %}
+            </h2>
+            <div class="mb-2">
+                {% trans "No organizer items yet." as empty_organizer %}
+                {% include "speakers/_organizer_item_table.html" with items=organizer_items assign_forms=assign_forms can_assign=can_assign empty=empty_organizer %}
+            </div>
+            <details class="mb-4">
+                <summary class="small">
+                    {% trans "Add a one-off item" %}
+                </summary>
+                <form method="post"
+                      class="row g-2 mt-1"
+                      action="{% url 'speakers:presenter_add_item' presenter.pk %}">
+                    {% csrf_token %}
+                    <div class="col-md-5">
+                        {{ adhoc_form.title.label_tag }} {{ adhoc_form.title }}
+                    </div>
+                    <div class="col-md-3">
+                        {{ adhoc_form.owner.label_tag }} {{ adhoc_form.owner }}
+                    </div>
+                    <div class="col-md-4">
+                        {{ adhoc_form.due_date.label_tag }} {{ adhoc_form.due_date }}
+                    </div>
+                    <div class="col-md-6">
+                        {{ adhoc_form.assignee.label_tag }} {{ adhoc_form.assignee }}
+                    </div>
+                    <div class="col-12">
+                        {{ adhoc_form.description_md.label_tag }} {{ adhoc_form.description_md }}
+                    </div>
+                    <div class="col-12">
+                        <button class="btn btn-sm btn-outline-primary" type="submit">
+                            {% trans "Add item" %}
+                        </button>
+                    </div>
+                </form>
+            </details>
+            <h2 class="h6 text-uppercase text-secondary">
                 {% trans "Invitations" %}
             </h2>
             {% if invitations %}

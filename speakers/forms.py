@@ -3,7 +3,9 @@ import zoneinfo
 from django import forms
 from django.db.models import Q
 
-from .constants import Delivery
+from volunteer.constants import ApplicationStatus
+
+from .constants import Delivery, ItemOwner
 from .models import Presenter, PresenterRole, Session, SessionPresenter, SessionType
 from .people import liaison_candidates, user_label
 
@@ -366,3 +368,31 @@ class SessionTypeForm(forms.ModelForm):
                 "default_role", "The default role must be one of the allowed roles."
             )
         return cleaned
+
+class AdhocItemForm(forms.Form):
+    """A one-off checklist item for one presenter (design §9.2)."""
+
+    title = forms.CharField(max_length=200)
+    owner = forms.ChoiceField(choices=ItemOwner.choices, initial=ItemOwner.ORGANIZER)
+    due_date = forms.DateField(
+        required=False, widget=forms.DateInput(attrs={"type": "date"})
+    )
+    assignee = forms.ModelChoiceField(queryset=User.objects.none(), required=False)
+    description_md = forms.CharField(
+        required=False,
+        widget=forms.Textarea(attrs={"rows": 2}),
+        help_text=MARKDOWN_HELP,
+    )
+
+    def __init__(self, *args, conference, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["assignee"].queryset = liaison_candidates(conference)
+        self.fields["assignee"].label_from_instance = _user_label
+
+
+class AssignItemForm(forms.Form):
+    assignee = forms.ModelChoiceField(queryset=User.objects.none(), required=False)
+
+    def __init__(self, *args, conference, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["assignee"].queryset = liaison_candidates(conference)
