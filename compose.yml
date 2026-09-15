@@ -87,7 +87,7 @@ services:
     restart: unless-stopped
 
   # Scheduler only: reads the django-celery-beat periodic tasks from the
-  # database and hands them to the worker. Mirrors the Procfile's `beat`.
+  # database and hands them to the worker. Mirrors the Procfile's `worker-beat`.
   beat:
     build:
       target: dev

@@ -10,6 +10,32 @@ description: Deployment Information for PyLadiesCon Portal
 The web app is deployed to [cabotage](https://cabotage.us-east-2.psfhosted.computer/)
 automatically whenever the PR is merged.
 
+### Processes
+
+Each line in the `Procfile` is a process that cabotage runs as its own
+deployment: `web` serves requests, `worker` runs Celery tasks, and
+`worker-beat` runs the Celery beat scheduler that dispatches the periodic
+tasks stored in the database. `release` runs once per deploy, before the
+others start.
+
+Process names have to avoid cabotage's reserved names. `beat` is one of them,
+which is why the scheduler is called `worker-beat`.
+
+**A new or renamed process starts at zero replicas.** Cabotage does not scale
+it automatically, and a deploy that adds or renames a Procfile entry reports
+success without ever running the new process. After the deploy, open the
+application in cabotage and scale the new process to the intended count,
+typically 1. A renamed process is a new process from cabotage's point of
+view: scale the new name up and the old name down.
+
+`worker-beat` must run as exactly one replica. Two schedulers would dispatch
+every periodic task twice.
+
+If a scheduled task never fires, check the replica count before anything
+else. In the Django admin, under *Periodic tasks*, a task whose *Last run at*
+is empty has never been dispatched, which almost always means `worker-beat`
+is not running.
+
 ## Documentation deployment
 
 The documentation is deployed to Netlify automatically whenever the PR is merged.
