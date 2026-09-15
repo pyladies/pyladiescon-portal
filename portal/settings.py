@@ -10,6 +10,8 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.1/ref/settings/
 """
 
+import base64
+import hashlib
 import os
 import shutil
 import sys
@@ -59,6 +61,17 @@ if SENTRY_SDK_DSN:
 # background processes from failing during settings initialization.
 ALLOWED_HOSTS = os.environ.get("DJANGO_ALLOWED_HOSTS", "")
 ALLOWED_HOSTS = ALLOWED_HOSTS.split(",") if ALLOWED_HOSTS else []
+
+
+# Key for fields encrypted at rest (speakers.encryption.EncryptedTextField:
+# pretix API token and webhook secret). Required in production; derived from
+# SECRET_KEY only for local development and the test suite so nothing is ever
+# stored in plain text.
+FERNET_KEY = os.environ.get("FERNET_KEY")
+if not FERNET_KEY and SECRET_KEY and (DEBUG or "pytest" in sys.modules):
+    FERNET_KEY = base64.urlsafe_b64encode(
+        hashlib.sha256(SECRET_KEY.encode()).digest()
+    ).decode()
 
 
 # Application definition

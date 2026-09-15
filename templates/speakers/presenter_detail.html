@@ -10,6 +10,7 @@
     {% include "portal/_breadcrumbs.html" with section=bc_section section_url=bc_url page=presenter.display_name %}
 {% endblock breadcrumb %}
 {% block content %}
+    {% trans "Order code" as order_code_label %}
     <div class="d-flex flex-wrap align-items-start justify-content-between gap-2 mb-3">
         <div class="d-flex align-items-center gap-3">
             {% if presenter.headshot %}
@@ -212,6 +213,67 @@
                         </li>
                     {% endfor %}
                 </ul>
+            </div>
+            <div class="card mb-3">
+                <div class="card-header">
+                    {% trans "Registration" %}
+                </div>
+                <div class="card-body small">
+                    {% if presenter.pretix_order %}
+                        <div>
+                            <i class="fa-solid fa-link"></i>
+                            {% blocktranslate with code=presenter.pretix_order.order_code status=presenter.pretix_order.get_status_display %}Linked to order {{ code }} ({{ status }}).{% endblocktranslate %}
+                        </div>
+                    {% elif matched_orders %}
+                        <div>
+                            {% trans "Orders under this email:" %}
+                            {% for order in matched_orders %}
+                                {{ order.order_code }} ({{ order.get_status_display }})
+                                {% if not forloop.last %}
+                                    ,
+                                {% endif %}
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="text-secondary">
+                            {% trans "No pretix order found for this email yet." %}
+                        </div>
+                    {% endif %}
+                    {% if is_organizer %}
+                        <div class="d-flex flex-wrap gap-2 mt-2">
+                            {% if pretix_configured %}
+                                <form method="post"
+                                      action="{% url 'speakers:presenter_pretix_lookup' presenter.pk %}">
+                                    {% csrf_token %}
+                                    <button class="btn btn-sm btn-outline-secondary" type="submit">
+                                        <i class="fa-solid fa-magnifying-glass"></i> {% trans "Look up in pretix" %}
+                                    </button>
+                                </form>
+                            {% endif %}
+                            <form method="post"
+                                  class="d-flex gap-1"
+                                  action="{% url 'speakers:presenter_pretix_link' presenter.pk %}">
+                                {% csrf_token %}
+                                {% if presenter.pretix_order %}
+                                    <button class="btn btn-sm btn-outline-secondary"
+                                            type="submit"
+                                            name="action"
+                                            value="unlink">
+                                        {% trans "Unlink" %}
+                                    </button>
+                                {% else %}
+                                    <input class="form-control form-control-sm"
+                                           name="order_code"
+                                           placeholder="{{ order_code_label }}"
+                                           aria-label="{{ order_code_label }}">
+                                    <button class="btn btn-sm btn-outline-primary" type="submit">
+                                        {% trans "Link" %}
+                                    </button>
+                                {% endif %}
+                            </form>
+                        </div>
+                    {% endif %}
+                </div>
             </div>
             <div class="card mb-3">
                 <div class="card-header">

@@ -101,6 +101,30 @@ Digital Ocean Spaces through the `AWS_*` env vars, with `AWS_DEFAULT_ACL =
 (`PortalProfile.profile_picture`, `PyladiesChapter.logo`). There is no private
 bucket or presigned-URL code yet; Stage 1.5 and 4.1 add it.
 
+### Secrets at rest
+
+`speakers/encryption.py` provides `EncryptedTextField` (Fernet, from the
+`cryptography` package), used for the per-edition pretix API token and
+webhook secret on `SpeakerSettings`. The key is `settings.FERNET_KEY`, read
+from the `FERNET_KEY` environment variable; local development and the test
+suite derive one from `SECRET_KEY` (`portal/settings.py`). Production must
+set `FERNET_KEY` (generate with `Fernet.generate_key()`), or saving those
+fields fails rather than storing plain text. Keep the key wherever the team
+keeps the other deployment secrets. The portal had no encrypted field before
+this app; nothing else in the repo stores API credentials in the database.
+
+### Pretix
+
+Orders live in `attendee.PretixOrder` (per edition, resolved from the pretix
+event slug). The attendee app has its own global webhook
+(`webhooks/views.py`, hardcoded organizer and event); the speaker portal
+adds a per-edition receiver at `/speakers/webhooks/pretix/<slug>/?secret=`
+(`speakers/webhooks.py`) that re-fetches the order through
+`speakers/pretix.py` (`PretixClient` with pagination and retry) and upserts
+it with the attendee app's own field mapping, so both paths agree. Nightly
+`pretix_reconcile_task` pages through `modified_since` the last run.
+`Presenter.pretix_order` is the manual link that wins over email matching.
+
 ### Background jobs
 
 Celery (`portal/celery.py`, broker from `CELERY_BROKER_URL` or `REDIS_URL`),

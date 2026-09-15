@@ -21,6 +21,8 @@ from django.utils import timezone
 from django.utils.text import slugify
 from text_unidecode import unidecode
 
+from portal.constants import BASE_PRETIX_URL
+
 from .clock import today
 from .constants import (
     IDENTITY_LOCKED_STATUSES,
@@ -43,6 +45,7 @@ from .constants import (
     SessionLevel,
     SessionStatus,
 )
+from .encryption import EncryptedTextField
 from .querysets import PresenterQuerySet, SessionQuerySet
 from .signals import session_confirmed
 
@@ -159,6 +162,36 @@ class SpeakerSettings(TimestampedModel):
         blank=True,
         help_text="Length limit for pre-recorded videos unless a session says otherwise.",
     )
+    # Pretix (design §12.1). The event slug falls back to
+    # Conference.pretix_event_slug; token and secret are encrypted at rest.
+    pretix_base_url = models.URLField(
+        default=BASE_PRETIX_URL, help_text="The pretix API root, ending in /api/v1/."
+    )
+    pretix_organizer = models.CharField(max_length=100, blank=True)
+    pretix_event = models.CharField(
+        max_length=100,
+        blank=True,
+        help_text="Event slug; blank uses the conference's pretix event slug.",
+    )
+    pretix_api_token = EncryptedTextField(blank=True)
+    pretix_webhook_secret = EncryptedTextField(
+        blank=True, help_text="Sent by pretix as ?secret= on the webhook URL."
+    )
+    pretix_last_synced_at = models.DateTimeField(null=True, blank=True)
+    pretix_create_vouchers = models.BooleanField(
+        default=False,
+        help_text="Create a pretix voucher per presenter (not implemented yet).",
+    )
+
+    @property
+    def pretix_event_slug(self):
+        return self.pretix_event or self.conference.pretix_event_slug
+
+    @property
+    def pretix_configured(self):
+        return bool(
+            self.pretix_organizer and self.pretix_event_slug and self.pretix_api_token
+        )
 
     class Meta:
         verbose_name = "speaker settings"

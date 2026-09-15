@@ -1,8 +1,13 @@
+import logging
+
 from celery import shared_task
 
 from .emails import send_copresenter_suggestion_email, send_invitation_email
-from .models import Invitation, Presenter, Session
+from .models import Invitation, Presenter, Session, SpeakerSettings
+from .pretix import PretixError, reconcile
 from .rules import reevaluate_all
+
+logger = logging.getLogger(__name__)
 
 
 @shared_task
@@ -37,3 +42,22 @@ def reevaluate_checklists_task():
     """Nightly safety net: re-run every auto-completion rule (design §9.3)."""
     changed = reevaluate_all()
     return f"Re-evaluated checklists; {changed} item(s) changed"
+
+
+@shared_task(bind=True, max_retries=3, default_retry_delay=60)
+def pretix_reconcile_task(self):
+    """Nightly: refresh orders modified since the last run, per edition."""
+    results = []
+    for settings_row in SpeakerSettings.objects.select_related("conference"):
+        if not settings_row.pretix_configured:
+            continue
+        try:
+            seen = reconcile(settings_row.conference)
+        except PretixError as exc:
+            logger.exception(
+                "Pretix reconciliation failed for %s", settings_row.conference
+            )
+            results.append(f"{settings_row.conference}: failed ({exc})")
+        else:
+            results.append(f"{settings_row.conference}: {seen} order(s)")
+    return "; ".join(results) or "No edition has pretix configured"

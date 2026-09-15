@@ -1,6 +1,7 @@
 from django.urls import path
 
 from . import views
+from .webhooks import pretix_webhook
 
 app_name = "speakers"
 
@@ -154,6 +155,21 @@ urlpatterns = [
         "settings/checklists/<int:pk>/items/<int:item_pk>/<slug:action>/",
         views.TemplateItemActionView.as_view(),
         name="template_item_action",
+    ),
+    path(
+        "presenters/<int:pk>/pretix/lookup/",
+        views.PresenterPretixLookupView.as_view(),
+        name="presenter_pretix_lookup",
+    ),
+    path(
+        "presenters/<int:pk>/pretix/link/",
+        views.PresenterPretixLinkView.as_view(),
+        name="presenter_pretix_link",
+    ),
+    path(
+        "webhooks/pretix/<slug:conference_slug>/",
+        pretix_webhook,
+        name="pretix_webhook",
     ),
     path(
         "invitations/<int:pk>/resend/",

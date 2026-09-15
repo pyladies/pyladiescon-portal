@@ -29,6 +29,36 @@ class SpeakerSettingsAdmin(admin.ModelAdmin):
         "speaker_module_enabled",
         "default_premiere_location",
         "translation_languages",
+        "pretix_organizer",
+        "pretix_last_synced_at",
+    )
+    fieldsets = (
+        (None, {"fields": ("conference", "speaker_module_enabled")}),
+        (
+            "Program",
+            {
+                "fields": (
+                    "default_premiere_location",
+                    "translation_languages",
+                    "default_video_length_limit_minutes",
+                )
+            },
+        ),
+        (
+            "Pretix",
+            {
+                "description": "Token and webhook secret are encrypted at rest.",
+                "fields": (
+                    "pretix_base_url",
+                    "pretix_organizer",
+                    "pretix_event",
+                    "pretix_api_token",
+                    "pretix_webhook_secret",
+                    "pretix_last_synced_at",
+                    "pretix_create_vouchers",
+                ),
+            },
+        ),
     )
     list_filter = ("speaker_module_enabled",)
     list_select_related = ("conference",)

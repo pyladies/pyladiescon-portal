@@ -16,6 +16,7 @@ from django.views.generic.edit import CreateView, UpdateView
 from django_filters.views import FilterView
 from django_tables2.views import SingleTableMixin
 
+from attendee.models import PretixOrder
 from common.tasks import enqueue
 
 from .board import build_board, write_board_csv
@@ -70,9 +71,16 @@ from .models import (
     PresenterRole,
     Session,
     SessionType,
+    SpeakerSettings,
 )
 from .people import liaison_candidates
 from .permissions import can_work_sessions, is_speaker_organizer
+from .pretix import (
+    PretixError,
+    link_presenter_order,
+    lookup_presenter_orders,
+    unlink_presenter_order,
+)
 from .rules import evaluate_items
 from .seeds import seed_checklists
 from .services import (
@@ -433,6 +441,17 @@ class PresenterDetailView(PresenterScopedMixin, DetailView):
         context["assignee_choices"] = list(liaison_candidates(self.conference))
         context["adhoc_form"] = AdhocItemForm(conference=self.conference)
         context["can_assign"] = is_speaker_organizer(self.request.user)
+        settings_row = SpeakerSettings.objects.filter(
+            conference=self.conference
+        ).first()
+        context["pretix_configured"] = bool(
+            settings_row and settings_row.pretix_configured
+        )
+        context["matched_orders"] = list(
+            PretixOrder.objects.filter(
+                conference=self.conference, email__iexact=self.object.email
+            ).order_by("-datetime")[:5]
+        )
         return context
 
 
@@ -1351,3 +1370,49 @@ class TemplateItemActionView(TemplateEditorMixin, View):
         for position, each in enumerate(items):
             if each.order != position:
                 ChecklistTemplateItem.objects.filter(pk=each.pk).update(order=position)
+
+
+# ---- Pretix on the presenter page (design §12.1) -----------------------------
+
+
+class PresenterPretixLookupView(
+    LoginRequiredMixin, SpeakerOrganizerRequiredMixin, View
+):
+    def post(self, request, pk):
+        presenter = get_object_or_404(
+            Presenter.objects.for_conference(self.conference), pk=pk
+        )
+        try:
+            orders = lookup_presenter_orders(presenter, actor=request.user)
+        except PretixError as exc:
+            messages.error(request, f"Pretix lookup failed: {exc}")
+        else:
+            if orders is None:
+                messages.error(request, "Pretix is not configured for this edition.")
+            elif orders:
+                codes = ", ".join(o.order_code for o in orders)
+                messages.success(request, f"Found {len(orders)} order(s): {codes}.")
+            else:
+                messages.info(request, f"No pretix order under {presenter.email}.")
+        return redirect(presenter.get_absolute_url())
+
+
+class PresenterPretixLinkView(LoginRequiredMixin, SpeakerOrganizerRequiredMixin, View):
+    def post(self, request, pk):
+        presenter = get_object_or_404(
+            Presenter.objects.for_conference(self.conference), pk=pk
+        )
+        code = request.POST.get("order_code", "").strip().upper()
+        if request.POST.get("action") == "unlink":
+            unlink_presenter_order(presenter, actor=request.user)
+            messages.success(request, "Unlinked the pretix order.")
+        elif not code:
+            messages.error(request, "Give the pretix order code.")
+        else:
+            try:
+                order = link_presenter_order(presenter, code, actor=request.user)
+            except PretixError as exc:
+                messages.error(request, f"Could not link order {code}: {exc}")
+            else:
+                messages.success(request, f"Linked order {order.order_code}.")
+        return redirect(presenter.get_absolute_url())
