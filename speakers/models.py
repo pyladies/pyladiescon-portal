@@ -15,6 +15,7 @@ from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import ValidationError
 from django.db import models
+from django.urls import reverse
 from django.utils import timezone
 from django.utils.text import slugify
 
@@ -25,6 +26,7 @@ from .constants import (
     SessionLevel,
     SessionStatus,
 )
+from .querysets import SessionQuerySet
 
 
 class TimestampedModel(models.Model):
@@ -495,6 +497,8 @@ class Session(TimestampedModel):
         Presenter, through="SessionPresenter", related_name="sessions", blank=True
     )
 
+    objects = SessionQuerySet.as_manager()
+
     class Meta:
         ordering = ["title"]
         constraints = [
@@ -562,6 +566,22 @@ class Session(TimestampedModel):
     @property
     def has_slot(self):
         return ScheduleSlot.objects.filter(session=self).exists()
+
+    def get_absolute_url(self):
+        return reverse("speakers:session_detail", kwargs={"pk": self.pk})
+
+    @property
+    def liaisons(self):
+        """Distinct liaisons of this session's presenters, for the list."""
+        links = getattr(self, "presenter_links", None)
+        if links is None:
+            links = self.session_presenters.select_related("presenter__liaison")
+        seen = {}
+        for link in links:
+            liaison = link.presenter.liaison
+            if liaison is not None and liaison.pk not in seen:
+                seen[liaison.pk] = liaison
+        return list(seen.values())
 
     @property
     def confirmed_presenter_count(self):

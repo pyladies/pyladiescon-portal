@@ -1,0 +1,161 @@
+{% extends "speakers/_organize_shell.html" %}
+{% load i18n %}
+{% load speakers_extras %}
+{% block head_title %}
+    {{ session.title }}
+{% endblock head_title %}
+{% block breadcrumb %}
+    {% url 'speakers:session_list' as bc_url %}
+    {% trans "Sessions" as bc_section %}
+    {% include "portal/_breadcrumbs.html" with section=bc_section section_url=bc_url page=session.title %}
+{% endblock breadcrumb %}
+{% block content %}
+    <div class="d-flex flex-wrap align-items-start justify-content-between gap-2 mb-3">
+        <div>
+            <div class="text-secondary small">
+                {{ session.get_kind_display }} · {{ session.get_delivery_display }} · {{ session.duration_minutes }} {% trans "min" %}
+            </div>
+            <h1 class="h3 mb-1">
+                {{ session.title }}
+            </h1>
+            <span class="badge {{ session|session_status_class }}">{{ session.get_status_display }}</span>
+            {% if session.is_public %}
+                <span class="badge text-bg-success">{% trans "Public" %}</span>
+            {% endif %}
+        </div>
+        <a class="btn btn-outline-primary"
+           href="{% url 'speakers:session_edit' session.pk %}">
+            <i class="fa-solid fa-pen"></i> {% trans "Edit" %}
+        </a>
+    </div>
+    <div class="row g-4">
+        <div class="col-lg-8">
+            {% if session.summary_md %}
+                <h2 class="h6 text-uppercase text-secondary">
+                    {% trans "Summary" %}
+                </h2>
+                <div class="mb-3">
+                    {{ session.summary_md|speaker_md }}
+                </div>
+            {% endif %}
+            {% if session.outline_md %}
+                <h2 class="h6 text-uppercase text-secondary">
+                    {% trans "Outline" %}
+                </h2>
+                <div class="mb-3">
+                    {{ session.outline_md|speaker_md }}
+                </div>
+            {% endif %}
+            {% if session.prerequisites_md %}
+                <h2 class="h6 text-uppercase text-secondary">
+                    {% trans "Prerequisites" %}
+                </h2>
+                <div class="mb-3">
+                    {{ session.prerequisites_md|speaker_md }}
+                </div>
+            {% endif %}
+            {% if session.audience_md %}
+                <h2 class="h6 text-uppercase text-secondary">
+                    {% trans "Audience" %}
+                </h2>
+                <div class="mb-3">
+                    {{ session.audience_md|speaker_md }}
+                </div>
+            {% endif %}
+            {% if session.notes_md %}
+                <h2 class="h6 text-uppercase text-secondary">
+                    {% trans "Internal notes" %}
+                </h2>
+                <div class="mb-3 text-secondary">
+                    {{ session.notes_md|speaker_md }}
+                </div>
+            {% endif %}
+        </div>
+        <div class="col-lg-4">
+            <div class="card mb-3">
+                <div class="card-header">
+                    {% trans "Presenters" %}
+                </div>
+                {% trans "Confirmed" as confirmed_label %}
+                {% trans "Not yet confirmed" as pending_label %}
+                <ul class="list-group list-group-flush">
+                    {% for link in presenter_links %}
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            <span>
+                                {{ link.presenter.display_name }}
+                                <span class="badge text-bg-light border">{{ link.get_role_display }}</span>
+                            </span>
+                            {% if link.is_confirmed %}
+                                <i class="fa-solid fa-check text-success" title="{{ confirmed_label }}"></i>
+                            {% else %}
+                                <i class="fa-regular fa-clock text-secondary"
+                                   title="{{ pending_label }}"></i>
+                            {% endif %}
+                        </li>
+                    {% empty %}
+                        <li class="list-group-item text-secondary">
+                            {% trans "No presenters yet." %}
+                        </li>
+                    {% endfor %}
+                </ul>
+            </div>
+            <div class="card mb-3">
+                <div class="card-header">
+                    {% trans "Details" %}
+                </div>
+                <div class="card-body small">
+                    <div>
+                        <strong>{% trans "Level" %}:</strong> {{ session.get_level_display|default:"—" }}
+                    </div>
+                    <div>
+                        <strong>{% trans "Language" %}:</strong> {{ session.language|default:"—" }}
+                    </div>
+                    <div>
+                        <strong>{% trans "Slot" %}:</strong>
+                        {% if session.slot %}
+                            {{ session.slot.start_utc|date:"D H:i" }} UTC
+                        {% else %}
+                            {% trans "Not scheduled" %}
+                        {% endif %}
+                    </div>
+                    {% if session.is_pre_recorded %}
+                        <div>
+                            <strong>{% trans "Premiere" %}:</strong> {{ session.effective_premiere_location }}
+                        </div>
+                    {% endif %}
+                    {% if session.liaisons %}
+                        <div>
+                            <strong>{% trans "Liaison" %}:</strong>
+                            {% for liaison in session.liaisons %}
+                                {{ liaison.get_full_name|default:liaison.username }}
+                                {% if not forloop.last %}
+                                    ,
+                                {% endif %}
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-header">
+                    {% trans "Activity" %}
+                </div>
+                <ul class="list-group list-group-flush small">
+                    {% for entry in activity %}
+                        <li class="list-group-item">
+                            <span class="text-secondary">{{ entry.creation_date|date:"j M H:i" }}</span>
+                            {{ entry.action }}
+                            {% if entry.actor %}
+                                · {{ entry.actor.username }}
+                            {% endif %}
+                        </li>
+                    {% empty %}
+                        <li class="list-group-item text-secondary">
+                            {% trans "Nothing yet." %}
+                        </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+    </div>
+{% endblock content %}

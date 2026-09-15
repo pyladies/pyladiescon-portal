@@ -1,0 +1,39 @@
+{% extends "speakers/_organize_shell.html" %}
+{% load i18n %}
+{% load django_bootstrap5 %}
+{% block head_title %}
+    {% if object.pk %}
+        {% trans "Edit session" %}
+    {% else %}
+        {% trans "New session" %}
+    {% endif %}
+{% endblock head_title %}
+{% block breadcrumb %}
+    {% url 'speakers:session_list' as bc_url %}
+    {% trans "Sessions" as bc_section %}
+    {% if object.pk %}
+        {% include "portal/_breadcrumbs.html" with section=bc_section section_url=bc_url page=object.title %}
+    {% else %}
+        {% trans "New session" as bc_page %}
+        {% include "portal/_breadcrumbs.html" with section=bc_section section_url=bc_url page=bc_page %}
+    {% endif %}
+{% endblock breadcrumb %}
+{% block content %}
+    <h1 class="h3 mb-3">
+        {% if object.pk %}
+            {% blocktranslate with title=object.title %}Edit “{{ title }}”{% endblocktranslate %}
+        {% else %}
+            {% trans "New session" %}
+        {% endif %}
+    </h1>
+    <form method="post" class="col-lg-9">
+        {% csrf_token %}
+        {% bootstrap_form form %}
+        {% bootstrap_button "Save" button_type="submit" %}
+        {% if object.pk %}
+            <a href="{{ object.get_absolute_url }}" class="btn btn-link">{% trans "Cancel" %}</a>
+        {% else %}
+            <a href="{% url 'speakers:session_list' %}" class="btn btn-link">{% trans "Cancel" %}</a>
+        {% endif %}
+    </form>
+{% endblock content %}

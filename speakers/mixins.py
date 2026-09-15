@@ -1,8 +1,10 @@
+from django.contrib.auth.mixins import UserPassesTestMixin
 from django.http import Http404
 
 from portal.models import Conference
 
 from .models import speaker_module_enabled
+from .permissions import can_work_sessions, is_speaker_organizer
 
 
 class SpeakerModuleRequiredMixin:
@@ -18,3 +20,17 @@ class SpeakerModuleRequiredMixin:
         if not speaker_module_enabled(self.conference):
             raise Http404("The speaker portal is not enabled for this edition.")
         return super().dispatch(request, *args, **kwargs)
+
+
+class SpeakerStaffRequiredMixin(SpeakerModuleRequiredMixin, UserPassesTestMixin):
+    """Organizers and liaisons. Querysets still scope what a liaison sees."""
+
+    def test_func(self):
+        return can_work_sessions(self.request.user, self.conference)
+
+
+class SpeakerOrganizerRequiredMixin(SpeakerModuleRequiredMixin, UserPassesTestMixin):
+    """Organizers only (creating sessions, inviting, publishing)."""
+
+    def test_func(self):
+        return is_speaker_organizer(self.request.user)
