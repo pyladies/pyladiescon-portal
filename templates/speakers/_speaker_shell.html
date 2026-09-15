@@ -1,0 +1,12 @@
+{% extends "portal/base_sidebar.html" %}
+{% load i18n %}
+{% comment %}
+Shell for the speaker side: the personal rail with rail_active highlighted
+("dashboard" by default). Children fill head_title, breadcrumb, content.
+{% endcomment %}
+{% block sidebar_title %}
+    {% trans "Speaking" %}
+{% endblock sidebar_title %}
+{% block sidebar %}
+    {% include "speakers/_speaker_rail.html" with active=rail_active|default:"dashboard" %}
+{% endblock sidebar %}

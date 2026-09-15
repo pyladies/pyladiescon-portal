@@ -1,7 +1,7 @@
 from celery import shared_task
 
-from .emails import send_invitation_email
-from .models import Invitation
+from .emails import send_copresenter_suggestion_email, send_invitation_email
+from .models import Invitation, Presenter, Session
 
 
 @shared_task
@@ -16,3 +16,16 @@ def send_invitation_email_task(invitation_id):
         return f"Invitation with id {invitation_id} not found"
     send_invitation_email(invitation)
     return f"Sent invitation email for {invitation_id}"
+
+
+@shared_task(bind=True, max_retries=3, default_retry_delay=60)
+def send_copresenter_suggestion_task(self, presenter_id, session_id, name, email, note):
+    """Email the organizers a presenter's co-presenter suggestion."""
+    presenter = (
+        Presenter.objects.filter(pk=presenter_id).select_related("liaison").first()
+    )
+    session = Session.objects.filter(pk=session_id).first()
+    if presenter is None or session is None:
+        return "Presenter or session not found"
+    sent = send_copresenter_suggestion_email(presenter, session, name, email, note)
+    return f"Sent co-presenter suggestion to {sent} organizer(s)"

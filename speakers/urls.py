@@ -59,6 +59,20 @@ urlpatterns = [
         views.PresenterUpdateView.as_view(),
         name="presenter_edit",
     ),
+    path("me/", views.SpeakerDashboardView.as_view(), name="my_dashboard"),
+    path("me/profile/", views.SpeakerProfileUpdateView.as_view(), name="my_profile"),
+    path("me/sessions/", views.SpeakerSessionListView.as_view(), name="my_sessions"),
+    path(
+        "me/sessions/<int:pk>/edit/",
+        views.SpeakerSessionUpdateView.as_view(),
+        name="my_session_edit",
+    ),
+    path(
+        "me/sessions/<int:pk>/suggest/",
+        views.SuggestCoPresenterView.as_view(),
+        name="my_session_suggest",
+    ),
+    path("me/schedule/", views.SpeakerScheduleView.as_view(), name="my_schedule"),
     path(
         "invitations/<int:pk>/resend/",
         views.InvitationResendView.as_view(),

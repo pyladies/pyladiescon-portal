@@ -32,6 +32,7 @@ from portal.services import (
     clone_teams,
 )
 from portal_account.models import PortalProfile
+from speakers.models import Presenter, speaker_module_enabled
 from sponsorship.models import SponsorshipProfile
 from volunteer.constants import ApplicationStatus
 from volunteer.models import Team, VolunteerProfile
@@ -44,6 +45,8 @@ def index(request):
 
     - No portal profile yet: create one first.
     - Organizers (staff/superuser): the organizer dashboard.
+    - Presenters who are not also volunteering this year: their speaker
+      dashboard.
     - Everyone else: the volunteer hub (one consistent home, not a second
       landing page).
     """
@@ -53,6 +56,15 @@ def index(request):
             return redirect("portal_account:portal_profile_new")
         if user.is_superuser or user.is_staff:
             return redirect("organizer_dashboard")
+        active = Conference.get_active()
+        if (
+            speaker_module_enabled(active)
+            and Presenter.objects.filter(conference=active, user=user).exists()
+            and not VolunteerProfile.objects.filter(
+                user=user, conference=active
+            ).exists()
+        ):
+            return redirect("speakers:my_dashboard")
         return redirect("volunteer:index")
 
     context = {

@@ -172,6 +172,7 @@ class TestContextProcessor:
         assert speaker_module(request) == {
             "speaker_module_enabled": False,
             "is_speaker_liaison": False,
+            "is_speaker_presenter": False,
         }
 
     def test_no_request_user(self, rf):
@@ -183,6 +184,7 @@ class TestContextProcessor:
         assert speaker_module(request) == {
             "speaker_module_enabled": True,
             "is_speaker_liaison": True,
+            "is_speaker_presenter": False,
         }
         request.user = organizer
         assert speaker_module(request)["is_speaker_liaison"] is False

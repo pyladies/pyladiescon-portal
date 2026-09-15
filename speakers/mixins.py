@@ -3,7 +3,7 @@ from django.http import Http404
 
 from portal.models import Conference
 
-from .models import speaker_module_enabled
+from .models import Presenter, speaker_module_enabled
 from .permissions import can_work_sessions, is_speaker_organizer
 
 
@@ -34,3 +34,22 @@ class SpeakerOrganizerRequiredMixin(SpeakerModuleRequiredMixin, UserPassesTestMi
 
     def test_func(self):
         return is_speaker_organizer(self.request.user)
+
+
+class PresenterRequiredMixin(SpeakerModuleRequiredMixin, UserPassesTestMixin):
+    """The speaker side: the user must be a presenter in the active edition.
+
+    Sets ``self.presenter`` for the view; anyone without a presenter row
+    gets 403 (the module is on, they are just not a speaker).
+    """
+
+    def test_func(self):
+        user = self.request.user
+        if not user.is_authenticated:
+            return False
+        self.presenter = (
+            Presenter.objects.filter(conference=self.conference, user=user)
+            .select_related("liaison")
+            .first()
+        )
+        return self.presenter is not None

@@ -2,6 +2,7 @@ from allauth.account.adapter import get_adapter as get_account_adapter
 from django.contrib import messages
 from django.contrib.auth import logout
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.core.exceptions import PermissionDenied
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -11,6 +12,8 @@ from django.views.generic.edit import CreateView, UpdateView
 from django_filters.views import FilterView
 from django_tables2.views import SingleTableMixin
 
+from common.tasks import enqueue
+
 from .constants import SessionStatus
 from .filters import PresenterFilter, SessionFilter
 from .forms import (
@@ -19,8 +22,12 @@ from .forms import (
     ProgramItemForm,
     SessionForm,
     SessionPresenterForm,
+    SpeakerProfileForm,
+    SpeakerSessionForm,
+    SuggestCoPresenterForm,
 )
 from .mixins import (
+    PresenterRequiredMixin,
     SpeakerModuleRequiredMixin,
     SpeakerOrganizerRequiredMixin,
     SpeakerStaffRequiredMixin,
@@ -36,20 +43,22 @@ from .services import (
     send_invitation,
 )
 from .tables import PresenterTable, SessionTable
+from .tasks import send_copresenter_suggestion_task
 
 
 class SpeakerPortalIndexView(
     LoginRequiredMixin, SpeakerModuleRequiredMixin, TemplateView
 ):
-    """Entry point: organizers and liaisons go to the sessions list.
-
-    Everyone else sees a placeholder until the speaker dashboard (task 1.5)
-    replaces it.
-    """
+    """Entry point: presenters go to their dashboard, organizers and
+    liaisons to the sessions list, anyone else to a short explanation."""
 
     template_name = "speakers/index.html"
 
     def get(self, request, *args, **kwargs):
+        if Presenter.objects.filter(
+            conference=self.conference, user=request.user
+        ).exists():
+            return redirect("speakers:my_dashboard")
         if can_work_sessions(request.user, self.conference):
             return redirect("speakers:session_list")
         return super().get(request, *args, **kwargs)
@@ -458,3 +467,156 @@ class InvitationCancelView(InvitationActionMixin, View):
         else:
             messages.error(request, "Only an open invitation can be cancelled.")
         return redirect(invitation.presenter.get_absolute_url())
+
+
+# ---- Speaker side -----------------------------------------------------------
+
+
+class SpeakerDashboardView(LoginRequiredMixin, PresenterRequiredMixin, TemplateView):
+    """The presenter's home (design §2.2). Checklists arrive in Stage 2; for
+    now it shows their sessions and where to fill in their profile."""
+
+    template_name = "speakers/speaker_dashboard.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["conference"] = self.conference
+        context["presenter"] = self.presenter
+        context["session_links"] = list(
+            self.presenter.session_presenters.select_related("session").order_by(
+                "session__title"
+            )
+        )
+        context["profile_complete"] = bool(
+            self.presenter.bio_md and self.presenter.headshot
+        )
+        return context
+
+
+class SpeakerProfileUpdateView(LoginRequiredMixin, PresenterRequiredMixin, UpdateView):
+    form_class = SpeakerProfileForm
+    template_name = "speakers/speaker_profile_form.html"
+
+    def get_object(self, queryset=None):
+        return self.presenter
+
+    def get_success_url(self):
+        return reverse("speakers:my_profile")
+
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        ActivityLog.record(
+            self.conference,
+            "presenter.profile_updated",
+            target=self.object,
+            actor=self.request.user,
+        )
+        messages.success(self.request, "Your profile is saved.")
+        return response
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["conference"] = self.conference
+        context["presenter"] = self.presenter
+        return context
+
+
+class SpeakerSessionMixin(LoginRequiredMixin, PresenterRequiredMixin):
+    """A session in this edition that the presenter is on; 403 otherwise."""
+
+    def get_session(self):
+        session = get_object_or_404(
+            Session.objects.for_conference(self.conference), pk=self.kwargs["pk"]
+        )
+        if not session.session_presenters.filter(presenter=self.presenter).exists():
+            raise PermissionDenied("You are not a presenter on this session.")
+        return session
+
+
+class SpeakerSessionListView(LoginRequiredMixin, PresenterRequiredMixin, TemplateView):
+    template_name = "speakers/speaker_session_list.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["conference"] = self.conference
+        context["presenter"] = self.presenter
+        context["session_links"] = list(
+            self.presenter.session_presenters.select_related("session")
+            .prefetch_related("session__session_presenters__presenter")
+            .order_by("session__title")
+        )
+        return context
+
+
+class SpeakerSessionUpdateView(SpeakerSessionMixin, UpdateView):
+    form_class = SpeakerSessionForm
+    template_name = "speakers/speaker_session_form.html"
+
+    def get_object(self, queryset=None):
+        return self.get_session()
+
+    def get_success_url(self):
+        return reverse("speakers:my_sessions")
+
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        ActivityLog.record(
+            self.conference,
+            "session.updated_by_presenter",
+            target=self.object,
+            actor=self.request.user,
+        )
+        messages.success(self.request, f"Saved “{self.object.title}”.")
+        return response
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["conference"] = self.conference
+        context["presenter"] = self.presenter
+        context["suggest_form"] = SuggestCoPresenterForm()
+        context["co_presenters"] = self.object.session_presenters.exclude(
+            presenter=self.presenter
+        ).select_related("presenter")
+        return context
+
+
+class SuggestCoPresenterView(SpeakerSessionMixin, View):
+    def post(self, request, pk):
+        session = self.get_session()
+        form = SuggestCoPresenterForm(request.POST)
+        if not form.is_valid():
+            messages.error(request, "Please give a name and a valid email address.")
+            return redirect("speakers:my_session_edit", pk=session.pk)
+        data = form.cleaned_data
+        ActivityLog.record(
+            self.conference,
+            "session.copresenter_suggested",
+            target=session,
+            actor=request.user,
+            name=data["name"],
+            email=data["email"],
+        )
+        enqueue(
+            send_copresenter_suggestion_task,
+            self.presenter.pk,
+            session.pk,
+            data["name"],
+            data["email"],
+            data["note"],
+        )
+        messages.success(
+            request, f"Thanks, we've passed {data['name']} on to the organizers."
+        )
+        return redirect("speakers:my_session_edit", pk=session.pk)
+
+
+class SpeakerScheduleView(LoginRequiredMixin, PresenterRequiredMixin, TemplateView):
+    """Placeholder until Stage 3 renders the schedule in the presenter's zone."""
+
+    template_name = "speakers/speaker_schedule.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["conference"] = self.conference
+        context["presenter"] = self.presenter
+        return context

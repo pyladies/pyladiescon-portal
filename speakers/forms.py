@@ -197,3 +197,76 @@ class InviteForm(forms.Form):
         widget=forms.Textarea(attrs={"rows": 4}),
         help_text=MARKDOWN_HELP,
     )
+
+
+class SpeakerProfileForm(forms.ModelForm):
+    """What a presenter edits about themselves (design §2.3)."""
+
+    timezone = forms.ChoiceField(
+        choices=timezone_choices,
+        help_text="Reminders and your schedule view use this.",
+    )
+
+    class Meta:
+        model = Presenter
+        fields = [
+            "display_name",
+            "pronouns",
+            "bio_md",
+            "headshot",
+            "location",
+            "timezone",
+            "website_url",
+            "github_username",
+            "mastodon_url",
+            "linkedin_url",
+            "bluesky_username",
+            "is_public",
+        ]
+        widgets = {"bio_md": forms.Textarea(attrs={"rows": 6})}
+        labels = {"is_public": "Show my bio, photo and links on the public site"}
+        help_texts = {
+            "bio_md": MARKDOWN_HELP + " A couple of sentences is plenty.",
+            "headshot": "A square photo works best.",
+            "is_public": "Your name still appears on your sessions when this is off.",
+        }
+
+
+class SpeakerSessionForm(forms.ModelForm):
+    """What a presenter edits about their session. Every field is optional
+    markdown; the duration is set by the organizers."""
+
+    class Meta:
+        model = Session
+        fields = [
+            "summary_md",
+            "outline_md",
+            "prerequisites_md",
+            "audience_md",
+            "level",
+            "language",
+        ]
+        widgets = {
+            "summary_md": forms.Textarea(attrs={"rows": 4}),
+            "outline_md": forms.Textarea(attrs={"rows": 6}),
+            "prerequisites_md": forms.Textarea(attrs={"rows": 3}),
+            "audience_md": forms.Textarea(attrs={"rows": 3}),
+        }
+        help_texts = {
+            "summary_md": MARKDOWN_HELP + " What attendees see on the schedule.",
+            "outline_md": MARKDOWN_HELP,
+            "prerequisites_md": MARKDOWN_HELP,
+            "audience_md": MARKDOWN_HELP,
+        }
+
+
+class SuggestCoPresenterForm(forms.Form):
+    """ "Suggest a co-presenter": the organizers get an email and decide."""
+
+    name = forms.CharField(max_length=200)
+    email = forms.EmailField()
+    note = forms.CharField(
+        required=False,
+        widget=forms.Textarea(attrs={"rows": 3}),
+        help_text="Why they would be a great addition (optional).",
+    )
