@@ -4,6 +4,8 @@ from portal.admin_filters import ActiveConferenceFilter
 
 from .models import (
     ActivityLog,
+    ChecklistTemplate,
+    ChecklistTemplateItem,
     DiscordChannel,
     Invitation,
     Presenter,
@@ -18,7 +20,12 @@ from .models import (
 
 @admin.register(SpeakerSettings)
 class SpeakerSettingsAdmin(admin.ModelAdmin):
-    list_display = ("conference", "speaker_module_enabled", "default_premiere_location")
+    list_display = (
+        "conference",
+        "speaker_module_enabled",
+        "default_premiere_location",
+        "translation_languages",
+    )
     list_filter = ("speaker_module_enabled",)
     list_select_related = ("conference",)
 
@@ -153,3 +160,38 @@ class InvitationAdmin(admin.ModelAdmin):
         "declined_at",
         "cancelled_at",
     )
+
+
+class ChecklistTemplateItemInline(admin.TabularInline):
+    model = ChecklistTemplateItem
+    extra = 0
+    fields = (
+        "order",
+        "owner",
+        "title",
+        "due_anchor",
+        "due_offset_days",
+        "auto_complete_rule",
+        "requires_asset_kind",
+        "requires_asset_language",
+        "per_translation_language",
+        "is_required",
+        "assignee_default",
+    )
+
+
+@admin.register(ChecklistTemplate)
+class ChecklistTemplateAdmin(admin.ModelAdmin):
+    list_display = (
+        "name",
+        "scope",
+        "kind",
+        "role",
+        "delivery",
+        "is_active",
+        "conference",
+    )
+    list_filter = (ActiveConferenceFilter, "scope", "kind", "is_active")
+    search_fields = ("name",)
+    list_select_related = ("conference",)
+    inlines = [ChecklistTemplateItemInline]

@@ -13,6 +13,7 @@ from functools import lru_cache
 from django.conf import settings
 from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
+from django.contrib.postgres.fields import ArrayField
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.urls import reverse
@@ -20,8 +21,15 @@ from django.utils import timezone
 from django.utils.text import slugify
 
 from .constants import (
+    SESSION_LANGUAGE,
+    AssigneeDefault,
+    AutoRule,
     ChannelKind,
+    ChecklistScope,
     Delivery,
+    DueAnchor,
+    ItemOwner,
+    MediaKind,
     PremiereLocation,
     SessionLevel,
     SessionStatus,
@@ -101,6 +109,18 @@ class SpeakerSettings(TimestampedModel):
         choices=PremiereLocation.choices,
         default=PremiereLocation.DISCORD,
         help_text="Where pre-recorded sessions premiere unless a session says otherwise.",
+    )
+    translation_languages = ArrayField(
+        models.CharField(max_length=10),
+        default=list,
+        blank=True,
+        help_text="Language codes the team translates transcripts into; one "
+        "post-production item is created per language.",
+    )
+    default_video_length_limit_minutes = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        help_text="Length limit for pre-recorded videos unless a session says otherwise.",
     )
 
     class Meta:
@@ -905,3 +925,170 @@ class Invitation(TimestampedModel):
         self.opened_at = None
         self.declined_at = None
         self.cancelled_at = None
+
+
+class ChecklistTemplate(TimestampedModel):
+    """An organizer-defined checklist (design §9.1).
+
+    Presenter scope is keyed by session kind and role and instantiated once
+    per presenter per session; session scope is keyed by kind and delivery
+    and instantiated once per session.
+    """
+
+    conference = models.ForeignKey(
+        "portal.Conference",
+        on_delete=models.PROTECT,
+        related_name="checklist_templates",
+    )
+    scope = models.CharField(max_length=16, choices=ChecklistScope.choices)
+    name = models.CharField(max_length=100)
+    kind = models.CharField(max_length=16, choices=SessionKind.choices)
+    role = models.CharField(
+        max_length=16,
+        choices=PresenterRole.choices,
+        blank=True,
+        help_text="Presenter scope only.",
+    )
+    delivery = models.CharField(
+        max_length=16,
+        choices=Delivery.choices,
+        blank=True,
+        help_text="Session scope only.",
+    )
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ["scope", "kind", "role", "delivery"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["conference", "scope", "kind", "role", "delivery"],
+                name="speakers_template_key_per_edition",
+            )
+        ]
+
+    def __str__(self):
+        return self.name
+
+    def clean(self):
+        super().clean()
+        if self.scope == ChecklistScope.PRESENTER and not self.role:
+            raise ValidationError({"role": "Presenter templates need a role."})
+        if self.scope == ChecklistScope.SESSION and not self.delivery:
+            raise ValidationError({"delivery": "Session templates need a delivery."})
+        if self.scope == ChecklistScope.PRESENTER and self.delivery:
+            raise ValidationError({"delivery": "Only session templates use delivery."})
+        if self.scope == ChecklistScope.SESSION and self.role:
+            raise ValidationError({"role": "Only presenter templates use a role."})
+
+    def save(self, *args, **kwargs):
+        self.clean()
+        super().save(*args, **kwargs)
+
+    @classmethod
+    def for_presenter(cls, session, role):
+        """The active presenter-scope template for this session kind and role."""
+        return cls.objects.filter(
+            conference_id=session.conference_id,
+            scope=ChecklistScope.PRESENTER,
+            kind=session.kind,
+            role=role,
+            is_active=True,
+        ).first()
+
+    @classmethod
+    def for_session(cls, session):
+        """The active session-scope template for this session's kind and delivery."""
+        return cls.objects.filter(
+            conference_id=session.conference_id,
+            scope=ChecklistScope.SESSION,
+            kind=session.kind,
+            delivery=session.delivery,
+            is_active=True,
+        ).first()
+
+
+class ChecklistTemplateItem(TimestampedModel):
+    """One line of a template (design §9.1 table)."""
+
+    template = models.ForeignKey(
+        ChecklistTemplate, on_delete=models.CASCADE, related_name="items"
+    )
+    order = models.PositiveSmallIntegerField(default=0)
+    owner = models.CharField(max_length=16, choices=ItemOwner.choices)
+    title = models.CharField(max_length=200)
+    description_md = models.TextField(blank=True, help_text="Markdown.")
+    due_anchor = models.CharField(max_length=32, choices=DueAnchor.choices, blank=True)
+    due_offset_days = models.IntegerField(
+        default=0,
+        help_text="Days after the invitation is accepted, or days before the "
+        "conference or session starts.",
+    )
+    auto_complete_rule = models.CharField(
+        max_length=32, choices=AutoRule.choices, blank=True
+    )
+    requires_asset_kind = models.CharField(
+        max_length=16, choices=MediaKind.choices, blank=True
+    )
+    requires_asset_language = models.CharField(
+        max_length=10,
+        blank=True,
+        help_text=f'A language code, or "{SESSION_LANGUAGE}" for the session language.',
+    )
+    per_translation_language = models.BooleanField(
+        default=False,
+        help_text="Instantiate one item per translation language of the edition.",
+    )
+    is_required = models.BooleanField(
+        default=False, help_text="Required items gate the session being confirmed."
+    )
+    assignee_default = models.CharField(
+        max_length=16,
+        choices=AssigneeDefault.choices,
+        default=AssigneeDefault.UNASSIGNED,
+        help_text="Organizer items only.",
+    )
+
+    class Meta:
+        ordering = ["order", "id"]
+
+    def __str__(self):
+        return self.title
+
+    def clean(self):
+        super().clean()
+        if self.auto_complete_rule and self.auto_complete_rule not in AutoRule.values:
+            raise ValidationError(
+                {"auto_complete_rule": f"Unknown rule {self.auto_complete_rule!r}."}
+            )
+        if self.requires_asset_kind and not self.auto_complete_rule:
+            self.auto_complete_rule = AutoRule.ASSET_EXISTS
+
+    def save(self, *args, **kwargs):
+        self.clean()
+        super().save(*args, **kwargs)
+
+    @property
+    def is_automatic(self):
+        return bool(self.auto_complete_rule)
+
+    def due_date(
+        self, *, invitation_accepted=None, conference_start=None, session_start=None
+    ):
+        """The due date for one instance, or None when the anchor is unknown.
+
+        ``invitation_accepted`` adds the offset; the two start anchors
+        subtract it (the offset is "days before").
+        """
+        if self.due_anchor == DueAnchor.INVITATION_ACCEPTED:
+            base, sign = invitation_accepted, 1
+        elif self.due_anchor == DueAnchor.CONFERENCE_START:
+            base, sign = conference_start, -1
+        elif self.due_anchor == DueAnchor.SESSION_START:
+            base, sign = session_start, -1
+        else:
+            return None
+        if base is None:
+            return None
+        if hasattr(base, "date"):
+            base = base.date()
+        return base + timedelta(days=sign * self.due_offset_days)
