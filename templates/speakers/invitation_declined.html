@@ -1,0 +1,15 @@
+{% extends "portal/base.html" %}
+{% load i18n %}
+{% block head_title %}
+    {% trans "Invitation declined" %}
+{% endblock head_title %}
+{% block content %}
+    <div class="col-lg-8 mx-auto">
+        <h1 class="h3 mb-1">
+            {% trans "Thanks for letting us know" %}
+        </h1>
+        <p class="text-secondary">
+            {% blocktranslate with conference=conference.name %}We've recorded that you won't be joining {{ conference }} this time. If that changes, reply to the invitation email and we'll send a new link.{% endblocktranslate %}
+        </p>
+    </div>
+{% endblock content %}

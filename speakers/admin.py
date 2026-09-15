@@ -5,6 +5,7 @@ from portal.admin_filters import ActiveConferenceFilter
 from .models import (
     ActivityLog,
     DiscordChannel,
+    Invitation,
     Presenter,
     ScheduleSlot,
     Session,
@@ -90,3 +91,30 @@ class ActivityLogAdmin(admin.ModelAdmin):
     list_filter = (ActiveConferenceFilter, "action")
     list_select_related = ("actor", "conference", "content_type")
     readonly_fields = ("creation_date", "modified_date", "target")
+
+
+@admin.register(Invitation)
+class InvitationAdmin(admin.ModelAdmin):
+    list_display = (
+        "presenter",
+        "session",
+        "status",
+        "sent_at",
+        "opened_at",
+        "accepted_at",
+        "declined_at",
+        "conference",
+    )
+    list_filter = (ActiveConferenceFilter,)
+    search_fields = ("presenter__display_name", "presenter__email", "session__title")
+    list_select_related = ("presenter", "session", "conference")
+    autocomplete_fields = ("presenter", "session", "invited_by")
+    readonly_fields = (
+        "token",
+        "sent_at",
+        "expires_at",
+        "opened_at",
+        "accepted_at",
+        "declined_at",
+        "cancelled_at",
+    )

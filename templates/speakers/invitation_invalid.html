@@ -1,0 +1,28 @@
+{% extends "portal/base.html" %}
+{% load i18n %}
+{% block head_title %}
+    {% trans "Invitation link" %}
+{% endblock head_title %}
+{% block content %}
+    <div class="col-lg-8 mx-auto">
+        <h1 class="h3 mb-1">
+            {% trans "This invitation link can't be used" %}
+        </h1>
+        <p class="text-secondary" data-reason="{{ reason }}">
+            {% if reason == "expired" %}
+                {% trans "The link has expired. Ask the organizers to send a new one." %}
+            {% elif reason == "superseded" %}
+                {% trans "A newer invitation was sent since this one; please use the latest email." %}
+            {% elif reason == "accepted" %}
+                {% trans "You have already accepted this invitation." %}
+                <a href="{% url 'account_login' %}">{% trans "Sign in" %}</a>
+            {% elif reason == "declined" %}
+                {% trans "This invitation was declined. Ask the organizers for a new one if you changed your mind." %}
+            {% elif reason == "cancelled" %}
+                {% trans "This invitation was withdrawn by the organizers." %}
+            {% else %}
+                {% trans "The link is not valid. Check that you copied the whole address from the email." %}
+            {% endif %}
+        </p>
+    </div>
+{% endblock content %}

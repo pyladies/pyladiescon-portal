@@ -5,7 +5,9 @@ Every row is scoped to a ``portal.Conference`` (the design document calls it a
 new Conference row with the same code. See ``speakers/README.md``.
 """
 
+import secrets
 import zoneinfo
+from datetime import timedelta
 from functools import lru_cache
 
 from django.conf import settings
@@ -469,6 +471,11 @@ class SessionPresenter(TimestampedModel):
         max_length=16, choices=PresenterRole.choices, default=PresenterRole.PRESENTER
     )
     order = models.PositiveSmallIntegerField(default=0)
+    is_required = models.BooleanField(
+        default=True,
+        help_text="The session is only confirmed once every required presenter "
+        "has accepted.",
+    )
     confirmed_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
@@ -546,3 +553,112 @@ class ScheduleSlot(TimestampedModel):
                 minutes=self.session.duration_minutes
             )
         super().save(*args, **kwargs)
+
+
+class InvitationStatus(models.TextChoices):
+    DRAFT = "DRAFT", "Not sent"
+    SENT = "SENT", "Sent"
+    OPENED = "OPENED", "Opened"
+    ACCEPTED = "ACCEPTED", "Accepted"
+    DECLINED = "DECLINED", "Declined"
+    EXPIRED = "EXPIRED", "Expired"
+    CANCELLED = "CANCELLED", "Cancelled"
+
+
+class Invitation(TimestampedModel):
+    """An organizer inviting a presenter, usually to one session (design §8.4).
+
+    ``session`` is null when a panelist is invited to the conference generally.
+    The email carries a signed, single-use token that ``send()`` regenerates
+    every time, so a resend invalidates the previous link. Timestamps record
+    the journey so the sessions list can say "invited 9 days ago, not yet
+    accepted".
+    """
+
+    TOKEN_MAX_AGE = timedelta(days=14)
+
+    conference = models.ForeignKey(
+        "portal.Conference",
+        on_delete=models.PROTECT,
+        related_name="speaker_invitations",
+        editable=False,
+    )
+    presenter = models.ForeignKey(
+        Presenter, on_delete=models.CASCADE, related_name="invitations"
+    )
+    session = models.ForeignKey(
+        Session,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="invitations",
+    )
+    invited_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="sent_speaker_invitations",
+    )
+    message_md = models.TextField(
+        "personal message", blank=True, help_text="Markdown, included in the email."
+    )
+    token = models.CharField(max_length=64, blank=True, editable=False)
+    sent_at = models.DateTimeField(null=True, blank=True)
+    expires_at = models.DateTimeField(null=True, blank=True)
+    opened_at = models.DateTimeField(null=True, blank=True)
+    accepted_at = models.DateTimeField(null=True, blank=True)
+    declined_at = models.DateTimeField(null=True, blank=True)
+    cancelled_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-creation_date", "-id"]
+
+    def __str__(self):
+        target = self.session or self.conference
+        return f"Invitation for {self.presenter} to {target}"
+
+    def clean(self):
+        super().clean()
+        if self.session is not None and (
+            self.session.conference_id != self.presenter.conference_id
+        ):
+            raise ValidationError(
+                "The session and the presenter belong to different editions."
+            )
+
+    def save(self, *args, **kwargs):
+        self.clean()
+        self.conference_id = self.presenter.conference_id
+        super().save(*args, **kwargs)
+
+    @property
+    def status(self):
+        if self.accepted_at:
+            return InvitationStatus.ACCEPTED
+        if self.declined_at:
+            return InvitationStatus.DECLINED
+        if self.cancelled_at:
+            return InvitationStatus.CANCELLED
+        if self.sent_at is None:
+            return InvitationStatus.DRAFT
+        if self.expires_at and self.expires_at < timezone.now():
+            return InvitationStatus.EXPIRED
+        if self.opened_at:
+            return InvitationStatus.OPENED
+        return InvitationStatus.SENT
+
+    @property
+    def is_open(self):
+        """Still waiting for an answer and usable."""
+        return self.status in (InvitationStatus.SENT, InvitationStatus.OPENED)
+
+    def issue_token(self, now=None):
+        """Mint a fresh token and expiry; the previous link stops working."""
+        now = now or timezone.now()
+        self.token = secrets.token_urlsafe(32)
+        self.sent_at = now
+        self.expires_at = now + self.TOKEN_MAX_AGE
+        self.opened_at = None
+        self.declined_at = None
+        self.cancelled_at = None

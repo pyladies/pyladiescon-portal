@@ -1,0 +1,416 @@
+from datetime import timedelta
+
+import pytest
+from allauth.account.models import EmailAddress
+from django.contrib.auth.models import User
+from django.core import mail
+from django.core.exceptions import ValidationError
+from django.template.loader import render_to_string
+from django.urls import reverse
+
+from portal.models import Conference
+from speakers.constants import PresenterRole, SessionKind, SessionStatus
+from speakers.emails import signed_invitation_token
+from speakers.models import ActivityLog, Invitation, InvitationStatus
+from speakers.services import (
+    InvitationError,
+    accept_invitation,
+    cancel_invitation,
+    resolve_invitation,
+    send_invitation,
+)
+from speakers.signals import invitation_accepted
+from speakers.tasks import send_invitation_email_task
+
+from .factories import (
+    add_presenter,
+    make_invitation,
+    make_presenter,
+    make_session,
+    make_settings,
+)
+
+
+@pytest.fixture
+def enabled(conference):
+    return make_settings(conference)
+
+
+@pytest.fixture
+def invitation(conference, enabled):
+    session = make_session(conference, kind=SessionKind.WORKSHOP, title="Django 101")
+    presenter = make_presenter(
+        conference, display_name="Ada Lovelace", email="ada@example.com"
+    )
+    add_presenter(session, presenter)
+    return make_invitation(presenter, session, message_md="Hope you can **join**!")
+
+
+def _url(invitation):
+    return reverse("speakers:invitation", args=[signed_invitation_token(invitation)])
+
+
+@pytest.mark.django_db
+class TestSendInvitation:
+    def test_send_issues_token_and_email(self, invitation, admin_user):
+        mail.outbox.clear()
+        send_invitation(invitation, actor=admin_user)
+        invitation.refresh_from_db()
+        assert invitation.token
+        assert invitation.sent_at is not None
+        assert invitation.expires_at == invitation.sent_at + timedelta(days=14)
+        assert invitation.status == InvitationStatus.SENT
+        assert invitation.session.status == SessionStatus.INVITED
+        assert len(mail.outbox) == 1
+        message = mail.outbox[0]
+        assert message.to == ["ada@example.com"]
+        assert "Django 101" in message.subject
+        assert "Hope you can join!" in message.body
+        html = message.alternatives[0][0]
+        assert "<strong>join</strong>" in html
+        assert _url(invitation) in message.body
+        assert _url(invitation) in html
+        entry = ActivityLog.for_target(invitation).get()
+        assert entry.action == "invitation.sent"
+        assert entry.actor == admin_user
+
+    def test_resend_invalidates_previous_token(self, invitation):
+        send_invitation(invitation)
+        old_url = _url(invitation)
+        send_invitation(invitation)
+        invitation.refresh_from_db()
+        assert invitation.session.status == SessionStatus.INVITED
+        with pytest.raises(InvitationError, match="superseded"):
+            resolve_invitation(old_url.rsplit("/", 2)[1], invitation.conference)
+        assert (
+            resolve_invitation(
+                signed_invitation_token(invitation), invitation.conference
+            )
+            == invitation
+        )
+
+    def test_resend_after_decline_reopens(self, invitation):
+        send_invitation(invitation)
+        invitation.declined_at = invitation.sent_at
+        invitation.save()
+        assert invitation.status == InvitationStatus.DECLINED
+        send_invitation(invitation)
+        assert invitation.status == InvitationStatus.SENT
+
+    def test_cannot_resend_accepted(self, invitation):
+        send_invitation(invitation)
+        accept_invitation(invitation)
+        with pytest.raises(ValueError, match="already been accepted"):
+            send_invitation(invitation)
+
+    def test_general_invitation_without_session(self, conference, enabled):
+        presenter = make_presenter(conference)
+        invitation = make_invitation(presenter)
+        mail.outbox.clear()
+        send_invitation(invitation)
+        assert str(invitation) == f"Invitation for {presenter} to {conference}"
+        assert mail.outbox[0].subject.endswith("You're invited to PyLadiesCon 2025")
+
+    def test_task_with_missing_invitation(self):
+        assert "not found" in send_invitation_email_task(999999)
+
+    def test_rejects_mixed_editions(self, conference):
+        other = Conference.objects.create(year=2024, name="Old", slug="2024")
+        session = make_session(other)
+        presenter = make_presenter(conference)
+        with pytest.raises(ValidationError, match="different editions"):
+            make_invitation(presenter, session)
+
+
+@pytest.mark.django_db
+class TestResolveInvitation:
+    def test_bad_signature(self, invitation):
+        with pytest.raises(InvitationError, match="invalid"):
+            resolve_invitation("not-a-token", invitation.conference)
+
+    def test_unknown_invitation(self, invitation):
+        send_invitation(invitation)
+        token = signed_invitation_token(invitation)
+        invitation.delete()
+        with pytest.raises(InvitationError, match="invalid"):
+            resolve_invitation(token, invitation.conference)
+
+    def test_signature_expiry(self, invitation, monkeypatch):
+        send_invitation(invitation)
+        monkeypatch.setattr(Invitation, "TOKEN_MAX_AGE", timedelta(seconds=-1))
+        with pytest.raises(InvitationError, match="expired"):
+            resolve_invitation(
+                signed_invitation_token(invitation), invitation.conference
+            )
+
+    def test_expires_at_passed(self, invitation):
+        send_invitation(invitation)
+        invitation.expires_at = invitation.sent_at - timedelta(seconds=1)
+        invitation.save()
+        assert invitation.status == InvitationStatus.EXPIRED
+        with pytest.raises(InvitationError, match="expired"):
+            resolve_invitation(
+                signed_invitation_token(invitation), invitation.conference
+            )
+
+    def test_wrong_edition(self, invitation):
+        send_invitation(invitation)
+        other = Conference.objects.create(year=2024, name="Old", slug="2024")
+        with pytest.raises(InvitationError, match="invalid"):
+            resolve_invitation(signed_invitation_token(invitation), other)
+
+    def test_reuse_after_accept(self, invitation):
+        send_invitation(invitation)
+        accept_invitation(invitation)
+        with pytest.raises(InvitationError, match="accepted"):
+            resolve_invitation(
+                signed_invitation_token(invitation), invitation.conference
+            )
+
+    def test_cancelled(self, invitation, admin_user):
+        send_invitation(invitation)
+        cancel_invitation(invitation, actor=admin_user)
+        assert invitation.status == InvitationStatus.CANCELLED
+        with pytest.raises(InvitationError, match="cancelled"):
+            resolve_invitation(
+                signed_invitation_token(invitation), invitation.conference
+            )
+
+    def test_unsent_is_draft(self, invitation):
+        assert invitation.status == InvitationStatus.DRAFT
+        assert invitation.is_open is False
+
+
+@pytest.mark.django_db
+class TestAcceptInvitation:
+    def test_creates_user_and_confirms(self, invitation):
+        send_invitation(invitation)
+        received = []
+        invitation_accepted.connect(lambda **kw: received.append(kw), weak=False)
+        user = accept_invitation(invitation)
+        assert user.username == "ada"
+        assert user.email == "ada@example.com"
+        assert user.first_name == "Ada" and user.last_name == "Lovelace"
+        assert user.has_usable_password() is False
+        address = EmailAddress.objects.get(user=user)
+        assert address.email == "ada@example.com"
+        assert address.verified is True and address.primary is True
+        invitation.presenter.refresh_from_db()
+        assert invitation.presenter.user == user
+        link = invitation.session.session_presenters.get()
+        assert link.is_confirmed is True
+        invitation.session.refresh_from_db()
+        assert invitation.session.status == SessionStatus.CONFIRMED
+        assert invitation.status == InvitationStatus.ACCEPTED
+        assert received[0]["invitation"] == invitation
+        assert received[0]["presenter"] == invitation.presenter
+        assert received[0]["user"] == user
+        actions = [
+            e.action
+            for e in ActivityLog.objects.filter(conference=invitation.conference)
+        ]
+        assert "invitation.accepted" in actions
+        assert "session.confirmed" in actions
+
+    def test_links_existing_user_by_user_email(self, invitation, portal_user):
+        portal_user.email = "ADA@example.com"
+        portal_user.save()
+        send_invitation(invitation)
+        assert accept_invitation(invitation) == portal_user
+        assert EmailAddress.objects.get(user=portal_user).verified is True
+
+    def test_links_existing_user_by_verified_email_address(
+        self, invitation, portal_user
+    ):
+        EmailAddress.objects.create(
+            user=portal_user, email="ada@example.com", verified=True, primary=False
+        )
+        send_invitation(invitation)
+        assert accept_invitation(invitation) == portal_user
+        assert User.objects.filter(username="ada").exists() is False
+
+    def test_already_linked_presenter_keeps_user(self, invitation, portal_user):
+        invitation.presenter.user = portal_user
+        invitation.presenter.save()
+        send_invitation(invitation)
+        assert accept_invitation(invitation) == portal_user
+
+    def test_username_collision_gets_suffix(self, invitation):
+        User.objects.create_user(username="ada", email="other@example.com")
+        send_invitation(invitation)
+        assert accept_invitation(invitation).username == "ada2"
+
+    def test_username_from_dotted_local_part(self, conference, enabled):
+        presenter = make_presenter(conference, email="ada.lovelace@example.com")
+        invitation = make_invitation(presenter)
+        send_invitation(invitation)
+        assert accept_invitation(invitation).username == "ada.lovelace"
+
+    def test_session_waits_for_all_required_presenters(self, conference, enabled):
+        panel = make_session(conference, kind=SessionKind.PANEL)
+        moderator = make_presenter(conference)
+        panelist = make_presenter(conference)
+        guest = make_presenter(conference)
+        add_presenter(panel, moderator, role=PresenterRole.MODERATOR)
+        add_presenter(panel, panelist, role=PresenterRole.PANELIST)
+        add_presenter(panel, guest, role=PresenterRole.PANELIST, is_required=False)
+        first = make_invitation(moderator, panel)
+        second = make_invitation(panelist, panel)
+        send_invitation(first)
+        send_invitation(second)
+        accept_invitation(first)
+        panel.refresh_from_db()
+        assert panel.status == SessionStatus.INVITED
+        accept_invitation(second)
+        panel.refresh_from_db()
+        assert panel.status == SessionStatus.CONFIRMED
+
+    def test_general_invitation_confirms_every_session(self, conference, enabled):
+        presenter = make_presenter(conference)
+        talk = make_session(conference, kind=SessionKind.TALK)
+        panel = make_session(conference, kind=SessionKind.PANEL)
+        add_presenter(talk, presenter)
+        add_presenter(panel, presenter, role=PresenterRole.PANELIST)
+        invitation = make_invitation(presenter)
+        send_invitation(invitation)
+        accept_invitation(invitation)
+        assert talk.session_presenters.get().is_confirmed
+        assert panel.session_presenters.get().is_confirmed
+        talk.refresh_from_db()
+        panel.refresh_from_db()
+        assert talk.status == SessionStatus.CONFIRMED
+        assert panel.status == SessionStatus.CONFIRMED
+
+    def test_already_confirmed_session_untouched(self, conference, enabled):
+        session = make_session(conference, kind=SessionKind.BREAK)
+        session.confirm()
+        presenter = make_presenter(conference)
+        add_presenter(session, presenter, role=PresenterRole.HOST)
+        invitation = make_invitation(presenter, session)
+        send_invitation(invitation)
+        accept_invitation(invitation)
+        session.refresh_from_db()
+        assert session.status == SessionStatus.CONFIRMED
+        assert not ActivityLog.objects.filter(action="session.confirmed").exists()
+
+
+@pytest.mark.django_db
+class TestInvitationView:
+    def test_404_when_module_disabled(self, client, conference):
+        presenter = make_presenter(conference)
+        invitation = make_invitation(presenter)
+        send_invitation(invitation)
+        assert client.get(_url(invitation)).status_code == 404
+
+    def test_404_for_other_editions_invitation(self, client, enabled):
+        other = Conference.objects.create(year=2024, name="Old", slug="2024")
+        invitation = make_invitation(make_presenter(other))
+        send_invitation(invitation)
+        response = client.get(_url(invitation))
+        assert response.status_code == 200
+        assert response.context["reason"] == "invalid"
+
+    def test_get_marks_opened_and_shows_message(self, client, invitation):
+        send_invitation(invitation)
+        response = client.get(_url(invitation))
+        assert response.status_code == 200
+        content = response.content.decode()
+        assert "Django 101" in content
+        assert "<strong>join</strong>" in content
+        invitation.refresh_from_db()
+        assert invitation.opened_at is not None
+        assert invitation.status == InvitationStatus.OPENED
+        opened = invitation.opened_at
+        client.get(_url(invitation))
+        invitation.refresh_from_db()
+        assert invitation.opened_at == opened
+
+    def test_invalid_link_page(self, client, enabled):
+        response = client.get(reverse("speakers:invitation", args=["nope"]))
+        assert response.status_code == 200
+        assert response.context["reason"] == "invalid"
+        assert "not valid" in response.content.decode()
+
+    def test_accept_logs_in_and_redirects(self, client, invitation):
+        send_invitation(invitation)
+        response = client.post(_url(invitation), {"action": "accept"})
+        assert response.status_code == 302
+        assert response.url == reverse("speakers:index")
+        user = User.objects.get(username="ada")
+        assert int(client.session["_auth_user_id"]) == user.pk
+        follow = client.get(response.url)
+        assert "Thanks for accepting, Ada Lovelace" in follow.content.decode()
+
+    def test_accept_switches_logged_in_user(self, client, invitation, portal_user):
+        client.force_login(portal_user)
+        send_invitation(invitation)
+        client.post(_url(invitation), {"action": "accept"})
+        assert (
+            int(client.session["_auth_user_id"]) == User.objects.get(username="ada").pk
+        )
+
+    def test_accept_keeps_matching_logged_in_user(
+        self, client, invitation, portal_user
+    ):
+        portal_user.email = "ada@example.com"
+        portal_user.save()
+        client.force_login(portal_user)
+        send_invitation(invitation)
+        client.post(_url(invitation), {"action": "accept"})
+        assert int(client.session["_auth_user_id"]) == portal_user.pk
+
+    def test_post_used_link_shows_reason(self, client, invitation):
+        send_invitation(invitation)
+        client.post(_url(invitation), {"action": "accept"})
+        client.logout()
+        response = client.post(_url(invitation), {"action": "accept"})
+        assert response.context["reason"] == "accepted"
+
+    def test_decline(self, client, invitation):
+        send_invitation(invitation)
+        response = client.post(_url(invitation), {"action": "decline"})
+        assert response.status_code == 200
+        assert "Thanks for letting us know" in response.content.decode()
+        invitation.refresh_from_db()
+        assert invitation.status == InvitationStatus.DECLINED
+        assert invitation.session.session_presenters.get().is_confirmed is False
+        assert (
+            ActivityLog.for_target(invitation).first().action == "invitation.declined"
+        )
+        response = client.get(_url(invitation))
+        assert response.context["reason"] == "declined"
+
+    @pytest.mark.parametrize(
+        "reason", ["expired", "superseded", "accepted", "declined", "cancelled"]
+    )
+    def test_invalid_page_wording(self, client, enabled, reason):
+        html = render_to_string("speakers/invitation_invalid.html", {"reason": reason})
+        assert f'data-reason="{reason}"' in html
+
+
+@pytest.mark.django_db
+class TestLoginByCode:
+    def test_login_page_offers_code_sign_in(self, client):
+        content = client.get(reverse("account_login")).content.decode()
+        assert reverse("account_request_login_code") in content
+
+    def test_presenter_can_request_code(self, client, invitation):
+        send_invitation(invitation)
+        accept_invitation(invitation)
+        mail.outbox.clear()
+        response = client.post(
+            reverse("account_request_login_code"), {"email": "ada@example.com"}
+        )
+        assert response.status_code == 302
+        assert len(mail.outbox) == 1
+        assert mail.outbox[0].to == ["ada@example.com"]
+
+
+@pytest.mark.django_db
+class TestInvitationAdmin:
+    def test_changelist(self, client, admin_user, invitation):
+        send_invitation(invitation)
+        client.force_login(admin_user)
+        response = client.get(reverse("admin:speakers_invitation_changelist"))
+        assert response.status_code == 200
+        assert "Ada Lovelace" in response.content.decode()

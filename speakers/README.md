@@ -46,8 +46,10 @@ reverse accessor named after every child model (`basemodel.role`,
 - Accounts are `django.contrib.auth.User` via django-allauth
   (`portal/settings.py`: `ACCOUNT_*`, login by username, mandatory email
   verification by code, custom signup form in `portal/forms.py`, adapter in
-  `portal/adapter.py`). There is no magic-link login yet; allauth's
-  login-by-code is available if Stage 1.2 chooses it.
+  `portal/adapter.py`). Passwordless sign-in is allauth's login-by-code
+  (`ACCOUNT_LOGIN_BY_CODE_ENABLED`, templates already in `templates/account/`):
+  presenters get an account with no password when they accept an invitation
+  and sign in afterwards with an emailed code.
 - `portal_account.PortalProfile` (`portal_account/models.py`) is the one
   per-user profile: pronouns, picture, CoC/ToS flags. It is global, not
   per-edition.

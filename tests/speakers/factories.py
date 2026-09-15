@@ -9,6 +9,7 @@ from datetime import datetime, timedelta, timezone
 from speakers.constants import PresenterRole, SessionKind
 from speakers.models import (
     DiscordChannel,
+    Invitation,
     Presenter,
     ScheduleSlot,
     Session,
@@ -63,3 +64,7 @@ def make_slot(session, **kwargs):
         "start_utc", datetime(2026, 12, 5, 14, 0, tzinfo=timezone.utc) + timedelta()
     )
     return ScheduleSlot.objects.create(session=session, **kwargs)
+
+
+def make_invitation(presenter, session=None, **kwargs):
+    return Invitation.objects.create(presenter=presenter, session=session, **kwargs)
