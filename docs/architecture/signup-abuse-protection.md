@@ -254,9 +254,9 @@ single source of truth for how long an account may sit unverified.
   `0004_maintenance_setup` migration as the "Delete unverified accounts"
   periodic task at 03:00 UTC daily, and editable in the Django admin under
   *Periodic tasks*, where `last_run_at` and `total_run_count` show whether
-  it is firing. The `beat` process in the Procfile has to be running for any
-  of this to happen. A real person who missed the window simply signs up
-  again.
+  it is firing. The `worker-beat` process in the Procfile has to be running
+  for any of this to happen (see [Deployment](../developer/deployment.md)).
+  A real person who missed the window simply signs up again.
 - Both the command and the task return or print the number deleted, so a
   manual run and a scheduled run leave the same trace (stdout and the Celery
   task result respectively).

@@ -378,7 +378,7 @@ PRETIX_WEBHOOK_SECRET = os.getenv("PRETIX_WEBHOOK_SECRET")
 CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL") or os.environ.get("REDIS_URL")
 
 # Periodic tasks live in the database (django-celery-beat) and are edited in
-# the Django admin under "Periodic tasks". The `beat` process in the Procfile
+# the Django admin under "Periodic tasks". The `worker-beat` process in the Procfile
 # reads them. The unverified-account deletion job is seeded by
 # portal_account migration 0004 and runs daily at 03:00 UTC.
 CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
