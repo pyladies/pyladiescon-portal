@@ -4,6 +4,7 @@ from portal.admin_filters import ActiveConferenceFilter
 
 from .models import (
     ActivityLog,
+    ChecklistItem,
     ChecklistTemplate,
     ChecklistTemplateItem,
     DiscordChannel,
@@ -195,3 +196,32 @@ class ChecklistTemplateAdmin(admin.ModelAdmin):
     search_fields = ("name",)
     list_select_related = ("conference",)
     inlines = [ChecklistTemplateItemInline]
+
+
+@admin.register(ChecklistItem)
+class ChecklistItemAdmin(admin.ModelAdmin):
+    list_display = (
+        "title",
+        "owner",
+        "status",
+        "presenter",
+        "session",
+        "due_date",
+        "assignee",
+        "conference",
+    )
+    list_filter = (ActiveConferenceFilter, "owner", "status", "is_required")
+    search_fields = ("title", "presenter__display_name", "session__title")
+    list_select_related = ("presenter", "session", "assignee", "conference")
+    autocomplete_fields = ("presenter", "session", "assignee", "template_item")
+    readonly_fields = ("completed_by", "completed_at")
+
+
+@admin.register(ChecklistTemplateItem)
+class ChecklistTemplateItemAdmin(admin.ModelAdmin):
+    """Registered so it can be an autocomplete target; edit items inline on
+    the template instead."""
+
+    list_display = ("title", "template", "owner", "order")
+    search_fields = ("title", "template__name")
+    list_select_related = ("template",)

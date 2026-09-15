@@ -39,14 +39,7 @@ def _item(owner, title, anchor="", offset=0, rule="", **extra):
     return item
 
 
-BIO = _item(
-    SPK,
-    "Update your bio and headshot",
-    ACCEPTED,
-    7,
-    AutoRule.BIO_AND_HEADSHOT,
-    is_required=True,
-)
+BIO = _item(SPK, "Update your bio and headshot", ACCEPTED, 7, AutoRule.BIO_AND_HEADSHOT)
 CONFIRM_TITLE = _item(
     SPK, "Confirm your session title and summary", ACCEPTED, 7, is_required=True
 )

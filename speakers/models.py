@@ -21,6 +21,7 @@ from django.utils import timezone
 from django.utils.text import slugify
 
 from .constants import (
+    OPEN_ITEM_STATUSES,
     SESSION_LANGUAGE,
     AssigneeDefault,
     AutoRule,
@@ -29,12 +30,14 @@ from .constants import (
     Delivery,
     DueAnchor,
     ItemOwner,
+    ItemStatus,
     MediaKind,
     PremiereLocation,
     SessionLevel,
     SessionStatus,
 )
 from .querysets import PresenterQuerySet, SessionQuerySet
+from .signals import session_confirmed
 
 
 class TimestampedModel(models.Model):
@@ -652,16 +655,31 @@ class Session(TimestampedModel):
         if save:
             self.save(update_fields=["status"])
 
+    @property
+    def blocking_required_items(self):
+        """Open required checklist items that keep this session from CONFIRMED."""
+        return self.checklist_items.filter(
+            is_required=True, status__in=OPEN_ITEM_STATUSES
+        )
+
     def confirm(self, save=True):
-        """-> CONFIRMED. Content kinds need at least one confirmed presenter."""
+        """-> CONFIRMED. Content kinds need at least one confirmed presenter,
+        and no required checklist item may still be open. Sends
+        ``session_confirmed`` so the session-scope checklist is created."""
         self._require_status(SessionStatus.DRAFT, SessionStatus.INVITED)
         if self.is_content and self.confirmed_presenter_count == 0:
             raise TransitionError(
                 "A content session needs at least one confirmed presenter."
             )
+        if self.pk is not None and self.blocking_required_items.exists():
+            titles = ", ".join(
+                self.blocking_required_items.values_list("title", flat=True)[:3]
+            )
+            raise TransitionError(f"Required checklist items are still open: {titles}.")
         self.status = SessionStatus.CONFIRMED
         if save:
             self.save(update_fields=["status"])
+            session_confirmed.send(sender=Session, session=self)
 
     def schedule(self, save=True):
         """CONFIRMED -> SCHEDULED once a slot exists."""
@@ -1092,3 +1110,119 @@ class ChecklistTemplateItem(TimestampedModel):
         if hasattr(base, "date"):
             base = base.date()
         return base + timedelta(days=sign * self.due_offset_days)
+
+
+class ChecklistItem(TimestampedModel):
+    """One instantiated checklist line (design §9.2).
+
+    Presenter-scope items carry both ``presenter`` and ``session``;
+    session-scope items only ``session``. ``template_item`` is null for
+    one-off items organizers add by hand. Everything the template said is
+    copied onto the instance so later template edits change nothing here
+    unless an organizer back-fills them.
+    """
+
+    conference = models.ForeignKey(
+        "portal.Conference",
+        on_delete=models.PROTECT,
+        related_name="checklist_items",
+    )
+    template_item = models.ForeignKey(
+        ChecklistTemplateItem,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="instances",
+    )
+    presenter = models.ForeignKey(
+        Presenter,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="checklist_items",
+    )
+    session = models.ForeignKey(
+        Session,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="checklist_items",
+    )
+    order = models.PositiveSmallIntegerField(default=0)
+    owner = models.CharField(max_length=16, choices=ItemOwner.choices)
+    title = models.CharField(max_length=200)
+    description_md = models.TextField(blank=True)
+    status = models.CharField(
+        max_length=16, choices=ItemStatus.choices, default=ItemStatus.TODO
+    )
+    due_date = models.DateField(null=True, blank=True)
+    assignee = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="assigned_checklist_items",
+    )
+    completed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
+    )
+    completed_at = models.DateTimeField(null=True, blank=True)
+    note = models.TextField(blank=True)
+    is_required = models.BooleanField(default=False)
+    auto_complete_rule = models.CharField(
+        max_length=32, choices=AutoRule.choices, blank=True
+    )
+    requires_asset_kind = models.CharField(
+        max_length=16, choices=MediaKind.choices, blank=True
+    )
+    requires_asset_language = models.CharField(max_length=10, blank=True)
+
+    class Meta:
+        ordering = ["order", "id"]
+        constraints = [
+            # One instance per template line per presenter/session (and per
+            # language for the translate items). Ad-hoc items are exempt.
+            models.UniqueConstraint(
+                fields=[
+                    "template_item",
+                    "presenter",
+                    "session",
+                    "requires_asset_language",
+                ],
+                name="speakers_item_once_per_target",
+                condition=models.Q(template_item__isnull=False),
+                nulls_distinct=False,
+            ),
+            models.CheckConstraint(
+                condition=models.Q(presenter__isnull=False)
+                | models.Q(session__isnull=False),
+                name="speakers_item_has_target",
+            ),
+        ]
+
+    def __str__(self):
+        return self.title
+
+    @property
+    def is_automatic(self):
+        return bool(self.auto_complete_rule)
+
+    @property
+    def is_open(self):
+        return self.status in OPEN_ITEM_STATUSES
+
+    @property
+    def is_done(self):
+        return self.status == ItemStatus.DONE
+
+    @property
+    def is_overdue(self):
+        return (
+            self.is_open
+            and self.due_date is not None
+            and self.due_date < timezone.now().date()
+        )

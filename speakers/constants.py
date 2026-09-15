@@ -93,3 +93,13 @@ class AutoRule(models.TextChoices):
 
 # The language marker on a template item meaning "the session's language".
 SESSION_LANGUAGE = "session"
+
+
+class ItemStatus(models.TextChoices):
+    TODO = "TODO", "To do"
+    DONE = "DONE", "Done"
+    SKIPPED = "SKIPPED", "Skipped"
+    BLOCKED = "BLOCKED", "Blocked"
+
+
+OPEN_ITEM_STATUSES = frozenset({ItemStatus.TODO, ItemStatus.BLOCKED})
