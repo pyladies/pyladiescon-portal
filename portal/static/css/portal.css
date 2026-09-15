@@ -126,3 +126,8 @@ body {
 .checklist-board td.cell-skipped { background: var(--bs-secondary-bg-subtle); }
 .checklist-board td.cell-none { color: var(--bs-secondary); }
 .checklist-board th.rotate { writing-mode: vertical-rl; transform: rotate(180deg); white-space: nowrap; }
+
+/* Template editor (templates/speakers/template_detail.html): the reorder column. */
+.col-order {
+    width: 5rem;
+}

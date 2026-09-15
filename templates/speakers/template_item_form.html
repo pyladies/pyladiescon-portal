@@ -1,0 +1,38 @@
+{% extends "speakers/_organize_shell.html" %}
+{% load i18n %}
+{% load django_bootstrap5 %}
+{% block head_title %}
+    {% if object.pk %}
+        {% trans "Edit item" %}
+    {% else %}
+        {% trans "Add item" %}
+    {% endif %}
+{% endblock head_title %}
+{% block breadcrumb %}
+    {% url 'speakers:template_detail' template.pk as bc_url %}
+    {% if object.pk %}
+        {% include "portal/_breadcrumbs.html" with section=template.name section_url=bc_url page=object.title %}
+    {% else %}
+        {% trans "Add item" as bc_page %}
+        {% include "portal/_breadcrumbs.html" with section=template.name section_url=bc_url page=bc_page %}
+    {% endif %}
+{% endblock breadcrumb %}
+{% block content %}
+    <h1 class="h3 mb-1">
+        {% if object.pk %}
+            {% blocktranslate with title=object.title %}Edit “{{ title }}”{% endblocktranslate %}
+        {% else %}
+            {% blocktranslate with name=template.name %}Add an item to {{ name }}{% endblocktranslate %}
+        {% endif %}
+    </h1>
+    <p class="text-secondary">
+        {% trans "Existing checklists keep their copy of this item; back-fill from the template page to push a new item out." %}
+    </p>
+    <form method="post" class="col-lg-8">
+        {% csrf_token %}
+        {% bootstrap_form form %}
+        {% bootstrap_button "Save" button_type="submit" %}
+        <a class="btn btn-link"
+           href="{% url 'speakers:template_detail' template.pk %}">{% trans "Cancel" %}</a>
+    </form>
+{% endblock content %}

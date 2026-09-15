@@ -6,7 +6,15 @@ from django.db.models import Q
 from volunteer.constants import ApplicationStatus
 
 from .constants import Delivery, ItemOwner
-from .models import Presenter, PresenterRole, Session, SessionPresenter, SessionType
+from .models import (
+    ChecklistTemplate,
+    ChecklistTemplateItem,
+    Presenter,
+    PresenterRole,
+    Session,
+    SessionPresenter,
+    SessionType,
+)
 from .people import liaison_candidates, user_label
 
 MARKDOWN_HELP = "Markdown supported: headings, lists, links, **bold**, *italics*."
@@ -396,3 +404,61 @@ class AssignItemForm(forms.Form):
     def __init__(self, *args, conference, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["assignee"].queryset = liaison_candidates(conference)
+
+
+class ChecklistTemplateForm(forms.ModelForm):
+    class Meta:
+        model = ChecklistTemplate
+        fields = ["scope", "name", "kind", "role", "delivery", "is_active"]
+        help_texts = {
+            "role": "Presenter templates: which role on the session this applies to.",
+            "delivery": "Session templates: live or pre-recorded.",
+        }
+
+    def __init__(self, *args, conference, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.conference = conference
+
+    def clean(self):
+        """Per-edition uniqueness of the key; the model's ``clean()`` (run by
+        the ModelForm after this) reports the scope/role/delivery rules."""
+        cleaned = super().clean()
+        if self.errors:
+            return cleaned
+        clash = ChecklistTemplate.objects.filter(
+            conference=self.conference,
+            scope=cleaned.get("scope"),
+            kind=cleaned.get("kind"),
+            role=cleaned.get("role", ""),
+            delivery=cleaned.get("delivery", ""),
+        )
+        if self.instance.pk:
+            clash = clash.exclude(pk=self.instance.pk)
+        if clash.exists():
+            self.add_error(
+                "kind", "A template with this scope, kind and role/delivery exists."
+            )
+        return cleaned
+
+
+class ChecklistTemplateItemForm(forms.ModelForm):
+    class Meta:
+        model = ChecklistTemplateItem
+        fields = [
+            "title",
+            "owner",
+            "description_md",
+            "due_anchor",
+            "due_offset_days",
+            "auto_complete_rule",
+            "requires_asset_kind",
+            "requires_asset_language",
+            "per_translation_language",
+            "is_required",
+            "assignee_default",
+        ]
+        widgets = {"description_md": forms.Textarea(attrs={"rows": 2})}
+        help_texts = {
+            "description_md": MARKDOWN_HELP,
+            "auto_complete_rule": "Pick a rule and the portal ticks the item itself.",
+        }

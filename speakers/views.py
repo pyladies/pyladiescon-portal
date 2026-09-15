@@ -4,7 +4,7 @@ from django.contrib.auth import logout
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import PermissionDenied
 from django.db import transaction
-from django.db.models import F, Q
+from django.db.models import Count, F, Q
 from django.http import HttpResponse, HttpResponseBadRequest
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -22,15 +22,24 @@ from .checklists import (
     ChecklistError,
     add_adhoc_item,
     assign_item,
+    backfill_template_item,
     complete_item,
     reopen_item,
     skip_item,
 )
-from .constants import OPEN_ITEM_STATUSES, ItemOwner, ItemStatus, SessionStatus
+from .constants import (
+    OPEN_ITEM_STATUSES,
+    ChecklistScope,
+    ItemOwner,
+    ItemStatus,
+    SessionStatus,
+)
 from .filters import PresenterFilter, SessionFilter
 from .forms import (
     AdhocItemForm,
     AssignItemForm,
+    ChecklistTemplateForm,
+    ChecklistTemplateItemForm,
     InviteForm,
     PresenterForm,
     PresenterRoleForm,
@@ -52,6 +61,8 @@ from .mixins import (
 from .models import (
     ActivityLog,
     ChecklistItem,
+    ChecklistTemplate,
+    ChecklistTemplateItem,
     Invitation,
     Presenter,
     PresenterRole,
@@ -59,6 +70,8 @@ from .models import (
     SessionType,
 )
 from .permissions import can_work_sessions, is_speaker_organizer
+from .rules import evaluate_items
+from .seeds import seed_checklists
 from .services import (
     InvitationError,
     accept_invitation,
@@ -1040,3 +1053,183 @@ class PresenterAddItemView(PresenterScopedMixin, View):
         else:
             messages.error(request, "Could not add the item: give it a title.")
         return redirect(presenter.get_absolute_url())
+
+
+# ---- Template editor (design §9.1, task 2.6) ---------------------------------
+
+
+class TemplateEditorMixin(LoginRequiredMixin, SpeakerOrganizerRequiredMixin):
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["conference"] = self.conference
+        context["rail_active"] = "templates"
+        return context
+
+    def get_template(self, pk):
+        return get_object_or_404(
+            ChecklistTemplate.objects.filter(conference=self.conference), pk=pk
+        )
+
+
+class ChecklistTemplateListView(TemplateEditorMixin, TemplateView):
+    template_name = "speakers/template_list.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        templates = list(
+            ChecklistTemplate.objects.filter(conference=self.conference)
+            .annotate(item_count=Count("items"))
+            .order_by("scope", "kind", "role", "delivery")
+        )
+        context["presenter_templates"] = [
+            t for t in templates if t.scope == ChecklistScope.PRESENTER
+        ]
+        context["session_templates"] = [
+            t for t in templates if t.scope == ChecklistScope.SESSION
+        ]
+        return context
+
+    def post(self, request):
+        """The "Load defaults" button: idempotent seed."""
+        templates, items = seed_checklists(self.conference)
+        messages.success(
+            request, f"Loaded {templates} template(s) and {items} item(s)."
+        )
+        return redirect("speakers:template_list")
+
+
+class ChecklistTemplateCreateView(TemplateEditorMixin, CreateView):
+    model = ChecklistTemplate
+    form_class = ChecklistTemplateForm
+    template_name = "speakers/template_form.html"
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["conference"] = self.conference
+        return kwargs
+
+    def form_valid(self, form):
+        form.instance.conference = self.conference
+        messages.success(self.request, f"Created “{form.instance.name}”.")
+        return super().form_valid(form)
+
+    def get_success_url(self):
+        return reverse("speakers:template_detail", args=[self.object.pk])
+
+
+class ChecklistTemplateUpdateView(TemplateEditorMixin, UpdateView):
+    model = ChecklistTemplate
+    form_class = ChecklistTemplateForm
+    template_name = "speakers/template_form.html"
+
+    def get_queryset(self):
+        return ChecklistTemplate.objects.filter(conference=self.conference)
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["conference"] = self.conference
+        return kwargs
+
+    def form_valid(self, form):
+        messages.success(self.request, f"Saved “{form.instance.name}”.")
+        return super().form_valid(form)
+
+    def get_success_url(self):
+        return reverse("speakers:template_detail", args=[self.object.pk])
+
+
+class ChecklistTemplateDetailView(TemplateEditorMixin, TemplateView):
+    template_name = "speakers/template_detail.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        template = self.get_template(self.kwargs["pk"])
+        context["template"] = template
+        context["items"] = list(
+            template.items.annotate(instance_count=Count("instances")).order_by(
+                "order", "id"
+            )
+        )
+        return context
+
+
+class TemplateItemFormMixin(TemplateEditorMixin):
+    form_class = ChecklistTemplateItemForm
+    template_name = "speakers/template_item_form.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["template"] = self.get_template(self.kwargs["pk"])
+        return context
+
+    def get_success_url(self):
+        return reverse("speakers:template_detail", args=[self.kwargs["pk"]])
+
+
+class TemplateItemCreateView(TemplateItemFormMixin, CreateView):
+    model = ChecklistTemplateItem
+
+    def form_valid(self, form):
+        template = self.get_template(self.kwargs["pk"])
+        form.instance.template = template
+        form.instance.order = template.items.count()
+        messages.success(
+            self.request,
+            f"Added “{form.instance.title}”. Existing checklists are unchanged "
+            "until you back-fill it.",
+        )
+        return super().form_valid(form)
+
+
+class TemplateItemUpdateView(TemplateItemFormMixin, UpdateView):
+    model = ChecklistTemplateItem
+
+    def get_queryset(self):
+        return ChecklistTemplateItem.objects.filter(
+            template=self.get_template(self.kwargs["pk"])
+        )
+
+    def get_object(self, queryset=None):
+        return get_object_or_404(self.get_queryset(), pk=self.kwargs["item_pk"])
+
+    def form_valid(self, form):
+        messages.success(self.request, f"Saved “{form.instance.title}”.")
+        return super().form_valid(form)
+
+
+class TemplateItemActionView(TemplateEditorMixin, View):
+    """POST-only: move up/down, delete, back-fill one template line."""
+
+    def post(self, request, pk, item_pk, action):
+        template = self.get_template(pk)
+        item = get_object_or_404(template.items, pk=item_pk)
+        if action == "delete":
+            title = item.title
+            item.delete()
+            messages.success(request, f"Removed “{title}” from the template.")
+        elif action in ("up", "down"):
+            self.move(template, item, -1 if action == "up" else 1)
+        elif action == "backfill":
+            created = backfill_template_item(item)
+            evaluate_items(
+                ChecklistItem.objects.filter(template_item=item).select_related(
+                    "presenter", "session", "conference"
+                )
+            )
+            messages.success(
+                request, f"Added “{item.title}” to {created} existing checklist(s)."
+            )
+        else:
+            return HttpResponseBadRequest("Unknown action.")
+        return redirect("speakers:template_detail", pk=pk)
+
+    @staticmethod
+    def move(template, item, delta):
+        items = list(template.items.order_by("order", "id"))
+        index = items.index(item)
+        target = index + delta
+        if 0 <= target < len(items):
+            items[index], items[target] = items[target], items[index]
+        for position, each in enumerate(items):
+            if each.order != position:
+                ChecklistTemplateItem.objects.filter(pk=each.pk).update(order=position)

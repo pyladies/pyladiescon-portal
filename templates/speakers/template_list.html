@@ -1,0 +1,46 @@
+{% extends "speakers/_organize_shell.html" %}
+{% load i18n %}
+{% block head_title %}
+    {% trans "Checklist templates" %}
+{% endblock head_title %}
+{% block breadcrumb %}
+    {% trans "Checklist templates" as bc_section %}
+    {% include "portal/_breadcrumbs.html" with section=bc_section %}
+{% endblock breadcrumb %}
+{% block content %}
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+        <div>
+            <h1 class="h3 mb-0">
+                {% trans "Checklist templates" %}
+            </h1>
+            <p class="text-secondary mb-0">
+                {% trans "What each presenter must do and what the team does for them. Editing a template changes nothing already created until you back-fill an item." %}
+            </p>
+        </div>
+        <div class="d-flex gap-2">
+            <form method="post">
+                {% csrf_token %}
+                <button class="btn btn-outline-secondary" type="submit">
+                    <i class="fa-solid fa-seedling"></i> {% trans "Load defaults" %}
+                </button>
+            </form>
+            <a class="btn btn-primary" href="{% url 'speakers:template_create' %}">
+                <i class="fa-solid fa-plus"></i> {% trans "New template" %}
+            </a>
+        </div>
+    </div>
+    <h2 class="h5 mt-3">
+        {% trans "Per presenter" %}
+    </h2>
+    <p class="text-secondary small">
+        {% trans "Keyed by session kind and role; instantiated for each presenter on each session." %}
+    </p>
+    {% include "speakers/_template_table.html" with templates=presenter_templates key_label=_("Kind · role") %}
+    <h2 class="h5 mt-4">
+        {% trans "Per session" %}
+    </h2>
+    <p class="text-secondary small">
+        {% trans "Keyed by session kind and delivery; instantiated once per session (post-production)." %}
+    </p>
+    {% include "speakers/_template_table.html" with templates=session_templates key_label=_("Kind · delivery") %}
+{% endblock content %}

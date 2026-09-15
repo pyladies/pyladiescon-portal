@@ -1,0 +1,160 @@
+{% extends "speakers/_organize_shell.html" %}
+{% load i18n %}
+{% block head_title %}
+    {{ template.name }}
+{% endblock head_title %}
+{% block breadcrumb %}
+    {% url 'speakers:template_list' as bc_url %}
+    {% trans "Checklist templates" as bc_section %}
+    {% include "portal/_breadcrumbs.html" with section=bc_section section_url=bc_url page=template.name %}
+{% endblock breadcrumb %}
+{% block content %}
+    <div class="d-flex flex-wrap align-items-start justify-content-between gap-2 mb-3">
+        <div>
+            <div class="text-secondary small">
+                {{ template.get_scope_display }} · {{ template.get_kind_display }}
+                {% if template.role %}
+                    · {{ template.get_role_display }}
+                {% else %}
+                    · {{ template.get_delivery_display }}
+                {% endif %}
+                {% if not template.is_active %}
+                    · <span class="badge text-bg-secondary">{% trans "inactive" %}</span>
+                {% endif %}
+            </div>
+            <h1 class="h3 mb-0">
+                {{ template.name }}
+            </h1>
+        </div>
+        <div class="d-flex gap-2">
+            <a class="btn btn-outline-secondary"
+               href="{% url 'speakers:template_edit' template.pk %}">
+                <i class="fa-solid fa-pen"></i> {% trans "Rename / settings" %}
+            </a>
+            <a class="btn btn-primary"
+               href="{% url 'speakers:template_item_add' template.pk %}">
+                <i class="fa-solid fa-plus"></i> {% trans "Add item" %}
+            </a>
+        </div>
+    </div>
+    <p class="text-secondary small">
+        {% trans "Changes here apply to checklists created from now on. Use back-fill to add an item to presenters who already have this checklist." %}
+    </p>
+    {% trans "Move up" as up_label %}
+    {% trans "Move down" as down_label %}
+    <div class="table-responsive">
+        <table class="table table-sm table-bordered align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th class="col-order">
+                        {% trans "Order" %}
+                    </th>
+                    <th>
+                        {% trans "Item" %}
+                    </th>
+                    <th>
+                        {% trans "Owner" %}
+                    </th>
+                    <th>
+                        {% trans "Due" %}
+                    </th>
+                    <th>
+                        {% trans "Auto rule" %}
+                    </th>
+                    <th>
+                        {% trans "Required" %}
+                    </th>
+                    <th>
+                        {% trans "In use" %}
+                    </th>
+                    <th>
+                    </th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in items %}
+                    <tr data-item-id="{{ item.pk }}">
+                        <td class="text-nowrap">
+                            <form method="post"
+                                  class="d-inline"
+                                  action="{% url 'speakers:template_item_action' template.pk item.pk 'up' %}">
+                                {% csrf_token %}
+                                <button class="btn btn-sm btn-link p-0"
+                                        type="submit"
+                                        {% if forloop.first %}disabled{% endif %}
+                                        aria-label="{{ up_label }}">
+                                    <i class="fa-solid fa-arrow-up"></i>
+                                </button>
+                            </form>
+                            <form method="post"
+                                  class="d-inline"
+                                  action="{% url 'speakers:template_item_action' template.pk item.pk 'down' %}">
+                                {% csrf_token %}
+                                <button class="btn btn-sm btn-link p-0"
+                                        type="submit"
+                                        {% if forloop.last %}disabled{% endif %}
+                                        aria-label="{{ down_label }}">
+                                    <i class="fa-solid fa-arrow-down"></i>
+                                </button>
+                            </form>
+                        </td>
+                        <td>
+                            <a href="{% url 'speakers:template_item_edit' template.pk item.pk %}">{{ item.title }}</a>
+                            {% if item.per_translation_language %}
+                                <span class="badge text-bg-light border">{% trans "per language" %}</span>
+                            {% endif %}
+                            {% if item.requires_asset_kind %}
+                                <span class="badge text-bg-light border">{{ item.get_requires_asset_kind_display }}</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {{ item.get_owner_display }}
+                        </td>
+                        <td class="small">
+                            {% if item.due_anchor %}
+                                {{ item.due_offset_days }} {{ item.get_due_anchor_display|lower }}
+                            {% else %}
+                                —
+                            {% endif %}
+                        </td>
+                        <td class="small">
+                            {{ item.get_auto_complete_rule_display|default:"—" }}
+                        </td>
+                        <td>
+                            {% if item.is_required %}
+                                <i class="fa-solid fa-check"></i>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {{ item.instance_count }}
+                        </td>
+                        <td class="text-nowrap">
+                            <form method="post"
+                                  class="d-inline"
+                                  action="{% url 'speakers:template_item_action' template.pk item.pk 'backfill' %}">
+                                {% csrf_token %}
+                                <button class="btn btn-sm btn-outline-primary" type="submit">
+                                    {% trans "Back-fill" %}
+                                </button>
+                            </form>
+                            <form method="post"
+                                  class="d-inline"
+                                  action="{% url 'speakers:template_item_action' template.pk item.pk 'delete' %}">
+                                {% csrf_token %}
+                                <button class="btn btn-sm btn-outline-danger" type="submit">
+                                    {% trans "Delete" %}
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                {% empty %}
+                    <tr>
+                        <td colspan="8" class="text-secondary">
+                            {% trans "No items yet." %}
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+{% endblock content %}

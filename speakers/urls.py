@@ -116,6 +116,41 @@ urlpatterns = [
         name="presenter_add_item",
     ),
     path(
+        "settings/checklists/",
+        views.ChecklistTemplateListView.as_view(),
+        name="template_list",
+    ),
+    path(
+        "settings/checklists/new/",
+        views.ChecklistTemplateCreateView.as_view(),
+        name="template_create",
+    ),
+    path(
+        "settings/checklists/<int:pk>/",
+        views.ChecklistTemplateDetailView.as_view(),
+        name="template_detail",
+    ),
+    path(
+        "settings/checklists/<int:pk>/edit/",
+        views.ChecklistTemplateUpdateView.as_view(),
+        name="template_edit",
+    ),
+    path(
+        "settings/checklists/<int:pk>/items/add/",
+        views.TemplateItemCreateView.as_view(),
+        name="template_item_add",
+    ),
+    path(
+        "settings/checklists/<int:pk>/items/<int:item_pk>/edit/",
+        views.TemplateItemUpdateView.as_view(),
+        name="template_item_edit",
+    ),
+    path(
+        "settings/checklists/<int:pk>/items/<int:item_pk>/<slug:action>/",
+        views.TemplateItemActionView.as_view(),
+        name="template_item_action",
+    ),
+    path(
         "invitations/<int:pk>/resend/",
         views.InvitationResendView.as_view(),
         name="invitation_resend",
