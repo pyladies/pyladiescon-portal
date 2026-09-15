@@ -15,6 +15,7 @@ from .constants import (
     ItemOwner,
     ItemStatus,
 )
+from .lifecycle import confirm_session_if_ready
 from .models import (
     ActivityLog,
     ChecklistItem,
@@ -22,7 +23,6 @@ from .models import (
     SessionPresenter,
     SpeakerSettings,
 )
-from .services import confirm_session_if_ready
 
 
 class ChecklistError(ValueError):

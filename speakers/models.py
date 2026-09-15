@@ -32,6 +32,7 @@ from .constants import (
     ItemOwner,
     ItemStatus,
     MediaKind,
+    MediaStatus,
     PremiereLocation,
     SessionLevel,
     SessionStatus,
@@ -297,6 +298,15 @@ class Presenter(TimestampedModel):
         default=True,
         help_text="Off hides the bio, headshot and links on the public site; "
         "the name still appears on their sessions.",
+    )
+    pretix_order = models.ForeignKey(
+        "attendee.PretixOrder",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="linked_presenters",
+        help_text="Manual link when the presenter registered under another "
+        "email address; wins over email matching.",
     )
 
     objects = PresenterQuerySet.as_manager()
@@ -1226,3 +1236,126 @@ class ChecklistItem(TimestampedModel):
             and self.due_date is not None
             and self.due_date < timezone.now().date()
         )
+
+
+class MediaAsset(TimestampedModel):
+    """A file moving through post-production (design §8.8). Shell for
+    Stage 3b: the multipart upload and probing arrive with tasks 4.1-4.3."""
+
+    conference = models.ForeignKey(
+        "portal.Conference",
+        on_delete=models.PROTECT,
+        related_name="media_assets",
+        editable=False,
+    )
+    session = models.ForeignKey(
+        Session, on_delete=models.CASCADE, related_name="media_assets"
+    )
+    kind = models.CharField(max_length=16, choices=MediaKind.choices)
+    language = models.CharField(
+        max_length=10, blank=True, help_text="Transcripts and translations."
+    )
+    version = models.PositiveIntegerField(default=1)
+    status = models.CharField(
+        max_length=16, choices=MediaStatus.choices, default=MediaStatus.UPLOADING
+    )
+    file = models.FileField(upload_to="speakers/media/", blank=True)
+    duration_seconds = models.PositiveIntegerField(null=True, blank=True)
+    notes_md = models.TextField(blank=True, help_text="Reviewer notes. Markdown.")
+    uploaded_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="uploaded_media_assets",
+    )
+
+    class Meta:
+        ordering = ["-version", "-id"]
+
+    def __str__(self):
+        return f"{self.get_kind_display()} v{self.version} for {self.session}"
+
+    def save(self, *args, **kwargs):
+        self.conference_id = self.session.conference_id
+        super().save(*args, **kwargs)
+
+    @property
+    def is_ready(self):
+        return self.status == MediaStatus.READY
+
+    @classmethod
+    def latest_ready(cls, session, kind, language=None):
+        """The newest READY asset of ``kind`` on ``session`` (and language)."""
+        queryset = cls.objects.filter(
+            session=session, kind=kind, status=MediaStatus.READY
+        )
+        if language:
+            queryset = queryset.filter(language=language)
+        return queryset.order_by("-version", "-id").first()
+
+
+class Handbook(TimestampedModel):
+    """The speaker guide, versioned (design §8.7). Shell for task 2.9."""
+
+    conference = models.ForeignKey(
+        "portal.Conference",
+        on_delete=models.PROTECT,
+        related_name="handbooks",
+    )
+    version = models.PositiveIntegerField(default=1)
+    title = models.CharField(max_length=200, default="Speaker guide")
+    body_md = models.TextField(blank=True, help_text="Markdown.")
+    published_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-version"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["conference", "version"], name="speakers_handbook_version"
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.title} v{self.version}"
+
+    @classmethod
+    def current(cls, conference):
+        """The newest published version, or None."""
+        return (
+            cls.objects.filter(conference=conference, published_at__isnull=False)
+            .order_by("-version")
+            .first()
+        )
+
+
+class HandbookReadReceipt(TimestampedModel):
+    """A presenter read one version of the guide."""
+
+    conference = models.ForeignKey(
+        "portal.Conference",
+        on_delete=models.PROTECT,
+        related_name="handbook_receipts",
+        editable=False,
+    )
+    presenter = models.ForeignKey(
+        Presenter, on_delete=models.CASCADE, related_name="handbook_receipts"
+    )
+    handbook = models.ForeignKey(
+        Handbook, on_delete=models.CASCADE, related_name="receipts"
+    )
+    read_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["presenter", "handbook"], name="speakers_receipt_once"
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.presenter} read {self.handbook}"
+
+    def save(self, *args, **kwargs):
+        self.conference_id = self.handbook.conference_id
+        super().save(*args, **kwargs)

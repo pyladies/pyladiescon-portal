@@ -8,7 +8,10 @@ from .models import (
     ChecklistTemplate,
     ChecklistTemplateItem,
     DiscordChannel,
+    Handbook,
+    HandbookReadReceipt,
     Invitation,
+    MediaAsset,
     Presenter,
     PresenterRole,
     ScheduleSlot,
@@ -100,7 +103,7 @@ class PresenterAdmin(admin.ModelAdmin):
     list_filter = (ActiveConferenceFilter, "is_public")
     search_fields = ("display_name", "email", "slug")
     list_select_related = ("conference", "user", "liaison")
-    autocomplete_fields = ("user", "liaison")
+    autocomplete_fields = ("user", "liaison", "pretix_order")
     prepopulated_fields = {"slug": ("display_name",)}
 
 
@@ -225,3 +228,36 @@ class ChecklistTemplateItemAdmin(admin.ModelAdmin):
     list_display = ("title", "template", "owner", "order")
     search_fields = ("title", "template__name")
     list_select_related = ("template",)
+
+
+@admin.register(MediaAsset)
+class MediaAssetAdmin(admin.ModelAdmin):
+    list_display = (
+        "session",
+        "kind",
+        "language",
+        "version",
+        "status",
+        "duration_seconds",
+        "conference",
+    )
+    list_filter = (ActiveConferenceFilter, "kind", "status")
+    search_fields = ("session__title",)
+    list_select_related = ("session", "conference")
+    autocomplete_fields = ("session", "uploaded_by")
+
+
+class HandbookReadReceiptInline(admin.TabularInline):
+    model = HandbookReadReceipt
+    extra = 0
+    fields = ("presenter", "read_at")
+    readonly_fields = ("read_at",)
+    autocomplete_fields = ("presenter",)
+
+
+@admin.register(Handbook)
+class HandbookAdmin(admin.ModelAdmin):
+    list_display = ("title", "version", "published_at", "conference")
+    list_filter = (ActiveConferenceFilter,)
+    list_select_related = ("conference",)
+    inlines = [HandbookReadReceiptInline]

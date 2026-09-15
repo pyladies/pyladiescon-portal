@@ -103,3 +103,15 @@ class ItemStatus(models.TextChoices):
 
 
 OPEN_ITEM_STATUSES = frozenset({ItemStatus.TODO, ItemStatus.BLOCKED})
+
+
+class MediaStatus(models.TextChoices):
+    UPLOADING = "UPLOADING", "Uploading"
+    READY = "READY", "Ready"
+    FAILED = "FAILED", "Failed"
+    SUPERSEDED = "SUPERSEDED", "Superseded"
+
+
+VIDEO_KINDS = frozenset(
+    {MediaKind.RAW_VIDEO, MediaKind.PROCESSED_VIDEO, MediaKind.INTRO, MediaKind.OUTRO}
+)

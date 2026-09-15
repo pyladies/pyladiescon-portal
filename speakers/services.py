@@ -17,7 +17,8 @@ from common.tasks import enqueue
 
 from .constants import SessionStatus
 from .emails import INVITATION_SALT
-from .models import ActivityLog, Invitation, InvitationStatus, TransitionError
+from .lifecycle import confirm_session_if_ready
+from .models import ActivityLog, Invitation, InvitationStatus
 from .signals import invitation_accepted
 from .tasks import send_invitation_email_task
 
@@ -148,28 +149,6 @@ def link_presenter_user(presenter, email=None):
     presenter.user = user
     presenter.save(update_fields=["user", "modified_date"])
     return user
-
-
-def confirm_session_if_ready(session, actor=None):
-    """Advance a DRAFT/INVITED session once every required presenter accepted."""
-    if session.status not in (SessionStatus.DRAFT, SessionStatus.INVITED):
-        return False
-    links = list(session.session_presenters.all())
-    required = [link for link in links if link.is_required]
-    if not required or any(not link.is_confirmed for link in required):
-        return False
-    try:
-        session.confirm()
-    except TransitionError:
-        return False  # a required checklist item is still open
-    ActivityLog.record(
-        session.conference,
-        "session.confirmed",
-        target=session,
-        actor=actor,
-        message="All required presenters accepted their invitations",
-    )
-    return True
 
 
 def accept_invitation(invitation):
