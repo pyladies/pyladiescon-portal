@@ -155,7 +155,7 @@ class TestDashboard:
         client.force_login(speaker)
         content = client.get(DASHBOARD).content.decode()
         assert "still missing" not in content
-        assert "No sessions yet" in content
+        assert "Nothing on your list yet" in content
 
     def test_schedule_placeholder(self, client, speaker, presenter):
         presenter.timezone = "Africa/Lagos"

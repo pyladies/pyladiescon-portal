@@ -95,6 +95,11 @@ urlpatterns = [
     ),
     path("me/schedule/", views.SpeakerScheduleView.as_view(), name="my_schedule"),
     path(
+        "me/items/<int:pk>/toggle/",
+        views.SpeakerItemToggleView.as_view(),
+        name="my_item_toggle",
+    ),
+    path(
         "invitations/<int:pk>/resend/",
         views.InvitationResendView.as_view(),
         name="invitation_resend",

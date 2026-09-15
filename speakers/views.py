@@ -4,6 +4,7 @@ from django.contrib.auth import logout
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import PermissionDenied
 from django.db import transaction
+from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -15,7 +16,8 @@ from django_tables2.views import SingleTableMixin
 
 from common.tasks import enqueue
 
-from .constants import SessionStatus
+from .checklists import ChecklistError, complete_item, reopen_item
+from .constants import ItemOwner, SessionStatus
 from .filters import PresenterFilter, SessionFilter
 from .forms import (
     InviteForm,
@@ -38,6 +40,7 @@ from .mixins import (
 )
 from .models import (
     ActivityLog,
+    ChecklistItem,
     Invitation,
     Presenter,
     PresenterRole,
@@ -542,26 +545,91 @@ class InvitationCancelView(InvitationActionMixin, View):
 
 
 class SpeakerDashboardView(LoginRequiredMixin, PresenterRequiredMixin, TemplateView):
-    """The presenter's home (design §2.2). Checklists arrive in Stage 2; for
-    now it shows their sessions and where to fill in their profile."""
+    """The presenter's home (design §2.2 and §9.5).
+
+    Two lists side by side: their own to-dos (tickable unless automatic)
+    and what the team is doing for them (read-only, with the assignee).
+    Performers also see the post-production items for their sessions.
+    """
 
     template_name = "speakers/speaker_dashboard.html"
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context["conference"] = self.conference
-        context["presenter"] = self.presenter
-        context["session_links"] = list(
-            self.presenter.session_presenters.select_related("session").order_by(
-                "session__title"
-            )
+        presenter = self.presenter
+        today = timezone.now().astimezone(presenter.tzinfo).date()
+        links = list(
+            presenter.session_presenters.select_related(
+                "session", "session__kind", "role"
+            ).order_by("session__title")
         )
-        # Stage 1 stand-in: the Stage 2 checklist replaces this with real
-        # items, so nothing else should build on it.
-        context["profile_complete"] = bool(
-            self.presenter.bio_md and self.presenter.headshot
+        session_ids = [link.session_id for link in links]
+        items = list(
+            ChecklistItem.objects.filter(
+                Q(presenter=presenter)
+                | Q(presenter__isnull=True, session__in=session_ids)
+            )
+            .select_related("session", "assignee")
+            .order_by("session__title", "order", "id")
+        )
+        for item in items:
+            item.overdue = (
+                item.is_open and item.due_date is not None and item.due_date < today
+            )
+        speaker_items = [
+            i for i in items if i.presenter_id and i.owner == ItemOwner.SPEAKER
+        ]
+        organizer_items = [
+            i for i in items if i.presenter_id and i.owner == ItemOwner.ORGANIZER
+        ]
+        video_items = [i for i in items if i.presenter_id is None]
+        summaries = []
+        for link in links:
+            mine = [i for i in speaker_items if i.session_id == link.session_id]
+            summaries.append(
+                {
+                    "session": link.session,
+                    "role": link.role.name,
+                    "done": sum(1 for i in mine if not i.is_open),
+                    "total": len(mine),
+                }
+            )
+        context.update(
+            {
+                "conference": self.conference,
+                "presenter": presenter,
+                "today": today,
+                "speaker_items": speaker_items,
+                "organizer_items": organizer_items,
+                "video_items": video_items,
+                "session_summaries": summaries,
+                "profile_complete": bool(presenter.bio_md and presenter.headshot),
+            }
         )
         return context
+
+
+class SpeakerItemToggleView(LoginRequiredMixin, PresenterRequiredMixin, View):
+    """Tick or untick one of the presenter's own items."""
+
+    def post(self, request, pk):
+        item = get_object_or_404(
+            ChecklistItem.objects.select_related("session"),
+            pk=pk,
+            presenter=self.presenter,
+        )
+        if item.owner != ItemOwner.SPEAKER:
+            raise PermissionDenied("Only your own to-dos can be ticked.")
+        try:
+            if item.is_open:
+                complete_item(item, actor=request.user)
+                messages.success(request, f"Done: {item.title}")
+            else:
+                reopen_item(item, actor=request.user)
+                messages.info(request, f"Reopened: {item.title}")
+        except ChecklistError as exc:
+            messages.error(request, str(exc))
+        return redirect("speakers:my_dashboard")
 
 
 class SpeakerProfileUpdateView(LoginRequiredMixin, PresenterRequiredMixin, UpdateView):

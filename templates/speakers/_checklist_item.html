@@ -1,0 +1,71 @@
+{% load i18n %}
+{% trans "Mark as not done" as undo_label %}
+{% trans "Mark as done" as do_label %}
+{% trans "Ticks itself" as auto_label %}
+{% comment %}
+One checklist line. Params:
+    item      — ChecklistItem (with .overdue set by the view)
+    tickable  — truthy when the viewer may tick/untick it (own SPEAKER items)
+    show_assignee — truthy to show who is on it (organizer items)
+{% endcomment %}
+<li class="list-group-item d-flex align-items-start gap-2 {% if item.is_automatic %}checklist-item-auto{% else %}checklist-item-manual{% endif %}{% if item.is_done %} checklist-item-done{% endif %}"
+    data-item-id="{{ item.pk }}"
+    data-status="{{ item.status }}">
+    {% if tickable and not item.is_automatic %}
+        <form method="post" action="{% url 'speakers:my_item_toggle' item.pk %}">
+            {% csrf_token %}
+            <button type="submit"
+                    class="btn btn-sm {% if item.is_done %}btn-success{% else %}btn-outline-secondary{% endif %}"
+                    aria-label="{% if item.is_done %}{{ undo_label }}{% else %}{{ do_label }}{% endif %}">
+                <i class="fa-solid fa-check"></i>
+            </button>
+        </form>
+    {% else %}
+        <span class="badge {% if item.is_done %}text-bg-success{% elif item.status == 'BLOCKED' %}text-bg-danger{% elif item.status == 'SKIPPED' %}text-bg-secondary{% else %}text-bg-light border{% endif %}">
+            {% if item.is_done %}
+                <i class="fa-solid fa-check"></i>
+            {% elif item.status == "BLOCKED" %}
+                {% trans "Blocked" %}
+            {% elif item.status == "SKIPPED" %}
+                {% trans "Skipped" %}
+            {% else %}
+                {% trans "To do" %}
+            {% endif %}
+        </span>
+    {% endif %}
+    <div class="flex-grow-1">
+        <div>
+            {{ item.title }}
+            {% if item.is_automatic %}
+                <i class="fa-solid fa-wand-magic-sparkles text-secondary small"
+                   title="{{ auto_label }}"></i>
+            {% endif %}
+        </div>
+        <div class="small text-secondary">
+            {% if item.session %}
+                {{ item.session.title }} ·
+            {% endif %}
+            {% if item.due_date %}
+                <span {% if item.overdue %}class="text-danger fw-semibold"{% endif %}>
+                    {% trans "due" %} {{ item.due_date|date:"j M" }}
+                    {% if item.overdue %}
+                        ({% trans "overdue" %})
+                    {% endif %}
+                </span>
+            {% endif %}
+            {% if show_assignee %}
+                ·
+                {% if item.assignee %}
+                    {{ item.assignee.get_full_name|default:item.assignee.username }}
+                {% else %}
+                    {% trans "unassigned" %}
+                {% endif %}
+            {% endif %}
+        </div>
+        {% if item.status == "BLOCKED" and item.note %}
+            <div class="small text-danger">
+                {{ item.note }}
+            </div>
+        {% endif %}
+    </div>
+</li>

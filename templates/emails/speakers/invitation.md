@@ -12,7 +12,7 @@ Hi {{ presenter.display_name }},
 {% endif %}
 **[Accept or decline the invitation]({{ accept_url }})**
 
-If the button does not work, copy this address into your browser: {{ accept_url }}
+If the button does not work, copy this address into your browser: <{{ accept_url }}>
 
 This link is personal to you and works until {{ expires_at|date:"j F Y" }}. Accepting creates your speaker account on the portal, where you can fill in your bio and session details and see what happens next.
 

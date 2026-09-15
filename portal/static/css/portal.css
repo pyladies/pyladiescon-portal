@@ -105,3 +105,15 @@ body {
 .footer-heading {
     letter-spacing: 0.04em;
 }
+
+/* Speaker checklists (templates/speakers/_checklist_item.html): items the
+   portal ticks by itself are dashed so a speaker knows not to tick them. */
+.checklist-item-auto {
+    border-left: 3px dashed var(--bs-secondary);
+}
+.checklist-item-manual {
+    border-left: 3px solid var(--bs-primary);
+}
+.checklist-item-done {
+    opacity: 0.65;
+}
