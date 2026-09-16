@@ -1,5 +1,6 @@
 {% extends "speakers/_organize_shell.html" %}
 {% load i18n %}
+{% load django_bootstrap5 %}
 {% load speakers_extras %}
 {% block head_title %}
     {{ presenter.display_name }}
@@ -45,6 +46,61 @@
     </div>
     <div class="row g-4">
         <div class="col-lg-7">
+            <div class="card mb-4 {% if accepted %}border-success-subtle{% elif latest_sent %}border-warning-subtle{% endif %}">
+                <div class="card-body">
+                    {% if accepted %}
+                        <div class="fw-semibold">
+                            <i class="fa-solid fa-circle-check text-success"></i>
+                            {% blocktranslate with date=accepted.accepted_at|date:"j F Y" %}Accepted on {{ date }}.{% endblocktranslate %}
+                        </div>
+                        <div class="small text-secondary">
+                            {% blocktranslate with date=latest_sent.sent_at|date:"j F Y, H:i" %}Last invitation sent {{ date }} UTC.{% endblocktranslate %}
+                        </div>
+                    {% elif latest_sent %}
+                        <div class="fw-semibold">
+                            <i class="fa-regular fa-clock text-warning"></i>
+                            {% blocktranslate with date=latest_sent.sent_at|date:"j F Y, H:i" %}Invited on {{ date }} UTC, not yet accepted.{% endblocktranslate %}
+                        </div>
+                        <div class="small text-secondary">
+                            {% if latest_sent.opened_at %}
+                                {% blocktranslate with date=latest_sent.opened_at|date:"j F Y, H:i" %}Opened {{ date }} UTC.{% endblocktranslate %}
+                            {% else %}
+                                {% trans "Not opened yet." %}
+                            {% endif %}
+                            {% if latest_sent.status == "EXPIRED" %}
+                                {% trans "The link has expired; resend it." %}
+                            {% elif latest_sent.status == "DECLINED" %}
+                                {% trans "Declined." %}
+                            {% endif %}
+                        </div>
+                    {% else %}
+                        <div class="fw-semibold">
+                            <i class="fa-regular fa-envelope text-secondary"></i> {% trans "Not invited yet." %}
+                        </div>
+                    {% endif %}
+                    {% if is_organizer and not accepted %}
+                        <details class="mt-3" {% if not latest_sent %}open{% endif %}>
+                            <summary class="btn btn-sm {% if latest_sent %}btn-outline-primary{% else %}btn-primary{% endif %}">
+                                <i class="fa-solid fa-paper-plane"></i>
+                                {% if latest_sent %}
+                                    {% trans "Resend invitation" %}
+                                {% else %}
+                                    {% trans "Send invitation" %}
+                                {% endif %}
+                            </summary>
+                            <form method="post"
+                                  class="mt-3"
+                                  action="{% url 'speakers:presenter_invite' presenter.slug %}">
+                                {% csrf_token %}
+                                {% bootstrap_form invite_form %}
+                                <button class="btn btn-sm btn-primary" type="submit">
+                                    {% trans "Send" %}
+                                </button>
+                            </form>
+                        </details>
+                    {% endif %}
+                </div>
+            </div>
             {% if presenter.bio_md %}
                 <h2 class="h6 text-uppercase text-secondary">
                     {% trans "Bio" %}
@@ -53,50 +109,52 @@
                     {{ presenter.bio_md|speaker_md }}
                 </div>
             {% endif %}
-            <h2 class="h6 text-uppercase text-secondary">
-                {% trans "Their to-dos" %}
-            </h2>
-            <div class="mb-4">
-                {% trans "No speaker items yet; they appear when the invitation is accepted." as empty_speaker %}
-                {% include "speakers/_organizer_item_table.html" with items=speaker_items assignee_choices=assignee_choices can_assign=can_assign empty=empty_speaker %}
-            </div>
-            <h2 class="h6 text-uppercase text-secondary">
-                {% trans "What we're doing for them" %}
-            </h2>
-            <div class="mb-2">
-                {% trans "No organizer items yet." as empty_organizer %}
-                {% include "speakers/_organizer_item_table.html" with items=organizer_items assignee_choices=assignee_choices can_assign=can_assign empty=empty_organizer %}
-            </div>
-            <details class="mb-4">
-                <summary class="small">
-                    {% trans "Add a one-off item" %}
-                </summary>
-                <form method="post"
-                      class="row g-2 mt-1"
-                      action="{% url 'speakers:presenter_add_item' presenter.slug %}">
-                    {% csrf_token %}
-                    <div class="col-md-5">
-                        {{ adhoc_form.title.label_tag }} {{ adhoc_form.title }}
-                    </div>
-                    <div class="col-md-3">
-                        {{ adhoc_form.owner.label_tag }} {{ adhoc_form.owner }}
-                    </div>
-                    <div class="col-md-4">
-                        {{ adhoc_form.due_date.label_tag }} {{ adhoc_form.due_date }}
-                    </div>
-                    <div class="col-md-6">
-                        {{ adhoc_form.assignee.label_tag }} {{ adhoc_form.assignee }}
-                    </div>
-                    <div class="col-12">
-                        {{ adhoc_form.description_md.label_tag }} {{ adhoc_form.description_md }}
-                    </div>
-                    <div class="col-12">
-                        <button class="btn btn-sm btn-outline-primary" type="submit">
-                            {% trans "Add item" %}
-                        </button>
-                    </div>
-                </form>
-            </details>
+            {% if show_checklists %}
+                <h2 class="h6 text-uppercase text-secondary">
+                    {% trans "Their to-dos" %}
+                </h2>
+                <div class="mb-4">
+                    {% trans "No speaker items yet; they appear when the invitation is accepted." as empty_speaker %}
+                    {% include "speakers/_organizer_item_table.html" with items=speaker_items assignee_choices=assignee_choices can_assign=can_assign empty=empty_speaker %}
+                </div>
+                <h2 class="h6 text-uppercase text-secondary">
+                    {% trans "What we're doing for them" %}
+                </h2>
+                <div class="mb-2">
+                    {% trans "No organizer items yet." as empty_organizer %}
+                    {% include "speakers/_organizer_item_table.html" with items=organizer_items assignee_choices=assignee_choices can_assign=can_assign empty=empty_organizer %}
+                </div>
+                <details class="mb-4">
+                    <summary class="small">
+                        {% trans "Add a one-off item" %}
+                    </summary>
+                    <form method="post"
+                          class="row g-2 mt-1"
+                          action="{% url 'speakers:presenter_add_item' presenter.slug %}">
+                        {% csrf_token %}
+                        <div class="col-md-5">
+                            {{ adhoc_form.title.label_tag }} {{ adhoc_form.title }}
+                        </div>
+                        <div class="col-md-3">
+                            {{ adhoc_form.owner.label_tag }} {{ adhoc_form.owner }}
+                        </div>
+                        <div class="col-md-4">
+                            {{ adhoc_form.due_date.label_tag }} {{ adhoc_form.due_date }}
+                        </div>
+                        <div class="col-md-6">
+                            {{ adhoc_form.assignee.label_tag }} {{ adhoc_form.assignee }}
+                        </div>
+                        <div class="col-12">
+                            {{ adhoc_form.description_md.label_tag }} {{ adhoc_form.description_md }}
+                        </div>
+                        <div class="col-12">
+                            <button class="btn btn-sm btn-outline-primary" type="submit">
+                                {% trans "Add item" %}
+                            </button>
+                        </div>
+                    </form>
+                </details>
+            {% endif %}
             <h2 class="h6 text-uppercase text-secondary">
                 {% trans "Invitations" %}
             </h2>

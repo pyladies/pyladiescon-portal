@@ -46,6 +46,7 @@ from .forms import (
     HandbookForm,
     InviteForm,
     PresenterForm,
+    PresenterInviteForm,
     PresenterRoleForm,
     ProgramItemForm,
     SessionForm,
@@ -429,6 +430,10 @@ class PresenterDetailView(PresenterScopedMixin, DetailView):
         context["session_links"] = self.object.session_links
         context["invitations"] = self.object.invitation_history
         context["activity"] = ActivityLog.for_target(self.object)[:20]
+        sent = [i for i in self.object.invitation_history if i.sent_at]
+        context["latest_sent"] = max(sent, key=lambda i: i.sent_at) if sent else None
+        context["accepted"] = next((i for i in sent if i.accepted_at), None)
+        context["invite_form"] = PresenterInviteForm(presenter=self.object)
         items = list(
             self.object.checklist_items.select_related("assignee", "session").order_by(
                 "session__title", "order", "id"
@@ -444,6 +449,9 @@ class PresenterDetailView(PresenterScopedMixin, DetailView):
         context["assignee_choices"] = list(liaison_candidates(self.conference))
         context["adhoc_form"] = AdhocItemForm(conference=self.conference)
         context["can_assign"] = is_speaker_organizer(self.request.user)
+        # Checklists only make sense once the presenter has been invited; ad-hoc
+        # items added earlier still show.
+        context["show_checklists"] = bool(context["latest_sent"] or items)
         settings_row = SpeakerSettings.objects.filter(
             conference=self.conference
         ).first()
@@ -619,6 +627,38 @@ class SessionInviteView(OrganizerSessionActionMixin, View):
         send_invitation(invitation, actor=request.user)
         messages.success(request, f"Invitation sent to {link.presenter.email}.")
         return redirect(session.get_absolute_url())
+
+
+class PresenterInviteView(LoginRequiredMixin, SpeakerOrganizerRequiredMixin, View):
+    """Send (or resend) an invitation from the presenter page, to a chosen
+    session or to the conference in general."""
+
+    def post(self, request, slug):
+        presenter = get_object_or_404(
+            Presenter.objects.for_conference(self.conference), slug=slug
+        )
+        form = PresenterInviteForm(request.POST, presenter=presenter)
+        if not form.is_valid():
+            messages.error(request, "Pick one of the presenter's sessions.")
+            return redirect(presenter.get_absolute_url())
+        session = form.cleaned_data["session"]
+        invitation = (
+            Invitation.objects.filter(presenter=presenter, session=session)
+            .exclude(accepted_at__isnull=False)
+            .order_by("-creation_date", "-id")
+            .first()
+        )
+        resend = invitation is not None and invitation.sent_at is not None
+        if invitation is None:
+            invitation = Invitation(presenter=presenter, session=session)
+        invitation.invited_by = request.user
+        invitation.message_md = form.cleaned_data["message_md"]
+        send_invitation(invitation, actor=request.user)
+        messages.success(
+            request,
+            f"Invitation {'resent' if resend else 'sent'} to {presenter.email}.",
+        )
+        return redirect(presenter.get_absolute_url())
 
 
 class InvitationActionMixin(LoginRequiredMixin, SpeakerOrganizerRequiredMixin):

@@ -581,3 +581,28 @@ class HandbookForm(forms.ModelForm):
         fields = ["title", "body_md"]
         widgets = {"body_md": forms.Textarea(attrs={"rows": 24})}
         help_texts = {"body_md": MARKDOWN_HELP}
+
+
+class PresenterInviteForm(InviteForm):
+    """Invite from the presenter page: pick the session (or the conference
+    in general) and write the note."""
+
+    session = forms.ChoiceField(required=False, label="Invite to")
+
+    def __init__(self, *args, presenter, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.presenter = presenter
+        links = presenter.session_presenters.select_related("session").order_by(
+            "session__title"
+        )
+        self.fields["session"].choices = [
+            (str(link.session_id), f"{link.session.title} ({link.get_role_display()})")
+            for link in links
+        ] + [("", "The conference in general")]
+        self.order_fields(["session", "message_md"])
+
+    def clean_session(self):
+        value = self.cleaned_data["session"]
+        if not value:
+            return None
+        return self.presenter.session_presenters.get(session_id=value).session

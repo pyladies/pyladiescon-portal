@@ -617,3 +617,86 @@ class TestEndToEnd:
         content = client.get(presenter.get_absolute_url()).content.decode()
         assert "Accepted" in content and "linked" not in content.split("Account")[0]
         assert "Accepted" in client.get(LIST).content.decode()
+
+
+@pytest.mark.django_db
+class TestInviteFromPresenterPage:
+    def test_not_invited_hides_checklists_and_offers_send(
+        self, client, organizer, presenters, conference
+    ):
+        ada = presenters["ada"]
+        client.force_login(organizer)
+        content = client.get(ada.get_absolute_url()).content.decode()
+        assert "Not invited yet" in content
+        assert "Send invitation" in content and "Their to-dos" not in content
+        assert reverse("speakers:presenter_invite", args=[ada.pk]) in content
+        assert "Django 101 (Presenter)" in content
+        assert "The conference in general" in content
+
+    def test_send_to_session_then_resend(self, client, organizer, presenters):
+        ada, session = presenters["ada"], presenters["session"]
+        client.force_login(organizer)
+        mail.outbox.clear()
+        url = reverse("speakers:presenter_invite", args=[ada.pk])
+        response = client.post(
+            url, {"session": session.pk, "message_md": "Please *come*"}, follow=True
+        )
+        assert f"Invitation sent to {ada.email}" in response.content.decode()
+        invitation = Invitation.objects.get()
+        assert invitation.session == session and invitation.invited_by == organizer
+        assert invitation.message_md == "Please *come*"
+        first_link = _link_from_mail()
+        content = client.get(ada.get_absolute_url()).content.decode()
+        assert "Invited on" in content and "not yet accepted" in content
+        assert "Not opened yet" in content
+        assert "Resend invitation" in content
+        assert "Their to-dos" in content
+        response = client.post(
+            url, {"session": session.pk, "message_md": ""}, follow=True
+        )
+        assert "Invitation resent" in response.content.decode()
+        assert Invitation.objects.count() == 1 and len(mail.outbox) == 2
+        client.logout()
+        assert client.get(first_link).context["reason"] == "superseded"
+
+    def test_general_invitation_and_accepted_state(self, client, organizer, presenters):
+        ada = presenters["ada"]
+        client.force_login(organizer)
+        client.post(
+            reverse("speakers:presenter_invite", args=[ada.pk]), {"session": ""}
+        )
+        invitation = Invitation.objects.get()
+        assert invitation.session is None
+        invitation.opened_at = invitation.accepted_at = invitation.sent_at
+        invitation.save()
+        content = client.get(ada.get_absolute_url()).content.decode()
+        assert "Accepted on" in content and "Last invitation sent" in content
+        assert reverse("speakers:presenter_invite", args=[ada.pk]) not in content
+
+    def test_opened_shown(self, client, organizer, presenters):
+        ada = presenters["ada"]
+        invitation = make_invitation(ada, presenters["session"])
+        send_invitation(invitation)
+        invitation.opened_at = invitation.sent_at
+        invitation.save()
+        client.force_login(organizer)
+        assert "Opened" in client.get(ada.get_absolute_url()).content.decode()
+
+    def test_rejects_session_the_presenter_is_not_on(
+        self, client, organizer, presenters
+    ):
+        ada, other = presenters["ada"], presenters["session"]
+        stranger = make_session(other.conference, title="Not hers")
+        client.force_login(organizer)
+        response = client.post(
+            reverse("speakers:presenter_invite", args=[ada.pk]),
+            {"session": stranger.pk},
+            follow=True,
+        )
+        assert "Pick one of the presenter" in response.content.decode()
+        assert Invitation.objects.count() == 0
+
+    def test_organizer_only(self, client, liaison, presenters):
+        client.force_login(liaison)
+        url = reverse("speakers:presenter_invite", args=[presenters["ada"].pk])
+        assert client.post(url, {"session": ""}).status_code == 403
