@@ -123,8 +123,34 @@ class TestDashboardLists:
         assert "1 of 2 to-dos done" in content
         assert toggle(mine) in content and toggle(done) in content
         assert toggle(theirs) not in content and toggle(unassigned) not in content
-        assert "Lena K" in content and "unassigned" in content
+        assert "Lena K is on it" in content and "not yet assigned" in content
+        assert "A team task: nothing for you to do here." in content
         assert re.search(r'data-item-id="%d"\s+data-status="DONE"' % done.pk, content)
+
+    def test_speaker_sees_who_completed_a_team_task(
+        self, client, speaker, presenter, session, conference
+    ):
+        volunteer = User.objects.create_user(
+            username="vol", first_name="Volunteer", last_name="A"
+        )
+        uploaded = add_adhoc_item(
+            conference,
+            "Upload the transcript",
+            ItemOwner.ORGANIZER,
+            presenter=presenter,
+            session=session,
+            assignee=volunteer,
+        )
+        complete_item(uploaded, actor=volunteer)
+        automatic = add_adhoc_item(
+            conference, "Session scheduled", ItemOwner.ORGANIZER, presenter=presenter
+        )
+        complete_item(automatic, manual=False)
+        client.force_login(speaker)
+        content = client.get(DASHBOARD).content.decode()
+        assert "done by Volunteer A on" in content
+        assert "done automatically on" in content
+        assert "nothing for you to do here" not in content.split("Session scheduled")[1]
 
     def test_automatic_item_is_dashed_and_not_tickable(
         self, client, speaker, presenter, session, conference

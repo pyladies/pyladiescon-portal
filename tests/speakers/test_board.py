@@ -294,6 +294,15 @@ class TestPresenterPageChecklists:
         page = client.get(people["ada"].get_absolute_url()).content.decode()
         assert "<em>salty</em>" in page
 
+    def test_organizer_rows_credit_the_completer(
+        self, client, organizer, people, liaison
+    ):
+        item = people["items"]["Ada", "promo"]
+        complete_item(item, actor=liaison)
+        client.force_login(organizer)
+        content = client.get(people["ada"].get_absolute_url()).content.decode()
+        assert "by Lena," in content
+
     def test_add_one_off_item(self, client, organizer, people, liaison):
         ada = people["ada"]
         client.force_login(organizer)

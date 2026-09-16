@@ -172,6 +172,18 @@ class TestPresenterForms:
         # Pending volunteers and plain users are not offered; sorted by name,
         # and a blank first name sorts first.
         assert list(liaison_candidates(conference)) == [organizer, liaison]
+        # Superusers without the staff flag and any approved volunteer count too;
+        # an inactive account never does.
+        root = User.objects.create_user(username="root", is_superuser=True)
+        helper = User.objects.create_user(username="helper", first_name="Zed")
+        VolunteerProfile.objects.create(
+            user=helper,
+            conference=conference,
+            application_status=ApplicationStatus.APPROVED,
+        )
+        gone = User.objects.create_user(username="gone", is_staff=True, is_active=False)
+        candidates = list(liaison_candidates(conference))
+        assert root in candidates and helper in candidates and gone not in candidates
 
     def test_liaison_reads_but_cannot_edit(self, client, liaison, presenters):
         """A liaison sees their presenter but must not change the email an

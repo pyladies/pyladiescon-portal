@@ -439,9 +439,9 @@ class PresenterDetailView(PresenterScopedMixin, DetailView):
         context["accepted"] = next((i for i in sent if i.accepted_at), None)
         context["invite_form"] = PresenterInviteForm(presenter=self.object)
         items = list(
-            self.object.checklist_items.select_related("assignee", "session").order_by(
-                "session__title", "order", "id"
-            )
+            self.object.checklist_items.select_related(
+                "assignee", "session", "completed_by"
+            ).order_by("session__title", "order", "id")
         )
         for item in items:
             item.overdue = item.is_overdue
