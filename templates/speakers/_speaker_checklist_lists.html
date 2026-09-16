@@ -1,0 +1,55 @@
+{% load i18n %}
+{% comment %}
+The three checklist lists for a presenter. Params:
+    speaker_items, organizer_items, video_items — lists (may be empty)
+    compact — truthy to drop the column layout (inside a session card)
+{% endcomment %}
+<div class="row g-4">
+    <div class="{% if compact %}col-12{% else %}col-lg-6{% endif %}">
+        <div class="card h-100">
+            <div class="card-header d-flex justify-content-between">
+                <span>{% trans "Your to-dos" %}</span>
+                <span class="small text-secondary"><i class="fa-solid fa-wand-magic-sparkles"></i> {% trans "= ticks itself" %}</span>
+            </div>
+            <ul class="list-group list-group-flush">
+                {% for item in speaker_items %}
+                    {% include "speakers/_checklist_item.html" with item=item tickable=True %}
+                {% empty %}
+                    <li class="list-group-item text-secondary">
+                        {% trans "Nothing on your list here." %}
+                    </li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+    <div class="{% if compact %}col-12{% else %}col-lg-6{% endif %}">
+        <div class="card h-100">
+            <div class="card-header">
+                {% trans "What we're doing for you" %}
+            </div>
+            <ul class="list-group list-group-flush">
+                {% for item in organizer_items %}
+                    {% include "speakers/_checklist_item.html" with item=item show_assignee=True %}
+                {% empty %}
+                    <li class="list-group-item text-secondary">
+                        {% trans "The team's list for you appears here, with who is on each item." %}
+                    </li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+    {% if video_items %}
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    {% trans "What we're doing with your video" %}
+                </div>
+                <ul class="list-group list-group-flush">
+                    {% for item in video_items %}
+                        {% include "speakers/_checklist_item.html" with item=item show_assignee=True %}
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+    {% endif %}
+</div>

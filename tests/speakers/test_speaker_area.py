@@ -146,7 +146,7 @@ class TestDashboard:
         assert "Django 101" in content
         assert "Not yet public" in content
         assert "Your bio or photo is still missing" in content
-        assert "Your to-dos" in content and "What we're doing for you" in content
+        assert "Open my checklist" in content
 
     def test_nudge_gone_when_complete(self, client, speaker, presenter):
         presenter.bio_md = "Hi"
@@ -155,7 +155,7 @@ class TestDashboard:
         client.force_login(speaker)
         content = client.get(DASHBOARD).content.decode()
         assert "still missing" not in content
-        assert "Nothing on your list yet" in content
+        assert "Nothing open on your to-do list" in content
         assert "You are not on any session yet" in content
 
     def test_schedule_placeholder(self, client, speaker, presenter):
@@ -307,7 +307,10 @@ class TestSessions:
                 "slug": "hacked",
             },
         )
-        assertRedirects(response, SESSIONS)
+        assertRedirects(
+            response,
+            reverse("speakers:my_session_detail", args=[my_session.slug]),
+        )
         my_session.refresh_from_db()
         assert my_session.summary_md == "Still editable"
         assert my_session.title == "Django 101" and my_session.slug == "django-101"
@@ -352,8 +355,11 @@ class TestSessions:
                 "duration_minutes": 5,
             },
         )
-        assertRedirects(response, SESSIONS)
+        # Renaming it moves its address, so read that back before checking.
         my_session.refresh_from_db()
+        assertRedirects(
+            response, reverse("speakers:my_session_detail", args=[my_session.slug])
+        )
         assert my_session.summary_md == "Learn *Django*"
         assert my_session.level == "BEGINNER"
         # Title and address are the speaker's until the session is scheduled;

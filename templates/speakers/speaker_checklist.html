@@ -1,0 +1,71 @@
+{% extends "speakers/_speaker_shell.html" %}
+{% load i18n %}
+{% block head_title %}
+    {% trans "My checklist" %}
+{% endblock head_title %}
+{% block breadcrumb %}
+    {% url 'speakers:my_dashboard' as bc_url %}
+    {% trans "Speaking" as bc_section %}
+    {% trans "My checklist" as bc_page %}
+    {% include "portal/_breadcrumbs.html" with section=bc_section section_url=bc_url page=bc_page %}
+{% endblock breadcrumb %}
+{% block sidebar %}
+    {% include "speakers/_speaker_rail.html" with active="checklist" %}
+{% endblock sidebar %}
+{% block content %}
+    {% trans "View" as view_label %}
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-1">
+        <h1 class="h3 mb-0">
+            {% if only %}
+                {% blocktranslate with title=only.title %}Checklist for {{ title }}{% endblocktranslate %}
+            {% else %}
+                {% trans "My checklist" %}
+            {% endif %}
+        </h1>
+        <div class="btn-group btn-group-sm"
+             role="group"
+             aria-label="{{ view_label }}">
+            <a class="btn {% if view == 'all' and not only %}btn-primary{% else %}btn-outline-primary{% endif %}"
+               href="{% url 'speakers:my_checklist' %}">{% trans "All, by due date" %}</a>
+            <a class="btn {% if view == 'session' and not only %}btn-primary{% else %}btn-outline-primary{% endif %}"
+               href="{% url 'speakers:my_checklist' %}?view=session">{% trans "By session" %}</a>
+        </div>
+    </div>
+    <p class="text-secondary">
+        {% blocktranslate with tz=presenter.timezone %}Dates are in {{ tz }}.{% endblocktranslate %}
+        {% if only %}
+            <a href="{% url 'speakers:my_checklist' %}?view=session">{% trans "Show every session" %}</a>
+        {% endif %}
+    </p>
+    {% if view == "all" %}
+        {% include "speakers/_speaker_checklist_lists.html" with speaker_items=speaker_items organizer_items=organizer_items video_items=video_items %}
+    {% else %}
+        {% for group in groups %}
+            <div class="card mb-4"
+                 data-session-group="{{ group.session.pk|default:'general' }}">
+                <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
+                    <span>
+                        {% if group.session %}
+                            <span class="badge text-bg-light border">{{ group.session.get_kind_display }}</span>
+                            <a class="fw-semibold"
+                               href="{% url 'speakers:my_session_detail' group.session.slug %}">{{ group.session.title }}</a>
+                        {% else %}
+                            <span class="fw-semibold">{% trans "Not tied to a session" %}</span>
+                        {% endif %}
+                    </span>
+                    {% if group.session %}
+                        <a class="small"
+                           href="{% url 'speakers:my_session_detail' group.session.slug %}">{% trans "Session details" %}</a>
+                    {% endif %}
+                </div>
+                <div class="card-body">
+                    {% include "speakers/_speaker_checklist_lists.html" with speaker_items=group.speaker organizer_items=group.organizer video_items=group.video compact=True %}
+                </div>
+            </div>
+        {% empty %}
+            <p class="text-secondary">
+                {% trans "Nothing on your list yet. Your checklist appears here once you're confirmed on a session." %}
+            </p>
+        {% endfor %}
+    {% endif %}
+{% endblock content %}

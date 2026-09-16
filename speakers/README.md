@@ -362,6 +362,10 @@ installed; this app keeps small factory functions in `tests/speakers/factories.p
   apart twice.
 - Speaker side: `/speakers/me/...`, gated by `PresenterRequiredMixin` (the
   user must own a `Presenter` row in the active edition, else 403). The
+  dashboard is a summary (sessions with "x of y tasks done", open to-do
+  count); the checklist has its own page (`my_checklist`, all-by-due-date
+  or grouped by session, `?session=` for one), and each session has a
+  read-only detail page with its checklist next to the edit form. The
   personal rail is `templates/speakers/_speaker_rail.html`; the navbar shows
   "Speaking" through the `is_speaker_presenter` context flag, and the portal
   index routes presenters who are not volunteering this year to their
