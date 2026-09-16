@@ -232,13 +232,11 @@ class SessionPresenterForm(forms.ModelForm):
 
     class Meta:
         model = SessionPresenter
-        fields = ["presenter", "role", "order", "is_required"]
+        # Display order stays at its default for now; it is not offered in the UI.
+        fields = ["presenter", "role", "is_required"]
         widgets = {
             "presenter": forms.Select(attrs={"class": "form-select form-select-sm"}),
             "role": forms.Select(attrs={"class": "form-select form-select-sm"}),
-            "order": forms.NumberInput(
-                attrs={"class": "form-control form-control-sm", "placeholder": "Order"}
-            ),
             "is_required": forms.CheckboxInput(attrs={"class": "form-check-input"}),
         }
 
@@ -277,12 +275,9 @@ class SessionPresenterRoleForm(forms.ModelForm):
 
     class Meta:
         model = SessionPresenter
-        fields = ["role", "order", "is_required"]
+        fields = ["role", "is_required"]
         widgets = {
             "role": forms.Select(attrs={"class": "form-select form-select-sm"}),
-            "order": forms.NumberInput(
-                attrs={"class": "form-control form-control-sm", "placeholder": "Order"}
-            ),
             "is_required": forms.CheckboxInput(attrs={"class": "form-check-input"}),
         }
 

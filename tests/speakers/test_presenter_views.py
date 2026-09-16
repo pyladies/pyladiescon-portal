@@ -387,9 +387,7 @@ class TestSessionPresenterActions:
         assert [r.code for r in form.fields["role"].queryset] == ["PRESENTER"]
         assert form.fields["role"].initial == presenter_role_pk
         url = reverse("speakers:session_add_presenter", args=[session.slug])
-        response = client.post(
-            url, {"presenter": grace.pk, "role": presenter_role_pk, "order": 2}
-        )
+        response = client.post(url, {"presenter": grace.pk, "role": presenter_role_pk})
         assertRedirects(response, session.get_absolute_url())
         link = session.session_presenters.get(presenter=grace)
         assert link.role.code == "PRESENTER"
@@ -397,7 +395,7 @@ class TestSessionPresenterActions:
         # Already on the session: the select no longer offers them.
         response = client.post(
             url,
-            {"presenter": grace.pk, "role": presenter_role_pk, "order": 3},
+            {"presenter": grace.pk, "role": presenter_role_pk},
             follow=True,
         )
         assert "Could not add the presenter" in response.content.decode()
@@ -490,7 +488,6 @@ class TestSessionPresenterActions:
             {
                 "presenter": grace.pk,
                 "role": presenter_role(conference, "PRESENTER").pk,
-                "order": 1,
                 "is_required": "on",
             },
             follow=True,
@@ -514,7 +511,6 @@ class TestSessionPresenterActions:
             {
                 "presenter": presenters["ada"].pk,
                 "role": presenter_role(conference, "PRESENTER").pk,
-                "order": 2,
             },
         )
         assert (
@@ -541,7 +537,6 @@ class TestSessionPresenterActions:
             url,
             {
                 f"link{link.pk}-role": panelist.pk,
-                f"link{link.pk}-order": 3,
                 f"link{link.pk}-is_required": "on",
             },
             follow=True,
@@ -549,7 +544,7 @@ class TestSessionPresenterActions:
         body = response.content.decode()
         assert "Dexter is now Panelist" in body and "open item(s) dropped" in body
         link.refresh_from_db()
-        assert link.role == panelist and link.order == 3
+        assert link.role == panelist
         assert link.is_required is True and link.is_confirmed is True
         titles = set(presenter.checklist_items.values_list("title", flat=True))
         assert titles and titles != before
@@ -578,7 +573,7 @@ class TestSessionPresenterActions:
         ).last()
         assert entry.data["presenter_id"] == presenter.pk and entry.actor == organizer
 
-    def test_change_role_without_role_change_only_updates_order(
+    def test_change_role_without_role_change_only_updates_the_flag(
         self, client, organizer, presenters, conference
     ):
         session = presenters["session"]
@@ -589,11 +584,11 @@ class TestSessionPresenterActions:
             url,
             {
                 f"link{link.pk}-role": presenter_role(conference, "PRESENTER").pk,
-                f"link{link.pk}-order": 7,
+                f"link{link.pk}-is_required": "on",
             },
         )
         link.refresh_from_db()
-        assert link.order == 7 and link.is_required is False
+        assert link.is_required is True  # the flag moved, the role did not
         assert not ActivityLog.objects.filter(
             action="session.presenter_role_changed"
         ).exists()
@@ -602,7 +597,6 @@ class TestSessionPresenterActions:
             url,
             {
                 f"link{link.pk}-role": presenter_role(conference, "PERFORMER").pk,
-                f"link{link.pk}-order": 1,
             },
             follow=True,
         )
@@ -755,7 +749,6 @@ class TestEndToEnd:
             {
                 "presenter": presenter.pk,
                 "role": presenter_role(conference, "PRESENTER").pk,
-                "order": 1,
                 "is_required": "on",
             },
         )

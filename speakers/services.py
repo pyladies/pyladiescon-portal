@@ -269,7 +269,7 @@ def presenter_added_to_session(link, actor=None):
     return True
 
 
-def change_presenter_role(link, role, *, order=None, is_required=None, actor=None):
+def change_presenter_role(link, role, *, is_required=None, actor=None):
     """Change a presenter's role on a session and move their checklist with it.
 
     Open items that came from the old role's template are dropped, anything
@@ -286,8 +286,6 @@ def change_presenter_role(link, role, *, order=None, is_required=None, actor=Non
     )
     old_role_id, old_role_name = stored or (None, "")
     link.role = role
-    if order is not None:
-        link.order = order
     if is_required is not None:
         link.is_required = is_required
     link.save()

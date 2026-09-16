@@ -612,7 +612,6 @@ class SessionEditPresenterView(OrganizerSessionActionMixin, View):
         removed, created = change_presenter_role(
             link,
             form.cleaned_data["role"],
-            order=form.cleaned_data["order"],
             is_required=form.cleaned_data["is_required"],
             actor=request.user,
         )
