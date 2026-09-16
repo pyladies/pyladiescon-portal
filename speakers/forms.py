@@ -257,6 +257,36 @@ class SessionPresenterForm(forms.ModelForm):
         self.instance.session = session
 
 
+class SessionPresenterRoleForm(forms.ModelForm):
+    """Change a presenter's role, order or required flag on a session.
+
+    The roles offered are the ones the session's type allows, so a panel
+    cannot end up with a Performer.
+    """
+
+    def __init__(self, *args, session, roles=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["role"].queryset = session.kind.roles.filter(
+            is_active=True
+        ).order_by("sort_order", "name")
+        if roles is not None:
+            # A session page builds one of these per presenter. Handing them
+            # the roles it already read keeps the page at one query for the
+            # lot instead of one each; validation still uses the queryset.
+            self.fields["role"].choices = [(role.pk, role.name) for role in roles]
+
+    class Meta:
+        model = SessionPresenter
+        fields = ["role", "order", "is_required"]
+        widgets = {
+            "role": forms.Select(attrs={"class": "form-select form-select-sm"}),
+            "order": forms.NumberInput(
+                attrs={"class": "form-control form-control-sm", "placeholder": "Order"}
+            ),
+            "is_required": forms.CheckboxInput(attrs={"class": "form-check-input"}),
+        }
+
+
 class InviteForm(forms.Form):
     """The personal note that goes into an invitation email."""
 

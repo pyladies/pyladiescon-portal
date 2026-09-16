@@ -10,12 +10,17 @@ from django.urls import reverse
 from pytest_django.asserts import assertRedirects
 
 from portal.models import Conference
-from speakers.constants import SessionStatus
+from speakers.checklists import complete_item
+from speakers.constants import ItemStatus, SessionStatus
 from speakers.forms import PresenterForm, liaison_candidates
 from speakers.models import ActivityLog, Invitation, InvitationStatus, Presenter
 from speakers.program_types import presenter_role, session_type
 from speakers.seeds import seed_checklists
-from speakers.services import accept_invitation, send_invitation
+from speakers.services import (
+    accept_invitation,
+    change_presenter_role,
+    send_invitation,
+)
 from speakers.tables import invitation_badge
 from volunteer.constants import ApplicationStatus
 from volunteer.models import VolunteerProfile
@@ -516,6 +521,105 @@ class TestSessionPresenterActions:
             talk.session_presenters.get(presenter=presenters["ada"]).is_confirmed
             is False
         )
+
+    def test_change_role_moves_the_checklist(self, client, organizer, conference):
+        make_settings(conference)
+        seed_checklists(conference)
+        panel = make_session(conference, kind="PANEL", title="Panel")
+        panelist = presenter_role(conference, "PANELIST")
+        moderator = presenter_role(conference, "MODERATOR")
+        # Added as a moderator by mistake: the panelist checklist is the one
+        # they should have.
+        presenter = make_presenter(conference, display_name="Dexter")
+        link = add_presenter(panel, presenter, role=moderator, confirmed=True)
+        before = set(presenter.checklist_items.values_list("title", flat=True))
+        client.force_login(organizer)
+        content = client.get(panel.get_absolute_url()).content.decode()
+        assert "Change role" in content
+        url = reverse("speakers:session_edit_presenter", args=[panel.slug, link.pk])
+        response = client.post(
+            url,
+            {
+                f"link{link.pk}-role": panelist.pk,
+                f"link{link.pk}-order": 3,
+                f"link{link.pk}-is_required": "on",
+            },
+            follow=True,
+        )
+        body = response.content.decode()
+        assert "Dexter is now Panelist" in body and "open item(s) dropped" in body
+        link.refresh_from_db()
+        assert link.role == panelist and link.order == 3
+        assert link.is_required is True and link.is_confirmed is True
+        titles = set(presenter.checklist_items.values_list("title", flat=True))
+        assert titles and titles != before
+        assert presenter.checklist_items.filter(
+            template_item__template__role=panelist
+        ).exists()
+        # Back to moderator: open panelist items go, anything done stays.
+        done = presenter.checklist_items.filter(
+            status=ItemStatus.TODO, auto_complete_rule=""
+        ).first()
+        complete_item(done, actor=organizer)
+        client.post(
+            url,
+            {f"link{link.pk}-role": moderator.pk, f"link{link.pk}-order": 1},
+        )
+        titles = set(presenter.checklist_items.values_list("title", flat=True))
+        assert done.title in titles  # kept, it was done
+        assert presenter.checklist_items.filter(
+            template_item__template__role=moderator
+        ).exists()
+        assert not presenter.checklist_items.filter(
+            template_item__template__role=panelist, status=ItemStatus.TODO
+        ).exists()
+        entry = ActivityLog.objects.filter(
+            action="session.presenter_role_changed"
+        ).last()
+        assert entry.data["presenter_id"] == presenter.pk and entry.actor == organizer
+
+    def test_change_role_without_role_change_only_updates_order(
+        self, client, organizer, presenters, conference
+    ):
+        session = presenters["session"]
+        link = session.session_presenters.get()
+        client.force_login(organizer)
+        url = reverse("speakers:session_edit_presenter", args=[session.slug, link.pk])
+        client.post(
+            url,
+            {
+                f"link{link.pk}-role": presenter_role(conference, "PRESENTER").pk,
+                f"link{link.pk}-order": 7,
+            },
+        )
+        link.refresh_from_db()
+        assert link.order == 7 and link.is_required is False
+        assert not ActivityLog.objects.filter(
+            action="session.presenter_role_changed"
+        ).exists()
+        # A role this session's type does not allow is refused.
+        response = client.post(
+            url,
+            {
+                f"link{link.pk}-role": presenter_role(conference, "PERFORMER").pk,
+                f"link{link.pk}-order": 1,
+            },
+            follow=True,
+        )
+        assert "pick a valid role" in response.content.decode()
+
+    def test_unconfirmed_presenter_role_change_creates_no_checklist(self, conference):
+        make_settings(conference)
+        seed_checklists(conference)
+        session = make_session(conference, kind="PANEL")
+        link = add_presenter(
+            session,
+            make_presenter(conference),
+            role=presenter_role(conference, "PANELIST"),
+        )
+        moderator = presenter_role(conference, "MODERATOR")
+        assert change_presenter_role(link, moderator) == (0, 0)
+        assert link.presenter.checklist_items.count() == 0
 
     def test_liaison_cannot_add(self, client, liaison, presenters):
         client.force_login(liaison)

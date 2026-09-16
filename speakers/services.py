@@ -15,10 +15,18 @@ from django.utils import timezone
 
 from common.tasks import enqueue
 
-from .constants import SessionStatus
+from .checklists import instantiate_presenter_checklist
+from .constants import ChecklistScope, ItemStatus, SessionStatus
 from .emails import INVITATION_SALT
 from .lifecycle import confirm_session_if_ready
-from .models import ActivityLog, Invitation, InvitationStatus
+from .models import (
+    ActivityLog,
+    ChecklistItem,
+    Invitation,
+    InvitationStatus,
+    SessionPresenter,
+)
+from .rules import evaluate_items
 from .signals import invitation_accepted
 from .tasks import send_invitation_email_task
 
@@ -259,3 +267,53 @@ def presenter_added_to_session(link, actor=None):
     )
     confirm_session_if_ready(link.session)
     return True
+
+
+def change_presenter_role(link, role, *, order=None, is_required=None, actor=None):
+    """Change a presenter's role on a session and move their checklist with it.
+
+    Open items that came from the old role's template are dropped, anything
+    already done or skipped stays, and the new role's template is
+    instantiated (for a confirmed presenter) with its rules run once.
+    Returns ``(removed, created)`` counts.
+    """
+    # Compare with what is stored: a bound ModelForm has usually already put
+    # the new role on the instance before this is called.
+    stored = (
+        SessionPresenter.objects.filter(pk=link.pk)
+        .values_list("role_id", "role__name")
+        .first()
+    )
+    old_role_id, old_role_name = stored or (None, "")
+    link.role = role
+    if order is not None:
+        link.order = order
+    if is_required is not None:
+        link.is_required = is_required
+    link.save()
+    removed = created = 0
+    if old_role_id != role.pk:
+        removed, _ = ChecklistItem.objects.filter(
+            presenter=link.presenter,
+            session=link.session,
+            status=ItemStatus.TODO,
+            template_item__template__scope=ChecklistScope.PRESENTER,
+            template_item__template__role_id=old_role_id,
+        ).delete()
+        if link.is_confirmed:
+            new_items = instantiate_presenter_checklist(link)
+            evaluate_items(new_items)
+            created = len(new_items)
+        ActivityLog.record(
+            link.conference,
+            "session.presenter_role_changed",
+            target=link.session,
+            actor=actor,
+            message=(
+                f"{link.presenter.display_name}: " f"{old_role_name} is now {role.name}"
+            ),
+            presenter_id=link.presenter_id,
+            removed_items=removed,
+            created_items=created,
+        )
+    return removed, created

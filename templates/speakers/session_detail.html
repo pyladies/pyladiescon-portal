@@ -144,6 +144,35 @@
                                     </details>
                                 {% endif %}
                                 {% if is_organizer %}
+                                    {% with role_form=role_forms|get_item:link.pk %}
+                                        <details class="mt-2">
+                                            <summary class="small">
+                                                {% trans "Change role" %}
+                                            </summary>
+                                            <form method="post"
+                                                  class="mt-2"
+                                                  action="{% url 'speakers:session_edit_presenter' session.slug link.pk %}">
+                                                {% csrf_token %}
+                                                <div class="d-flex gap-2 mb-2">
+                                                    {{ role_form.role }}
+                                                    {{ role_form.order }}
+                                                </div>
+                                                <div class="form-check mb-2">
+                                                    {{ role_form.is_required }}
+                                                    <label class="form-check-label small"
+                                                           for="{{ role_form.is_required.id_for_label }}">
+                                                        {% trans "Required to confirm the session" %}
+                                                    </label>
+                                                </div>
+                                                <button class="btn btn-sm btn-outline-primary" type="submit">
+                                                    {% trans "Save" %}
+                                                </button>
+                                                <div class="small text-secondary mt-1">
+                                                    {% trans "Their checklist follows the role: open items of the old role are dropped, done ones stay." %}
+                                                </div>
+                                            </form>
+                                        </details>
+                                    {% endwith %}
                                     <form method="post"
                                           class="mt-1"
                                           action="{% url 'speakers:session_remove_presenter' session.slug link.pk %}">

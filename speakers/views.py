@@ -56,6 +56,7 @@ from .forms import (
     ProgramItemForm,
     SessionForm,
     SessionPresenterForm,
+    SessionPresenterRoleForm,
     SessionTypeForm,
     SpeakerProfileForm,
     SpeakerSessionForm,
@@ -97,6 +98,7 @@ from .services import (
     InvitationError,
     accept_invitation,
     cancel_invitation,
+    change_presenter_role,
     decline_invitation,
     presenter_added_to_session,
     resolve_invitation,
@@ -275,6 +277,18 @@ class SessionDetailView(SessionScopedMixin, DetailView):
         context["activity"] = ActivityLog.for_target(self.object)[:20]
         context["waiting_on"] = waiting_on_labels(self.object)
         context["add_presenter_form"] = SessionPresenterForm(session=self.object)
+        roles = list(
+            self.object.kind.roles.filter(is_active=True).order_by("sort_order", "name")
+        )
+        context["role_forms"] = {
+            link.pk: SessionPresenterRoleForm(
+                instance=link,
+                prefix=f"link{link.pk}",
+                session=self.object,
+                roles=roles,
+            )
+            for link in self.object.presenter_links
+        }
         context["invite_form"] = InviteForm()
         latest = {}
         for invitation in Invitation.objects.filter(session=self.object).order_by(
@@ -578,6 +592,36 @@ class SessionAddPresenterView(OrganizerSessionActionMixin, View):
                     for field, errors in form.errors.items()
                 ),
             )
+        return redirect(session.get_absolute_url())
+
+
+class SessionEditPresenterView(OrganizerSessionActionMixin, View):
+    """Change role, order or required flag; the checklist follows the role."""
+
+    def post(self, request, slug, link_pk):
+        session = self.get_session()
+        link = get_object_or_404(
+            session.session_presenters.select_related("presenter"), pk=link_pk
+        )
+        form = SessionPresenterRoleForm(
+            request.POST, instance=link, prefix=f"link{link.pk}", session=session
+        )
+        if not form.is_valid():
+            messages.error(request, "Could not change the role: pick a valid role.")
+            return redirect(session.get_absolute_url())
+        removed, created = change_presenter_role(
+            link,
+            form.cleaned_data["role"],
+            order=form.cleaned_data["order"],
+            is_required=form.cleaned_data["is_required"],
+            actor=request.user,
+        )
+        note = f"{link.presenter.display_name} is now {link.role.name}."
+        if removed or created:
+            note += (
+                f" Checklist updated: {removed} open item(s) dropped, {created} added."
+            )
+        messages.success(request, note)
         return redirect(session.get_absolute_url())
 
 
