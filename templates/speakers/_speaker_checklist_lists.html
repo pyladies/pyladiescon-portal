@@ -2,10 +2,9 @@
 {% comment %}
 The three checklist lists for a presenter. Params:
     speaker_items, organizer_items, video_items — lists (may be empty)
-    compact — truthy to drop the column layout (inside a session card)
 {% endcomment %}
 <div class="row g-4">
-    <div class="{% if compact %}col-12{% else %}col-lg-6{% endif %}">
+    <div class="col-lg-6">
         <div class="card h-100">
             <div class="card-header d-flex justify-content-between">
                 <span>{% trans "Your to-dos" %}</span>
@@ -22,7 +21,7 @@ The three checklist lists for a presenter. Params:
             </ul>
         </div>
     </div>
-    <div class="{% if compact %}col-12{% else %}col-lg-6{% endif %}">
+    <div class="col-lg-6">
         <div class="card h-100">
             <div class="card-header">
                 {% trans "What we're doing for you" %}
