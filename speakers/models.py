@@ -162,6 +162,18 @@ class SpeakerSettings(TimestampedModel):
         blank=True,
         help_text="Length limit for pre-recorded videos unless a session says otherwise.",
     )
+    conference_timezone = models.CharField(
+        max_length=64,
+        default="UTC",
+        validators=[validate_timezone],
+        help_text="The organizers' default display timezone; the conference "
+        "itself has none.",
+    )
+    organizers_email = models.EmailField(
+        blank=True,
+        help_text="Where unassigned organizer reminders go; blank sends them to "
+        "every staff account.",
+    )
     # Pretix (design §12.1). The event slug falls back to
     # Conference.pretix_event_slug; token and secret are encrypted at rest.
     pretix_base_url = models.URLField(
@@ -182,6 +194,10 @@ class SpeakerSettings(TimestampedModel):
         default=False,
         help_text="Create a pretix voucher per presenter (not implemented yet).",
     )
+
+    @property
+    def tzinfo(self):
+        return zoneinfo.ZoneInfo(self.conference_timezone)
 
     @property
     def pretix_event_slug(self):
@@ -1456,4 +1472,38 @@ class HandbookReadReceipt(TimestampedModel):
 
     def save(self, *args, **kwargs):
         self.conference_id = self.handbook.conference_id
+        super().save(*args, **kwargs)
+
+
+class ReminderLog(TimestampedModel):
+    """One reminder sent for one item at one threshold (design §9.4).
+
+    The unique constraint is what stops a digest repeating a reminder.
+    """
+
+    conference = models.ForeignKey(
+        "portal.Conference",
+        on_delete=models.PROTECT,
+        related_name="reminder_logs",
+        editable=False,
+    )
+    item = models.ForeignKey(
+        ChecklistItem, on_delete=models.CASCADE, related_name="reminders"
+    )
+    threshold_days = models.PositiveSmallIntegerField()
+    recipient = models.EmailField()
+    sent_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["item", "threshold_days"], name="speakers_reminder_once"
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.item} ({self.threshold_days}d) to {self.recipient}"
+
+    def save(self, *args, **kwargs):
+        self.conference_id = self.item.conference_id
         super().save(*args, **kwargs)

@@ -5,6 +5,7 @@ from celery import shared_task
 from .emails import send_copresenter_suggestion_email, send_invitation_email
 from .models import Invitation, Presenter, Session, SpeakerSettings
 from .pretix import PretixError, reconcile
+from .reminders import send_checklist_digests
 from .rules import reevaluate_all
 
 logger = logging.getLogger(__name__)
@@ -61,3 +62,15 @@ def pretix_reconcile_task(self):
         else:
             results.append(f"{settings_row.conference}: {seen} order(s)")
     return "; ".join(results) or "No edition has pretix configured"
+
+
+@shared_task(bind=True, max_retries=3, default_retry_delay=60)
+def send_checklist_digests_task(self):
+    """Daily: reminder digests for every edition with the module on."""
+    results = []
+    for settings_row in SpeakerSettings.objects.filter(
+        speaker_module_enabled=True
+    ).select_related("conference"):
+        sent = send_checklist_digests(settings_row.conference)
+        results.append(f"{settings_row.conference}: {sent} email(s)")
+    return "; ".join(results) or "No edition has the speaker module enabled"

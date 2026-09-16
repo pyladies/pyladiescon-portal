@@ -14,6 +14,7 @@ from .models import (
     MediaAsset,
     Presenter,
     PresenterRole,
+    ReminderLog,
     ScheduleSlot,
     Session,
     SessionPresenter,
@@ -33,7 +34,17 @@ class SpeakerSettingsAdmin(admin.ModelAdmin):
         "pretix_last_synced_at",
     )
     fieldsets = (
-        (None, {"fields": ("conference", "speaker_module_enabled")}),
+        (
+            None,
+            {
+                "fields": (
+                    "conference",
+                    "speaker_module_enabled",
+                    "conference_timezone",
+                    "organizers_email",
+                )
+            },
+        ),
         (
             "Program",
             {
@@ -294,3 +305,12 @@ class HandbookAdmin(admin.ModelAdmin):
     list_filter = (ActiveConferenceFilter,)
     list_select_related = ("conference",)
     inlines = [HandbookReadReceiptInline]
+
+
+@admin.register(ReminderLog)
+class ReminderLogAdmin(admin.ModelAdmin):
+    list_display = ("item", "threshold_days", "recipient", "sent_at", "conference")
+    list_filter = (ActiveConferenceFilter, "threshold_days")
+    search_fields = ("recipient", "item__title")
+    list_select_related = ("item", "conference")
+    readonly_fields = ("sent_at",)

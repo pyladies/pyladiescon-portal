@@ -125,6 +125,16 @@ it with the attendee app's own field mapping, so both paths agree. Nightly
 `pretix_reconcile_task` pages through `modified_since` the last run.
 `Presenter.pretix_order` is the manual link that wins over email matching.
 
+### Reminders
+
+`speakers/reminders.py` sends one digest per presenter (open speaker items
+due within 7, 3 or 1 days, computed against today in the presenter's
+timezone) and one per assignee, or to `SpeakerSettings.organizers_email`
+(falling back to staff accounts) for unassigned organizer items, using the
+edition's `conference_timezone`. `ReminderLog` is unique on
+(item, threshold), so a reminder is never repeated. Daily Celery task
+`send_checklist_digests_task`, seeded by migration 0011.
+
 ### Background jobs
 
 Celery (`portal/celery.py`, broker from `CELERY_BROKER_URL` or `REDIS_URL`),
