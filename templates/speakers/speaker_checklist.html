@@ -52,10 +52,17 @@
                             {% trans "Not tied to a session" %}
                         {% endif %}
                     </h2>
-                    {% if group.session %}
-                        <a class="small"
-                           href="{% url 'speakers:my_session_detail' group.session.slug %}">{% trans "Session details" %}</a>
-                    {% endif %}
+                    <span class="d-flex align-items-center gap-2">
+                        {% if group.total %}
+                            <span class="badge {% if group.done == group.total %}text-bg-success{% else %}text-bg-light border{% endif %}">
+                                {% blocktranslate with done=group.done total=group.total %}{{ done }} of {{ total }} tasks done{% endblocktranslate %}
+                            </span>
+                        {% endif %}
+                        {% if group.session %}
+                            <a class="small"
+                               href="{% url 'speakers:my_session_detail' group.session.slug %}">{% trans "Session details" %}</a>
+                        {% endif %}
+                    </span>
                 </div>
                 {% include "speakers/_speaker_checklist_lists.html" with speaker_items=group.speaker organizer_items=group.organizer video_items=group.video %}
             </section>

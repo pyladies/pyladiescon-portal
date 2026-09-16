@@ -377,7 +377,13 @@ class TestChecklistViews:
         assert [i.title for i in groups[1]["speaker"]] == ["Slides"]
         assert [i.title for i in groups[1]["organizer"]] == ["Promo"]
         assert [i.title for i in groups[2]["speaker"]] == ["Discord"]
+        complete_item(items["late"])
+        response = client.get(CHECKLIST, {"view": "session"})
+        groups = response.context["groups"]
+        assert (groups[1]["done"], groups[1]["total"]) == (1, 1)
+        assert (groups[0]["done"], groups[0]["total"]) == (0, 1)
         content = response.content.decode()
+        assert "1 of 1 tasks done" in content and "0 of 1 tasks done" in content
         assert (
             'data-session-group="general"' in content
             and "Not tied to a session" in content

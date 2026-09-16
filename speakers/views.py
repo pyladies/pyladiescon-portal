@@ -958,6 +958,9 @@ class SpeakerChecklistView(LoginRequiredMixin, PresenterRequiredMixin, TemplateV
                 }
                 if general["speaker"] or general["organizer"]:
                     groups.append(general)
+            for group in groups:
+                group["total"] = len(group["speaker"])
+                group["done"] = sum(1 for i in group["speaker"] if not i.is_open)
         context.update(
             {
                 "conference": self.conference,
