@@ -91,12 +91,21 @@ class TestInstantiateOnAccept:
         accept_invitation(invitation)
 
         template = workshop_template(seeded)
-        items = list(presenter.checklist_items.order_by("order", "id"))
-        assert [i.title for i in items] == list(
-            template.items.values_list("title", flat=True)
+        items = list(
+            presenter.checklist_items.filter(session=session).order_by("order", "id")
         )
-        assert all(i.session == session and i.conference == seeded for i in items)
-        assert ChecklistItem.objects.count() == template.items.count()
+        assert [i.title for i in items] == list(
+            template.items.filter(once_per_presenter=False).values_list(
+                "title", flat=True
+            )
+        )
+        assert all(i.conference == seeded for i in items)
+        general = ChecklistTemplate.for_general(seeded)
+        general_items = list(presenter.checklist_items.filter(session__isnull=True))
+        assert {i.title for i in general_items} == set(
+            general.items.values_list("title", flat=True)
+        ) | {"Read the workshop guide"}
+        assert ChecklistItem.objects.count() == len(items) + len(general_items)
 
         bio = presenter.checklist_items.get(title="Update your bio and headshot")
         assert bio.owner == ItemOwner.SPEAKER
@@ -116,7 +125,8 @@ class TestInstantiateOnAccept:
         # weeks of accepting, on both sides; registration info a month out;
         # promo material three weeks out. Conference starts 2026-12-05.
         accepted = invitation.accepted_at.date()
-        by_title = {i.title: i for i in items}
+        # The general items are created by the same acceptance, off-session.
+        by_title = {i.title: i for i in presenter.checklist_items.all()}
         assert by_title[
             "Join the PyLadiesCon Discord"
         ].due_date == accepted + timedelta(days=14)

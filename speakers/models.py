@@ -1102,7 +1102,12 @@ class ChecklistTemplate(TimestampedModel):
     scope = models.CharField(max_length=16, choices=ChecklistScope.choices)
     name = models.CharField(max_length=100)
     kind = models.ForeignKey(
-        SessionType, on_delete=models.PROTECT, related_name="checklist_templates"
+        SessionType,
+        on_delete=models.PROTECT,
+        related_name="checklist_templates",
+        null=True,
+        blank=True,
+        help_text="Not used by the general (every presenter) template.",
     )
     role = models.ForeignKey(
         PresenterRole,
@@ -1135,6 +1140,14 @@ class ChecklistTemplate(TimestampedModel):
 
     def clean(self):
         super().clean()
+        if self.scope == ChecklistScope.GENERAL:
+            if self.kind_id or self.role_id or self.delivery:
+                raise ValidationError(
+                    {"kind": "The general template has no kind, role or delivery."}
+                )
+            return
+        if not self.kind_id:
+            raise ValidationError({"kind": "Pick the session kind."})
         if self.scope == ChecklistScope.PRESENTER and not self.role_id:
             raise ValidationError({"role": "Presenter templates need a role."})
         if self.scope == ChecklistScope.SESSION and not self.delivery:
@@ -1147,6 +1160,17 @@ class ChecklistTemplate(TimestampedModel):
             raise ValidationError({"kind": "Pick a session type of this edition."})
         if self.role_id and self.role.conference_id != self.conference_id:
             raise ValidationError({"role": "Pick a role of this edition."})
+
+    @property
+    def is_general(self):
+        return self.scope == ChecklistScope.GENERAL
+
+    @classmethod
+    def for_general(cls, conference):
+        """The active every-presenter template, or None."""
+        return cls.objects.filter(
+            conference=conference, scope=ChecklistScope.GENERAL, is_active=True
+        ).first()
 
     def save(self, *args, **kwargs):
         self.clean()
@@ -1213,6 +1237,12 @@ class ChecklistTemplateItem(TimestampedModel):
         default=False,
         help_text="Instantiate one item per translation language of the edition.",
     )
+    once_per_presenter = models.BooleanField(
+        default=False,
+        db_default=False,
+        help_text="One item per presenter, not one per session (for lines in a "
+        "per-session template, e.g. read the workshop guide).",
+    )
     is_required = models.BooleanField(
         default=False, help_text="Required items gate the session being confirmed."
     )
@@ -1237,8 +1267,21 @@ class ChecklistTemplateItem(TimestampedModel):
     def __str__(self):
         return self.title
 
+    @property
+    def is_general(self):
+        """Creates items with no session: general template, or once per presenter."""
+        return self.once_per_presenter or (
+            self.template_id is not None and self.template.is_general
+        )
+
     def clean(self):
         super().clean()
+        if self.is_general and self.due_anchor == DueAnchor.SESSION_START:
+            raise ValidationError(
+                {
+                    "due_anchor": "An item that is not per session cannot be due before a session."
+                }
+            )
         if self.assignee_default == AssigneeDefault.TEAM and not self.default_team_name:
             raise ValidationError({"default_team_name": "Name the team."})
         if self.auto_complete_rule and self.auto_complete_rule not in AutoRule.values:

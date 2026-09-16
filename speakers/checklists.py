@@ -24,6 +24,7 @@ from .models import (
     ActivityLog,
     ChecklistItem,
     ChecklistTemplate,
+    Presenter,
     SessionPresenter,
     SpeakerSettings,
 )
@@ -33,14 +34,33 @@ class ChecklistError(ValueError):
     """A status change that is not allowed (ticking an automatic item)."""
 
 
-def _anchors(session, accepted_at=None):
-    conference = session.conference
-    slot = getattr(session, "slot", None)
+def _anchors(session, presenter=None, accepted_at=None):
+    """Due-date anchors; ``session`` is None for items not tied to one."""
+    conference = session.conference if session is not None else presenter.conference
+    slot = getattr(session, "slot", None) if session is not None else None
     return {
         "invitation_accepted": accepted_at,
         "conference_start": conference.start_date or conference.conference_date,
         "session_start": slot.start_utc if slot is not None else None,
     }
+
+
+def _accepted_at(presenter):
+    """When the presenter first accepted, for anchoring general items."""
+    first = (
+        presenter.invitations.filter(accepted_at__isnull=False)
+        .order_by("accepted_at")
+        .values_list("accepted_at", flat=True)
+        .first()
+    )
+    if first is not None:
+        return first
+    return (
+        presenter.session_presenters.filter(confirmed_at__isnull=False)
+        .order_by("confirmed_at")
+        .values_list("confirmed_at", flat=True)
+        .first()
+    )
 
 
 def _default_owner(template_item, session, presenter):
@@ -50,8 +70,9 @@ def _default_owner(template_item, session, presenter):
     if template_item.assignee_default == AssigneeDefault.LIAISON and presenter:
         return presenter.liaison, None
     if template_item.assignee_default == AssigneeDefault.TEAM:
+        conference_id = (session or presenter).conference_id
         team = Team.objects.filter(
-            conference_id=session.conference_id,
+            conference_id=conference_id,
             short_name=template_item.default_team_name,
         ).first()
         return None, team
@@ -74,7 +95,7 @@ def _create_instance(template_item, *, session, presenter, anchors, language="")
         title = f"{title} ({language})"
     assignee, team = _default_owner(template_item, session, presenter)
     return ChecklistItem.objects.create(
-        conference_id=session.conference_id,
+        conference_id=(session or presenter).conference_id,
         order=template_item.order,
         owner=template_item.owner,
         title=title,
@@ -111,14 +132,33 @@ def instantiate_presenter_checklist(link, accepted_at=None):
     template = ChecklistTemplate.for_presenter(link.session, link.role)
     if template is None:
         return []
-    anchors = _anchors(link.session, accepted_at or link.confirmed_at)
+    accepted = accepted_at or link.confirmed_at
+    anchors = _anchors(link.session, link.presenter, accepted)
+    general_anchors = _anchors(None, link.presenter, accepted)
+    created = []
+    for template_item in template.items.all():
+        once = template_item.once_per_presenter
+        item = _create_instance(
+            template_item,
+            session=None if once else link.session,
+            presenter=link.presenter,
+            anchors=general_anchors if once else anchors,
+        )
+        if item is not None:
+            created.append(item)
+    return created
+
+
+def instantiate_general_checklist(presenter, accepted_at=None):
+    """Create the every-presenter items for one presenter, once."""
+    template = ChecklistTemplate.for_general(presenter.conference)
+    if template is None:
+        return []
+    anchors = _anchors(None, presenter, accepted_at or _accepted_at(presenter))
     created = []
     for template_item in template.items.all():
         item = _create_instance(
-            template_item,
-            session=link.session,
-            presenter=link.presenter,
-            anchors=anchors,
+            template_item, session=None, presenter=presenter, anchors=anchors
         )
         if item is not None:
             created.append(item)
@@ -148,8 +188,18 @@ def instantiate_session_checklist(session):
 
 def _matching_targets(template_item):
     """``(session, presenter, anchors)`` for every checklist already created
-    from the line's template."""
+    from the line's template. ``session`` is None for general lines and for
+    once-per-presenter lines."""
     template = template_item.template
+    if template.scope == ChecklistScope.GENERAL:
+        presenters = Presenter.objects.filter(
+            conference=template.conference,
+            session_presenters__confirmed_at__isnull=False,
+        ).distinct()
+        return [
+            (None, presenter, _anchors(None, presenter, _accepted_at(presenter)))
+            for presenter in presenters
+        ]
     if template.scope == ChecklistScope.PRESENTER:
         links = SessionPresenter.objects.filter(
             conference=template.conference,
@@ -157,11 +207,23 @@ def _matching_targets(template_item):
             role=template.role,
             confirmed_at__isnull=False,
         ).select_related("session", "presenter", "presenter__liaison")
+        if template_item.once_per_presenter:
+            first_link = {}
+            for link in links:
+                first_link.setdefault(link.presenter_id, link)
+            return [
+                (
+                    None,
+                    link.presenter,
+                    _anchors(None, link.presenter, link.confirmed_at),
+                )
+                for link in first_link.values()
+            ]
         return [
             (
                 link.session,
                 link.presenter,
-                _anchors(link.session, link.confirmed_at),
+                _anchors(link.session, link.presenter, link.confirmed_at),
             )
             for link in links
         ]
@@ -230,7 +292,7 @@ def apply_template_item_changes(template_item):
     changed = 0
     touched = []
     anchors_for = {
-        (session.pk, presenter.pk if presenter else None): anchors
+        (session.pk if session else None, presenter.pk if presenter else None): anchors
         for session, presenter, anchors in _matching_targets(template_item)
     }
     for item in ChecklistItem.objects.filter(

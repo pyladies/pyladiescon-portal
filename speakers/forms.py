@@ -645,6 +645,7 @@ class ChecklistTemplateItemForm(forms.ModelForm):
             "requires_asset_language",
             "requires_handbook",
             "per_translation_language",
+            "once_per_presenter",
             "is_required",
             "assignee_default",
             "default_team_name",

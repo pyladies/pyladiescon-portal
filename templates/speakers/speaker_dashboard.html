@@ -85,6 +85,24 @@
             {% endfor %}
         </ul>
     </div>
+    {% if general_total %}
+        <div class="card mb-4" id="general-summary">
+            <div class="card-body d-flex flex-wrap align-items-center gap-3">
+                <i class="fa-solid fa-user fs-4 text-secondary"></i>
+                <div class="flex-grow-1">
+                    <span class="fw-semibold">{% trans "For you as a speaker" %}</span>
+                    <span class="badge ms-2 {% if general_done == general_total %}text-bg-success{% else %}text-bg-light border{% endif %}">
+                        {% blocktranslate with done=general_done total=general_total %}{{ done }} of {{ total }} tasks done{% endblocktranslate %}
+                    </span>
+                    <div class="small text-secondary">
+                        {% trans "Bio, guide, registration, Discord: the things that are not tied to one session." %}
+                    </div>
+                </div>
+                <a class="btn btn-sm btn-outline-primary"
+                   href="{% url 'speakers:my_checklist' %}?view=session">{% trans "See the list" %}</a>
+            </div>
+        </div>
+    {% endif %}
     <div class="card" id="todo-summary">
         <div class="card-body d-flex flex-wrap align-items-center gap-3">
             <i class="fa-solid fa-list-check fs-4 text-secondary"></i>

@@ -370,23 +370,23 @@ class TestChecklistViews:
         response = client.get(CHECKLIST, {"view": "session"})
         groups = response.context["groups"]
         assert [g["session"].title if g["session"] else None for g in groups] == [
+            None,
             "Careers panel",
             "Django 101",
-            None,
         ]
-        assert [i.title for i in groups[1]["speaker"]] == ["Slides"]
-        assert [i.title for i in groups[1]["organizer"]] == ["Promo"]
-        assert [i.title for i in groups[2]["speaker"]] == ["Discord"]
+        assert [i.title for i in groups[2]["speaker"]] == ["Slides"]
+        assert [i.title for i in groups[2]["organizer"]] == ["Promo"]
+        assert [i.title for i in groups[0]["speaker"]] == ["Discord"]
         complete_item(items["late"])
         response = client.get(CHECKLIST, {"view": "session"})
         groups = response.context["groups"]
-        assert (groups[1]["done"], groups[1]["total"]) == (1, 1)
-        assert (groups[0]["done"], groups[0]["total"]) == (0, 1)
+        assert (groups[2]["done"], groups[2]["total"]) == (1, 1)
+        assert (groups[1]["done"], groups[1]["total"]) == (0, 1)
         content = response.content.decode()
         assert "1 of 1 tasks done" in content and "0 of 1 tasks done" in content
         assert (
             'data-session-group="general"' in content
-            and "Not tied to a session" in content
+            and "For you as a speaker" in content
         )
 
     def test_single_session_filter(self, client, speaker, presenter, session, items):

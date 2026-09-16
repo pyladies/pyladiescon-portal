@@ -143,7 +143,8 @@ class TestSeed:
         would raise DoesNotExist on every fresh edition; catch it here."""
         types = {row[0] for row in DEFAULT_SESSION_TYPES}
         roles = {row[0] for row in DEFAULT_ROLES}
-        assert {spec[2] for spec in DEFAULT_TEMPLATES} <= types
+        # The every-presenter template names neither a type nor a role.
+        assert {spec[2] for spec in DEFAULT_TEMPLATES if spec[2]} <= types
         assert {spec[3] for spec in DEFAULT_TEMPLATES if spec[3]} <= roles
 
     def test_seed_fills_empty_descriptions_but_keeps_written_ones(
@@ -210,8 +211,15 @@ class TestSeed:
                 "title", flat=True
             )
         )
-        assert speaker_titles[0] == "Update your bio and headshot"
+        assert speaker_titles[0] == "Check your session title and summary"
         assert "Share a link to your workshop materials" in speaker_titles
+        assert "Update your bio and headshot" not in speaker_titles  # general now
+        general = ChecklistTemplate.for_general(conference)
+        general_titles = list(general.items.values_list("title", flat=True))
+        assert general_titles[0] == "Update your bio and headshot"
+        assert "Join the PyLadiesCon Discord" in general_titles
+        assert "Presenter in portal" in general_titles
+        assert workshop.items.get(title="Read the workshop guide").once_per_presenter
         organizer_titles = list(
             workshop.items.filter(owner=ItemOwner.ORGANIZER).values_list(
                 "title", flat=True
@@ -238,7 +246,7 @@ class TestSeed:
         host = ChecklistTemplate.objects.get(
             conference=conference, kind__code="OPENING", role__code="HOST"
         )
-        assert host.items.filter(owner=ItemOwner.SPEAKER).count() == 2
+        assert host.items.filter(owner=ItemOwner.SPEAKER).count() == 1
 
     def test_seed_is_per_edition(self, conference, other_conference):
         seed_checklists(conference)
@@ -270,7 +278,9 @@ class TestSeed:
 class TestClone:
     def test_clone_copies_templates_and_items(self, conference, other_conference):
         seed_checklists(other_conference)
-        template = other_conference.checklist_templates.first()
+        # A per-session template: the general one names no kind or role, and
+        # the assertions below match those by code.
+        template = other_conference.checklist_templates.exclude(kind=None).first()
         template.is_active = False
         template.save()
         item = template.items.first()
@@ -434,4 +444,4 @@ class TestAdmin:
             reverse("admin:speakers_checklisttemplate_change", args=[template.pk])
         )
         assert response.status_code == 200
-        assert "Update your bio and headshot" in response.content.decode()
+        assert "Share a link to your workshop materials" in response.content.decode()

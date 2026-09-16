@@ -903,6 +903,7 @@ class SpeakerDashboardView(LoginRequiredMixin, PresenterRequiredMixin, TemplateV
         today_here = today(presenter.tzinfo)
         checklist = _speaker_checklist(presenter, today_here)
         open_items = [i for i in checklist["speaker"] if i.is_open]
+        general = [i for i in checklist["speaker"] if i.session_id is None]
         context.update(
             {
                 "conference": self.conference,
@@ -912,6 +913,8 @@ class SpeakerDashboardView(LoginRequiredMixin, PresenterRequiredMixin, TemplateV
                     checklist["links"], checklist["speaker"]
                 ),
                 "open_count": len(open_items),
+                "general_total": len(general),
+                "general_done": sum(1 for i in general if not i.is_open),
                 "overdue_count": sum(1 for i in open_items if i.overdue),
                 "next_due": next((i for i in open_items if i.due_date), None),
                 "profile_complete": bool(presenter.bio_md and presenter.headshot),
@@ -990,7 +993,7 @@ class SpeakerChecklistView(LoginRequiredMixin, PresenterRequiredMixin, TemplateV
                     "video": [],
                 }
                 if general["speaker"] or general["organizer"]:
-                    groups.append(general)
+                    groups.insert(0, general)
             for group in groups:
                 group["total"] = len(group["speaker"])
                 group["done"] = sum(1 for i in group["speaker"] if not i.is_open)
@@ -1585,6 +1588,9 @@ class ChecklistTemplateListView(TemplateEditorMixin, TemplateView):
             .select_related("kind", "role")
             .annotate(item_count=Count("items"))
             .order_by("scope", "kind__sort_order", "role__sort_order", "delivery")
+        )
+        context["general_template"] = next(
+            (t for t in templates if t.scope == ChecklistScope.GENERAL), None
         )
         context["presenter_templates"] = [
             t for t in templates if t.scope == ChecklistScope.PRESENTER

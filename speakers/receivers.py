@@ -9,7 +9,11 @@ from django.dispatch import receiver
 
 from attendee.models import PretixOrder
 
-from .checklists import instantiate_presenter_checklist, instantiate_session_checklist
+from .checklists import (
+    instantiate_general_checklist,
+    instantiate_presenter_checklist,
+    instantiate_session_checklist,
+)
 from .constants import AutoRule
 from .models import (
     Handbook,
@@ -40,6 +44,9 @@ def create_presenter_checklists(sender, invitation, session_presenters, **kwargs
     general acceptance starts its clock when the link is confirmed.
     """
     accepted_at = kwargs.get("accepted_at") or invitation.accepted_at
+    evaluate_items(
+        instantiate_general_checklist(invitation.presenter, accepted_at=accepted_at)
+    )
     for link in session_presenters:
         created = instantiate_presenter_checklist(link, accepted_at=accepted_at)
         evaluate_items(created)

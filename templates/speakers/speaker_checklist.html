@@ -49,7 +49,7 @@
                             <span class="badge text-bg-light border me-1">{{ group.session.kind.name }}</span>
                             <a href="{% url 'speakers:my_session_detail' group.session.slug %}">{{ group.session.title }}</a>
                         {% else %}
-                            {% trans "Not tied to a session" %}
+                            <i class="fa-solid fa-user"></i> {% trans "For you as a speaker" %}
                         {% endif %}
                     </h2>
                     <span class="d-flex align-items-center gap-2">

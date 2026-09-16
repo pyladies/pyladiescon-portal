@@ -139,6 +139,19 @@ team (`default_team_name`, matched by name per edition so templates clone
 forward). "My queue" shows items assigned to me or to a team I am an
 approved member of; team reminders go to every approved member.
 
+### General items (once per presenter)
+
+Templates have three scopes. `GENERAL` ("Every presenter", one per edition,
+no kind/role/delivery) is instantiated once per presenter when they first
+accept, with `session=None` items: bio, guide, registration, Discord and
+the organizer's onboarding lines. `PRESENTER` templates keep per-session
+lines; a line marked `once_per_presenter` (the kind-specific guides) also
+creates one session-less item per presenter, whatever the number of
+sessions. General items live in the speaker's "For you as a speaker"
+group and never on a session page; the dashboard shows their completion.
+`manage.py dedupe_general_items` collapses the per-session copies an
+edition seeded before this change still carries.
+
 ### Template changes reach existing checklists
 
 There is no back-fill step. Adding a template line creates the item on
