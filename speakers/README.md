@@ -395,7 +395,11 @@ installed; this app keeps small factory functions in `tests/speakers/factories.p
   carry a non-editable `conference` copied from their session on save.
 - Status changes are model methods on `Session` (`mark_invited`, `confirm`,
   `schedule`, `publish`, `cancel`) that raise `speakers.models.TransitionError`
-  when a precondition fails; views turn that into a message.
+  when a precondition fails; views turn that into a message. Accepting an
+  invitation is the presenter's confirmation: no seeded checklist item is
+  required, so a content session becomes CONFIRMED as soon as every required
+  presenter has accepted. Organizers can still mark a template line required
+  to gate that.
 - Enumerations live in `speakers/constants.py` as `TextChoices`, except
   session types and presenter roles, which are rows: `SessionType` (code,
   name, `is_content`, default duration and delivery, `spans_all_channels`,

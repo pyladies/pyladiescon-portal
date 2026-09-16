@@ -66,7 +66,7 @@ BIO = _item(
 )
 CONFIRM_TITLE = _item(
     SPK,
-    "Confirm your session title and summary",
+    "Check your session title and summary",
     ACCEPTED,
     7,
     description_md="Check that the title and summary on your session page read the way you want them on the schedule, and edit them if not.",
@@ -210,7 +210,7 @@ PERFORMER = [
     BIO,
     _item(
         SPK,
-        "Confirm your title and description",
+        "Check your title and description",
         ACCEPTED,
         7,
         description_md="Check that the title and description of your performance read the way you want them on the schedule.",

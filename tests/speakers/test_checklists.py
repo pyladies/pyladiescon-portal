@@ -142,8 +142,24 @@ class TestInstantiateOnAccept:
         assert session.status == SessionStatus.CONFIRMED
         assert not ActivityLog.objects.filter(action="session.confirm_blocked").exists()
 
-    def test_required_item_gates_confirmation(self, seeded):
-        require_seed_line("Confirm your session title and summary")
+    def test_acceptance_confirms_the_session(self, seeded):
+        """No seeded item is required: accepting is the confirmation, and the
+        listing can still be edited afterwards."""
+        session = make_session(seeded, kind="WORKSHOP")
+        presenter = make_presenter(seeded)
+        add_presenter(session, presenter)
+        invitation = make_invitation(presenter, session)
+        send_invitation(invitation)
+        accept_invitation(invitation)
+        session.refresh_from_db()
+        assert session.status == SessionStatus.CONFIRMED
+        item = presenter.checklist_items.get(
+            title="Check your session title and summary"
+        )
+        assert item.is_required is False and item.status == ItemStatus.TODO
+
+    def test_an_organizer_can_still_make_an_item_gate_confirmation(self, seeded):
+        require_seed_line("Check your session title and summary")
         session = make_session(seeded, kind="WORKSHOP")
         presenter = make_presenter(seeded, display_name="Ada")
         add_presenter(session, presenter)
@@ -160,16 +176,15 @@ class TestInstantiateOnAccept:
         assert blocked.count() == 1
         assert (
             blocked.get().message
-            == "Waiting on: Confirm your session title and summary (Ada)"
+            == "Waiting on: Check your session title and summary (Ada)"
         )
         # A retry that finds the same items open does not log again.
         assert confirm_session_if_ready(session) is False
         assert blocked.count() == 1
-        item = presenter.checklist_items.get(
-            title="Confirm your session title and summary"
+        complete_item(
+            presenter.checklist_items.get(title="Check your session title and summary"),
+            actor=presenter.user,
         )
-        assert item.is_required is True
-        complete_item(item, actor=presenter.user)
         session.refresh_from_db()
         assert session.status == SessionStatus.CONFIRMED
 
@@ -512,13 +527,15 @@ class TestLifecycle:
         assert other.checklist_items.count() == 0
 
     def test_required_skip_confirms_session(self, seeded):
-        require_seed_line("Confirm your session title and summary")
+        # Nothing is required by default now, so the test makes one item so.
         session = make_session(seeded, kind="WORKSHOP")
         presenter = make_presenter(seeded)
         link = add_presenter(session, presenter, confirmed=True)
         session.mark_invited()
         instantiate_presenter_checklist(link)
-        required = presenter.checklist_items.get(is_required=True)
+        required = presenter.checklist_items.first()
+        required.is_required = True
+        required.save()
         skip_item(required)
         session.refresh_from_db()
         assert session.status == SessionStatus.CONFIRMED

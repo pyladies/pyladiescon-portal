@@ -504,7 +504,7 @@ class TestSessionPresenterActions:
         titles = set(
             grace.checklist_items.filter(session=talk).values_list("title", flat=True)
         )
-        assert "Confirm your session title and summary" in titles
+        assert "Check your session title and summary" in titles
         assert "Confirm your scheduled slot" in titles
         assert ActivityLog.objects.filter(action="session.presenter_confirmed").exists()
         talk.refresh_from_db()
