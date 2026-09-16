@@ -81,7 +81,9 @@ class TestDashboardLists:
         content = client.get(DASHBOARD).content.decode()
         assert "Nothing on your list yet" in content
         assert "Dates are in Africa/Lagos" in content
+        assert 'id="my-sessions"' in content and "Your sessions" in content
         assert "Django 101" in content and "Not yet public" in content
+        assert "Workshop" in content and "Presenter" in content
         assert "to-dos done" not in content
 
     def test_two_lists_summary_and_assignee(
