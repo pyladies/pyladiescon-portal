@@ -338,7 +338,7 @@ class TestTemplateChangesReachExistingChecklists:
         session = make_session(seeded, kind="WORKSHOP")
         link = add_presenter(session, make_presenter(seeded), confirmed=True)
         instantiate_presenter_checklist(link)
-        line = template.items.get(title="Do a tech check")
+        line = template.items.get(title="Share a link to your workshop materials")
         instance = link.presenter.checklist_items.get(template_item=line)
         assert instance.pending_notice == ""
         line.order = 0
@@ -346,14 +346,14 @@ class TestTemplateChangesReachExistingChecklists:
         assert apply_template_item_changes(line) == 0
         instance.refresh_from_db()
         assert instance.order == 0 and instance.pending_notice == ""
-        line.title = "Do a tech check with us"
+        line.title = "Share a link to your workshop materials with us"
         line.due_anchor = DueAnchor.CONFERENCE_START
         line.due_offset_days = 2
         line.is_required = True
         line.save()
         assert apply_template_item_changes(line) == 1
         instance.refresh_from_db()
-        assert instance.title == "Do a tech check with us"
+        assert instance.title == "Share a link to your workshop materials with us"
         assert instance.due_date == date(2026, 12, 3)
         assert instance.is_required is True
         assert instance.pending_notice == NoticeKind.CHANGED
@@ -391,13 +391,15 @@ class TestTemplateChangesReachExistingChecklists:
         second = add_presenter(session, make_presenter(seeded), confirmed=True)
         instantiate_presenter_checklist(first)
         instantiate_presenter_checklist(second)
-        line = template.items.get(title="Do a tech check")
+        line = template.items.get(title="Share a link to your workshop materials")
         complete_item(second.presenter.checklist_items.get(template_item=line))
         assert retire_template_item(line) == 1
         assert not first.presenter.checklist_items.filter(
-            title="Do a tech check"
+            title="Share a link to your workshop materials"
         ).exists()
-        kept = second.presenter.checklist_items.get(title="Do a tech check")
+        kept = second.presenter.checklist_items.get(
+            title="Share a link to your workshop materials"
+        )
         line.delete()
         kept.refresh_from_db()
         assert kept.status == ItemStatus.DONE and kept.template_item is None
@@ -407,9 +409,16 @@ class TestTemplateChangesReachExistingChecklists:
         session = make_session(seeded, kind="WORKSHOP")
         link = add_presenter(session, make_presenter(seeded), confirmed=True)
         instantiate_presenter_checklist(link)
-        template.items.filter(title="Do a tech check").update(order=0)
+        template.items.filter(title="Share a link to your workshop materials").update(
+            order=0
+        )
         sync_template_order(template)
-        assert link.presenter.checklist_items.get(title="Do a tech check").order == 0
+        assert (
+            link.presenter.checklist_items.get(
+                title="Share a link to your workshop materials"
+            ).order
+            == 0
+        )
 
     def test_adhoc_item_is_flagged_new(self, seeded):
         item = add_adhoc_item(

@@ -20,6 +20,7 @@ from typing import NamedTuple
 
 from django.db import transaction
 
+from .checklists import collapse_general_duplicates
 from .constants import (
     SESSION_LANGUAGE,
     AssigneeDefault,
@@ -147,8 +148,10 @@ SLIDES = _item(
 TECH_CHECK = _item(
     SPK,
     "Do a tech check",
-    SESSION,
-    3,
+    # Once per speaker, a week before the conference: it is about them and
+    # their setup, not about one session.
+    CONF,
+    7,
     description_md="A short call with the team to test your camera, microphone and screen sharing before the day.",
 )
 
@@ -202,17 +205,16 @@ GENERAL_TITLES = {
     "Registration info sent",
     "Discord channel and speaker role assigned",
 }
-GENERAL_SPEAKER = [BIO, GUIDE, REGISTER, DISCORD]
+GENERAL_SPEAKER = [BIO, GUIDE, REGISTER, DISCORD, TECH_CHECK]
 GENERAL_ORGANIZER = [i for i in ORGANIZER_ITEMS_ALL if i["title"] in GENERAL_TITLES]
 # Per presenter per session.
 ORGANIZER_ITEMS = [i for i in ORGANIZER_ITEMS_ALL if i["title"] not in GENERAL_TITLES]
 
-WORKSHOP_SPEAKER = [CONFIRM_TITLE, WORKSHOP_GUIDE, CONFIRM_SLOT, MATERIALS, TECH_CHECK]
-TALK_SPEAKER = [CONFIRM_TITLE, CONFIRM_SLOT, SLIDES, TECH_CHECK]
-KEYNOTE_SPEAKER = [CONFIRM_TITLE, KEYNOTE_GUIDE, CONFIRM_SLOT, SLIDES, TECH_CHECK]
-PANEL_LIGHT = [CONFIRM_SLOT, TECH_CHECK]
+WORKSHOP_SPEAKER = [CONFIRM_TITLE, WORKSHOP_GUIDE, CONFIRM_SLOT, MATERIALS]
+TALK_SPEAKER = [CONFIRM_TITLE, CONFIRM_SLOT, SLIDES]
+KEYNOTE_SPEAKER = [CONFIRM_TITLE, KEYNOTE_GUIDE, CONFIRM_SLOT, SLIDES]
+PANEL_LIGHT = [CONFIRM_SLOT]
 PERFORMER = [
-    BIO,
     _item(
         SPK,
         "Check your title and description",
@@ -246,8 +248,6 @@ PERFORMER = [
         7,
         description_md="We will send you the edited video; watch it and tick this when you are happy for it to go out.",
     ),
-    REGISTER,
-    DISCORD,
 ]
 HOST = [
     _item(
@@ -491,6 +491,9 @@ def _seed_checklists(conference):
             existing[spec["title"]] = None
             next_order += 1
             items_created += 1
+    # An edition seeded before a line moved to the general template still
+    # carries it per session; fold those copies into the general item.
+    collapse_general_duplicates(conference)
     return SeedResult(templates_created, items_created, skipped, described)
 
 

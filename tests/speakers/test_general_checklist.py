@@ -71,7 +71,12 @@ class TestGeneralItems:
             presenter.checklist_items.filter(title="Read the workshop guide").count()
             == 1
         )
-        assert presenter.checklist_items.filter(title="Do a tech check").count() == 2
+        assert (
+            presenter.checklist_items.filter(
+                title="Confirm your scheduled slot"
+            ).count()
+            == 2
+        )
 
     def test_general_lines_added_later_reach_accepted_presenters(self, seeded):
         presenter = make_presenter(seeded)
@@ -166,7 +171,7 @@ class TestSpeakerViews:
             reverse("speakers:my_session_detail", args=[session.slug])
         ).content.decode()
         assert "Join the PyLadiesCon Discord" not in detail
-        assert "Do a tech check" in detail
+        assert "Confirm your scheduled slot" in detail
 
     def test_dashboard_shows_general_status(self, client, speaker):
         user, presenter, session = speaker
@@ -187,8 +192,7 @@ class TestDedupeCommand:
         make_settings(conference)
         # An edition seeded before the general template: recreate that shape.
         seed_checklists(conference)
-        general = ChecklistTemplate.for_general(conference)
-        general.delete()
+        ChecklistTemplate.for_general(conference).delete()
         workshop = ChecklistTemplate.objects.get(
             conference=conference,
             kind=session_type(conference, "WORKSHOP"),
@@ -218,30 +222,86 @@ class TestDedupeCommand:
         )
         done = presenter.checklist_items.filter(title="Read the workshop guide").first()
         complete_item(done, manual=False)
-        # Now the new defaults arrive, and this presenter already got the
-        # general list (say, they accepted another session meanwhile).
+        # Loading the new defaults folds the Discord copies straight away.
         seed_checklists(conference)
-        guide.once_per_presenter = True
-        guide.save()
-        instantiate_general_checklist(presenter)
-        out = StringIO()
-        call_command("dedupe_general_items", stdout=out)
-        # The guide copy moves; the Discord copies are dropped in favour of
-        # the general item that already exists.
-        assert "moved 1 item(s)" in out.getvalue()
-        assert "dropped 3 duplicate(s)" in out.getvalue()
-        assert "redundant template line(s)" in out.getvalue()
         discord = presenter.checklist_items.get(title="Join the PyLadiesCon Discord")
         assert discord.session is None
         assert discord.template_item.template == ChecklistTemplate.for_general(
             conference
         )
-        guide_item = presenter.checklist_items.get(title="Read the workshop guide")
-        assert guide_item.session is None and guide_item.status == ItemStatus.DONE
         assert not ChecklistTemplateItem.objects.filter(pk=old_discord.pk).exists()
+        # The guide line is flagged once-per-presenter later, and this presenter
+        # already has a session-less copy: the command keeps that one.
+        guide.once_per_presenter = True
+        guide.save()
+        instantiate_presenter_checklist(
+            add_presenter(
+                make_session(conference, kind="WORKSHOP", title="C"),
+                presenter,
+                confirmed=True,
+            )
+        )
+        out = StringIO()
+        call_command("dedupe_general_items", stdout=out)
+        assert "moved 0 item(s)" in out.getvalue()
+        assert "dropped 1 duplicate(s)" in out.getvalue()
+        assert "deleted 0 redundant template line(s)" in out.getvalue()
+        guides = presenter.checklist_items.filter(title="Read the workshop guide")
+        assert guides.filter(session__isnull=True).count() == 1
+        assert guides.filter(session__isnull=False, status=ItemStatus.DONE).count() == 1
+        assert guides.count() == 2
         call_command("dedupe_general_items", stdout=out)  # idempotent
+
+    def test_loading_defaults_collapses_an_old_edition(self, conference):
+        make_settings(conference)
+        seed_checklists(conference)
+        ChecklistTemplate.for_general(conference).delete()
+        workshop = ChecklistTemplate.objects.get(
+            conference=conference,
+            kind=session_type(conference, "WORKSHOP"),
+            role=presenter_role(conference, "PRESENTER"),
+        )
+        ChecklistTemplateItem.objects.create(
+            template=workshop, owner=ItemOwner.SPEAKER, title="Do a tech check"
+        )
+        presenter = make_presenter(conference)
+        for title in ("A", "B"):
+            link = add_presenter(
+                make_session(conference, kind="WORKSHOP", title=title),
+                presenter,
+                confirmed=True,
+            )
+            instantiate_presenter_checklist(link)
+        assert presenter.checklist_items.filter(title="Do a tech check").count() == 2
+        seed_checklists(conference)  # "Load defaults" on the old edition
+        assert presenter.checklist_items.filter(title="Do a tech check").count() == 1
+        assert presenter.checklist_items.get(title="Do a tech check").session is None
+        assert not workshop.items.filter(title="Do a tech check").exists()
 
     def test_without_general_template(self, conference):
         out = StringIO()
         call_command("dedupe_general_items", stdout=out)
         assert "moved 0 item(s)" in out.getvalue()
+
+    def test_the_command_is_there_for_an_edition_seeded_long_ago(self, conference):
+        """Loading the defaults folds duplicates now, so the command is for
+        an edition nobody has loaded since; running it twice changes nothing
+        the second time."""
+        make_settings(conference)
+        seed_checklists(conference)
+        presenter = make_presenter(conference)
+        link = add_presenter(
+            make_session(conference, kind="WORKSHOP"), presenter, confirmed=True
+        )
+        instantiate_presenter_checklist(link)
+        instantiate_general_checklist(presenter)
+        out = StringIO()
+        call_command("dedupe_general_items", stdout=out)
+        first = out.getvalue()
+        assert "moved" in first and "dropped" in first
+        # Idempotent: the second pass has nothing left to do.
+        out = StringIO()
+        call_command("dedupe_general_items", stdout=out)
+        assert "moved 0 item(s)" in out.getvalue()
+        assert "dropped 0 duplicate(s)" in out.getvalue()
+        assert "deleted 0 redundant template line(s)" in out.getvalue()

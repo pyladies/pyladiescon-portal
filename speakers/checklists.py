@@ -24,6 +24,7 @@ from .models import (
     ActivityLog,
     ChecklistItem,
     ChecklistTemplate,
+    ChecklistTemplateItem,
     Presenter,
     SessionPresenter,
     SpeakerSettings,
@@ -457,3 +458,78 @@ def assign_item(item, assignee=None, team=None, actor=None):
             f"{item.title} → {item.owner_label or 'nobody'}",
         )
     return item
+
+
+def collapse_general_duplicates(conference):
+    """Fold per-session copies of general lines into one session-less item.
+
+    Two passes: lines of per-session templates whose title matches a line
+    of the every-presenter template (they are moved and the redundant
+    template lines deleted), and once-per-presenter lines that still have
+    several copies. A done copy is preferred; open extras are dropped.
+    Returns ``(moved, dropped, lines_deleted)``. Idempotent.
+    """
+    general = ChecklistTemplate.for_general(conference)
+    moved = dropped = lines = 0
+    if general is not None:
+        general_by_title = {line.title: line for line in general.items.all()}
+        stale_lines = ChecklistTemplateItem.objects.filter(
+            template__conference=conference,
+            template__scope=ChecklistScope.PRESENTER,
+            title__in=general_by_title,
+        )
+        for line in list(stale_lines):
+            m, d = _collapse_line(line, general_by_title[line.title])
+            moved += m
+            dropped += d
+            line.delete()
+            lines += 1
+    for line in ChecklistTemplateItem.objects.filter(
+        template__conference=conference, once_per_presenter=True
+    ):
+        m, d = _collapse_line(line, line)
+        moved += m
+        dropped += d
+    return moved, dropped, lines
+
+
+def _collapse_line(line, target_line):
+    """Per presenter, keep one instance of ``line`` (a done one if any) as
+    the session-less item of ``target_line``; drop the other open copies."""
+    moved = dropped = 0
+    # A set, not .distinct(): the model's default ordering would make
+    # DISTINCT include the order columns and repeat presenters.
+    presenter_ids = set(
+        ChecklistItem.objects.filter(template_item=line).values_list(
+            "presenter_id", flat=True
+        )
+    )
+    for presenter_id in presenter_ids:
+        copies = list(
+            ChecklistItem.objects.filter(template_item=line, presenter_id=presenter_id)
+        )
+        copies.sort(key=lambda i: (i.status != ItemStatus.DONE, i.pk))
+        keep = copies[0]
+        existing = (
+            ChecklistItem.objects.filter(
+                template_item=target_line,
+                presenter_id=presenter_id,
+                session__isnull=True,
+            )
+            .exclude(pk=keep.pk)
+            .first()
+        )
+        if existing is not None:
+            keep = existing
+        elif keep.template_item_id != target_line.pk or keep.session_id is not None:
+            keep.template_item = target_line
+            keep.session = None
+            keep.save()
+            moved += 1
+        # An item already where it belongs is left alone, so running this
+        # twice reports nothing the second time and writes nothing either.
+        for extra in copies:
+            if extra.pk != keep.pk and extra.status == ItemStatus.TODO:
+                extra.delete()
+                dropped += 1
+    return moved, dropped

@@ -192,12 +192,14 @@ class TestSeed:
         )
         template.name = "Workshop presenter (edited)"
         template.save()
-        template.items.filter(title="Do a tech check").delete()
+        template.items.filter(title="Share a link to your workshop materials").delete()
         again = seed_checklists(conference)
         assert (again.templates, again.items) == (0, 1)
         template.refresh_from_db()
         assert template.name == "Workshop presenter (edited)"
-        assert template.items.filter(title="Do a tech check").exists()
+        assert template.items.filter(
+            title="Share a link to your workshop materials"
+        ).exists()
 
     def test_seed_content_matches_design(self, conference):
         seed_checklists(conference)
@@ -218,6 +220,7 @@ class TestSeed:
         general_titles = list(general.items.values_list("title", flat=True))
         assert general_titles[0] == "Update your bio and headshot"
         assert "Join the PyLadiesCon Discord" in general_titles
+        assert "Do a tech check" in general_titles
         assert "Presenter in portal" in general_titles
         assert workshop.items.get(title="Read the workshop guide").once_per_presenter
         organizer_titles = list(

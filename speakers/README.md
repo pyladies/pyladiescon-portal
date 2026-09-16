@@ -149,8 +149,9 @@ lines; a line marked `once_per_presenter` (the kind-specific guides) also
 creates one session-less item per presenter, whatever the number of
 sessions. General items live in the speaker's "For you as a speaker"
 group and never on a session page; the dashboard shows their completion.
-`manage.py dedupe_general_items` collapses the per-session copies an
-edition seeded before this change still carries.
+Loading the defaults (or `manage.py dedupe_general_items`) collapses the
+per-session copies an edition seeded before this change still carries
+(`collapse_general_duplicates`). The tech check is general too.
 
 ### Template changes reach existing checklists
 
