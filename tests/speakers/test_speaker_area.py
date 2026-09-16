@@ -491,3 +491,13 @@ class TestLockedSessions:
         assert client.get(url).status_code == 403
         Session.objects.filter(pk=my_session.pk).update(status=SessionStatus.SCHEDULED)
         assert client.get(url).status_code == 200
+
+
+@pytest.mark.django_db
+class TestSpeakerProfileWording:
+    def test_menu_and_headers_say_speaker_profile(self, client, speaker, presenter):
+        client.force_login(speaker)
+        content = client.get(PROFILE).content.decode()
+        assert "My speaker profile" in content
+        assert ">My profile<" not in content
+        assert "Update speaker profile" in client.get(DASHBOARD).content.decode()

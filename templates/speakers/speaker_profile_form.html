@@ -2,12 +2,12 @@
 {% load i18n %}
 {% load django_bootstrap5 %}
 {% block head_title %}
-    {% trans "My profile" %}
+    {% trans "My speaker profile" %}
 {% endblock head_title %}
 {% block breadcrumb %}
     {% url 'speakers:my_dashboard' as bc_url %}
     {% trans "Speaking" as bc_section %}
-    {% trans "My profile" as bc_page %}
+    {% trans "My speaker profile" as bc_page %}
     {% include "portal/_breadcrumbs.html" with section=bc_section section_url=bc_url page=bc_page %}
 {% endblock breadcrumb %}
 {% block sidebar %}
@@ -15,7 +15,7 @@
 {% endblock sidebar %}
 {% block content %}
     <h1 class="h3 mb-1">
-        {% trans "My profile" %}
+        {% trans "My speaker profile" %}
     </h1>
     <p class="text-secondary">
         {% blocktranslate with email=presenter.email %}Signed in as {{ email }}. Ask the organizers if that address should change.{% endblocktranslate %}
