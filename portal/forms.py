@@ -4,6 +4,7 @@ from captcha.fields import CaptchaField, CaptchaTextInput
 from django import forms
 
 from portal.models import Conference
+from speakers.models import SpeakerSettings
 
 
 class PortalCaptchaTextInput(CaptchaTextInput):
@@ -117,7 +118,19 @@ class StartNewYearForm(forms.Form):
 
 
 class ConferenceForm(forms.ModelForm):
-    """Edit an existing conference edition through the portal."""
+    """Edit an existing conference edition through the portal.
+
+    ``speaker_module_enabled`` is not a Conference field: it lives on the
+    edition's ``speakers.SpeakerSettings`` row, which this form reads and
+    writes so the switch sits with the other per-edition flags.
+    """
+
+    speaker_module_enabled = forms.BooleanField(
+        required=False,
+        label="Speaker portal enabled",
+        help_text="Turn on sessions, presenters, invitations and checklists "
+        "for this edition.",
+    )
 
     class Meta:
         model = Conference
@@ -149,3 +162,27 @@ class ConferenceForm(forms.ModelForm):
                 attrs={"type": "date"}, format="%Y-%m-%d"
             ),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance.pk:
+            settings_row = SpeakerSettings.objects.filter(
+                conference=self.instance
+            ).first()
+            self.fields["speaker_module_enabled"].initial = bool(
+                settings_row and settings_row.speaker_module_enabled
+            )
+
+    def save(self, commit=True):
+        conference = super().save(commit=commit)
+        enabled = self.cleaned_data.get("speaker_module_enabled", False)
+        settings_row = SpeakerSettings.objects.filter(conference=conference).first()
+        if settings_row is None:
+            if enabled:
+                SpeakerSettings.objects.create(
+                    conference=conference, speaker_module_enabled=True
+                )
+        elif settings_row.speaker_module_enabled != enabled:
+            settings_row.speaker_module_enabled = enabled
+            settings_row.save(update_fields=["speaker_module_enabled", "modified_date"])
+        return conference
