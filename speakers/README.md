@@ -168,6 +168,14 @@ sent as both text and bleach-sanitized HTML. Backend is SMTP when
 `DJANGO_EMAIL_HOST` is set, console otherwise; subjects use
 `settings.ACCOUNT_EMAIL_SUBJECT_PREFIX`. Guide: `docs/developer/markdown-emails.md`.
 
+### Absolute links in email
+
+`speakers.emails.absolute_url()` builds links from the current
+`django.contrib.sites` `Site` domain (`http://` under `DEBUG`, `https://`
+otherwise). The domain is data: `manage.py set_site_domain <host>` or the
+admin's **Sites** page, documented in `docs/developer/setup.md` and
+`docs/developer/deployment.md`. A fresh database says `example.com`.
+
 ### Templates and front end
 
 Repo-level `templates/<app>/`, Bootstrap 5 (`django_bootstrap5`), Font Awesome

@@ -23,10 +23,17 @@ def signed_invitation_token(invitation):
     )
 
 
+def absolute_url(path):
+    """An absolute link for an email: the current Site's domain, over https
+    except for a DEBUG server (local maildev links must be http)."""
+    scheme = "http" if settings.DEBUG else "https"
+    return f"{scheme}://{Site.objects.get_current().domain}{path}"
+
+
 def invitation_url(invitation):
-    domain = Site.objects.get_current().domain
-    path = reverse("speakers:invitation", args=[signed_invitation_token(invitation)])
-    return f"https://{domain}{path}"
+    return absolute_url(
+        reverse("speakers:invitation", args=[signed_invitation_token(invitation)])
+    )
 
 
 def send_invitation_email(invitation):
@@ -80,8 +87,7 @@ def send_copresenter_suggestion_email(presenter, session, name, email, note):
         # Presenter-written text goes into the email as a literal block:
         # no links, headings or markup of theirs reach the organizers.
         "note": note.replace(FENCE, "'" * 3).strip(),
-        "session_url": f"https://{Site.objects.get_current().domain}"
-        f"{session.get_absolute_url()}",
+        "session_url": absolute_url(session.get_absolute_url()),
     }
     # One message per organizer, as the sponsorship emails do, so a liaison
     # does not see every staff address.
