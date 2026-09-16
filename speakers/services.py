@@ -220,3 +220,42 @@ def cancel_invitation(invitation, actor=None):
         presenter_id=invitation.presenter_id,
         session_id=invitation.session_id,
     )
+
+
+def has_accepted_generally(presenter):
+    """Whether the presenter accepted an invitation to the conference in
+    general (no session), which covers sessions they are added to later."""
+    return presenter.invitations.filter(
+        session__isnull=True, accepted_at__isnull=False
+    ).exists()
+
+
+def presenter_added_to_session(link, actor=None):
+    """After a SessionPresenter row is created by an organizer.
+
+    A presenter who already accepted a general invitation is confirmed on
+    the new session straight away, gets that session's checklist, and the
+    session's confirmation is re-tried. Returns whether that happened.
+    """
+    if link.is_confirmed or not has_accepted_generally(link.presenter):
+        return False
+    link.confirm()
+    ActivityLog.record(
+        link.conference,
+        "session.presenter_confirmed",
+        target=link.session,
+        actor=actor,
+        message="Confirmed from their accepted general invitation",
+        presenter_id=link.presenter_id,
+    )
+    invitation_accepted.send(
+        sender=Invitation,
+        invitation=link.presenter.invitations.filter(
+            session__isnull=True, accepted_at__isnull=False
+        ).latest("accepted_at"),
+        presenter=link.presenter,
+        user=link.presenter.user,
+        session_presenters=[link],
+    )
+    confirm_session_if_ready(link.session)
+    return True

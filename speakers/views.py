@@ -98,6 +98,7 @@ from .services import (
     accept_invitation,
     cancel_invitation,
     decline_invitation,
+    presenter_added_to_session,
     resolve_invitation,
     send_invitation,
 )
@@ -561,9 +562,12 @@ class SessionAddPresenterView(OrganizerSessionActionMixin, View):
                 presenter_id=link.presenter_id,
                 role=link.role.code,
             )
+            note = ""
+            if presenter_added_to_session(link, actor=request.user):
+                note = " They had already accepted, so they are confirmed on it."
             messages.success(
                 request,
-                f"Added {link.presenter.display_name} as {link.role.name}.",
+                f"Added {link.presenter.display_name} as {link.role.name}." + note,
             )
         else:
             messages.error(

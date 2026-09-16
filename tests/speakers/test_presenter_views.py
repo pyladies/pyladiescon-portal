@@ -14,7 +14,8 @@ from speakers.constants import SessionStatus
 from speakers.forms import PresenterForm, liaison_candidates
 from speakers.models import ActivityLog, Invitation, InvitationStatus, Presenter
 from speakers.program_types import presenter_role, session_type
-from speakers.services import send_invitation
+from speakers.seeds import seed_checklists
+from speakers.services import accept_invitation, send_invitation
 from speakers.tables import invitation_badge
 from volunteer.constants import ApplicationStatus
 from volunteer.models import VolunteerProfile
@@ -466,6 +467,55 @@ class TestSessionPresenterActions:
         )
         assert "Could not send" in response.content.decode()
         assert mail.outbox == [] and not Invitation.objects.exists()
+
+    def test_adding_a_presenter_who_accepted_generally_confirms_them(
+        self, client, organizer, presenters, conference
+    ):
+        """Accepting a general invitation covers sessions added afterwards:
+        the link is confirmed, the checklist appears, the session can confirm."""
+        seed_checklists(conference)
+        grace = presenters["grace"]
+        general = make_invitation(grace)
+        send_invitation(general)
+        accept_invitation(general)
+        talk = make_session(conference, kind="TALK", title="Later talk")
+        client.force_login(organizer)
+        response = client.post(
+            reverse("speakers:session_add_presenter", args=[talk.slug]),
+            {
+                "presenter": grace.pk,
+                "role": presenter_role(conference, "PRESENTER").pk,
+                "order": 1,
+                "is_required": "on",
+            },
+            follow=True,
+        )
+        assert "already accepted, so they are confirmed" in response.content.decode()
+        link = talk.session_presenters.get()
+        assert link.is_confirmed is True
+        titles = set(
+            grace.checklist_items.filter(session=talk).values_list("title", flat=True)
+        )
+        assert "Confirm your session title and summary" in titles
+        assert "Confirm your scheduled slot" in titles
+        assert ActivityLog.objects.filter(action="session.presenter_confirmed").exists()
+        talk.refresh_from_db()
+        # Their link is the only required one and no seeded item is
+        # required, so the session confirms itself on the spot.
+        assert talk.status == SessionStatus.CONFIRMED
+        # Someone who has not accepted anything is added unconfirmed, as before.
+        client.post(
+            reverse("speakers:session_add_presenter", args=[talk.slug]),
+            {
+                "presenter": presenters["ada"].pk,
+                "role": presenter_role(conference, "PRESENTER").pk,
+                "order": 2,
+            },
+        )
+        assert (
+            talk.session_presenters.get(presenter=presenters["ada"]).is_confirmed
+            is False
+        )
 
     def test_liaison_cannot_add(self, client, liaison, presenters):
         client.force_login(liaison)
