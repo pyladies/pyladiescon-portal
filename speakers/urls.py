@@ -99,6 +99,11 @@ urlpatterns = [
     path("me/guide/read/", views.SpeakerGuideReadView.as_view(), name="my_guide_read"),
     path(
         "settings/handbook/",
+        views.HandbookListView.as_view(),
+        name="handbook_list",
+    ),
+    path(
+        "settings/handbook/<slug:key>/",
         views.HandbookEditorView.as_view(),
         name="handbook_editor",
     ),

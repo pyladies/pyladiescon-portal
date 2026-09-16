@@ -79,6 +79,24 @@ GUIDE = _item(
     AutoRule.HANDBOOK_READ,
     description_md="Everything about the format, timing and what we need from you. Ticks itself when you reach the end of the guide.",
 )
+WORKSHOP_GUIDE = _item(
+    SPK,
+    "Read the workshop guide",
+    ACCEPTED,
+    14,
+    AutoRule.HANDBOOK_READ,
+    requires_handbook="workshop",
+    description_md="How a workshop runs at the conference, the setup we need from you and the deadlines. Ticks itself when you reach the end of the guide.",
+)
+KEYNOTE_GUIDE = _item(
+    SPK,
+    "Read the keynote guide",
+    ACCEPTED,
+    14,
+    AutoRule.HANDBOOK_READ,
+    requires_handbook="keynote",
+    description_md="What we need from a keynote: timing, format and the deadlines. Ticks itself when you reach the end of the guide.",
+)
 REGISTER = _item(
     SPK,
     "Register for the conference",
@@ -169,7 +187,7 @@ ORGANIZER_ITEMS = [
 WORKSHOP_SPEAKER = [
     BIO,
     CONFIRM_TITLE,
-    GUIDE,
+    WORKSHOP_GUIDE,
     REGISTER,
     DISCORD,
     CONFIRM_SLOT,
@@ -186,6 +204,7 @@ TALK_SPEAKER = [
     SLIDES,
     TECH_CHECK,
 ]
+KEYNOTE_SPEAKER = [KEYNOTE_GUIDE if item is GUIDE else item for item in TALK_SPEAKER]
 PANEL_LIGHT = [BIO, GUIDE, REGISTER, DISCORD, CONFIRM_SLOT, TECH_CHECK]
 PERFORMER = [
     BIO,
@@ -203,6 +222,7 @@ PERFORMER = [
         14,
         AutoRule.HANDBOOK_READ,
         description_md="How PyJam works, the video format we need and the deadlines. Ticks itself when you reach the end.",
+        requires_handbook="performer",
     ),
     _item(
         SPK,
@@ -327,7 +347,7 @@ DEFAULT_TEMPLATES = [
         "KEYNOTE",
         "PRESENTER",
         "",
-        TALK_SPEAKER + ORGANIZER_ITEMS,
+        KEYNOTE_SPEAKER + ORGANIZER_ITEMS,
     ),
     (
         ChecklistScope.PRESENTER,
@@ -460,6 +480,7 @@ ITEM_FIELDS = [
     "auto_complete_rule",
     "requires_asset_kind",
     "requires_asset_language",
+    "requires_handbook",
     "per_translation_language",
     "is_required",
     "assignee_default",

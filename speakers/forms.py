@@ -6,7 +6,13 @@ from django.db.models import Q
 from django.utils.text import slugify
 from text_unidecode import unidecode
 
-from .constants import RESERVED_SLUGS, SLUG_MAX_LENGTH, Delivery, ItemOwner
+from .constants import (
+    DEFAULT_GUIDE_KEY,
+    RESERVED_SLUGS,
+    SLUG_MAX_LENGTH,
+    Delivery,
+    ItemOwner,
+)
 from .models import (
     ChecklistTemplate,
     ChecklistTemplateItem,
@@ -563,6 +569,7 @@ class ChecklistTemplateItemForm(forms.ModelForm):
             "auto_complete_rule",
             "requires_asset_kind",
             "requires_asset_language",
+            "requires_handbook",
             "per_translation_language",
             "is_required",
             "assignee_default",
@@ -573,6 +580,38 @@ class ChecklistTemplateItemForm(forms.ModelForm):
             + " Speakers see this under the title on their to-do list.",
             "auto_complete_rule": "Pick a rule and the portal ticks the item itself.",
         }
+
+    def __init__(self, *args, conference, **kwargs):
+        super().__init__(*args, **kwargs)
+        # The guide is picked from the edition's guides, not typed.
+        choices = [("", f"{DEFAULT_GUIDE_KEY} (default)")] + [
+            (key, f"{title} ({key})")
+            for key, title in Handbook.keys(conference)
+            if key != DEFAULT_GUIDE_KEY
+        ]
+        self.fields["requires_handbook"] = forms.ChoiceField(
+            choices=choices,
+            required=False,
+            label="Guide",
+            help_text='Which guide the "read the guide" rule checks.',
+        )
+
+
+class NewHandbookForm(forms.Form):
+    """Start another guide for the edition (workshop, keynote, performer...)."""
+
+    key = forms.SlugField(max_length=40, help_text="Short identifier, e.g. workshop.")
+    title = forms.CharField(max_length=200)
+
+    def __init__(self, *args, conference, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.conference = conference
+
+    def clean_key(self):
+        key = self.cleaned_data["key"].lower()
+        if Handbook.objects.filter(conference=self.conference, key=key).exists():
+            raise forms.ValidationError("A guide with this key already exists.")
+        return key
 
 
 DEFAULT_GUIDE_URL = "https://conference.pyladies.com/docs/"
@@ -595,11 +634,11 @@ class PresenterInviteForm(InviteForm):
     def __init__(self, *args, presenter, **kwargs):
         super().__init__(*args, **kwargs)
         self.presenter = presenter
-        links = presenter.session_presenters.select_related("session").order_by(
+        links = presenter.session_presenters.select_related("session", "role").order_by(
             "session__title"
         )
         self.fields["session"].choices = [
-            (str(link.session_id), f"{link.session.title} ({link.get_role_display()})")
+            (str(link.session_id), f"{link.session.title} ({link.role.name})")
             for link in links
         ] + [("", "The conference in general")]
         self.order_fields(["session", "message_md"])

@@ -5,13 +5,14 @@
     {% trans "Speaker guide" %}
 {% endblock head_title %}
 {% block breadcrumb %}
-    {% trans "Speaker guide" as bc_section %}
-    {% include "portal/_breadcrumbs.html" with section=bc_section %}
+    {% url 'speakers:handbook_list' as bc_url %}
+    {% trans "Speaker guides" as bc_section %}
+    {% include "portal/_breadcrumbs.html" with section=bc_section section_url=bc_url page=key %}
 {% endblock breadcrumb %}
 {% block content %}
     {% trans "Readers" as readers_label %}
     <h1 class="h3 mb-1">
-        {% trans "Speaker guide" %}
+        {% trans "Guide" %}: <code>{{ key }}</code>
     </h1>
     <p class="text-secondary">
         {% trans "Link to the guide on the conference site (or write a short one here). Presenters open it from their dashboard and confirm they have read it. Publishing a new version re-opens the \"read the guide\" item for everyone who confirmed an earlier one, so publish when the changes matter." %}

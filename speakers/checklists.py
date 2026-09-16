@@ -74,6 +74,7 @@ def _create_instance(template_item, *, session, presenter, anchors, language="")
         is_required=template_item.is_required,
         auto_complete_rule=template_item.auto_complete_rule,
         requires_asset_kind=template_item.requires_asset_kind,
+        requires_handbook=template_item.requires_handbook,
         **lookup,
     )
 

@@ -5,7 +5,7 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import PermissionDenied
 from django.db import transaction
 from django.db.models import Count, F, Q
-from django.http import HttpResponse, HttpResponseBadRequest
+from django.http import Http404, HttpResponse, HttpResponseBadRequest
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -31,7 +31,9 @@ from .checklists import (
 )
 from .clock import today
 from .constants import (
+    DEFAULT_GUIDE_KEY,
     OPEN_ITEM_STATUSES,
+    AutoRule,
     ChecklistScope,
     ItemOwner,
     ItemStatus,
@@ -46,6 +48,7 @@ from .forms import (
     ChecklistTemplateItemForm,
     HandbookForm,
     InviteForm,
+    NewHandbookForm,
     PresenterForm,
     PresenterInviteForm,
     PresenterRoleForm,
@@ -1334,6 +1337,11 @@ class TemplateItemFormMixin(TemplateEditorMixin):
     form_class = ChecklistTemplateItemForm
     template_name = "speakers/template_item_form.html"
 
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["conference"] = self.conference
+        return kwargs
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context["template"] = self.get_template(self.kwargs["pk"])
@@ -1466,41 +1474,63 @@ class PresenterPretixLinkView(LoginRequiredMixin, SpeakerOrganizerRequiredMixin,
 
 
 class SpeakerGuideView(LoginRequiredMixin, PresenterRequiredMixin, TemplateView):
-    """The speaker guide; reading it (button or scroll-to-end) records a
-    receipt for the current version."""
+    """The guides this presenter has to read: one per guide their checklists
+    require (the general speaker guide when none does), each with its own
+    acknowledgement, like accepting terms of service."""
 
     template_name = "speakers/speaker_guide.html"
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        handbook = Handbook.current(self.conference)
-        receipt = (
-            HandbookReadReceipt.objects.filter(
-                presenter=self.presenter, handbook=handbook
-            ).first()
-            if handbook
-            else None
-        )
+        guides = []
+        for key in required_guide_keys(self.presenter):
+            handbook = Handbook.current(self.conference, key)
+            if handbook is None:
+                continue
+            guides.append(
+                {
+                    "key": key,
+                    "handbook": handbook,
+                    "receipt": HandbookReadReceipt.objects.filter(
+                        presenter=self.presenter, handbook=handbook
+                    ).first(),
+                }
+            )
         context.update(
             {
                 "conference": self.conference,
                 "presenter": self.presenter,
-                "handbook": handbook,
-                "receipt": receipt,
-                "has_read": receipt is not None,
+                "guides": guides,
             }
         )
         return context
 
 
+def required_guide_keys(presenter):
+    """Guide keys named by the presenter's "read the guide" items, sorted;
+    the default guide when they have none yet."""
+    keys = {
+        key or DEFAULT_GUIDE_KEY
+        for key in ChecklistItem.objects.filter(
+            presenter=presenter, auto_complete_rule=AutoRule.HANDBOOK_READ
+        ).values_list("requires_handbook", flat=True)
+    }
+    return sorted(keys) or [DEFAULT_GUIDE_KEY]
+
+
 class SpeakerGuideReadView(LoginRequiredMixin, PresenterRequiredMixin, View):
-    """The explicit acknowledgement: the presenter ticks the box and confirms
-    they read the current version, like accepting terms of service."""
+    """The explicit acknowledgement for one guide: the presenter ticks the
+    box and confirms they read its current version."""
 
     def post(self, request):
-        handbook = Handbook.current(self.conference)
+        key = request.POST.get("key", DEFAULT_GUIDE_KEY)
+        handbook = (
+            Handbook.current(self.conference, key)
+            if key in required_guide_keys(self.presenter)
+            else None
+        )
         if handbook is None:
-            return HttpResponseBadRequest("No published guide.")
+            return HttpResponseBadRequest("No such published guide for you.")
         if not request.POST.get("acknowledge"):
             messages.error(request, "Tick the box to confirm you have read the guide.")
             return redirect("speakers:my_guide")
@@ -1511,27 +1541,80 @@ class SpeakerGuideReadView(LoginRequiredMixin, PresenterRequiredMixin, View):
                 "handbook.read",
                 target=self.presenter,
                 actor=request.user,
+                key=handbook.key,
                 version=handbook.version,
             )
-        messages.success(request, "Thanks, we've noted that you read the guide.")
+        messages.success(
+            request, f"Thanks, we've noted that you read {handbook.title}."
+        )
         return redirect("speakers:my_guide")
+
+
+class HandbookListView(LoginRequiredMixin, SpeakerOrganizerRequiredMixin, TemplateView):
+    """All guides of the edition, and a form to start another one."""
+
+    template_name = "speakers/handbook_list.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        rows = []
+        for key, title in Handbook.keys(self.conference) or [
+            (DEFAULT_GUIDE_KEY, "Speaker guide")
+        ]:
+            current = Handbook.current(self.conference, key)
+            rows.append(
+                {
+                    "key": key,
+                    "title": title,
+                    "current": current,
+                    "draft": Handbook.draft(self.conference, key),
+                    "readers": current.receipts.count() if current else 0,
+                }
+            )
+        context.update(
+            {
+                "conference": self.conference,
+                "rail_active": "handbook",
+                "rows": rows,
+                "new_form": kwargs.get("new_form")
+                or NewHandbookForm(conference=self.conference),
+            }
+        )
+        return context
+
+    def post(self, request):
+        form = NewHandbookForm(request.POST, conference=self.conference)
+        if not form.is_valid():
+            return self.render_to_response(self.get_context_data(new_form=form))
+        Handbook.objects.create(
+            conference=self.conference,
+            key=form.cleaned_data["key"],
+            title=form.cleaned_data["title"],
+            url=DEFAULT_GUIDE_URL,
+        )
+        messages.success(request, f"Started the {form.cleaned_data['title']} guide.")
+        return redirect("speakers:handbook_editor", key=form.cleaned_data["key"])
 
 
 class HandbookEditorView(
     LoginRequiredMixin, SpeakerOrganizerRequiredMixin, TemplateView
 ):
-    """Write the next version as a draft, publish it when ready."""
+    """Write the next version of one guide as a draft, publish it when ready."""
 
     template_name = "speakers/handbook_editor.html"
 
+    @property
+    def key(self):
+        return self.kwargs["key"]
+
     def get_draft(self):
-        return Handbook.draft(self.conference)
+        return Handbook.draft(self.conference, self.key)
 
     def get_form(self, data=None):
         draft = self.get_draft()
         if draft is not None:
             return HandbookForm(data, instance=draft)
-        current = Handbook.current(self.conference)
+        current = Handbook.current(self.conference, self.key)
         initial = (
             {"title": current.title, "url": current.url, "body_md": current.body_md}
             if current
@@ -1541,30 +1624,35 @@ class HandbookEditorView(
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
+        versions = list(
+            Handbook.objects.filter(conference=self.conference, key=self.key)
+            .annotate(reader_count=Count("receipts"))
+            .order_by("-version")
+        )
+        if not versions and self.key != DEFAULT_GUIDE_KEY:
+            raise Http404("No such guide.")
         context.update(
             {
                 "conference": self.conference,
                 "rail_active": "handbook",
+                "key": self.key,
                 "form": kwargs.get("form") or self.get_form(),
-                "current": Handbook.current(self.conference),
+                "current": Handbook.current(self.conference, self.key),
                 "draft": self.get_draft(),
-                "versions": list(
-                    Handbook.objects.filter(conference=self.conference)
-                    .annotate(reader_count=Count("receipts"))
-                    .order_by("-version")
-                ),
+                "versions": versions,
             }
         )
         return context
 
-    def post(self, request):
+    def post(self, request, key):
         form = self.get_form(request.POST)
         if not form.is_valid():
             return self.render_to_response(self.get_context_data(form=form))
         handbook = form.save(commit=False)
         if handbook.pk is None:
             handbook.conference = self.conference
-            handbook.version = Handbook.next_version(self.conference)
+            handbook.key = key
+            handbook.version = Handbook.next_version(self.conference, key)
         if request.POST.get("action") == "publish":
             if not handbook.url and not handbook.body_md.strip():
                 form.add_error(
@@ -1577,14 +1665,15 @@ class HandbookEditorView(
                 "handbook.published",
                 target=handbook,
                 actor=request.user,
+                key=key,
                 version=handbook.version,
             )
             messages.success(
                 request,
-                f"Published version {handbook.version}. Presenters who read an "
-                "earlier version have their guide item re-opened.",
+                f"Published {handbook.title} version {handbook.version}. Presenters "
+                "who read an earlier version have their guide item re-opened.",
             )
         else:
             handbook.save()
             messages.success(request, f"Saved draft version {handbook.version}.")
-        return redirect("speakers:handbook_editor")
+        return redirect("speakers:handbook_editor", key=key)

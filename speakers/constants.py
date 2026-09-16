@@ -154,3 +154,6 @@ RESERVED_SLUGS = frozenset(
         "schedule",
     }
 )
+
+# The guide a "read the guide" checklist line means when it names none.
+DEFAULT_GUIDE_KEY = "speaker"

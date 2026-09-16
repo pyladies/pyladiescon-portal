@@ -90,10 +90,10 @@ class TestSendInvitation:
 
     def test_debug_server_links_are_http(self, send, invitation, settings):
         settings.DEBUG = True
-        send_invitation(invitation)
+        send(invitation)
         assert "http://example.com/speakers/invitations/" in mail.outbox[-1].body
         settings.DEBUG = False
-        send_invitation(invitation)
+        send(invitation)
         assert "https://example.com/speakers/invitations/" in mail.outbox[-1].body
 
     def test_url_in_text_part_is_usable(self, send, invitation):
