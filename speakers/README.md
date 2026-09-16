@@ -233,6 +233,15 @@ htmx asks for it when a form becomes visible (`intersect once`) and again as
 the note is typed, so a session page listing several unconfirmed presenters
 builds no email until one is asked for.
 
+### Next year
+
+"Start next year" (`portal/views.py`, `StartNewYearView`) offers "Copy the
+speaker portal setup" and "Enable the speaker portal". The copy is
+`speakers.seeds.clone_speaker_setup`: checklist templates and items, the
+latest published version of each guide as an unpublished draft, and the
+settings except the pretix event, token and secret. The conference edit
+form can flip the flag later.
+
 ### Absolute links in email
 
 `speakers.emails.absolute_url()` builds links from the current

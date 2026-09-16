@@ -32,7 +32,8 @@ from portal.services import (
     clone_teams,
 )
 from portal_account.models import PortalProfile
-from speakers.models import Presenter, speaker_module_enabled
+from speakers.models import Presenter, SpeakerSettings, speaker_module_enabled
+from speakers.seeds import clone_speaker_setup
 from sponsorship.models import SponsorshipProfile
 from volunteer.constants import ApplicationStatus
 from volunteer.models import Team, VolunteerProfile
@@ -259,12 +260,26 @@ class StartNewYearView(SuperuserRequiredMixin, FormView):
                 carried.append(
                     f"{bring_forward_volunteers(conference, source)} volunteer(s)"
                 )
+        if source and data["copy_speaker_setup"]:
+            counts = clone_speaker_setup(
+                conference, source, enable=data["speaker_portal"]
+            )
+            carried.append(
+                f"{counts['templates']} checklist template(s), "
+                f"{counts['guides']} speaker guide(s)"
+            )
+        elif data["speaker_portal"]:
+            SpeakerSettings.objects.update_or_create(
+                conference=conference, defaults={"speaker_module_enabled": True}
+            )
 
         message = f"Created {conference}."
         if carried:
             message += f" Carried over: {', '.join(carried)}."
         if data["activate"]:
             message += " It is now the active edition."
+        if data["speaker_portal"]:
+            message += " The speaker portal is on."
         messages.success(self.request, message)
         return super().form_valid(form)
 
