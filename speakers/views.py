@@ -25,11 +25,14 @@ from .board import build_board, write_board_csv
 from .checklists import (
     ChecklistError,
     add_adhoc_item,
+    apply_new_template_item,
+    apply_template_item_changes,
     assign_item,
-    backfill_template_item,
     complete_item,
     reopen_item,
+    retire_template_item,
     skip_item,
+    sync_template_order,
 )
 from .clock import today
 from .constants import (
@@ -1502,12 +1505,15 @@ class TemplateItemCreateView(TemplateItemFormMixin, CreateView):
         template = self.get_template(self.kwargs["pk"])
         form.instance.template = template
         form.instance.order = template.items.count()
+        response = super().form_valid(form)
+        created = apply_new_template_item(self.object)
+        evaluate_items(created)
         messages.success(
             self.request,
-            f"Added “{form.instance.title}”. Existing checklists are unchanged "
-            "until you back-fill it.",
+            f"Added “{self.object.title}” to {len(created)} existing checklist(s); "
+            "they will hear about it in the daily update.",
         )
-        return super().form_valid(form)
+        return response
 
 
 class TemplateItemUpdateView(TemplateItemFormMixin, UpdateView):
@@ -1522,36 +1528,38 @@ class TemplateItemUpdateView(TemplateItemFormMixin, UpdateView):
         return get_object_or_404(self.get_queryset(), pk=self.kwargs["item_pk"])
 
     def form_valid(self, form):
-        messages.success(self.request, f"Saved “{form.instance.title}”.")
-        return super().form_valid(form)
+        response = super().form_valid(form)
+        changed = apply_template_item_changes(self.object)
+        evaluate_items(
+            ChecklistItem.objects.filter(template_item=self.object).select_related(
+                "presenter", "session", "conference"
+            )
+        )
+        messages.success(
+            self.request,
+            f"Saved “{self.object.title}”; {changed} existing item(s) updated.",
+        )
+        return response
 
 
 class TemplateItemActionView(TemplateEditorMixin, View):
-    """POST-only: move up/down, delete, back-fill one template line."""
+    """POST-only: move up/down or delete one template line."""
 
     def post(self, request, pk, item_pk, action):
         template = self.get_template(pk)
         item = get_object_or_404(template.items, pk=item_pk)
         if action == "delete":
             title = item.title
+            removed = retire_template_item(item)
             item.delete()
             messages.success(
                 request,
-                f"Removed “{title}” from the template. Existing checklists keep "
-                "their copy; it now counts as a one-off item there.",
+                f"Removed “{title}” from the template and {removed} open copy(ies) "
+                "from existing checklists; done ones are kept.",
             )
         elif action in ("up", "down"):
             self.move(template, item, -1 if action == "up" else 1)
-        elif action == "backfill":
-            created = backfill_template_item(item)
-            evaluate_items(
-                ChecklistItem.objects.filter(template_item=item).select_related(
-                    "presenter", "session", "conference"
-                )
-            )
-            messages.success(
-                request, f"Added “{item.title}” to {created} existing checklist(s)."
-            )
+            sync_template_order(template)
         else:
             return HttpResponseBadRequest("Unknown action.")
         return redirect("speakers:template_detail", pk=pk)

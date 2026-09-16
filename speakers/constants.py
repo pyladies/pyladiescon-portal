@@ -175,3 +175,10 @@ def parse_owner(value):
     if kind in ("user", "team") and pk:
         return kind, pk
     return None, None
+
+
+class NoticeKind(models.TextChoices):
+    """What the daily checklist-update email has to say about an item."""
+
+    NEW = "NEW", "New item"
+    CHANGED = "CHANGED", "Changed item"

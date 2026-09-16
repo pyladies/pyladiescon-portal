@@ -197,9 +197,9 @@ class TestItems:
             "Guide",
             "Register",
         ]
-        assert "Back-fill" in response.content.decode()
+        assert "Delete" in response.content.decode()
 
-    def test_add_item_with_rule_does_not_touch_instances(
+    def test_add_item_reaches_existing_instances(
         self, client, organizer, template, conference
     ):
         session = make_session(conference, kind="WORKSHOP")
@@ -228,7 +228,8 @@ class TestItems:
         )
         item = template.items.get(title="Tech check")
         assert item.order == 3 and item.is_required is True
-        assert link.presenter.checklist_items.count() == 3  # unchanged
+        assert link.presenter.checklist_items.count() == 4  # applied at once
+        assert link.presenter.checklist_items.get(template_item=item).is_required
 
     def test_default_team_dropdown(self, client, organizer, template, conference):
         Team.objects.create(conference=conference, short_name="Design", description="d")
@@ -287,7 +288,10 @@ class TestItems:
         )
         item.refresh_from_db()
         assert item.title == "Bio and headshot"
-        assert link.presenter.checklist_items.get(template_item=item).title == "Bio"
+        assert (
+            link.presenter.checklist_items.get(template_item=item).title
+            == "Bio and headshot"
+        )
 
     def test_edit_item_of_other_template_404(
         self, client, organizer, template, conference
@@ -366,7 +370,7 @@ class TestItems:
             == 400
         )
 
-    def test_backfill_adds_once_and_evaluates(
+    def test_new_line_applies_at_once_and_runs_its_rule(
         self, client, organizer, template, conference
     ):
         session = make_session(conference, kind="WORKSHOP")
@@ -375,22 +379,63 @@ class TestItems:
         )
         link = add_presenter(session, presenter, confirmed=True)
         instantiate_presenter_checklist(link)
-        new_item = ChecklistTemplateItem.objects.create(
-            template=template,
-            order=3,
-            owner=ItemOwner.SPEAKER,
-            title="Headshot check",
-            auto_complete_rule=AutoRule.BIO_AND_HEADSHOT,
-        )
         client.force_login(organizer)
-        response = client.post(action(template, new_item, "backfill"), follow=True)
+        response = client.post(
+            reverse("speakers:template_item_add", args=[template.pk]),
+            {
+                "title": "Headshot check",
+                "owner": ItemOwner.SPEAKER,
+                "auto_complete_rule": AutoRule.BIO_AND_HEADSHOT,
+                "assignee_default": "UNASSIGNED",
+                "due_offset_days": 0,
+            },
+            follow=True,
+        )
         assert "to 1 existing checklist(s)" in response.content.decode()
-        instance = ChecklistItem.objects.get(template_item=new_item)
+        instance = ChecklistItem.objects.get(title="Headshot check")
         assert instance.presenter == presenter
         assert instance.status == ItemStatus.DONE  # the rule ran on the new instance
-        response = client.post(action(template, new_item, "backfill"), follow=True)
-        assert "to 0 existing checklist(s)" in response.content.decode()
-        assert ChecklistItem.objects.filter(template_item=new_item).count() == 1
+        assert instance.pending_notice == "NEW"
+        assert (
+            "Back-fill"
+            not in client.get(
+                reverse("speakers:template_detail", args=[template.pk])
+            ).content.decode()
+        )
+
+    def test_edit_propagates_and_delete_retires(
+        self, client, organizer, template, conference
+    ):
+        session = make_session(conference, kind="WORKSHOP")
+        link = add_presenter(session, make_presenter(conference), confirmed=True)
+        instantiate_presenter_checklist(link)
+        line = template.items.get(title="Guide")
+        client.force_login(organizer)
+        response = client.post(
+            reverse("speakers:template_item_edit", args=[template.pk, line.pk]),
+            {
+                "title": "Read the guide, please",
+                "owner": ItemOwner.SPEAKER,
+                "assignee_default": "UNASSIGNED",
+                "due_offset_days": 0,
+            },
+            follow=True,
+        )
+        assert "1 existing item(s) updated" in response.content.decode()
+        assert link.presenter.checklist_items.filter(
+            title="Read the guide, please"
+        ).exists()
+        response = client.post(action(template, line, "delete"), follow=True)
+        assert "1 open copy(ies)" in response.content.decode()
+        assert not link.presenter.checklist_items.filter(
+            title="Read the guide, please"
+        ).exists()
+        assert (
+            client.post(
+                action(template, template.items.first(), "backfill")
+            ).status_code
+            == 400
+        )
 
 
 @pytest.mark.django_db

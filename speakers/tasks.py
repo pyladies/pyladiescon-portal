@@ -10,6 +10,7 @@ from .emails import (
     send_invitation_email,
 )
 from .models import Invitation, Presenter, Session, SpeakerSettings
+from .notices import send_checklist_change_notices
 from .pretix import PretixError, reconcile, sync_order_by_code
 from .reminders import send_checklist_digests
 from .rules import reevaluate_all
@@ -117,4 +118,17 @@ def send_checklist_digests_task():
         sent = send_checklist_digests(settings_row.conference)
         note = f" ({sent.failed} failed)" if sent.failed else ""
         results.append(f"{settings_row.conference}: {sent} email(s){note}")
+    return "; ".join(results) or "No edition has the speaker module enabled"
+
+
+@shared_task(bind=True, max_retries=3, default_retry_delay=60)
+def send_checklist_change_notices_task(self):
+    """Daily: tell people about checklist items added or changed since the
+    last notice, per edition with the module on."""
+    results = []
+    for settings_row in SpeakerSettings.objects.filter(
+        speaker_module_enabled=True
+    ).select_related("conference"):
+        sent = send_checklist_change_notices(settings_row.conference)
+        results.append(f"{settings_row.conference}: {sent} email(s)")
     return "; ".join(results) or "No edition has the speaker module enabled"

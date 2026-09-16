@@ -10,14 +10,17 @@ from portal.models import Conference
 from speakers.checklists import (
     ChecklistError,
     add_adhoc_item,
+    apply_new_template_item,
+    apply_template_item_changes,
     assign_item,
-    backfill_template_item,
     block_item,
     complete_item,
     instantiate_presenter_checklist,
     instantiate_session_checklist,
     reopen_item,
+    retire_template_item,
     skip_item,
+    sync_template_order,
 )
 from speakers.constants import (
     AssigneeDefault,
@@ -27,6 +30,7 @@ from speakers.constants import (
     ItemOwner,
     ItemStatus,
     MediaKind,
+    NoticeKind,
     SessionStatus,
 )
 from speakers.lifecycle import _record_blocked, confirm_session_if_ready
@@ -264,8 +268,8 @@ class TestSessionScope:
 
 
 @pytest.mark.django_db
-class TestBackfill:
-    def test_presenter_scope_backfill(self, seeded):
+class TestTemplateChangesReachExistingChecklists:
+    def test_new_line_is_applied_to_confirmed_presenters(self, seeded):
         template = workshop_template(seeded)
         session = make_session(seeded, kind="WORKSHOP")
         confirmed = add_presenter(session, make_presenter(seeded), confirmed=True)
@@ -279,13 +283,15 @@ class TestBackfill:
             due_anchor=DueAnchor.CONFERENCE_START,
             due_offset_days=10,
         )
-        assert backfill_template_item(new_item) == 1
+        created = apply_new_template_item(new_item)
+        assert len(created) == 1
         item = confirmed.presenter.checklist_items.get(title="Send us a fun fact")
         assert item.due_date == date(2026, 11, 25)
+        assert item.pending_notice == NoticeKind.NEW and item.pending_since is not None
         assert not pending.presenter.checklist_items.exists()
-        assert backfill_template_item(new_item) == 0
+        assert apply_new_template_item(new_item) == []
 
-    def test_session_scope_backfill_only_instantiated_sessions(self, seeded):
+    def test_new_session_line_reaches_instantiated_sessions_only(self, seeded):
         jam = make_session(seeded, kind="PYJAM", delivery=Delivery.PRE_RECORDED)
         untouched = make_session(seeded, kind="PYJAM", delivery=Delivery.PRE_RECORDED)
         instantiate_session_checklist(jam)
@@ -296,11 +302,95 @@ class TestBackfill:
             title="Archive the master",
             order=99,
         )
-        assert backfill_template_item(new_item) == 1
+        assert len(apply_new_template_item(new_item)) == 1
         assert jam.checklist_items.filter(title="Archive the master").exists()
         assert not untouched.checklist_items.exists()
         translate = template.items.get(title="Translate")
-        assert backfill_template_item(translate) == 0
+        assert apply_new_template_item(translate) == []
+
+    def test_edits_propagate_and_flag_only_visible_changes(self, seeded):
+        template = workshop_template(seeded)
+        session = make_session(seeded, kind="WORKSHOP")
+        link = add_presenter(session, make_presenter(seeded), confirmed=True)
+        instantiate_presenter_checklist(link)
+        line = template.items.get(title="Do a tech check")
+        instance = link.presenter.checklist_items.get(template_item=line)
+        assert instance.pending_notice == ""
+        line.order = 0
+        line.save()
+        assert apply_template_item_changes(line) == 0
+        instance.refresh_from_db()
+        assert instance.order == 0 and instance.pending_notice == ""
+        line.title = "Do a tech check with us"
+        line.due_anchor = DueAnchor.CONFERENCE_START
+        line.due_offset_days = 2
+        line.is_required = True
+        line.save()
+        assert apply_template_item_changes(line) == 1
+        instance.refresh_from_db()
+        assert instance.title == "Do a tech check with us"
+        assert instance.due_date == date(2026, 12, 3)
+        assert instance.is_required is True
+        assert instance.pending_notice == NoticeKind.CHANGED
+        # A NEW flag is not downgraded to CHANGED.
+        instance.flag_notice(NoticeKind.NEW)
+        instance.save()
+        line.description_md = "Bring headphones"
+        line.save()
+        apply_template_item_changes(line)
+        instance.refresh_from_db()
+        assert instance.pending_notice == NoticeKind.NEW
+        assert instance.description_md == "Bring headphones"
+
+    def test_translate_lines_keep_their_language_suffix(self, seeded):
+        jam = make_session(seeded, kind="PYJAM", delivery=Delivery.PRE_RECORDED)
+        instantiate_session_checklist(jam)
+        line = ChecklistTemplate.for_session(jam).items.get(title="Translate")
+        line.title = "Translate the transcript"
+        line.save()
+        apply_template_item_changes(line)
+        titles = set(
+            jam.checklist_items.filter(template_item=line).values_list(
+                "title", flat=True
+            )
+        )
+        assert titles == {
+            "Translate the transcript (pt-br)",
+            "Translate the transcript (es)",
+        }
+
+    def test_retire_removes_open_copies_only(self, seeded):
+        template = workshop_template(seeded)
+        session = make_session(seeded, kind="WORKSHOP")
+        first = add_presenter(session, make_presenter(seeded), confirmed=True)
+        second = add_presenter(session, make_presenter(seeded), confirmed=True)
+        instantiate_presenter_checklist(first)
+        instantiate_presenter_checklist(second)
+        line = template.items.get(title="Do a tech check")
+        complete_item(second.presenter.checklist_items.get(template_item=line))
+        assert retire_template_item(line) == 1
+        assert not first.presenter.checklist_items.filter(
+            title="Do a tech check"
+        ).exists()
+        kept = second.presenter.checklist_items.get(title="Do a tech check")
+        line.delete()
+        kept.refresh_from_db()
+        assert kept.status == ItemStatus.DONE and kept.template_item is None
+
+    def test_reorder_syncs_instances(self, seeded):
+        template = workshop_template(seeded)
+        session = make_session(seeded, kind="WORKSHOP")
+        link = add_presenter(session, make_presenter(seeded), confirmed=True)
+        instantiate_presenter_checklist(link)
+        template.items.filter(title="Do a tech check").update(order=0)
+        sync_template_order(template)
+        assert link.presenter.checklist_items.get(title="Do a tech check").order == 0
+
+    def test_adhoc_item_is_flagged_new(self, seeded):
+        item = add_adhoc_item(
+            seeded, "Bring cookies", ItemOwner.SPEAKER, presenter=make_presenter(seeded)
+        )
+        assert item.pending_notice == NoticeKind.NEW
 
 
 @pytest.mark.django_db
@@ -411,7 +501,7 @@ class TestLifecycle:
         assert instance.owner_label == "Media team"
         line.default_team_name = "Nobody"
         line.save()
-        assert backfill_template_item(line) == 0  # already instantiated
+        assert apply_new_template_item(line) == []  # already instantiated
         with pytest.raises(ValidationError, match="Name the team"):
             ChecklistTemplateItem.objects.create(
                 template=template,

@@ -139,6 +139,19 @@ team (`default_team_name`, matched by name per edition so templates clone
 forward). "My queue" shows items assigned to me or to a team I am an
 approved member of; team reminders go to every approved member.
 
+### Template changes reach existing checklists
+
+There is no back-fill step. Adding a template line creates the item on
+every checklist already made from that template (`apply_new_template_item`),
+editing a line updates its instances (`apply_template_item_changes`: title,
+description, recomputed due date, flags and rule; order silently), deleting
+one removes the open copies and keeps done or skipped ones
+(`retire_template_item`). Items added or visibly changed carry
+`pending_notice`; the daily `send_checklist_change_notices_task`
+(`speakers/notices.py`) emails each affected presenter, assignee or team
+once with the new and changed items, then clears the flags, so a quiet day
+sends nothing.
+
 ### Reminders
 
 `speakers/reminders.py` sends one digest per presenter (open speaker items
