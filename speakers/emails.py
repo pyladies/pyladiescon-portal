@@ -32,9 +32,15 @@ def signed_invitation_token(invitation):
 
 def absolute_url(path):
     """An absolute link for an email: the current Site's domain, over https
-    except for a DEBUG server (local maildev links must be http)."""
+    except for a DEBUG server (local maildev links must be http).
+
+    Reads the Site row directly rather than through ``get_current()``, whose
+    per-process cache would keep a Celery worker on the old domain after
+    ``set_site_domain`` runs in another process.
+    """
     scheme = "http" if settings.DEBUG else "https"
-    return f"{scheme}://{Site.objects.get_current().domain}{path}"
+    domain = Site.objects.get(pk=settings.SITE_ID).domain
+    return f"{scheme}://{domain}{path}"
 
 
 def invitation_url(invitation):
