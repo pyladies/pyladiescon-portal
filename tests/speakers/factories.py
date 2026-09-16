@@ -6,6 +6,7 @@ with sensible defaults; pass keyword arguments to override any field.
 
 from datetime import datetime, timedelta, timezone
 
+from portal_account.models import PortalProfile
 from speakers.models import (
     DiscordChannel,
     Invitation,
@@ -44,10 +45,19 @@ def make_session(conference, **kwargs):
 
 
 def make_presenter(conference, **kwargs):
+    """A presenter; one given a ``user`` is treated as onboarded (portal
+    profile present) so speaker pages open. Tests of the welcome flow delete
+    the profile explicitly."""
     n = _next()
     kwargs.setdefault("display_name", f"Presenter {n}")
     kwargs.setdefault("email", f"presenter{n}@example.com")
-    return Presenter.objects.create(conference=conference, **kwargs)
+    presenter = Presenter.objects.create(conference=conference, **kwargs)
+    if presenter.user_id is not None:
+        PortalProfile.objects.get_or_create(
+            user=presenter.user,
+            defaults={"coc_agreement": True, "tos_agreement": True},
+        )
+    return presenter
 
 
 def add_presenter(session, presenter, confirmed=False, **kwargs):

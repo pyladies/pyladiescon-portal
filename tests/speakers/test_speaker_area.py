@@ -116,7 +116,7 @@ class TestAccess:
 @pytest.mark.django_db
 class TestPortalIndexRouting:
     def test_presenter_lands_on_speaker_dashboard(self, client, speaker, presenter):
-        PortalProfile.objects.create(user=speaker)
+        PortalProfile.objects.get_or_create(user=speaker)
         client.force_login(speaker)
         assertRedirects(
             client.get(reverse("index")), DASHBOARD, fetch_redirect_response=False
@@ -125,7 +125,7 @@ class TestPortalIndexRouting:
     def test_presenter_who_volunteers_keeps_volunteer_hub(
         self, client, speaker, presenter, conference
     ):
-        PortalProfile.objects.create(user=speaker)
+        PortalProfile.objects.get_or_create(user=speaker)
         VolunteerProfile.objects.create(user=speaker, conference=conference)
         client.force_login(speaker)
         assertRedirects(

@@ -28,7 +28,7 @@ from .models import (
 )
 from .rules import evaluate_items
 from .signals import invitation_accepted
-from .tasks import send_invitation_email_task
+from .tasks import send_acceptance_email_task, send_invitation_email_task
 
 
 class InvitationError(Exception):
@@ -201,6 +201,9 @@ def accept_invitation(invitation):
         )
         for link in confirmed_links:
             confirm_session_if_ready(link.session)
+        # Queued inside the block: enqueue() hands it to on_commit, so a
+        # rollback takes the welcome email with it.
+        enqueue(send_acceptance_email_task, invitation.pk)
     return user
 
 

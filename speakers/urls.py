@@ -87,6 +87,12 @@ urlpatterns = [
         name="presenter_role_edit",
     ),
     path("me/", views.SpeakerDashboardView.as_view(), name="my_dashboard"),
+    path("me/welcome/", views.SpeakerWelcomeView.as_view(), name="my_welcome"),
+    path(
+        "me/keep-codes/",
+        views.DismissPasswordReminderView.as_view(),
+        name="my_dismiss_password_reminder",
+    ),
     path("me/profile/", views.SpeakerProfileUpdateView.as_view(), name="my_profile"),
     path("me/sessions/", views.SpeakerSessionListView.as_view(), name="my_sessions"),
     path(

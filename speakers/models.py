@@ -388,6 +388,10 @@ class Presenter(TimestampedModel):
         help_text="Off hides the bio, headshot and links on the public site; "
         "the name still appears on their sessions.",
     )
+    password_reminder_dismissed = models.BooleanField(
+        default=False,
+        help_text="The presenter chose to keep signing in with emailed codes.",
+    )
     pretix_order = models.ForeignKey(
         "attendee.PretixOrder",
         on_delete=models.SET_NULL,

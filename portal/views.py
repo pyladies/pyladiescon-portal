@@ -52,14 +52,21 @@ def index(request):
     """
     user = get_user(request)
     if user.is_authenticated:
+        active = Conference.get_active()
+        is_presenter = (
+            speaker_module_enabled(active)
+            and Presenter.objects.filter(conference=active, user=user).exists()
+        )
         if not PortalProfile.objects.filter(user=user).exists():
+            # Presenters finish their account on the speaker welcome page
+            # (agreements, optional password); everyone else on the plain form.
+            if is_presenter:
+                return redirect("speakers:my_welcome")
             return redirect("portal_account:portal_profile_new")
         if user.is_superuser or user.is_staff:
             return redirect("organizer_dashboard")
-        active = Conference.get_active()
         if (
-            speaker_module_enabled(active)
-            and Presenter.objects.filter(conference=active, user=user).exists()
+            is_presenter
             and not VolunteerProfile.objects.filter(
                 user=user, conference=active
             ).exists()

@@ -1,0 +1,41 @@
+{% extends "portal/base.html" %}
+{% load i18n %}
+{% load django_bootstrap5 %}
+{% block head_title %}
+    {% trans "Welcome" %}
+{% endblock head_title %}
+{% block content %}
+    <div class="col-lg-7 mx-auto">
+        <h1 class="h3 mb-1">
+            {% blocktranslate with name=presenter.display_name %}Welcome, {{ name }}{% endblocktranslate %}
+        </h1>
+        <p class="text-secondary">
+            {% blocktranslate with conference=conference.name %}One short step before your {{ conference }} dashboard: check your account details and agree to how we work together.{% endblocktranslate %}
+        </p>
+        <form method="post">
+            {% csrf_token %}
+            <h2 class="h5 mt-3">
+                {% trans "Your account" %}
+            </h2>
+            {% bootstrap_field form.username %}
+            {% bootstrap_field form.first_name %}
+            {% bootstrap_field form.last_name %}
+            {% bootstrap_field form.pronouns %}
+            <h2 class="h5 mt-4">
+                {% trans "Agreements" %}
+            </h2>
+            {% bootstrap_field form.coc_agreement %}
+            {% bootstrap_field form.tos_agreement %}
+            <h2 class="h5 mt-4">
+                {% trans "Password" %}
+                <small class="text-secondary fs-6">{% trans "(optional)" %}</small>
+            </h2>
+            <p class="text-secondary small">
+                {% trans "You signed in through your invitation link. Next time you can ask for a sign-in code by email, or set a password now. You can also do this later under Manage account." %}
+            </p>
+            {% bootstrap_field form.password1 %}
+            {% bootstrap_field form.password2 %}
+            {% bootstrap_button "Continue to my dashboard" button_type="submit" %}
+        </form>
+    </div>
+{% endblock content %}

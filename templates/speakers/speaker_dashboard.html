@@ -14,6 +14,21 @@
     <p class="text-secondary mb-4">
         {% blocktranslate with conference=conference.name tz=presenter.timezone %}Everything you need for {{ conference }}, in one place. Dates are in {{ tz }}.{% endblocktranslate %}
     </p>
+    {% if show_password_reminder %}
+        <div class="alert alert-secondary d-flex flex-wrap align-items-center gap-3" id="password-reminder">
+            <i class="fa-solid fa-key fs-4"></i>
+            <div class="flex-grow-1">
+                {% trans "Finalize your account: you sign in with emailed codes right now. Set a password if you'd rather, or keep the codes." %}
+            </div>
+            <a class="btn btn-sm btn-outline-primary" href="{% url 'account_set_password' %}">{% trans "Set a password" %}</a>
+            <form method="post" action="{% url 'speakers:my_dismiss_password_reminder' %}">
+                {% csrf_token %}
+                <button class="btn btn-sm btn-link" type="submit">
+                    {% trans "Keep using codes" %}
+                </button>
+            </form>
+        </div>
+    {% endif %}
     {% if not profile_complete %}
         <div class="alert alert-info d-flex align-items-center gap-3">
             <i class="fa-solid fa-id-card fs-4"></i>

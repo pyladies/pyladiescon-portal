@@ -289,6 +289,15 @@ installed; this app keeps small factory functions in `tests/speakers/factories.p
   "Speaking" through the `is_speaker_presenter` context flag, and the portal
   index routes presenters who are not volunteering this year to their
   dashboard.
+- Onboarding: a presenter whose account has no `PortalProfile` yet is sent
+  to `/speakers/me/welcome/` (`PresenterRequiredMixin.requires_portal_profile`)
+  before any speaker page: editable username, names, pronouns, CoC and ToS
+  agreements, optional password. The portal index routes such presenters
+  there instead of the volunteer profile form, whose username and agreement
+  boxes are disabled because signup collects them. Accepting an invitation
+  also sends `emails/speakers/accepted.md` (account, sign-in options,
+  sessions, next steps). The dashboard nags about setting a password until
+  one exists or `Presenter.password_reminder_dismissed` is set.
 - Headshots go through the default storage (`ImageField`, same as
   `PortalProfile.profile_picture`), so they land on Spaces when
   `USE_SPACES=true` and on disk otherwise. Direct-to-Spaces presigned upload

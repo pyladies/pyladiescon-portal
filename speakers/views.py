@@ -1,6 +1,6 @@
 from allauth.account.adapter import get_adapter as get_account_adapter
 from django.contrib import messages
-from django.contrib.auth import logout
+from django.contrib.auth import logout, update_session_auth_hash
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import PermissionDenied
 from django.db import transaction
@@ -12,12 +12,13 @@ from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views import View
 from django.views.generic import DetailView, TemplateView
-from django.views.generic.edit import CreateView, UpdateView
+from django.views.generic.edit import CreateView, FormView, UpdateView
 from django_filters.views import FilterView
 from django_tables2.views import SingleTableMixin
 
 from attendee.models import PretixOrder
 from common.tasks import enqueue
+from portal_account.models import PortalProfile
 from volunteer.models import Team
 
 from .board import build_board, write_board_csv
@@ -60,6 +61,7 @@ from .forms import (
     SessionPresenterForm,
     SessionPresenterRoleForm,
     SessionTypeForm,
+    SpeakerOnboardingForm,
     SpeakerProfileForm,
     SpeakerSessionForm,
     SuggestCoPresenterForm,
@@ -861,6 +863,8 @@ class SpeakerDashboardView(LoginRequiredMixin, PresenterRequiredMixin, TemplateV
                 "video_items": video_items,
                 "session_summaries": summaries,
                 "profile_complete": bool(presenter.bio_md and presenter.headshot),
+                "show_password_reminder": not self.request.user.has_usable_password()
+                and not presenter.password_reminder_dismissed,
             }
         )
         return context
@@ -1856,3 +1860,80 @@ class HandbookEditorView(
             handbook.save()
             messages.success(request, f"Saved draft version {handbook.version}.")
         return redirect("speakers:handbook_editor", key=key)
+
+
+# ---- Onboarding after acceptance (2.16) --------------------------------------
+
+
+class SpeakerWelcomeView(LoginRequiredMixin, PresenterRequiredMixin, FormView):
+    """Account details, agreements and an optional password, before the
+    dashboard. A presenter who already has a portal profile skips it."""
+
+    template_name = "speakers/speaker_welcome.html"
+    form_class = SpeakerOnboardingForm
+    requires_portal_profile = False
+
+    def get(self, request, *args, **kwargs):
+        if PortalProfile.objects.filter(user=request.user).exists():
+            return redirect("speakers:my_dashboard")
+        return super().get(request, *args, **kwargs)
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["user"] = self.request.user
+        return kwargs
+
+    def get_initial(self):
+        user = self.request.user
+        first, _, last = self.presenter.display_name.partition(" ")
+        return {
+            "username": user.username,
+            "first_name": user.first_name or first,
+            "last_name": user.last_name or last,
+            "pronouns": self.presenter.pronouns,
+        }
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["conference"] = self.conference
+        context["presenter"] = self.presenter
+        return context
+
+    def form_valid(self, form):
+        form.save()
+        if form.sets_password:
+            update_session_auth_hash(self.request, self.request.user)
+            self.presenter.password_reminder_dismissed = True
+            self.presenter.save(
+                update_fields=["password_reminder_dismissed", "modified_date"]
+            )
+        ActivityLog.record(
+            self.conference,
+            "presenter.onboarded",
+            target=self.presenter,
+            actor=self.request.user,
+            password_set=form.sets_password,
+        )
+        messages.success(
+            self.request,
+            "Welcome! Your account is ready."
+            + (
+                ""
+                if form.sets_password
+                else " You can sign in with an emailed code any time."
+            ),
+        )
+        return redirect("speakers:my_dashboard")
+
+
+class DismissPasswordReminderView(LoginRequiredMixin, PresenterRequiredMixin, View):
+    def post(self, request):
+        self.presenter.password_reminder_dismissed = True
+        self.presenter.save(
+            update_fields=["password_reminder_dismissed", "modified_date"]
+        )
+        messages.info(
+            request,
+            "Fine by us: sign-in codes it is. You can set a password later under Manage account.",
+        )
+        return redirect("speakers:my_dashboard")
