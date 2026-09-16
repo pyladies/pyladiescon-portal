@@ -308,6 +308,39 @@ class SessionDetailView(SessionScopedMixin, DetailView):
         ):
             latest[invitation.presenter_id] = invitation
         context["invitations_by_presenter"] = latest
+        # The session's checklists: per presenter, plus session-scope items.
+        today = timezone.now().date()
+        items = list(
+            self.object.checklist_items.select_related(
+                "presenter", "assignee", "team", "completed_by", "session"
+            ).order_by("presenter__display_name", "order", "id")
+        )
+        for item in items:
+            item.overdue = (
+                item.is_open and item.due_date is not None and item.due_date < today
+            )
+        groups = []
+        for link in self.object.presenter_links:
+            mine = [i for i in items if i.presenter_id == link.presenter_id]
+            if mine:
+                groups.append(
+                    {
+                        "presenter": link.presenter,
+                        "speaker": [i for i in mine if i.owner == ItemOwner.SPEAKER],
+                        "organizer": [
+                            i for i in mine if i.owner == ItemOwner.ORGANIZER
+                        ],
+                    }
+                )
+        context["checklist_groups"] = groups
+        context["session_items"] = [i for i in items if i.presenter_id is None]
+        # One query for the people and teams, shared by every row; each row
+        # reads its own current value off the item (review of #425).
+        context["owner_choices"] = owner_choices(self.conference)
+        context["can_assign"] = True
+        context["adhoc_form"] = AdhocItemForm(
+            initial={"owner_kind": ItemOwner.ORGANIZER}, conference=self.conference
+        )
         return context
 
 
@@ -1496,6 +1529,31 @@ class PresenterAddItemView(PresenterScopedMixin, View):
         else:
             messages.error(request, "Could not add the item: give it a title.")
         return redirect(presenter.get_absolute_url())
+
+
+class SessionAddItemView(OrganizerSessionActionMixin, View):
+    """A one-off item on the session itself (post-production style)."""
+
+    def post(self, request, slug):
+        session = self.get_session()
+        form = AdhocItemForm(request.POST, conference=self.conference)
+        if form.is_valid():
+            assignee, team = form.cleaned_data["owner"]
+            add_adhoc_item(
+                self.conference,
+                form.cleaned_data["title"],
+                form.cleaned_data["owner_kind"],
+                session=session,
+                due_date=form.cleaned_data["due_date"],
+                assignee=assignee,
+                team=team,
+                description_md=form.cleaned_data["description_md"],
+                actor=request.user,
+            )
+            messages.success(request, f"Added “{form.cleaned_data['title']}”.")
+        else:
+            messages.error(request, "Could not add the item: give it a title.")
+        return redirect(session.get_absolute_url())
 
 
 # ---- Template editor (design §9.1, task 2.6) ---------------------------------

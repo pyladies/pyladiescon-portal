@@ -277,4 +277,73 @@
             </div>
         </div>
     </div>
+    <h2 class="h5 mt-4 mb-3" id="checklist">
+        {% trans "Checklists for this session" %}
+    </h2>
+    {% for group in checklist_groups %}
+        <div class="mb-4" data-checklist-presenter="{{ group.presenter.pk }}">
+            <h3 class="h6 text-uppercase text-secondary">
+                <a href="{{ group.presenter.get_absolute_url }}">{{ group.presenter.display_name }}</a>
+            </h3>
+            {% if group.speaker %}
+                <div class="small text-secondary mb-1">
+                    {% trans "Their to-dos" %}
+                </div>
+                <div class="mb-2">
+                    {% trans "None." as empty_speaker %}
+                    {% include "speakers/_organizer_item_table.html" with items=group.speaker owner_choices=owner_choices can_assign=can_assign empty=empty_speaker %}
+                </div>
+            {% endif %}
+            {% if group.organizer %}
+                <div class="small text-secondary mb-1">
+                    {% trans "What we're doing for them" %}
+                </div>
+                {% trans "None." as empty_organizer %}
+                {% include "speakers/_organizer_item_table.html" with items=group.organizer owner_choices=owner_choices can_assign=can_assign empty=empty_organizer %}
+            {% endif %}
+        </div>
+    {% empty %}
+        <p class="text-secondary">
+            {% trans "No presenter checklists yet; they appear once a presenter accepts." %}
+        </p>
+    {% endfor %}
+    <div class="mb-2" data-checklist-session>
+        <h3 class="h6 text-uppercase text-secondary">
+            {% trans "Session items" %}
+        </h3>
+        {% trans "No session-level items (post-production items appear here for pre-recorded sessions)." as empty_session %}
+        {% include "speakers/_organizer_item_table.html" with items=session_items owner_choices=owner_choices can_assign=can_assign empty=empty_session %}
+    </div>
+    {% if is_organizer %}
+        <details class="mb-4">
+            <summary class="small">
+                {% trans "Add a one-off session item" %}
+            </summary>
+            <form method="post"
+                  class="row g-2 mt-1"
+                  action="{% url 'speakers:session_add_item' session.slug %}">
+                {% csrf_token %}
+                <div class="col-md-5">
+                    {{ adhoc_form.title.label_tag }} {{ adhoc_form.title }}
+                </div>
+                <div class="col-md-3">
+                    {{ adhoc_form.owner_kind.label_tag }} {{ adhoc_form.owner_kind }}
+                </div>
+                <div class="col-md-4">
+                    {{ adhoc_form.due_date.label_tag }} {{ adhoc_form.due_date }}
+                </div>
+                <div class="col-md-6">
+                    {{ adhoc_form.owner.label_tag }} {{ adhoc_form.owner }}
+                </div>
+                <div class="col-12">
+                    {{ adhoc_form.description_md.label_tag }} {{ adhoc_form.description_md }}
+                </div>
+                <div class="col-12">
+                    <button class="btn btn-sm btn-outline-primary" type="submit">
+                        {% trans "Add item" %}
+                    </button>
+                </div>
+            </form>
+        </details>
+    {% endif %}
 {% endblock content %}
