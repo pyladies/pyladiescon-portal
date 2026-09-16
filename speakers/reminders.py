@@ -16,6 +16,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from common.send_emails import send_email
+from volunteer.constants import ApplicationStatus
 
 from .constants import OPEN_ITEM_STATUSES, ItemOwner
 from .emails import absolute_url, organizer_recipients
@@ -68,7 +69,7 @@ def send_checklist_digests(conference, now=None):
             conference=conference,
             status__in=list(OPEN_ITEM_STATUSES),
             due_date__isnull=False,
-        ).select_related("presenter", "session", "assignee")
+        ).select_related("presenter", "session", "assignee", "team")
     )
     emails = DigestCount(0)
     emails += _speaker_digests(conference, items, now, sent)
@@ -125,6 +126,10 @@ def _organizer_digests(conference, items, now, sent, settings_row):
             continue
         if item.assignee is not None and item.assignee.email:
             by_recipient[(item.assignee.email,)].append((item, thresholds))
+            continue
+        members = _team_emails(item.team) if item.team is not None else []
+        if members:
+            by_recipient[tuple(members)].append((item, thresholds))
         else:
             if fallback is None:
                 fallback = (
@@ -179,6 +184,19 @@ def _try_deliver(conference, recipients, template, context, due, subject):
         logger.exception("Digest to %s failed", recipients)
         return False
     return True
+
+
+def _team_emails(team):
+    """Every approved member of the team with an email address."""
+    return sorted(
+        {
+            profile.user.email
+            for profile in team.members.filter(
+                application_status=ApplicationStatus.APPROVED
+            ).select_related("user")
+            if profile.user.email
+        }
+    )
 
 
 def _deliver(conference, recipients, template, context, due, subject):

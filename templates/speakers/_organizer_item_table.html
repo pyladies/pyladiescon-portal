@@ -1,7 +1,7 @@
 {% load i18n %}
 {% comment %}
 Table of checklist items on the presenter page. Params: items,
-assignee_choices (users, built once by the view), can_assign, empty (message).
+owner_choices (people and teams, built once by the view), can_assign, empty (message).
 {% endcomment %}
 <div class="table-responsive">
     <table class="table table-sm table-bordered align-middle mb-0">
@@ -25,7 +25,7 @@ assignee_choices (users, built once by the view), can_assign, empty (message).
         </thead>
         <tbody>
             {% for item in items %}
-                {% include "speakers/_organizer_item_row.html" with item=item assignee_choices=assignee_choices can_assign=can_assign %}
+                {% include "speakers/_organizer_item_row.html" with item=item owner_choices=owner_choices can_assign=can_assign %}
             {% empty %}
                 <tr>
                     <td colspan="5" class="text-secondary">

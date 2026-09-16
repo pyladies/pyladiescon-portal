@@ -6,6 +6,11 @@ an object-level check on the data model (``Presenter.liaison``), which is
 the same shape as ``TeamLeadRequiredMixin`` looking at ``team.team_leads``.
 """
 
+from django.db.models import Q
+
+from volunteer.constants import ApplicationStatus
+from volunteer.models import Team
+
 from .constants import ItemOwner
 from .models import ChecklistItem, Presenter
 
@@ -36,16 +41,24 @@ def is_speaker_assignee(user, conference):
     object-level check on the data, like the liaison one: the assignment is
     the grant.
 
+    An item owned by a team they are an approved member of counts the same:
+    the queue lists it and the digest mails it to them.
+
     Any assigned item counts, not only an open one: ticking off the last
     one would otherwise 403 the very page the volunteer is standing on, and
     they still need the queue to reopen something they closed too early.
     """
     if not user.is_authenticated or conference is None:
         return False
+    my_teams = Team.objects.filter(
+        conference=conference,
+        members__user=user,
+        members__application_status=ApplicationStatus.APPROVED,
+    )
     return ChecklistItem.objects.filter(
+        Q(assignee=user) | Q(team__in=my_teams),
         conference=conference,
         owner=ItemOwner.ORGANIZER,
-        assignee=user,
     ).exists()
 
 

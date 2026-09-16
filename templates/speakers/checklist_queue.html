@@ -57,6 +57,11 @@
                                     {{ item.session.title }}
                                 {% endif %}
                             {% endif %}
+                            {% if item.team %}
+                                <div class="small text-secondary">
+                                    {% blocktranslate with team=item.team.short_name %}via the {{ team }} team{% endblocktranslate %}
+                                </div>
+                            {% endif %}
                         </td>
                         <td class="text-nowrap">
                             {% if item.due_date %}

@@ -15,6 +15,7 @@ from speakers.constants import (
 from speakers.models import ChecklistItem, ChecklistTemplate, ChecklistTemplateItem
 from speakers.program_types import presenter_role, seed_program_types, session_type
 from speakers.seeds import DEFAULT_TEMPLATES, seed_checklists
+from volunteer.models import Team
 
 from .factories import add_presenter, make_presenter, make_session, make_settings
 
@@ -227,6 +228,26 @@ class TestItems:
         item = template.items.get(title="Tech check")
         assert item.order == 3 and item.is_required is True
         assert link.presenter.checklist_items.count() == 3  # unchanged
+
+    def test_default_team_dropdown(self, client, organizer, template, conference):
+        Team.objects.create(conference=conference, short_name="Design", description="d")
+        client.force_login(organizer)
+        url = reverse("speakers:template_item_add", args=[template.pk])
+        assert 'value="Design"' in client.get(url).content.decode()
+        response = client.post(
+            url,
+            {
+                "title": "Poster",
+                "owner": ItemOwner.ORGANIZER,
+                "assignee_default": "TEAM",
+                "default_team_name": "Design",
+                "due_offset_days": 0,
+            },
+        )
+        assertRedirects(
+            response, reverse("speakers:template_detail", args=[template.pk])
+        )
+        assert template.items.get(title="Poster").default_team_name == "Design"
 
     def test_rule_dropdown_rejects_unknown(self, client, organizer, template):
         client.force_login(organizer)

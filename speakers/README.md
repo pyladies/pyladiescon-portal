@@ -129,6 +129,16 @@ it with the attendee app's own field mapping, so both paths agree. Nightly
 `pretix_reconcile_task` pages through `modified_since` the last run.
 `Presenter.pretix_order` is the manual link that wins over email matching.
 
+### Item ownership
+
+An organizer checklist item is owned by a person (`assignee`) or by a
+`volunteer.Team` (`team`), never both; `assign_item()` enforces it and
+`ChecklistItem.owner_label` renders whichever is set. Template lines can
+start an item unassigned, with the presenter's liaison, or with a named
+team (`default_team_name`, matched by name per edition so templates clone
+forward). "My queue" shows items assigned to me or to a team I am an
+approved member of; team reminders go to every approved member.
+
 ### Reminders
 
 `speakers/reminders.py` sends one digest per presenter (open speaker items

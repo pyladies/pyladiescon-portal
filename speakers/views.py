@@ -18,6 +18,8 @@ from django_tables2.views import SingleTableMixin
 
 from attendee.models import PretixOrder
 from common.tasks import enqueue
+from volunteer.constants import ApplicationStatus
+from volunteer.models import Team
 
 from .board import build_board, write_board_csv
 from .checklists import (
@@ -61,6 +63,7 @@ from .forms import (
     SpeakerProfileForm,
     SpeakerSessionForm,
     SuggestCoPresenterForm,
+    owner_choices,
 )
 from .lifecycle import waiting_on_labels
 from .mixins import (
@@ -84,7 +87,6 @@ from .models import (
     SessionType,
     SpeakerSettings,
 )
-from .people import assignee_candidates
 from .permissions import can_work_sessions, is_speaker_organizer
 from .pretix import (
     PretixError,
@@ -457,7 +459,7 @@ class PresenterDetailView(PresenterScopedMixin, DetailView):
         context["invite_form"] = PresenterInviteForm(presenter=self.object)
         items = list(
             self.object.checklist_items.select_related(
-                "assignee", "session", "completed_by"
+                "assignee", "team", "session", "completed_by"
             ).order_by("session__title", "order", "id")
         )
         for item in items:
@@ -466,8 +468,9 @@ class PresenterDetailView(PresenterScopedMixin, DetailView):
         context["organizer_items"] = [
             i for i in items if i.owner == ItemOwner.ORGANIZER
         ]
-        # One query for the assignee choices, shared by every row.
-        context["assignee_choices"] = list(assignee_candidates(self.conference))
+        # One query for the person-and-team options, shared by every row;
+        # each row reads its own current value off the item.
+        context["owner_choices"] = owner_choices(self.conference)
         context["adhoc_form"] = AdhocItemForm(conference=self.conference)
         context["can_assign"] = is_speaker_organizer(self.request.user)
         # Checklists only make sense once the presenter has been invited; ad-hoc
@@ -1160,7 +1163,8 @@ class ChecklistBoardExportView(ChecklistBoardView):
 
 
 class ChecklistQueueView(LoginRequiredMixin, SpeakerQueueRequiredMixin, TemplateView):
-    """Organizer items assigned to me, soonest first (design §9.6).
+    """Organizer items assigned to me or to a team I am on, soonest first
+    (design §9.6).
 
     Open to whoever carries one: a volunteer who is neither organizer nor
     liaison reaches it from the daily digest."""
@@ -1169,14 +1173,19 @@ class ChecklistQueueView(LoginRequiredMixin, SpeakerQueueRequiredMixin, Template
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
+        my_teams = Team.objects.filter(
+            conference=self.conference,
+            members__user=self.request.user,
+            members__application_status=ApplicationStatus.APPROVED,
+        )
         items = (
             ChecklistItem.objects.filter(
+                Q(assignee=self.request.user) | Q(team__in=my_teams),
                 conference=self.conference,
                 owner=ItemOwner.ORGANIZER,
-                assignee=self.request.user,
                 status__in=list(OPEN_ITEM_STATUSES),
             )
-            .select_related("presenter", "session")
+            .select_related("presenter", "session", "team")
             .order_by(F("due_date").asc(nulls_last=True), "order", "id")
         )
         items = list(items)
@@ -1229,7 +1238,7 @@ class ItemActionMixin(LoginRequiredMixin, SpeakerQueueRequiredMixin):
                 "speakers/_organizer_item_row.html",
                 {
                     "item": item,
-                    "assignee_choices": list(assignee_candidates(self.conference)),
+                    "owner_choices": owner_choices(self.conference),
                     "can_assign": is_speaker_organizer(request.user),
                     "error": error,
                 },
@@ -1290,7 +1299,8 @@ class ItemAssignView(ItemActionMixin, View):
         form = AssignItemForm(request.POST, conference=self.conference)
         if not form.is_valid():
             return HttpResponseBadRequest("Unknown assignee.")
-        assign_item(item, form.cleaned_data["assignee"], actor=request.user)
+        assignee, team = form.cleaned_data["owner"]
+        assign_item(item, assignee=assignee, team=team, actor=request.user)
         return self.respond(request, item)
 
 
@@ -1299,13 +1309,15 @@ class PresenterAddItemView(PresenterScopedMixin, View):
         presenter = get_object_or_404(self.get_queryset(), slug=slug)
         form = AdhocItemForm(request.POST, conference=self.conference)
         if form.is_valid():
+            assignee, team = form.cleaned_data["owner"]
             add_adhoc_item(
                 self.conference,
                 form.cleaned_data["title"],
-                form.cleaned_data["owner"],
+                form.cleaned_data["owner_kind"],
                 presenter=presenter,
                 due_date=form.cleaned_data["due_date"],
-                assignee=form.cleaned_data["assignee"],
+                assignee=assignee,
+                team=team,
                 description_md=form.cleaned_data["description_md"],
                 actor=request.user,
             )

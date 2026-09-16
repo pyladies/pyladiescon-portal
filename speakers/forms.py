@@ -1,10 +1,11 @@
 import zoneinfo
 
 from django import forms
-from django.contrib.auth.models import User
 from django.db.models import Q
 from django.utils.text import slugify
 from text_unidecode import unidecode
+
+from volunteer.models import Team
 
 from .constants import (
     DEFAULT_GUIDE_KEY,
@@ -513,11 +514,13 @@ class AdhocItemForm(forms.Form):
     """A one-off checklist item for one presenter (design §9.2)."""
 
     title = forms.CharField(max_length=200)
-    owner = forms.ChoiceField(choices=ItemOwner.choices, initial=ItemOwner.ORGANIZER)
+    owner_kind = forms.ChoiceField(
+        choices=ItemOwner.choices, initial=ItemOwner.ORGANIZER, label="Owner"
+    )
     due_date = forms.DateField(
         required=False, widget=forms.DateInput(attrs={"type": "date"})
     )
-    assignee = forms.ModelChoiceField(queryset=User.objects.none(), required=False)
+    owner = forms.ChoiceField(required=False, label="Assignee")
     description_md = forms.CharField(
         required=False,
         widget=forms.Textarea(attrs={"rows": 2}),
@@ -526,16 +529,45 @@ class AdhocItemForm(forms.Form):
 
     def __init__(self, *args, conference, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["assignee"].queryset = assignee_candidates(conference)
-        self.fields["assignee"].label_from_instance = user_label
+        self.conference = conference
+        self.fields["owner"].choices = owner_choices(conference)
+
+    def clean_owner(self):
+        return AssignItemForm.clean_owner(self)
+
+
+def team_candidates(conference):
+    return Team.objects.filter(conference=conference).order_by("short_name")
+
+
+def owner_choices(conference):
+    """Select options for handing an item to a person or a team."""
+    people = [(f"user:{u.pk}", user_label(u)) for u in assignee_candidates(conference)]
+    teams = [
+        (f"team:{t.pk}", f"{t.short_name} team") for t in team_candidates(conference)
+    ]
+    return [("", "Unassigned"), ("People", people), ("Teams", teams)]
 
 
 class AssignItemForm(forms.Form):
-    assignee = forms.ModelChoiceField(queryset=User.objects.none(), required=False)
+    """One select: a person or a team (an item is never owned by both)."""
+
+    owner = forms.ChoiceField(required=False, label="Assignee")
 
     def __init__(self, *args, conference, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["assignee"].queryset = assignee_candidates(conference)
+        self.conference = conference
+        self.fields["owner"].choices = owner_choices(conference)
+
+    def clean_owner(self):
+        """Returns ``(assignee, team)``."""
+        value = self.cleaned_data["owner"]
+        if not value:
+            return None, None
+        kind, _, pk = value.partition(":")
+        if kind == "user":
+            return assignee_candidates(self.conference).get(pk=pk), None
+        return None, team_candidates(self.conference).get(pk=pk)
 
 
 class ChecklistTemplateForm(forms.ModelForm):
@@ -598,6 +630,7 @@ class ChecklistTemplateItemForm(forms.ModelForm):
             "per_translation_language",
             "is_required",
             "assignee_default",
+            "default_team_name",
         ]
         widgets = {"description_md": forms.Textarea(attrs={"rows": 2})}
         help_texts = {
@@ -619,6 +652,13 @@ class ChecklistTemplateItemForm(forms.ModelForm):
             required=False,
             label="Guide",
             help_text='Which guide the "read the guide" rule checks.',
+        )
+        self.fields["default_team_name"] = forms.ChoiceField(
+            choices=[("", "—")]
+            + [(t.short_name, t.short_name) for t in team_candidates(conference)],
+            required=False,
+            label="Default team",
+            help_text='With "A named team": which team starts with the item.',
         )
 
 

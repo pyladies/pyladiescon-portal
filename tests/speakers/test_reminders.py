@@ -11,6 +11,8 @@ from speakers.constants import ItemOwner
 from speakers.models import ReminderLog
 from speakers.reminders import send_checklist_digests
 from speakers.tasks import send_checklist_digests_task
+from volunteer.constants import ApplicationStatus
+from volunteer.models import Team, VolunteerProfile
 
 from .factories import make_presenter, make_session, make_settings
 
@@ -189,6 +191,49 @@ class TestOrganizerDigest:
         )
         mail.outbox.clear()
         assert send_checklist_digests(conference, now=NOW) == 0
+
+    def test_team_items_go_to_every_approved_member(
+        self, conference, enabled, admin_user
+    ):
+        team = Team.objects.create(
+            conference=conference, short_name="Design", description="d"
+        )
+        for name, status in (
+            ("lena", ApplicationStatus.APPROVED),
+            ("kim", ApplicationStatus.APPROVED),
+            ("mia", ApplicationStatus.PENDING),
+        ):
+            user = User.objects.create_user(username=name, email=f"{name}@example.com")
+            VolunteerProfile.objects.create(
+                user=user, conference=conference, application_status=status
+            ).teams.add(team)
+        empty_team = Team.objects.create(
+            conference=conference, short_name="Ghosts", description="g"
+        )
+        ada = make_presenter(conference)
+        add_adhoc_item(
+            conference,
+            "Poster",
+            ItemOwner.ORGANIZER,
+            presenter=ada,
+            due_date=days(1),
+            team=team,
+        )
+        add_adhoc_item(
+            conference,
+            "Nobody home",
+            ItemOwner.ORGANIZER,
+            presenter=ada,
+            due_date=days(1),
+            team=empty_team,
+        )
+        mail.outbox.clear()
+        assert send_checklist_digests(conference, now=NOW) == 2
+        by_to = {tuple(m.to): m for m in mail.outbox}
+        assert "Poster" in by_to[("kim@example.com", "lena@example.com")].body
+        assert (
+            "Nobody home" in by_to[("admin@example.com",)].body
+        )  # empty team: organizers list
 
     def test_fallback_to_staff_when_no_list(self, conference, enabled, admin_user):
         ada = make_presenter(conference)

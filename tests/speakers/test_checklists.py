@@ -2,9 +2,11 @@ from datetime import date, timedelta
 
 import pytest
 from django.contrib.auth.models import User
+from django.core.exceptions import ValidationError
 from django.urls import reverse
 from django.utils import timezone
 
+from portal.models import Conference
 from speakers.checklists import (
     ChecklistError,
     add_adhoc_item,
@@ -18,6 +20,7 @@ from speakers.checklists import (
     skip_item,
 )
 from speakers.constants import (
+    AssigneeDefault,
     AutoRule,
     Delivery,
     DueAnchor,
@@ -36,6 +39,7 @@ from speakers.models import (
 )
 from speakers.seeds import seed_checklists
 from speakers.services import accept_invitation, send_invitation
+from volunteer.models import Team
 
 from .factories import (
     add_presenter,
@@ -373,6 +377,49 @@ class TestLifecycle:
         entries = ActivityLog.objects.filter(action="checklist.assigned")
         assert entries.count() == 2
         assert "→ nobody" in entries.first().message
+
+    def test_assign_team_is_exclusive(self, item, liaison, seeded):
+        team = Team.objects.create(
+            conference=seeded, short_name="Design", description="d"
+        )
+        assign_item(item, team=team, actor=liaison)
+        assert item.team == team and item.assignee is None
+        assign_item(item, assignee=liaison, team=team, actor=liaison)
+        assert item.assignee == liaison and item.team is None
+        assert ActivityLog.objects.filter(action="checklist.assigned").count() == 2
+
+    def test_template_default_team_by_name(self, seeded):
+        team = Team.objects.create(
+            conference=seeded, short_name="Media", description="m"
+        )
+        template = workshop_template(seeded)
+        line = ChecklistTemplateItem.objects.create(
+            template=template,
+            owner=ItemOwner.ORGANIZER,
+            title="Edit the recording",
+            order=50,
+            assignee_default=AssigneeDefault.TEAM,
+            default_team_name="Media",
+        )
+        session = make_session(seeded, kind="WORKSHOP")
+        link = add_presenter(session, make_presenter(seeded), confirmed=True)
+        instantiate_presenter_checklist(link)
+        instance = link.presenter.checklist_items.get(template_item=line)
+        assert instance.team == team and instance.assignee is None
+        # No team of that name in another edition: the item starts unowned.
+        other = Conference.objects.create(year=2024, name="Old", slug="2024")
+        assert instance.owner_label == "Media team"
+        line.default_team_name = "Nobody"
+        line.save()
+        assert backfill_template_item(line) == 0  # already instantiated
+        with pytest.raises(ValidationError, match="Name the team"):
+            ChecklistTemplateItem.objects.create(
+                template=template,
+                owner=ItemOwner.ORGANIZER,
+                title="x",
+                assignee_default=AssigneeDefault.TEAM,
+            )
+        assert other.checklist_items.count() == 0
 
     def test_required_skip_confirms_session(self, seeded):
         require_seed_line("Confirm your session title and summary")

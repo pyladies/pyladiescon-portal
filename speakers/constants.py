@@ -74,6 +74,7 @@ class DueAnchor(models.TextChoices):
 class AssigneeDefault(models.TextChoices):
     UNASSIGNED = "UNASSIGNED", "Unassigned"
     LIAISON = "LIAISON", "The presenter's liaison"
+    TEAM = "TEAM", "A named team"
 
 
 class AutoRule(models.TextChoices):

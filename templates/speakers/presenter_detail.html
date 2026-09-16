@@ -118,14 +118,14 @@
                 </h2>
                 <div class="mb-4">
                     {% trans "No speaker items yet; they appear when the invitation is accepted." as empty_speaker %}
-                    {% include "speakers/_organizer_item_table.html" with items=speaker_items assignee_choices=assignee_choices can_assign=can_assign empty=empty_speaker %}
+                    {% include "speakers/_organizer_item_table.html" with items=speaker_items owner_choices=owner_choices can_assign=can_assign empty=empty_speaker %}
                 </div>
                 <h2 class="h6 text-uppercase text-secondary">
                     {% trans "What we're doing for them" %}
                 </h2>
                 <div class="mb-2">
                     {% trans "No organizer items yet." as empty_organizer %}
-                    {% include "speakers/_organizer_item_table.html" with items=organizer_items assignee_choices=assignee_choices can_assign=can_assign empty=empty_organizer %}
+                    {% include "speakers/_organizer_item_table.html" with items=organizer_items owner_choices=owner_choices can_assign=can_assign empty=empty_organizer %}
                 </div>
                 <details class="mb-4">
                     <summary class="small">

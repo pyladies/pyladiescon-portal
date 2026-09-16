@@ -1197,6 +1197,12 @@ class ChecklistTemplateItem(TimestampedModel):
         default=AssigneeDefault.UNASSIGNED,
         help_text="Organizer items only.",
     )
+    default_team_name = models.CharField(
+        max_length=40,
+        blank=True,
+        help_text='With "A named team": the team\'s name, matched per edition '
+        "so templates clone forward.",
+    )
 
     class Meta:
         ordering = ["order", "id"]
@@ -1206,6 +1212,8 @@ class ChecklistTemplateItem(TimestampedModel):
 
     def clean(self):
         super().clean()
+        if self.assignee_default == AssigneeDefault.TEAM and not self.default_team_name:
+            raise ValidationError({"default_team_name": "Name the team."})
         if self.auto_complete_rule and self.auto_complete_rule not in AutoRule.values:
             raise ValidationError(
                 {"auto_complete_rule": f"Unknown rule {self.auto_complete_rule!r}."}
@@ -1302,6 +1310,14 @@ class ChecklistItem(TimestampedModel):
         blank=True,
         related_name="assigned_checklist_items",
     )
+    team = models.ForeignKey(
+        "volunteer.Team",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="checklist_items",
+        help_text="An item is owned by a person or by a team, not both.",
+    )
     completed_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
@@ -1354,6 +1370,24 @@ class ChecklistItem(TimestampedModel):
     @property
     def guide_key(self):
         return self.requires_handbook or DEFAULT_GUIDE_KEY
+
+    @property
+    def owner_value(self):
+        """What the person-or-team select posts for this item."""
+        if self.assignee_id is not None:
+            return f"user:{self.assignee_id}"
+        if self.team_id is not None:
+            return f"team:{self.team_id}"
+        return ""
+
+    @property
+    def owner_label(self):
+        """Who is on the item: the person, else the team, else empty."""
+        if self.assignee_id is not None:
+            return self.assignee.get_full_name() or self.assignee.username
+        if self.team_id is not None:
+            return f"{self.team.short_name} team"
+        return ""
 
     @property
     def is_open(self):
