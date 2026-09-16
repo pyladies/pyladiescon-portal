@@ -47,7 +47,13 @@ make serve
 
 4. Open the browser and go to <http://localhost:8000/> to see the app running.
 
-5. Run the tests:
+5. Set the site domain (see [Configure the site domain](#configure-the-site-domain)):
+
+```sh
+make manage set_site_domain localhost:8000
+```
+
+6. Run the tests:
 
 ```sh
 make test
@@ -174,6 +180,30 @@ Now is time to create the database to store all the information:
 ```sh
 python manage.py migrate
 ```
+
+### Configure the site domain
+
+Links inside emails (account verification, speaker invitations, checklist
+reminders) are built from the domain stored in Django's
+[sites framework](https://docs.djangoproject.com/en/stable/ref/contrib/sites/),
+not from the request. A fresh database has the placeholder `example.com`, so
+every emailed link points at the wrong host until you change it. Set it once
+after the first `migrate`:
+
+=== "With Docker"
+
+    ```sh
+    make manage set_site_domain localhost:8000
+    ```
+
+=== "Without Docker"
+
+    ```sh
+    python manage.py set_site_domain localhost:8000
+    ```
+
+The same value is editable in the admin under **Sites**. With `DEBUG` on,
+speaker-portal links use `http://`; everywhere else they use `https://`.
 
 ### Run the server
 

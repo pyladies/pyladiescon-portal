@@ -110,6 +110,40 @@ python manage.py shell -c "from django.db import connection; print(connection.pg
 
 The number reads as major and minor: `170002` is 17.2.
 
+### One-time configuration
+
+Two things live outside the code and have to be set on a new environment:
+
+**Site domain.** Emailed links (account verification, speaker invitations,
+checklist reminders) are built from the domain in Django's sites framework,
+which starts as `example.com`. After the first deploy, set it to the
+portal's public hostname, either from the release shell:
+
+```sh
+python manage.py set_site_domain portal.example.org
+```
+
+or in the Django admin under **Sites**. Links are `https://` whenever
+`DEBUG` is off.
+
+**`FERNET_KEYS` environment variable.** The speaker portal stores the pretix
+API token and webhook secret encrypted at rest and refuses to save them
+without a key. Generate one once and keep it with the other deployment
+secrets:
+
+```sh
+python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+```
+
+The variable is comma-separated so keys can be rotated: the first key
+encrypts, every key decrypts. To roll a key, put the new one first, deploy,
+re-save the stored secrets from the admin, then drop the old key. A single
+`FERNET_KEY` is accepted too. A value stored under a key that is no longer
+configured reads as unusable (pretix shows as not configured, and the app
+logs it once) rather than breaking every page that loads the settings;
+re-entering the secrets in the admin repairs it. Local development and the
+test suite derive a key from `SECRET_KEY`, so neither needs the variable.
+
 ## Documentation deployment
 
 The documentation is deployed to Netlify automatically whenever the PR is merged.
