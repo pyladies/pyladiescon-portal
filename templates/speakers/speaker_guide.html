@@ -1,6 +1,5 @@
 {% extends "speakers/_speaker_shell.html" %}
 {% load i18n %}
-{% load static %}
 {% load speakers_extras %}
 {% block head_title %}
     {% trans "Speaker guide" %}
@@ -22,32 +21,55 @@
         <h1 class="h3 mb-3">
             {{ handbook.title }}
         </h1>
-        <article class="mb-4">
-            {{ handbook.body_md|speaker_md }}
-        </article>
-        <div id="guide-read-done"
-             class="alert alert-success"
-             {% if not has_read %}hidden{% endif %}>
-            <i class="fa-solid fa-check"></i> {% trans "You've read this version. Thank you!" %}
-        </div>
-        <form id="guide-read-form"
-              method="post"
-              action="{% url 'speakers:my_guide_read' %}"
-              data-read="{{ has_read|yesno:'true,false' }}"
-              {% if has_read %}hidden{% endif %}>
-            {% csrf_token %}
-            <button class="btn btn-primary" type="submit">
-                <i class="fa-solid fa-check"></i> {% trans "I've read this" %}
-            </button>
-            <span class="text-secondary small ms-2">{% trans "Reaching the end also counts." %}</span>
-        </form>
-        <script src="{% static 'js/speakers-guide.js' %}" defer></script>
+        {% if handbook.body_md %}
+            <div class="mb-3">
+                {{ handbook.body_md|speaker_md }}
+            </div>
+        {% endif %}
+        {% if handbook.url %}
+            <p>
+                <a class="btn btn-outline-primary"
+                   href="{{ handbook.url }}"
+                   target="_blank"
+                   rel="noopener noreferrer">
+                    <i class="fa-solid fa-arrow-up-right-from-square"></i> {% trans "Open the speaker guide" %}
+                </a>
+            </p>
+        {% endif %}
+        {% if has_read %}
+            <div class="alert alert-success" id="guide-read-done">
+                <i class="fa-solid fa-check"></i>
+                {% blocktranslate with date=receipt.read_at|date:"j F Y" version=handbook.version %}You confirmed on {{ date }} that you read version {{ version }}. Thank you!{% endblocktranslate %}
+            </div>
+        {% else %}
+            <form method="post"
+                  id="guide-read-form"
+                  class="card card-body"
+                  action="{% url 'speakers:my_guide_read' %}">
+                {% csrf_token %}
+                <div class="form-check mb-2">
+                    <input class="form-check-input"
+                           type="checkbox"
+                           name="acknowledge"
+                           id="acknowledge"
+                           required>
+                    <label class="form-check-label" for="acknowledge">
+                        {% blocktranslate with version=handbook.version %}I have read the speaker guide (version {{ version }}).{% endblocktranslate %}
+                    </label>
+                </div>
+                <div>
+                    <button class="btn btn-primary" type="submit">
+                        <i class="fa-solid fa-check"></i> {% trans "Confirm" %}
+                    </button>
+                </div>
+            </form>
+        {% endif %}
     {% else %}
         <h1 class="h3 mb-1">
             {% trans "Speaker guide" %}
         </h1>
         <p class="text-secondary">
-            {% trans "The organizers are still writing the guide. It appears here, and on your checklist, once it is published." %}
+            {% trans "The organizers are still preparing the guide. It appears here, and on your checklist, once it is published." %}
         </p>
     {% endif %}
 {% endblock content %}

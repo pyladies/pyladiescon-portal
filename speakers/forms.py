@@ -575,12 +575,15 @@ class ChecklistTemplateItemForm(forms.ModelForm):
         }
 
 
+DEFAULT_GUIDE_URL = "https://conference.pyladies.com/docs/"
+
+
 class HandbookForm(forms.ModelForm):
     class Meta:
         model = Handbook
-        fields = ["title", "body_md"]
-        widgets = {"body_md": forms.Textarea(attrs={"rows": 24})}
-        help_texts = {"body_md": MARKDOWN_HELP}
+        fields = ["title", "url", "body_md"]
+        widgets = {"body_md": forms.Textarea(attrs={"rows": 6})}
+        help_texts = {"body_md": MARKDOWN_HELP + " Optional."}
 
 
 class PresenterInviteForm(InviteForm):

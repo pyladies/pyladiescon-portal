@@ -142,12 +142,15 @@ edition's `conference_timezone`. `ReminderLog` is unique on
 ### Handbook
 
 `Handbook` is versioned per edition (`current()` = newest published,
-`draft()` = the unpublished one being written). Organizers edit and publish
-at `/speakers/settings/handbook/`; presenters read at `/speakers/me/guide/`,
-where the "I've read this" button or scrolling to the end
-(`portal/static/js/speakers-guide.js`) records a `HandbookReadReceipt` for
-that version. Publishing fires the `handbook_read` rule, which re-opens the
-guide item for everyone who read an earlier version.
+`draft()` = the unpublished one being written) and normally just links to
+the guide on the conference site (`url`, default
+https://conference.pyladies.com/docs/) with an optional note. Organizers
+edit and publish at `/speakers/settings/handbook/`; presenters open the
+link from `/speakers/me/guide/` and tick "I have read the speaker guide",
+which records a `HandbookReadReceipt` for that version, the way a
+terms-of-service acknowledgement works. There is no automatic tracking.
+Publishing a new version fires the `handbook_read` rule, which re-opens
+the guide item for everyone who acknowledged an earlier version.
 
 ### Background jobs
 

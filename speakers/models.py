@@ -1415,7 +1415,12 @@ class MediaAsset(TimestampedModel):
 
 
 class Handbook(TimestampedModel):
-    """The speaker guide, versioned (design §8.7). Shell for task 2.9."""
+    """The speaker guide, versioned (design §8.7).
+
+    The guide itself normally lives on the conference site (``url``); the
+    portal keeps the version, an optional note, and who acknowledged
+    reading it.
+    """
 
     conference = models.ForeignKey(
         "portal.Conference",
@@ -1424,7 +1429,13 @@ class Handbook(TimestampedModel):
     )
     version = models.PositiveIntegerField(default=1)
     title = models.CharField(max_length=200, default="Speaker guide")
-    body_md = models.TextField(blank=True, help_text="Markdown.")
+    url = models.URLField(
+        blank=True,
+        help_text="Where the guide lives, e.g. https://conference.pyladies.com/docs/",
+    )
+    body_md = models.TextField(
+        blank=True, help_text="Optional note shown above the link. Markdown."
+    )
     published_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:

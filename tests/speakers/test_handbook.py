@@ -34,12 +34,20 @@ def organizer(db):
     return User.objects.create_user(username="organizer", is_staff=True)
 
 
-def publish(conference, version, body="Be **kind**."):
+def publish(
+    conference,
+    version,
+    body="Be **kind**.",
+    url="https://conference.pyladies.com/docs/",
+):
     handbook = Handbook.objects.create(
-        conference=conference, version=version, body_md=body
+        conference=conference, version=version, body_md=body, url=url
     )
     handbook.publish()
     return handbook
+
+
+ACK = {"acknowledge": "on"}
 
 
 def guide_item(conference, presenter):
@@ -60,8 +68,8 @@ class TestSpeakerGuide:
         Handbook.objects.create(conference=conference, version=1, body_md="draft")
         client.force_login(speaker)
         content = client.get(GUIDE).content.decode()
-        assert "still writing the guide" in content
-        assert client.post(READ).status_code == 400
+        assert "still preparing the guide" in content
+        assert client.post(READ, ACK).status_code == 400
 
     def test_renders_and_records_receipt_per_version(
         self, client, speaker, presenter, conference
@@ -71,41 +79,54 @@ class TestSpeakerGuide:
         content = client.get(GUIDE).content.decode()
         assert "<strong>kind</strong>" in content
         assert "Version 1, published" in content
-        assert 'data-read="false"' in content and "speakers-guide" in content
-        response = client.post(READ)
+        assert 'href="https://conference.pyladies.com/docs/"' in content
+        assert (
+            'name="acknowledge"' in content
+            and "I have read the speaker guide" in content
+        )
+        response = client.post(READ, ACK)
         assertRedirects(response, GUIDE)
         receipt = HandbookReadReceipt.objects.get(presenter=presenter, handbook=first)
         assert receipt.conference == conference
         content = client.get(GUIDE).content.decode()
-        assert 'data-read="true"' in content
+        assert "You confirmed on" in content and 'name="acknowledge"' not in content
         assert ActivityLog.objects.get(action="handbook.read").data == {"version": 1}
-        client.post(READ)  # reading again is a no-op
+        client.post(READ, ACK)  # confirming again is a no-op
         assert HandbookReadReceipt.objects.count() == 1
         assert ActivityLog.objects.filter(action="handbook.read").count() == 1
         second = publish(conference, 2, body="New rules")
-        assert 'data-read="false"' in client.get(GUIDE).content.decode()
-        client.post(READ)
+        assert 'name="acknowledge"' in client.get(GUIDE).content.decode()
+        client.post(READ, ACK)
         assert HandbookReadReceipt.objects.filter(presenter=presenter).count() == 2
         assert HandbookReadReceipt.objects.filter(handbook=second).exists()
 
-    def test_fetch_request_gets_json(self, client, speaker, presenter, conference):
+    def test_unticked_box_records_nothing(self, client, speaker, presenter, conference):
         publish(conference, 1)
         client.force_login(speaker)
-        response = client.post(READ, HTTP_X_REQUESTED_WITH="fetch")
-        assert response.status_code == 200
-        assert response.json() == {"read": True, "version": 1}
+        response = client.post(READ, follow=True)
+        assert "Tick the box" in response.content.decode()
+        assert HandbookReadReceipt.objects.count() == 0
+
+    def test_note_only_guide_without_link(self, client, speaker, presenter, conference):
+        publish(conference, 1, url="")
+        client.force_login(speaker)
+        content = client.get(GUIDE).content.decode()
+        assert (
+            "Open the speaker guide" not in content
+            and "<strong>kind</strong>" in content
+        )
 
     def test_new_version_reopens_the_item(self, client, speaker, presenter, conference):
         item = guide_item(conference, presenter)
         publish(conference, 1)
         client.force_login(speaker)
-        client.post(READ)
+        client.post(READ, ACK)
         item.refresh_from_db()
         assert item.status == ItemStatus.DONE
         publish(conference, 2)
         item.refresh_from_db()
         assert item.status == ItemStatus.TODO
-        client.post(READ)
+        client.post(READ, ACK)
         item.refresh_from_db()
         assert item.status == ItemStatus.DONE
 
@@ -124,7 +145,12 @@ class TestHandbookEditor:
         client.force_login(portal_user)
         assert client.get(EDITOR).status_code == 403
         client.force_login(organizer)
-        assert client.get(EDITOR).status_code == 200
+        response = client.get(EDITOR)
+        assert response.status_code == 200
+        assert (
+            response.context["form"].initial["url"]
+            == "https://conference.pyladies.com/docs/"
+        )
         assert EDITOR in client.get(reverse("organizer_dashboard")).content.decode()
 
     def test_save_draft_then_publish(
@@ -167,11 +193,21 @@ class TestHandbookEditor:
     def test_publish_empty_refused(self, client, organizer, enabled, conference):
         client.force_login(organizer)
         response = client.post(
-            EDITOR, {"title": "Guide", "body_md": "  ", "action": "publish"}
+            EDITOR, {"title": "Guide", "url": "", "body_md": "  ", "action": "publish"}
         )
         assert response.status_code == 200
-        assert "before publishing" in response.context["form"].errors["body_md"][0]
+        assert "before publishing" in response.context["form"].errors["url"][0]
         assert Handbook.objects.count() == 0
+        client.post(
+            EDITOR,
+            {
+                "title": "Guide",
+                "url": "https://example.org/g",
+                "body_md": "",
+                "action": "publish",
+            },
+        )
+        assert Handbook.current(conference).url == "https://example.org/g"
 
     def test_invalid_form_rerenders(self, client, organizer, enabled):
         client.force_login(organizer)

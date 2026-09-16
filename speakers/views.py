@@ -5,7 +5,7 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import PermissionDenied
 from django.db import transaction
 from django.db.models import Count, F, Q
-from django.http import HttpResponse, HttpResponseBadRequest, JsonResponse
+from django.http import HttpResponse, HttpResponseBadRequest
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -39,6 +39,7 @@ from .constants import (
 )
 from .filters import PresenterFilter, SessionFilter
 from .forms import (
+    DEFAULT_GUIDE_URL,
     AdhocItemForm,
     AssignItemForm,
     ChecklistTemplateForm,
@@ -1473,27 +1474,36 @@ class SpeakerGuideView(LoginRequiredMixin, PresenterRequiredMixin, TemplateView)
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         handbook = Handbook.current(self.conference)
+        receipt = (
+            HandbookReadReceipt.objects.filter(
+                presenter=self.presenter, handbook=handbook
+            ).first()
+            if handbook
+            else None
+        )
         context.update(
             {
                 "conference": self.conference,
                 "presenter": self.presenter,
                 "handbook": handbook,
-                "has_read": bool(
-                    handbook
-                    and HandbookReadReceipt.objects.filter(
-                        presenter=self.presenter, handbook=handbook
-                    ).exists()
-                ),
+                "receipt": receipt,
+                "has_read": receipt is not None,
             }
         )
         return context
 
 
 class SpeakerGuideReadView(LoginRequiredMixin, PresenterRequiredMixin, View):
+    """The explicit acknowledgement: the presenter ticks the box and confirms
+    they read the current version, like accepting terms of service."""
+
     def post(self, request):
         handbook = Handbook.current(self.conference)
         if handbook is None:
             return HttpResponseBadRequest("No published guide.")
+        if not request.POST.get("acknowledge"):
+            messages.error(request, "Tick the box to confirm you have read the guide.")
+            return redirect("speakers:my_guide")
         _, created = handbook.record_read(self.presenter)
         if created:
             ActivityLog.record(
@@ -1503,8 +1513,6 @@ class SpeakerGuideReadView(LoginRequiredMixin, PresenterRequiredMixin, View):
                 actor=request.user,
                 version=handbook.version,
             )
-        if request.headers.get("X-Requested-With") == "fetch":
-            return JsonResponse({"read": True, "version": handbook.version})
         messages.success(request, "Thanks, we've noted that you read the guide.")
         return redirect("speakers:my_guide")
 
@@ -1525,7 +1533,9 @@ class HandbookEditorView(
             return HandbookForm(data, instance=draft)
         current = Handbook.current(self.conference)
         initial = (
-            {"title": current.title, "body_md": current.body_md} if current else {}
+            {"title": current.title, "url": current.url, "body_md": current.body_md}
+            if current
+            else {"url": DEFAULT_GUIDE_URL}
         )
         return HandbookForm(data, initial=initial)
 
@@ -1556,8 +1566,10 @@ class HandbookEditorView(
             handbook.conference = self.conference
             handbook.version = Handbook.next_version(self.conference)
         if request.POST.get("action") == "publish":
-            if not handbook.body_md.strip():
-                form.add_error("body_md", "Write the guide before publishing it.")
+            if not handbook.url and not handbook.body_md.strip():
+                form.add_error(
+                    "url", "Give a link or write the guide before publishing."
+                )
                 return self.render_to_response(self.get_context_data(form=form))
             handbook.publish()
             ActivityLog.record(
