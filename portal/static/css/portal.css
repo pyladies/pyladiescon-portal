@@ -125,7 +125,13 @@ body {
 .checklist-board td.cell-blocked { background: var(--bs-danger-bg-subtle); }
 .checklist-board td.cell-skipped { background: var(--bs-secondary-bg-subtle); }
 .checklist-board td.cell-none { color: var(--bs-secondary); }
-.checklist-board th.rotate { writing-mode: vertical-rl; transform: rotate(180deg); white-space: nowrap; }
+.checklist-board th.board-col {
+    min-width: 6rem;
+    max-width: 8rem;
+    white-space: normal;
+    vertical-align: bottom;
+    line-height: 1.15;
+}
 
 /* Template editor (templates/speakers/template_detail.html): the reorder column. */
 .col-order {
