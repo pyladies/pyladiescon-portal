@@ -1,0 +1,73 @@
+{% extends "speakers/_organize_shell.html" %}
+{% load i18n %}
+{% load django_bootstrap5 %}
+{% block head_title %}
+    {% trans "Speaker guide" %}
+{% endblock head_title %}
+{% block breadcrumb %}
+    {% trans "Speaker guide" as bc_section %}
+    {% include "portal/_breadcrumbs.html" with section=bc_section %}
+{% endblock breadcrumb %}
+{% block content %}
+    {% trans "Readers" as readers_label %}
+    <h1 class="h3 mb-1">
+        {% trans "Speaker guide" %}
+    </h1>
+    <p class="text-secondary">
+        {% trans "Presenters read this from their dashboard. Publishing a new version re-opens the \"read the guide\" item for everyone who read an earlier one, so publish when the changes matter." %}
+    </p>
+    <div class="row g-4">
+        <div class="col-lg-8">
+            <div class="mb-2 small text-secondary">
+                {% if draft %}
+                    {% blocktranslate with version=draft.version %}Editing draft version {{ version }}.{% endblocktranslate %}
+                {% elif current %}
+                    {% blocktranslate with version=current.version %}Version {{ version }} is live; saving starts the next draft from it.{% endblocktranslate %}
+                {% else %}
+                    {% trans "Nothing published yet." %}
+                {% endif %}
+            </div>
+            <form method="post">
+                {% csrf_token %}
+                {% bootstrap_form form %}
+                <button class="btn btn-outline-primary"
+                        type="submit"
+                        name="action"
+                        value="save">
+                    {% trans "Save draft" %}
+                </button>
+                <button class="btn btn-primary" type="submit" name="action" value="publish">
+                    <i class="fa-solid fa-paper-plane"></i> {% trans "Publish" %}
+                </button>
+            </form>
+        </div>
+        <div class="col-lg-4">
+            <div class="card">
+                <div class="card-header">
+                    {% trans "Versions" %}
+                </div>
+                <ul class="list-group list-group-flush small">
+                    {% for version in versions %}
+                        <li class="list-group-item d-flex justify-content-between">
+                            <span>
+                                v{{ version.version }} · {{ version.title }}
+                                {% if version.is_published %}
+                                    <span class="text-secondary">{{ version.published_at|date:"j M" }}</span>
+                                {% else %}
+                                    <span class="badge text-bg-secondary">{% trans "draft" %}</span>
+                                {% endif %}
+                            </span>
+                            <span class="text-secondary" title="{{ readers_label }}">
+                                <i class="fa-solid fa-book-open-reader"></i> {{ version.reader_count }}
+                            </span>
+                        </li>
+                    {% empty %}
+                        <li class="list-group-item text-secondary">
+                            {% trans "No versions yet." %}
+                        </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+    </div>
+{% endblock content %}

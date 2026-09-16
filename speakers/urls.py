@@ -95,6 +95,13 @@ urlpatterns = [
         name="my_session_suggest",
     ),
     path("me/schedule/", views.SpeakerScheduleView.as_view(), name="my_schedule"),
+    path("me/guide/", views.SpeakerGuideView.as_view(), name="my_guide"),
+    path("me/guide/read/", views.SpeakerGuideReadView.as_view(), name="my_guide_read"),
+    path(
+        "settings/handbook/",
+        views.HandbookEditorView.as_view(),
+        name="handbook_editor",
+    ),
     path(
         "me/items/<int:pk>/toggle/",
         views.SpeakerItemToggleView.as_view(),

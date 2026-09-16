@@ -1442,6 +1442,36 @@ class Handbook(TimestampedModel):
             .first()
         )
 
+    @classmethod
+    def draft(cls, conference):
+        """The unpublished version being written, or None."""
+        return (
+            cls.objects.filter(conference=conference, published_at__isnull=True)
+            .order_by("-version")
+            .first()
+        )
+
+    @classmethod
+    def next_version(cls, conference):
+        latest = cls.objects.filter(conference=conference).order_by("-version").first()
+        return latest.version + 1 if latest else 1
+
+    @property
+    def is_published(self):
+        return self.published_at is not None
+
+    def publish(self):
+        """Make this version the current guide. Saving fires the
+        ``handbook_read`` rule so prior readers' items re-open."""
+        self.published_at = timezone.now()
+        self.save()
+
+    def record_read(self, presenter):
+        """A presenter finished this version. Returns (receipt, created)."""
+        return HandbookReadReceipt.objects.get_or_create(
+            presenter=presenter, handbook=self
+        )
+
 
 class HandbookReadReceipt(TimestampedModel):
     """A presenter read one version of the guide."""

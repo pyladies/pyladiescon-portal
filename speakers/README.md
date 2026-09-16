@@ -135,6 +135,16 @@ edition's `conference_timezone`. `ReminderLog` is unique on
 (item, threshold), so a reminder is never repeated. Daily Celery task
 `send_checklist_digests_task`, seeded by migration 0011.
 
+### Handbook
+
+`Handbook` is versioned per edition (`current()` = newest published,
+`draft()` = the unpublished one being written). Organizers edit and publish
+at `/speakers/settings/handbook/`; presenters read at `/speakers/me/guide/`,
+where the "I've read this" button or scrolling to the end
+(`portal/static/js/speakers-guide.js`) records a `HandbookReadReceipt` for
+that version. Publishing fires the `handbook_read` rule, which re-opens the
+guide item for everyone who read an earlier version.
+
 ### Background jobs
 
 Celery (`portal/celery.py`, broker from `CELERY_BROKER_URL` or `REDIS_URL`),

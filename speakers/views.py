@@ -5,7 +5,7 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import PermissionDenied
 from django.db import transaction
 from django.db.models import Count, F, Q
-from django.http import HttpResponse, HttpResponseBadRequest
+from django.http import HttpResponse, HttpResponseBadRequest, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -43,6 +43,7 @@ from .forms import (
     AssignItemForm,
     ChecklistTemplateForm,
     ChecklistTemplateItemForm,
+    HandbookForm,
     InviteForm,
     PresenterForm,
     PresenterRoleForm,
@@ -66,6 +67,8 @@ from .models import (
     ChecklistItem,
     ChecklistTemplate,
     ChecklistTemplateItem,
+    Handbook,
+    HandbookReadReceipt,
     Invitation,
     Presenter,
     PresenterRole,
@@ -1416,3 +1419,120 @@ class PresenterPretixLinkView(LoginRequiredMixin, SpeakerOrganizerRequiredMixin,
             else:
                 messages.success(request, f"Linked order {order.order_code}.")
         return redirect(presenter.get_absolute_url())
+
+
+# ---- Handbook (design §8.7, task 2.9) ---------------------------------------
+
+
+class SpeakerGuideView(LoginRequiredMixin, PresenterRequiredMixin, TemplateView):
+    """The speaker guide; reading it (button or scroll-to-end) records a
+    receipt for the current version."""
+
+    template_name = "speakers/speaker_guide.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        handbook = Handbook.current(self.conference)
+        context.update(
+            {
+                "conference": self.conference,
+                "presenter": self.presenter,
+                "handbook": handbook,
+                "has_read": bool(
+                    handbook
+                    and HandbookReadReceipt.objects.filter(
+                        presenter=self.presenter, handbook=handbook
+                    ).exists()
+                ),
+            }
+        )
+        return context
+
+
+class SpeakerGuideReadView(LoginRequiredMixin, PresenterRequiredMixin, View):
+    def post(self, request):
+        handbook = Handbook.current(self.conference)
+        if handbook is None:
+            return HttpResponseBadRequest("No published guide.")
+        _, created = handbook.record_read(self.presenter)
+        if created:
+            ActivityLog.record(
+                self.conference,
+                "handbook.read",
+                target=self.presenter,
+                actor=request.user,
+                version=handbook.version,
+            )
+        if request.headers.get("X-Requested-With") == "fetch":
+            return JsonResponse({"read": True, "version": handbook.version})
+        messages.success(request, "Thanks, we've noted that you read the guide.")
+        return redirect("speakers:my_guide")
+
+
+class HandbookEditorView(
+    LoginRequiredMixin, SpeakerOrganizerRequiredMixin, TemplateView
+):
+    """Write the next version as a draft, publish it when ready."""
+
+    template_name = "speakers/handbook_editor.html"
+
+    def get_draft(self):
+        return Handbook.draft(self.conference)
+
+    def get_form(self, data=None):
+        draft = self.get_draft()
+        if draft is not None:
+            return HandbookForm(data, instance=draft)
+        current = Handbook.current(self.conference)
+        initial = (
+            {"title": current.title, "body_md": current.body_md} if current else {}
+        )
+        return HandbookForm(data, initial=initial)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context.update(
+            {
+                "conference": self.conference,
+                "rail_active": "handbook",
+                "form": kwargs.get("form") or self.get_form(),
+                "current": Handbook.current(self.conference),
+                "draft": self.get_draft(),
+                "versions": list(
+                    Handbook.objects.filter(conference=self.conference)
+                    .annotate(reader_count=Count("receipts"))
+                    .order_by("-version")
+                ),
+            }
+        )
+        return context
+
+    def post(self, request):
+        form = self.get_form(request.POST)
+        if not form.is_valid():
+            return self.render_to_response(self.get_context_data(form=form))
+        handbook = form.save(commit=False)
+        if handbook.pk is None:
+            handbook.conference = self.conference
+            handbook.version = Handbook.next_version(self.conference)
+        if request.POST.get("action") == "publish":
+            if not handbook.body_md.strip():
+                form.add_error("body_md", "Write the guide before publishing it.")
+                return self.render_to_response(self.get_context_data(form=form))
+            handbook.publish()
+            ActivityLog.record(
+                self.conference,
+                "handbook.published",
+                target=handbook,
+                actor=request.user,
+                version=handbook.version,
+            )
+            messages.success(
+                request,
+                f"Published version {handbook.version}. Presenters who read an "
+                "earlier version have their guide item re-opened.",
+            )
+        else:
+            handbook.save()
+            messages.success(request, f"Saved draft version {handbook.version}.")
+        return redirect("speakers:handbook_editor")
