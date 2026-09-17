@@ -296,7 +296,7 @@
             {% endif %}
             {% if group.organizer %}
                 <div class="small text-secondary mb-1">
-                    {% trans "What we're doing for them" %}
+                    {% trans "What we're preparing for them" %}
                 </div>
                 {% trans "None." as empty_organizer %}
                 {% include "speakers/_organizer_item_table.html" with items=group.organizer owner_choices=owner_choices can_assign=can_assign empty=empty_organizer %}

@@ -209,7 +209,7 @@ class TestOrganizerDigest:
         assert "Schedule mail" in team.body and "Nobody yet" in team.body
         assert "Thank you for volunteering with us at PyLadiesCon 2025" in team.body
         assert "mark them as done and we won't bother you" in team.body
-        assert "2 organizer item(s)" in team.subject
+        assert "2 team todo(s) with deadlines coming up" in team.subject
         assert "/speakers/checklists/queue/" in team.body
         assert "dates in Europe/Lisbon" in team.body
 

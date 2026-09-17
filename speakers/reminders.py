@@ -158,7 +158,7 @@ def _organizer_digests(conference, items, now, sent, settings_row):
             },
             due,
             subject=f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} {conference.name}: "
-            f"{len(due)} organizer item(s) coming up",
+            f"{len(due)} team todo(s) with deadlines coming up",
         ):
             emails.failed += 1
             continue

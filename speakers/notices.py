@@ -85,7 +85,7 @@ def _try_send(conference, recipients, group, speaker_side):
         context.update(presenter_email_context(group[0].presenter))
         subject = "Update to your todo list"
     else:
-        subject = "Update to the organizer todo list"
+        subject = "Update to your team todo list"
     try:
         with transaction.atomic():
             send_email(

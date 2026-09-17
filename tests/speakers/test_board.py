@@ -291,7 +291,7 @@ class TestPresenterPageChecklists:
         ada = people["ada"]
         client.force_login(organizer)
         content = client.get(ada.get_absolute_url()).content.decode()
-        assert "Their to-dos" in content and "What we're doing for them" in content
+        assert "Their to-dos" in content and "What we're preparing for them" in content
         assert "Update bio" in content and "Promo materials" in content
         assert (
             reverse("speakers:item_assign", args=[people["items"]["Ada", "promo"].pk])

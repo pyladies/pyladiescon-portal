@@ -216,7 +216,7 @@ class TestDashboardLists:
         block_item(length, "Video is 2:05 over the 10-minute limit.")
         client.force_login(speaker)
         content = client.get(CHECKLIST).content.decode()
-        assert "What we're doing with your video" in content
+        assert "What we're preparing for your video" in content
         assert "Blocked" in content
         assert "2:05 over the 10-minute limit" in content
 

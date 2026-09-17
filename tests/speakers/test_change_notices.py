@@ -67,7 +67,7 @@ class TestChangeNotices:
         assert "\nChanged\n" in speaker_mail.body and "Send slides" in speaker_mail.body
         assert "/speakers/me/" in speaker_mail.body
         organizer_mail = by_to[("lena@example.com",)]
-        assert organizer_mail.subject.endswith("Update to the organizer todo list")
+        assert organizer_mail.subject.endswith("Update to your team todo list")
         assert "Promo" in organizer_mail.body and "for Ada" in organizer_mail.body
         assert "Thank you for being" not in organizer_mail.body
         assert (

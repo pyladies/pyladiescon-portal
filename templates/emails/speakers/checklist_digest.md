@@ -4,7 +4,7 @@
 {% if for_organizer %}
 Hi,
 
-Thank you for volunteering with us at {{ conference.name }}! These organizer todos have deadlines coming up (dates in {{ timezone }}):
+Thank you for volunteering with us at {{ conference.name }}! These team todos have deadlines coming up (dates in {{ timezone }}):
 {% else %}
 {% include "emails/speakers/_presenter_preface.md" %}
 
