@@ -169,7 +169,7 @@ class TestDashboardLists:
         assert toggle(mine) in content and toggle(done) in content
         assert toggle(theirs) not in content and toggle(unassigned) not in content
         assert "Lena K is on it" in content and "not yet assigned" in content
-        assert "A team task: nothing for you to do here." in content
+        assert "A team task" not in content
         assert re.search(r'data-item-id="%d"\s+data-status="DONE"' % done.pk, content)
 
     def test_team_owned_item_named(self, client, speaker, presenter, conference):
@@ -205,7 +205,6 @@ class TestDashboardLists:
         content = client.get(CHECKLIST).content.decode()
         assert "done by Volunteer A on" in content
         assert "done automatically on" in content
-        assert "nothing for you to do here" not in content.split("Session scheduled")[1]
 
     def test_automatic_item_is_dashed_and_not_tickable(
         self, client, speaker, presenter, session, conference

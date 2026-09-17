@@ -86,11 +86,6 @@ middle, the due date on the right. Params:
                     {% endif %}
                 {% endif %}
             </div>
-            {% if show_assignee and not item.is_done %}
-                <div class="small text-secondary fst-italic">
-                    {% trans "A team task: nothing for you to do here." %}
-                </div>
-            {% endif %}
             {% if item.status == "BLOCKED" and item.note %}
                 <div class="small text-danger">
                     {{ item.note }}

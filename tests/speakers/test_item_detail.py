@@ -133,7 +133,7 @@ class TestSpeakerItemDetail:
     ):
         client.force_login(speaker)
         content = client.get(my_detail(world["team_item"])).content.decode()
-        assert "A team task" in content and "lena" in content
+        assert "The team handles this one" in content and "lena" in content
         assert "Mark as done" not in content
         complete_item(world["team_item"], actor=liaison)
         content = client.get(my_detail(world["team_item"])).content.decode()
