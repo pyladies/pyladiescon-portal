@@ -262,12 +262,36 @@ The command is idempotent, meaning you can run it multiple times without creatin
 
 ### Speaker portal sample data
 
-A second command fills the active edition with speaker-portal data: it
-switches the module on, seeds the checklists and guides, and creates an
-organizer, volunteers on teams, sessions of every kind, and presenters in
-every state (not yet invited, invited, accepted, onboarded, a performer with a
-video over the limit), with checklist items that are done, overdue, due soon,
-team-owned or assigned to a volunteer.
+A second command fills the **active edition** with speaker-portal data so
+every screen of the speaker module has something to show. It creates:
+
+- **Edition setup**: switches the speaker module on, sets the conference dates
+  when they are empty, seeds the default checklist templates, publishes the
+  speaker, workshop and keynote guides and leaves a performer guide as a draft
+- **4 Portal users**: 1 staff organizer (`organizer_lena`, the liaison for two
+  presenters), 2 approved volunteers on teams (`vol_maya` on Design Team,
+  `vol_kim` on Media Team), 1 pending volunteer (`vol_pending`)
+- **7 Sessions**: a workshop and a keynote (scheduled on the first conference
+  day), a panel and a pre-recorded PyJam performance (confirmed), a talk
+  (draft), plus the opening (scheduled) and a coffee break
+- **6 Presenters**, one per invitation state:
+    - `ada@example.com`: accepted and onboarded workshop presenter, with
+      checklist items that are done, skipped, overdue and due soon
+    - `grace@example.com`: accepted keynote presenter, workshop co-presenter
+      and panel moderator, so she gets both the keynote and workshop guides
+    - `dex@example.com`: invited panelist who has not accepted yet
+    - `maria@example.com`: accepted PyJam performer whose uploaded video is
+      over the length limit, which blocks the video-length item
+    - `sam@example.com`: talk presenter who has not been invited yet
+    - `nina@example.com`: accepted host of the opening
+- **Action items with deadlines**: one owned by Design Team, one assigned to
+  a volunteer and overdue, one completed by a volunteer so the presenter can
+  see who did it, and ad hoc items added by the organizer
+
+**Important**: like `generate_sample_data`, this only works when
+`DEBUG=True`. It is idempotent: rerunning it updates the data in place. Run
+it after [configuring the site domain](#configure-the-site-domain) so the
+invitation and notification emails it sends link to `localhost:8000`.
 
 === "With Docker"
 
@@ -281,9 +305,19 @@ team-owned or assigned to a volunteer.
     python manage.py generate_speaker_sample_data
     ```
 
-Also `DEBUG`-only and idempotent; accounts use `password123`. Sign in as
-`ada@example.com` (via a sign-in code, or set a password) to see the speaker
-side, or as `organizer_lena` for the organizer side.
+Pass `--conference <year or slug>` to target an edition other than the active
+one.
+
+**Signing in as each persona:**
+
+- Organizer and volunteer accounts use the password `password123`.
+- Presenter accounts were created through the invitation flow and have no
+  password yet. Use **Send me a sign-in code** on the login page with the
+  presenter's email address; the code arrives in
+  [maildev](howto.md) at <http://localhost:1080> (Docker) or in the server terminal. Once signed in, the
+  speaker dashboard offers to set a password.
+- The organizer side of the speaker portal lives under **Organize →
+  Speakers**; the speaker side is the **Speaking** entry in the top menu.
 
 ## Documentation Setup
 
