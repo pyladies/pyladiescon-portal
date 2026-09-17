@@ -14,7 +14,13 @@ from speakers.tasks import send_checklist_digests_task
 from volunteer.constants import ApplicationStatus
 from volunteer.models import Team, VolunteerProfile
 
-from .factories import make_presenter, make_session, make_settings
+from .factories import (
+    add_presenter,
+    make_presenter,
+    make_session,
+    make_settings,
+    make_slot,
+)
 
 NOW = datetime(2026, 11, 20, 12, 0, tzinfo=timezone.utc)
 TODAY = NOW.date()
@@ -60,7 +66,12 @@ class TestSpeakerDigest:
         assert send_checklist_digests(conference, now=NOW) == 1
         message = mail.outbox[0]
         assert message.to == ["ada@example.com"]
-        assert "1 thing(s) coming up" in message.subject
+        assert "1 todo(s) with deadlines coming up" in message.subject
+        assert "Thank you for being a speaker at PyLadiesCon 2025" in message.body
+        assert (
+            "Django 101" in message.body
+            and "todos have deadlines coming up" in message.body
+        )
         assert "Read the guide" in message.body and "Django 101" in message.body
         assert "Tech check" not in message.body and "Whenever" not in message.body
         assert "/speakers/me/" in message.body
@@ -75,6 +86,26 @@ class TestSpeakerDigest:
         )
         assert str(logs[0]) == "Read the guide (3d) to ada@example.com"
         assert later.reminders.count() == 0 and undated.reminders.count() == 0
+
+    def test_preface_names_the_role_and_scheduled_time(self, conference, enabled):
+        ada = make_presenter(conference, timezone="Europe/Lisbon")
+        session = make_session(conference, title="Careers panel", kind="PANEL")
+        add_presenter(session, ada, role="PANELIST")
+        make_slot(session)  # 2026-12-05 14:00 UTC
+        add_adhoc_item(
+            conference, "Bio", ItemOwner.SPEAKER, presenter=ada, due_date=days(2)
+        )
+        mail.outbox.clear()
+        send_checklist_digests(conference, now=NOW)
+        body = mail.outbox[0].body
+        assert "Thank you for being a panelist" in body
+        assert "Careers panel" in body and "(Panel, panelist)" in body
+        assert "Saturday 5 December, 14:00 Europe/Lisbon" in body
+        # Two different roles fall back to "speaker".
+        add_presenter(make_session(conference, title="Talk", kind="TALK"), ada)
+        mail.outbox.clear()
+        send_checklist_digests(conference, now=NOW + timedelta(days=1))
+        assert "Thank you for being a speaker" in mail.outbox[0].body
 
     def test_running_twice_on_the_same_day_sends_once(self, conference, enabled):
         ada = make_presenter(conference)

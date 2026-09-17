@@ -1,10 +1,15 @@
 {% extends "emails/base_email.md" %}
 {% load i18n %}
 {% block content %}
-
+{% if for_organizer %}
 Hi,
 
-{% if for_organizer %}The organizer checklist items you look after have changed.{% else %}The organizers updated your checklist.{% endif %}
+The organizer todo items you look after have changed.
+{% else %}
+{% include "emails/speakers/_presenter_preface.md" %}
+
+Your todo list was updated:
+{% endif %}
 {% if new_items %}
 
 ## New
@@ -22,6 +27,6 @@ Hi,
 {% endfor %}
 {% endif %}
 
-{% if for_organizer %}See your queue: <{{ link }}>{% else %}See the full list on your dashboard: <{{ link }}>{% endif %}
+{% if for_organizer %}See your queue: <{{ link }}>{% else %}To see more details about these action items, visit your speaker dashboard: <{{ link }}>{% endif %}
 
 {% endblock content %}

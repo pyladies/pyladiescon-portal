@@ -17,7 +17,7 @@ from django.utils import timezone
 from common.send_emails import send_email
 
 from .constants import ItemOwner, NoticeKind
-from .emails import absolute_url
+from .emails import absolute_url, presenter_email_context
 from .models import ChecklistItem
 from .reminders import DigestCount, _team_emails
 
@@ -70,29 +70,29 @@ def _try_send(conference, recipients, group, speaker_side):
     one bad mailbox does not silence everyone after it in the loop (the same
     rule the reminder digests follow). The flags are cleared in the same
     transaction as the send, so a failure leaves them for tomorrow."""
+    context = {
+        "conference": conference,
+        "new_items": [i for i in group if i.pending_notice == NoticeKind.NEW],
+        "changed_items": [i for i in group if i.pending_notice == NoticeKind.CHANGED],
+        "for_organizer": not speaker_side,
+        "link": absolute_url(
+            reverse(
+                "speakers:my_dashboard" if speaker_side else "speakers:checklist_queue"
+            )
+        ),
+    }
+    if speaker_side:
+        context.update(presenter_email_context(group[0].presenter))
+        subject = "Update to your todo list"
+    else:
+        subject = "Update to the organizer todo list"
     try:
         with transaction.atomic():
             send_email(
-                f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} {conference.name}: your "
-                "checklist has changed",
+                f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} {conference.name}: {subject}",
                 list(recipients),
                 markdown_template="emails/speakers/checklist_changes.md",
-                context={
-                    "new_items": [
-                        i for i in group if i.pending_notice == NoticeKind.NEW
-                    ],
-                    "changed_items": [
-                        i for i in group if i.pending_notice == NoticeKind.CHANGED
-                    ],
-                    "for_organizer": not speaker_side,
-                    "link": absolute_url(
-                        reverse(
-                            "speakers:my_dashboard"
-                            if speaker_side
-                            else "speakers:checklist_queue"
-                        )
-                    ),
-                },
+                context=context,
             )
             _clear(group)
     except Exception:  # noqa: BLE001 - anything the mail backend raises

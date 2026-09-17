@@ -19,7 +19,7 @@ from common.send_emails import send_email
 from volunteer.constants import ApplicationStatus
 
 from .constants import OPEN_ITEM_STATUSES, ItemOwner
-from .emails import absolute_url, organizer_recipients
+from .emails import absolute_url, organizer_recipients, presenter_email_context
 from .models import ChecklistItem, ReminderLog, SpeakerSettings
 
 THRESHOLDS = (7, 3, 1)
@@ -97,15 +97,17 @@ def _speaker_digests(conference, items, now, sent):
             "emails/speakers/checklist_digest.md",
             {
                 "name": presenter.display_name,
+                "conference": conference,
                 "items": [item for item, _ in due],
                 "today": today,
                 "timezone": presenter.timezone,
                 "link": _dashboard_url(),
                 "for_organizer": False,
+                **presenter_email_context(presenter),
             },
             due,
             subject=f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} {conference.name}: "
-            f"{len(due)} thing(s) coming up",
+            f"{len(due)} todo(s) with deadlines coming up",
         ):
             emails.failed += 1
             continue
