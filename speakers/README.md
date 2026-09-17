@@ -137,7 +137,13 @@ An organizer checklist item is owned by a person (`assignee`) or by a
 start an item unassigned, with the presenter's liaison, or with a named
 team (`default_team_name`, matched by name per edition so templates clone
 forward). "My queue" shows items assigned to me or to a team I am an
-approved member of; team reminders go to every approved member.
+approved member of; team reminders go to every approved member. A volunteer
+who is neither an organizer nor a liaison can still open that list (as "My
+speaker tasks" under their personal rail, offered once something is assigned
+to them or their team) and mark those items done. The page then hangs off the
+volunteer rail instead of the Organize one, whose entries they cannot open.
+Reassigning stays with organizers (`permissions.owned_by` decides who carries
+an item; `can_work_queue` decides who reaches the page).
 
 ### General items (once per presenter)
 

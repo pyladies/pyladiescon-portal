@@ -1396,6 +1396,7 @@ class ChecklistQueueView(LoginRequiredMixin, SpeakerQueueRequiredMixin, Template
         items = list(items)
         for item in items:
             item.overdue = item.is_overdue
+        organizer_side = can_work_sessions(self.request.user, self.conference)
         context.update(
             {
                 "conference": self.conference,
@@ -1403,8 +1404,16 @@ class ChecklistQueueView(LoginRequiredMixin, SpeakerQueueRequiredMixin, Template
                 "items": items,
                 "today": today(),
                 # A volunteer assignee may not open presenter or session
-                # pages, so their rows name them without linking.
-                "can_open_pages": can_work_sessions(self.request.user, self.conference),
+                # pages, so their rows name them without linking, and the
+                # page hangs off their own rail rather than the Organize one
+                # whose entries would all 403.
+                "can_open_pages": organizer_side,
+                "organizer_side": organizer_side,
+                "shell": (
+                    "speakers/_organize_shell.html"
+                    if organizer_side
+                    else "portal/base_sidebar.html"
+                ),
             }
         )
         return context

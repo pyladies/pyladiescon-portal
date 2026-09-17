@@ -310,7 +310,9 @@ one.
 
 **Signing in as each persona:**
 
-- Organizer and volunteer accounts use the password `password123`.
+- Organizer and volunteer accounts use the password `password123`. Sign in
+  as `vol_maya` and open **My speaker tasks** under **My volunteering** to
+  see the items assigned to her and to Design Team.
 - Presenter accounts were created through the invitation flow and have no
   password yet. Use **Send me a sign-in code** on the login page with the
   presenter's email address; the code arrives in
