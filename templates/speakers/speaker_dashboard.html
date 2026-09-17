@@ -73,7 +73,7 @@
                                title="{{ locked_label }}"></i>
                         {% endif %}
                         <a class="btn btn-sm btn-outline-primary"
-                           href="{% url 'speakers:my_checklist' %}?session={{ summary.session.slug }}">
+                           href="{% url 'speakers:my_session_detail' summary.session.slug %}#checklist">
                             <i class="fa-solid fa-list-check"></i> {% trans "Checklist" %}
                         </a>
                     </span>

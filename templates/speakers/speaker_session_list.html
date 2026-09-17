@@ -52,7 +52,7 @@
                         <a class="btn btn-sm btn-outline-primary"
                            href="{% url 'speakers:my_session_detail' link.session.slug %}">{% trans "View" %}</a>
                         <a class="btn btn-sm btn-outline-primary"
-                           href="{% url 'speakers:my_checklist' %}?session={{ link.session.slug }}">
+                           href="{% url 'speakers:my_session_detail' link.session.slug %}#checklist">
                             <i class="fa-solid fa-list-check"></i> {% trans "Checklist" %}
                         </a>
                         <a class="btn btn-sm btn-outline-secondary"

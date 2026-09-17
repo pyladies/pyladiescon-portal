@@ -100,7 +100,16 @@ class TestDashboardLists:
         assert "tasks done" not in content
         assert "Nothing open on your to-do list" in content
         assert "Your to-dos" not in content  # the lists live on the checklist page
-        assert f"{CHECKLIST}?session={session.slug}" in content
+        # The per-session checklist button lands on the session page's
+        # checklist section, so the reader keeps the session context.
+        session_checklist = (
+            f"{reverse('speakers:my_session_detail', args=[session.slug])}#checklist"
+        )
+        assert session_checklist in content
+        assert f"{CHECKLIST}?session=" not in content
+        content = client.get(reverse("speakers:my_sessions")).content.decode()
+        assert session_checklist in content
+        assert f"{CHECKLIST}?session=" not in content
 
     def test_checklist_page_with_zero_items(self, client, speaker, presenter, session):
         client.force_login(speaker)
@@ -237,13 +246,39 @@ class TestDashboardLists:
             presenter=presenter,
             due_date=date.today() + timedelta(days=30),
         )
+        tomorrow = add_adhoc_item(
+            conference,
+            "Tomorrow thing",
+            ItemOwner.SPEAKER,
+            presenter=presenter,
+            due_date=date.today() + timedelta(days=1),
+        )
+        done = add_adhoc_item(
+            conference,
+            "Done thing",
+            ItemOwner.SPEAKER,
+            presenter=presenter,
+            due_date=date.today() - timedelta(days=5),
+        )
+        complete_item(done)
         client.force_login(speaker)
         response = client.get(CHECKLIST)
         content = response.content.decode()
         assert "checklist-due-overdue" in content
         by_id = {i.pk: i for i in response.context["speaker_items"]}
-        assert by_id[late.pk].overdue is True
-        assert by_id[soon.pk].overdue is False
+        assert by_id[late.pk].overdue is True and by_id[late.pk].due_tone == "overdue"
+        assert by_id[soon.pk].overdue is False and by_id[soon.pk].due_tone == "later"
+        assert by_id[tomorrow.pk].due_tone == "soon"
+        assert by_id[done.pk].due_tone == "quiet"  # finished: no colour
+        assert "checklist-due-overdue" in content and "· overdue" in content
+        assert "tomorrow" in content
+        # Done titles are struck through; open ones get an empty box.
+        assert re.search(r'checklist-title-done">Done thing</a>', content)
+        assert not re.search(r'checklist-title-done">Late thing</a>', content)
+        assert re.search(
+            r'<button[^>]*class="checklist-box "[^>]*>\s*</button>', content
+        )
+        assert "checklist-box checklist-box-done" in content
 
 
 @pytest.mark.django_db
@@ -262,7 +297,7 @@ class TestToggle:
         assert item.completed_by == speaker
         # The form sends the page it was on; anything off-site is ignored.
         assertRedirects(
-            client.post(toggle(item), {"next": f"{CHECKLIST}?view=session"}),
+            client.post(toggle(item), {"next": f"{CHECKLIST}?view=session#x"}),
             f"{CHECKLIST}?view=session#item-{item.pk}",
         )
         assertRedirects(
@@ -465,5 +500,8 @@ class TestSessionDetail:
         client.force_login(speaker)
         content = client.get(reverse("speakers:my_sessions")).content.decode()
         assert "1 of 2 tasks done" in content
-        assert f"{CHECKLIST}?session={session.slug}" in content
-        assert reverse("speakers:my_session_detail", args=[session.slug]) in content
+        # The per-session checklist button lands on the session page's
+        # checklist section, so the reader keeps the session context.
+        session_url = reverse("speakers:my_session_detail", args=[session.slug])
+        assert f"{session_url}#checklist" in content
+        assert f"{CHECKLIST}?session=" not in content
