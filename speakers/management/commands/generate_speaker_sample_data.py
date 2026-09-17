@@ -131,7 +131,9 @@ SESSIONS = [
 ]
 
 PRESENTERS = [
-    # display name, email, timezone, sessions [(title, role)], state, liaison
+    # display name, email, timezone, sessions [(title, role)], state, liaison.
+    # States: not_invited, invited, accepted (still to pass the welcome page),
+    # onboarded (agreements done, bio and headshot in).
     (
         "Ada Lovelace",
         "ada@example.com",
@@ -149,7 +151,7 @@ PRESENTERS = [
             ("Testing Django applications", "PRESENTER"),
             ("Careers in open source", "MODERATOR"),
         ],
-        "accepted",
+        "onboarded",
         "organizer_lena",
     ),
     (
@@ -165,7 +167,7 @@ PRESENTERS = [
         "maria@example.com",
         "America/Sao_Paulo",
         [("Live-coded music with Python", "PERFORMER")],
-        "accepted",
+        "onboarded",
         "vol_kim",
     ),
     (
@@ -379,6 +381,11 @@ class Command(BaseCommand):
             presenter.refresh_from_db()
         self._clear_required_items(presenter)
         if state == "onboarded":
+            # The welcome page (agreements, optional password) is behind them.
+            PortalProfile.objects.get_or_create(
+                user=presenter.user,
+                defaults={"coc_agreement": True, "tos_agreement": True},
+            )
             presenter.bio_md = "I write programs and talk about it."
             presenter.headshot = "speakers/headshots/sample.png"
             presenter.pronouns = "she/her"

@@ -6,6 +6,7 @@ from django.core.management import CommandError, call_command
 from django.utils import timezone
 
 from portal.models import Conference
+from portal_account.models import PortalProfile
 from speakers.constants import ItemStatus, SessionStatus
 from speakers.models import (
     ChecklistItem,
@@ -40,6 +41,12 @@ class TestGenerateSpeakerSampleData:
             presenters["Ada Lovelace"].user is not None
             and presenters["Ada Lovelace"].bio_md
         )
+        assert PortalProfile.objects.filter(
+            user=presenters["Ada Lovelace"].user
+        ).exists()
+        assert not PortalProfile.objects.filter(
+            user=presenters["Nina Host"].user
+        ).exists()
         assert presenters["Sam Newcomer"].invitations.count() == 0
         dex = presenters["Dex Panelist"]
         assert dex.invitations.get().accepted_at is None and dex.user is None

@@ -277,13 +277,15 @@ every screen of the speaker module has something to show. It creates:
 - **6 Presenters**, one per invitation state:
     - `ada@example.com`: accepted and onboarded workshop presenter, with
       checklist items that are done, skipped, overdue and due soon
-    - `grace@example.com`: accepted keynote presenter, workshop co-presenter
-      and panel moderator, so she gets both the keynote and workshop guides
+    - `grace@example.com`: onboarded keynote presenter, second presenter on
+      the workshop and panel moderator, so she gets both the keynote and the
+      workshop guides
     - `dex@example.com`: invited panelist who has not accepted yet
-    - `maria@example.com`: accepted PyJam performer whose uploaded video is
+    - `maria@example.com`: onboarded PyJam performer whose uploaded video is
       over the length limit, which blocks the video-length item
     - `sam@example.com`: talk presenter who has not been invited yet
-    - `nina@example.com`: accepted host of the opening
+    - `nina@example.com`: accepted host of the opening who has not been
+      through the welcome page yet, so signing in as her shows that flow
 - **Action items with deadlines**: one owned by Design Team, one assigned to
   a volunteer and overdue, one completed by a volunteer so the presenter can
   see who did it, and ad hoc items added by the organizer
