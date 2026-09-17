@@ -7,7 +7,10 @@ from pytest_django.asserts import assertRedirects
 from portal_account.models import PortalProfile
 from speakers.models import ActivityLog
 from speakers.services import accept_invitation, send_invitation
-from speakers.tasks import send_acceptance_email_task
+from speakers.tasks import (
+    send_acceptance_email_task,
+    send_added_to_session_email_task,
+)
 
 from .factories import (
     add_presenter,
@@ -15,6 +18,7 @@ from .factories import (
     make_presenter,
     make_session,
     make_settings,
+    make_slot,
 )
 
 WELCOME = reverse("speakers:my_welcome")
@@ -197,3 +201,19 @@ class TestAcceptanceEmail:
         invitation = make_invitation(make_presenter(conference))
         assert "not accepted" in send_acceptance_email_task(invitation.pk)
         assert "not accepted" in send_acceptance_email_task(999999)
+
+    def test_added_to_session_task_needs_a_confirmed_link(self, conference, enabled):
+        link = add_presenter(
+            make_session(conference),
+            make_presenter(conference, timezone="America/New_York"),
+        )
+        assert "not confirmed" in send_added_to_session_email_task(link.pk)
+        assert "not confirmed" in send_added_to_session_email_task(999999)
+        assert mail.outbox == []
+        link.confirm()
+        make_slot(link.session)
+        assert "Sent" in send_added_to_session_email_task(link.pk)
+        # 14:00 UTC shown in the presenter's own timezone, not the server's.
+        assert "scheduled Saturday 5 December, 09:00 America/New_York" in (
+            mail.outbox[-1].body
+        )

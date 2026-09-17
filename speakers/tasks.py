@@ -6,10 +6,11 @@ from portal.models import Conference
 
 from .emails import (
     send_acceptance_email,
+    send_added_to_session_email,
     send_copresenter_suggestion_email,
     send_invitation_email,
 )
-from .models import Invitation, Presenter, Session, SpeakerSettings
+from .models import Invitation, Presenter, Session, SessionPresenter, SpeakerSettings
 from .notices import send_checklist_change_notices
 from .pretix import PretixError, reconcile, sync_order_by_code
 from .reminders import send_checklist_digests
@@ -30,6 +31,22 @@ def send_invitation_email_task(invitation_id):
         return f"Invitation with id {invitation_id} not found"
     send_invitation_email(invitation)
     return f"Sent invitation email for {invitation_id}"
+
+
+@shared_task
+def send_added_to_session_email_task(link_id):
+    """Tell an already-accepted presenter they were added to a session."""
+    link = (
+        SessionPresenter.objects.filter(pk=link_id, confirmed_at__isnull=False)
+        .select_related(
+            "presenter", "role", "session", "session__slot", "conference"
+        )
+        .first()
+    )
+    if link is None:
+        return f"Session presenter {link_id} is not confirmed"
+    send_added_to_session_email(link)
+    return f"Sent added-to-session email for {link_id}"
 
 
 @shared_task

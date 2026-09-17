@@ -517,6 +517,14 @@ class TestSessionPresenterActions:
         # Their link is the only required one and no seeded item is
         # required, so the session confirms itself on the spot.
         assert talk.status == SessionStatus.CONFIRMED
+        # ... and they hear about it right away.
+        added = mail.outbox[-1]
+        assert added.to == ["grace@example.com"]
+        assert "You've been added to Later talk" in added.subject
+        assert "Later talk" in added.body and "Talk, presenter" in added.body
+        assert "not scheduled yet" in added.body
+        assert f"/speakers/me/sessions/{talk.slug}/" in added.body
+        assert "already accepted our invitation" in added.body
         # Someone who has not accepted anything is added unconfirmed, as before.
         client.post(
             reverse("speakers:session_add_presenter", args=[talk.slug]),

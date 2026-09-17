@@ -28,7 +28,11 @@ from .models import (
 )
 from .rules import evaluate_items
 from .signals import invitation_accepted
-from .tasks import send_acceptance_email_task, send_invitation_email_task
+from .tasks import (
+    send_acceptance_email_task,
+    send_added_to_session_email_task,
+    send_invitation_email_task,
+)
 
 
 class InvitationError(Exception):
@@ -245,8 +249,9 @@ def presenter_added_to_session(link, actor=None):
     """After a SessionPresenter row is created by an organizer.
 
     A presenter who already accepted a general invitation is confirmed on
-    the new session straight away, gets that session's checklist, and the
-    session's confirmation is re-tried. Returns whether that happened.
+    the new session straight away, gets that session's checklist and an
+    email saying so, and the session's confirmation is re-tried. Returns
+    whether that happened.
     """
     if link.is_confirmed or not has_accepted_generally(link.presenter):
         return False
@@ -282,6 +287,9 @@ def _confirm_from_general_acceptance(link, actor):
         # threshold on the first digest.
         accepted_at=link.confirmed_at,
     )
+    confirm_session_if_ready(link.session)
+    enqueue(send_added_to_session_email_task, link.pk)
+    return True
 
 
 def change_presenter_role(link, role, *, is_required=None, actor=None):
