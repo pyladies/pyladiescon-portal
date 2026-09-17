@@ -857,6 +857,15 @@ class InvitationCancelView(InvitationActionMixin, View):
 # ---- Speaker side -----------------------------------------------------------
 
 
+def annotate_due(item, as_of):
+    """Set the display attributes the checklist row reads: ``overdue``,
+    ``days_left`` and ``due_tone``."""
+    item.overdue = item.is_open and item.due_date is not None and item.due_date < as_of
+    item.days_left = (item.due_date - as_of).days if item.due_date else None
+    item.due_tone = due_tone(item)
+    return item
+
+
 def due_tone(item):
     """How loudly to show the due date: ``overdue``, ``soon`` (within a
     week), ``later``, or ``quiet`` once the item is no longer open."""
@@ -888,11 +897,7 @@ def _speaker_checklist(presenter, as_of):
         .order_by(F("due_date").asc(nulls_last=True), "session__title", "order", "id")
     )
     for item in items:
-        item.overdue = (
-            item.is_open and item.due_date is not None and item.due_date < as_of
-        )
-        item.days_left = (item.due_date - as_of).days if item.due_date else None
-        item.due_tone = due_tone(item)
+        annotate_due(item, as_of)
     return {
         "links": links,
         "speaker": [
@@ -1072,12 +1077,23 @@ class SpeakerItemToggleView(LoginRequiredMixin, PresenterRequiredMixin, View):
                 )
         except ChecklistError as exc:
             messages.error(request, str(exc))
+        if request.headers.get("HX-Request"):
+            # Swap just this row, and the notice as a toast, so the page
+            # stays exactly where it is.
+            return render(
+                request,
+                "speakers/_checklist_item_swap.html",
+                {
+                    "item": annotate_due(item, today(self.presenter.tzinfo)),
+                    "tickable": True,
+                },
+            )
         target = request.POST.get("next", "")
         if not url_has_allowed_host_and_scheme(
             target, allowed_hosts={request.get_host()}
         ):
             target = reverse("speakers:my_checklist")
-        # Land back on the item rather than at the top of the page.
+        # Without JavaScript: land back on the item rather than at the top.
         return redirect(f"{target.split('#')[0]}#item-{item.pk}")
 
 

@@ -16,7 +16,12 @@ middle, the due date on the right. Params:
     data-status="{{ item.status }}">
     <div class="d-flex align-items-start gap-3">
         {% if tickable and not item.is_automatic %}
-            <form method="post" action="{% url 'speakers:my_item_toggle' item.pk %}">
+            <form method="post"
+                  action="{% url 'speakers:my_item_toggle' item.pk %}"
+                  hx-post="{% url 'speakers:my_item_toggle' item.pk %}"
+                  hx-target="#item-{{ item.pk }}"
+                  hx-swap="outerHTML"
+                  hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
                 {% csrf_token %}
                 <input type="hidden" name="next" value="{{ request.get_full_path }}">
                 <button type="submit"
@@ -65,7 +70,9 @@ middle, the due date on the right. Params:
                     {{ item.session.title }}
                 {% endif %}
                 {% if show_assignee %}
-                    {% if item.session %}·{% endif %}
+                    {% if item.session %}
+                        ·
+                    {% endif %}
                     {% if item.is_done %}
                         {% if item.completed_by %}
                             {% blocktranslate with name=item.completed_by.get_full_name|default:item.completed_by.username date=item.completed_at|date:"j M" %}done by {{ name }} on {{ date }}{% endblocktranslate %}
