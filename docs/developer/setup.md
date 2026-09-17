@@ -260,6 +260,31 @@ All generated users have the password: `password123`.
 
 The command is idempotent, meaning you can run it multiple times without creating duplicate data.
 
+### Speaker portal sample data
+
+A second command fills the active edition with speaker-portal data: it
+switches the module on, seeds the checklists and guides, and creates an
+organizer, volunteers on teams, sessions of every kind, and presenters in
+every state (not yet invited, invited, accepted, onboarded, a performer with a
+video over the limit), with checklist items that are done, overdue, due soon,
+team-owned or assigned to a volunteer.
+
+=== "With Docker"
+
+    ```sh
+    make manage generate_speaker_sample_data
+    ```
+
+=== "Without Docker"
+
+    ```sh
+    python manage.py generate_speaker_sample_data
+    ```
+
+Also `DEBUG`-only and idempotent; accounts use `password123`. Sign in as
+`ada@example.com` (via a sign-in code, or set a password) to see the speaker
+side, or as `organizer_lena` for the organizer side.
+
 ## Documentation Setup
 
 The documentation is built using [MKDocs](https://www.mkdocs.org/) and markdown.
