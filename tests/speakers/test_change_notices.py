@@ -70,6 +70,13 @@ class TestChangeNotices:
         assert organizer_mail.subject.endswith("Update to the organizer todo list")
         assert "Promo" in organizer_mail.body and "for Ada" in organizer_mail.body
         assert "Thank you for being" not in organizer_mail.body
+        assert (
+            "Thank you for volunteering with us at PyLadiesCon 2025"
+            in organizer_mail.body
+        )
+        assert "Go to your queue for more details" in organizer_mail.body
+        for message in (speaker_mail, organizer_mail):
+            assert "mark them as done and we won't bother you" in message.body
         assert "/speakers/checklists/queue/" in organizer_mail.body
         assert not ChecklistItem.objects.exclude(pending_notice="").exists()
         mail.outbox.clear()

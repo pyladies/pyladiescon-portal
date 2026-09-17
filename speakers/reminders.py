@@ -149,6 +149,7 @@ def _organizer_digests(conference, items, now, sent, settings_row):
             "emails/speakers/checklist_digest.md",
             {
                 "name": "team",
+                "conference": conference,
                 "items": [item for item, _ in due],
                 "today": today,
                 "timezone": str(tzinfo),
