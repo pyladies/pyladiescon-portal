@@ -1,0 +1,96 @@
+{% extends "speakers/_speaker_shell.html" %}
+{% load i18n %}
+{% block head_title %}
+    {{ item.title }}
+{% endblock head_title %}
+{% block breadcrumb %}
+    {% trans "My checklist" as bc_section %}
+    {% url 'speakers:my_checklist' as bc_url %}
+    {% include "portal/_breadcrumbs.html" with section=bc_section section_url=bc_url page=item.title %}
+{% endblock breadcrumb %}
+{% block content %}
+    <p class="mb-2">
+        <a href="{% url 'speakers:my_checklist' %}"
+           class="text-secondary text-decoration-none">
+            <i class="fa-solid fa-arrow-left"></i> {% trans "My checklist" %}
+        </a>
+    </p>
+    <h1 class="h3 mb-3">
+        {{ item.title }}
+    </h1>
+    <div class="row g-4">
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-body">
+                    {% include "speakers/_item_facts.html" with item=item speaker_view=True %}
+                    {% if guide %}
+                        <p class="mt-3 mb-0">
+                            <a href="{% url 'speakers:my_guide' %}">
+                                <i class="fa-solid fa-book-open"></i>
+                                {% blocktranslate with title=guide.title %}Read the {{ title }} and confirm it there{% endblocktranslate %}
+                            </a>
+                        </p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-4">
+            <div class="card mb-4">
+                <div class="card-body">
+                    {% if tickable %}
+                        <form method="post" action="{% url 'speakers:my_item_toggle' item.pk %}">
+                            {% csrf_token %}
+                            <input type="hidden"
+                                   name="next"
+                                   value="{% url 'speakers:my_item_detail' item.pk %}">
+                            {% if item.is_done %}
+                                <button type="submit" class="btn btn-outline-secondary w-100">
+                                    <i class="fa-solid fa-rotate-left"></i> {% trans "Mark as not done" %}
+                                </button>
+                            {% else %}
+                                <button type="submit" class="btn btn-success w-100">
+                                    <i class="fa-solid fa-check"></i> {% trans "Mark as done" %}
+                                </button>
+                            {% endif %}
+                        </form>
+                    {% elif item.owner == "SPEAKER" %}
+                        <p class="text-secondary small mb-0">
+                            <i class="fa-solid fa-wand-magic-sparkles"></i>
+                            {% trans "This item ticks itself once the portal sees it done." %}
+                        </p>
+                    {% else %}
+                        <p class="text-secondary small mb-0">
+                            {% trans "A team task: nothing for you to do here. You can see who is on it and who completed it." %}
+                        </p>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-header">
+                    {% trans "History" %}
+                </div>
+                <ul class="list-group list-group-flush">
+                    {% for entry in activity %}
+                        <li class="list-group-item small">
+                            <div>
+                                {{ entry.message }}
+                            </div>
+                            <div class="text-secondary">
+                                {% if entry.actor %}
+                                    {{ entry.actor.get_full_name|default:entry.actor.username }} ·
+                                {% else %}
+                                    {% trans "automatic" %} ·
+                                {% endif %}
+                                {{ entry.creation_date|date:"j M Y" }}
+                            </div>
+                        </li>
+                    {% empty %}
+                        <li class="list-group-item small text-secondary">
+                            {% trans "Nothing has happened on this item yet." %}
+                        </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+    </div>
+{% endblock content %}

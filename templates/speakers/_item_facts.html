@@ -1,0 +1,113 @@
+{% load i18n %}
+{% load speakers_extras %}
+{% comment %}
+The facts about one checklist item, shared by the organizer and speaker
+detail pages. Params:
+    item          — ChecklistItem with .overdue set
+    link_records  — truthy to link the presenter and session to organizer pages
+    speaker_view  — truthy when the presenter is reading their own item
+{% endcomment %}
+<div class="mb-3">
+    <span class="badge {% if item.is_done %}text-bg-success{% elif item.status == 'BLOCKED' %}text-bg-danger{% elif item.status == 'SKIPPED' %}text-bg-secondary{% elif item.overdue %}text-bg-warning{% else %}text-bg-light border{% endif %}">
+        {{ item.get_status_display }}
+        {% if item.overdue %}
+            · {% trans "overdue" %}
+        {% endif %}
+    </span>
+    {% if item.is_required %}
+        <span class="badge text-bg-light border">{% trans "Required" %}</span>
+    {% endif %}
+    {% if item.is_automatic %}
+        <span class="badge text-bg-light border"><i class="fa-solid fa-wand-magic-sparkles"></i> {% trans "Ticks itself" %}</span>
+    {% endif %}
+</div>
+{% if item.description_md %}
+    <div class="mb-4">
+        {{ item.description_md|speaker_md }}
+    </div>
+{% else %}
+    <p class="text-secondary fst-italic">
+        {% trans "No further details were added to this item." %}
+    </p>
+{% endif %}
+<dl class="row mb-0">
+    {% if item.presenter %}
+        <dt class="col-sm-3">
+            {% trans "For" %}
+        </dt>
+        <dd class="col-sm-9">
+            {% if link_records %}
+                <a href="{{ item.presenter.get_absolute_url }}">{{ item.presenter.display_name }}</a>
+            {% elif speaker_view %}
+                {% trans "You" %}
+            {% else %}
+                {{ item.presenter.display_name }}
+            {% endif %}
+        </dd>
+    {% endif %}
+    <dt class="col-sm-3">
+        {% trans "Session" %}
+    </dt>
+    <dd class="col-sm-9">
+        {% if item.session %}
+            {% if link_records %}
+                <a href="{{ item.session.get_absolute_url }}">{{ item.session.title }}</a>
+            {% elif speaker_view %}
+                <a href="{% url 'speakers:my_session_detail' item.session.slug %}">{{ item.session.title }}</a>
+            {% else %}
+                {{ item.session.title }}
+            {% endif %}
+        {% else %}
+            <span class="text-secondary">{% trans "General, not tied to one session" %}</span>
+        {% endif %}
+    </dd>
+    <dt class="col-sm-3">
+        {% trans "Due" %}
+    </dt>
+    <dd class="col-sm-9 {% if item.overdue %}text-danger fw-semibold{% endif %}">
+        {% if item.due_date %}
+            {{ item.due_date|date:"l j F Y" }}
+        {% else %}
+            <span class="text-secondary">{% trans "No deadline" %}</span>
+        {% endif %}
+    </dd>
+    <dt class="col-sm-3">
+        {% trans "Who does it" %}
+    </dt>
+    <dd class="col-sm-9">
+        {% if item.owner == "SPEAKER" %}
+            {% if speaker_view %}
+                {% trans "You" %}
+            {% else %}
+                {% trans "The presenter" %}
+            {% endif %}
+        {% elif item.owner_label %}
+            {{ item.owner_label }}
+            {% if item.team %}
+                <span class="text-secondary">({% trans "team" %})</span>
+            {% endif %}
+        {% else %}
+            <span class="text-secondary">{% trans "The organizing team, not yet assigned" %}</span>
+        {% endif %}
+    </dd>
+    {% if item.is_done %}
+        <dt class="col-sm-3">
+            {% trans "Completed" %}
+        </dt>
+        <dd class="col-sm-9">
+            {% if item.completed_by %}
+                {% blocktranslate with name=item.completed_by.get_full_name|default:item.completed_by.username date=item.completed_at|date:"j F Y" %}by {{ name }} on {{ date }}{% endblocktranslate %}
+            {% else %}
+                {% blocktranslate with date=item.completed_at|date:"j F Y" %}automatically on {{ date }}{% endblocktranslate %}
+            {% endif %}
+        </dd>
+    {% endif %}
+    {% if item.note %}
+        <dt class="col-sm-3">
+            {% trans "Note" %}
+        </dt>
+        <dd class="col-sm-9 {% if item.status == 'BLOCKED' %}text-danger{% endif %}">
+            {{ item.note }}
+        </dd>
+    {% endif %}
+</dl>

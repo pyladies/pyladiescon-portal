@@ -1050,6 +1050,51 @@ class SpeakerItemToggleView(LoginRequiredMixin, PresenterRequiredMixin, View):
         return redirect(target)
 
 
+class SpeakerItemDetailView(LoginRequiredMixin, PresenterRequiredMixin, TemplateView):
+    """One item from the presenter's lists in full: their own to-dos, the
+    team's items for them, and post-production items on their sessions."""
+
+    template_name = "speakers/speaker_item_detail.html"
+
+    def get_item(self):
+        items = ChecklistItem.objects.select_related(
+            "session", "presenter", "assignee", "team", "completed_by"
+        )
+        item = items.filter(pk=self.kwargs["pk"], presenter=self.presenter).first()
+        if item is None:
+            item = get_object_or_404(
+                items,
+                pk=self.kwargs["pk"],
+                presenter=None,
+                session__session_presenters__presenter=self.presenter,
+            )
+        return item
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        item = self.get_item()
+        today_here = today(self.presenter.tzinfo)
+        item.overdue = bool(
+            item.is_open and item.due_date and item.due_date < today_here
+        )
+        context.update(
+            {
+                "conference": self.conference,
+                "presenter": self.presenter,
+                "item": item,
+                "activity": item_activity(item),
+                "tickable": item.owner == ItemOwner.SPEAKER and not item.is_automatic,
+                "guide": (
+                    Handbook.current(self.conference, item.guide_key)
+                    if item.requires_handbook
+                    else None
+                ),
+                "rail_active": "checklist",
+            }
+        )
+        return context
+
+
 class SpeakerProfileUpdateView(LoginRequiredMixin, PresenterRequiredMixin, UpdateView):
     form_class = SpeakerProfileForm
     template_name = "speakers/speaker_profile_form.html"
@@ -1425,7 +1470,12 @@ class ItemActionMixin(LoginRequiredMixin, SpeakerQueueRequiredMixin):
     def get_item(self):
         item = get_object_or_404(
             ChecklistItem.objects.select_related(
-                "presenter", "presenter__liaison", "session", "assignee"
+                "presenter",
+                "presenter__liaison",
+                "session",
+                "assignee",
+                "team",
+                "completed_by",
             ),
             pk=self.kwargs["pk"],
             conference=self.conference,
@@ -1488,6 +1538,54 @@ class ItemActionMixin(LoginRequiredMixin, SpeakerQueueRequiredMixin):
         ):
             target = fallback
         return redirect(target)
+
+
+def item_activity(item):
+    """Log entries about one item. They are recorded against the presenter or
+    the session with the item id in ``data``."""
+    target = item.presenter or item.session
+    return ActivityLog.for_target(target).filter(data__item_id=item.pk)[:20]
+
+
+class ItemDetailView(ItemActionMixin, TemplateView):
+    """One checklist item in full: description, who is on it, its history,
+    and the actions this viewer may take. Organizers and liaisons get the
+    Organize shell; a volunteer handed the item gets their personal rail."""
+
+    template_name = "speakers/item_detail.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        item = self.get_item()
+        item.overdue = item.is_overdue
+        organizer_side = can_work_sessions(self.request.user, self.conference)
+        # Reassigning is organizer-only, as it is on the presenter and
+        # session pages; carrying an item only lets you change its status.
+        can_manage = is_speaker_organizer(self.request.user)
+        context.update(
+            {
+                "conference": self.conference,
+                "item": item,
+                "activity": item_activity(item),
+                "organizer_side": organizer_side,
+                "can_manage": can_manage,
+                "shell": (
+                    "speakers/_organize_shell.html"
+                    if organizer_side
+                    else "portal/base_sidebar.html"
+                ),
+                "rail_active": "presenters" if item.presenter_id else "sessions",
+                "assign_form": (
+                    AssignItemForm(
+                        initial={"owner": item.owner_value},
+                        conference=self.conference,
+                    )
+                    if can_manage and item.owner == ItemOwner.ORGANIZER
+                    else None
+                ),
+            }
+        )
+        return context
 
 
 class ItemStatusView(ItemActionMixin, View):

@@ -37,7 +37,8 @@ One checklist line. Params:
     {% endif %}
     <div class="flex-grow-1">
         <div>
-            {{ item.title }}
+            <a href="{% url 'speakers:my_item_detail' item.pk %}"
+               class="link-body-emphasis text-decoration-none">{{ item.title }}</a>
             {% if item.is_automatic %}
                 <i class="fa-solid fa-wand-magic-sparkles text-secondary small"
                    title="{{ auto_label }}"></i>

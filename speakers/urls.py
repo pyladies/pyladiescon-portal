@@ -130,6 +130,11 @@ urlpatterns = [
         name="handbook_editor",
     ),
     path(
+        "me/items/<int:pk>/",
+        views.SpeakerItemDetailView.as_view(),
+        name="my_item_detail",
+    ),
+    path(
         "me/items/<int:pk>/toggle/",
         views.SpeakerItemToggleView.as_view(),
         name="my_item_toggle",
@@ -143,6 +148,7 @@ urlpatterns = [
     path(
         "checklists/queue/", views.ChecklistQueueView.as_view(), name="checklist_queue"
     ),
+    path("items/<int:pk>/", views.ItemDetailView.as_view(), name="item_detail"),
     path("items/<int:pk>/status/", views.ItemStatusView.as_view(), name="item_status"),
     path("items/<int:pk>/assign/", views.ItemAssignView.as_view(), name="item_assign"),
     path(

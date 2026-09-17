@@ -68,7 +68,8 @@ open. The view picks the shell.
                     <tr id="item-{{ item.pk }}"
                         class="{% if item.overdue %}table-warning{% elif item.status == 'BLOCKED' %}table-danger{% endif %}">
                         <td>
-                            {{ item.title }}
+                            <a href="{% url 'speakers:item_detail' item.pk %}"
+                               class="link-body-emphasis text-decoration-none">{{ item.title }}</a>
                             {% if item.session %}
                                 <div class="small text-secondary">
                                     {{ item.session.title }}
