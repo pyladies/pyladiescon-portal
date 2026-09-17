@@ -12,7 +12,13 @@ from speakers.tasks import send_checklist_change_notices_task
 from volunteer.constants import ApplicationStatus
 from volunteer.models import Team, VolunteerProfile
 
-from .factories import add_presenter, make_presenter, make_session, make_settings
+from .factories import (
+    add_presenter,
+    make_presenter,
+    make_session,
+    make_settings,
+    make_slot,
+)
 
 
 @pytest.fixture
@@ -22,6 +28,20 @@ def enabled(conference):
 
 @pytest.mark.django_db
 class TestChangeNotices:
+    def test_preface_shows_slot_in_the_presenter_timezone(self, conference, enabled):
+        ada = make_presenter(
+            conference, email="ada@example.com", timezone="America/New_York"
+        )
+        session = make_session(conference, title="Django 101")
+        add_presenter(session, ada)
+        make_slot(session)  # 14:00 UTC
+        add_adhoc_item(conference, "Bring cookies", ItemOwner.SPEAKER, presenter=ada)
+        mail.outbox.clear()
+        assert send_checklist_change_notices(conference) == 1
+        assert "scheduled Saturday 5 December, 09:00 America/New_York" in (
+            mail.outbox[0].body
+        )
+
     def test_one_email_per_recipient_then_silence(self, conference, enabled):
         ada = make_presenter(conference, display_name="Ada", email="ada@example.com")
         session = make_session(conference, title="Django 101")
