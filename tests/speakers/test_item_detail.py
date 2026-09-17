@@ -124,7 +124,7 @@ class TestSpeakerItemDetail:
             reverse("speakers:my_item_toggle", args=[world["todo"].pk]),
             {"next": my_detail(world["todo"])},
         )
-        assertRedirects(response, my_detail(world["todo"]))
+        assertRedirects(response, f"{my_detail(world['todo'])}#item-{world['todo'].pk}")
         content = client.get(my_detail(world["todo"])).content.decode()
         assert "Mark as not done" in content and "by ada" in content
 

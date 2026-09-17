@@ -43,8 +43,10 @@
         <link rel="stylesheet"
               href="https://fonts.googleapis.com/css2?family=Blinker:wght@400;600;700&family=Orbitron:wght@500;700&display=swap">
         <link rel="stylesheet" href="{% static 'css/portal.css' %}">
-        {# Display django.contrib.messages as Bootstrap alerts #}
-        {% bootstrap_messages %}
+        {# Display django.contrib.messages as Bootstrap alerts; shells may swap in toasts #}
+        {% block messages %}
+            {% bootstrap_messages %}
+        {% endblock messages %}
     </head>
     <body class="d-flex flex-column min-vh-100">
         {% block body %}

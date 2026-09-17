@@ -1,0 +1,28 @@
+{% load i18n %}
+{% trans "Close" as close_label %}
+{% comment %}
+django.contrib.messages as Bootstrap toasts pinned to the bottom-right corner,
+visible wherever the page is scrolled to. They fade out on their own (CSS,
+see .portal-toast) and can be closed by hand. Shells include this in the
+``messages`` block instead of bootstrap_messages.
+{% endcomment %}
+{% if messages %}
+    <div class="toast-container position-fixed bottom-0 end-0 p-3"
+         aria-live="polite"
+         aria-atomic="true">
+        {% for message in messages %}
+            <div class="toast show portal-toast border-0 text-bg-{% if message.level_tag == 'error' %}danger{% elif message.level_tag == 'debug' %}secondary{% else %}{{ message.level_tag }}{% endif %}"
+                 role="status">
+                <div class="d-flex">
+                    <div class="toast-body">
+                        {{ message }}
+                    </div>
+                    <button type="button"
+                            class="btn-close btn-close-white me-2 m-auto"
+                            data-bs-dismiss="toast"
+                            aria-label="{{ close_label }}"></button>
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+{% endif %}

@@ -4,6 +4,10 @@
 Shell for the speaker side: the personal rail with rail_active highlighted
 ("dashboard" by default). Children fill head_title, breadcrumb, content.
 {% endcomment %}
+{% block messages %}
+    {# Toasts instead of top-of-page alerts: ticking an item lands back on the item, and the notice still shows. #}
+    {% include "portal/_toast_messages.html" %}
+{% endblock messages %}
 {% block sidebar_title %}
     {% trans "Speaking" %}
 {% endblock sidebar_title %}

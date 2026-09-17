@@ -857,6 +857,16 @@ class InvitationCancelView(InvitationActionMixin, View):
 # ---- Speaker side -----------------------------------------------------------
 
 
+def due_tone(item):
+    """How loudly to show the due date: ``overdue``, ``soon`` (within a
+    week), ``later``, or ``quiet`` once the item is no longer open."""
+    if not item.is_open or item.due_date is None:
+        return "quiet"
+    if item.overdue:
+        return "overdue"
+    return "soon" if item.days_left <= 7 else "later"
+
+
 def _speaker_checklist(presenter, as_of):
     """Every item the presenter can see, with overdue flags, split by side.
 
@@ -881,6 +891,8 @@ def _speaker_checklist(presenter, as_of):
         item.overdue = (
             item.is_open and item.due_date is not None and item.due_date < as_of
         )
+        item.days_left = (item.due_date - as_of).days if item.due_date else None
+        item.due_tone = due_tone(item)
     return {
         "links": links,
         "speaker": [
@@ -1065,7 +1077,8 @@ class SpeakerItemToggleView(LoginRequiredMixin, PresenterRequiredMixin, View):
             target, allowed_hosts={request.get_host()}
         ):
             target = reverse("speakers:my_checklist")
-        return redirect(target)
+        # Land back on the item rather than at the top of the page.
+        return redirect(f"{target.split('#')[0]}#item-{item.pk}")
 
 
 class SpeakerItemDetailView(LoginRequiredMixin, PresenterRequiredMixin, TemplateView):

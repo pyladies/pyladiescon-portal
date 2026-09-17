@@ -4,87 +4,112 @@
 {% trans "Mark as done" as do_label %}
 {% trans "Ticks itself" as auto_label %}
 {% comment %}
-One checklist line. Params:
-    item      — ChecklistItem (with .overdue set by the view)
+One checklist line: a box on the left, the title and who is on it in the
+middle, the due date on the right. Params:
+    item      — ChecklistItem (with .overdue, .days_left, .due_tone set by the view)
     tickable  — truthy when the viewer may tick/untick it (own SPEAKER items)
     show_assignee — truthy to show who is on it (organizer items)
 {% endcomment %}
-<li class="list-group-item d-flex align-items-start gap-2 {% if item.is_automatic %}checklist-item-auto{% else %}checklist-item-manual{% endif %}{% if item.is_done %} checklist-item-done{% endif %}"
+<li class="list-group-item checklist-row {% if item.is_automatic %}checklist-item-auto{% else %}checklist-item-manual{% endif %}{% if item.is_done %} checklist-item-done{% endif %}"
+    id="item-{{ item.pk }}"
     data-item-id="{{ item.pk }}"
     data-status="{{ item.status }}">
-    {% if tickable and not item.is_automatic %}
-        <form method="post" action="{% url 'speakers:my_item_toggle' item.pk %}">
-            {% csrf_token %}
-            <input type="hidden" name="next" value="{{ request.get_full_path }}">
-            <button type="submit"
-                    class="btn btn-sm {% if item.is_done %}btn-success{% else %}btn-outline-secondary{% endif %}"
-                    aria-label="{% if item.is_done %}{{ undo_label }}{% else %}{{ do_label }}{% endif %}">
-                <i class="fa-solid fa-check"></i>
-            </button>
-        </form>
-    {% else %}
-        <span class="badge {% if item.is_done %}text-bg-success{% elif item.status == 'BLOCKED' %}text-bg-danger{% elif item.status == 'SKIPPED' %}text-bg-secondary{% else %}text-bg-light border{% endif %}">
-            {% if item.is_done %}
-                <i class="fa-solid fa-check"></i>
-            {% elif item.status == "BLOCKED" %}
-                {% trans "Blocked" %}
-            {% elif item.status == "SKIPPED" %}
-                {% trans "Skipped" %}
-            {% else %}
-                {% trans "To do" %}
+    <div class="d-flex align-items-start gap-3">
+        {% if tickable and not item.is_automatic %}
+            <form method="post" action="{% url 'speakers:my_item_toggle' item.pk %}">
+                {% csrf_token %}
+                <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                <button type="submit"
+                        class="checklist-box {% if item.is_done %}checklist-box-done{% endif %}"
+                        aria-label="{% if item.is_done %}{{ undo_label }}{% else %}{{ do_label }}{% endif %}"
+                        aria-pressed="{% if item.is_done %}true{% else %}false{% endif %}">
+                    {% if item.is_done %}
+                        <i class="fa-solid fa-check"></i>
+                    {% endif %}
+                </button>
+            </form>
+        {% else %}
+            <span class="checklist-box checklist-box-static {% if item.is_done %}checklist-box-done{% elif item.status == 'BLOCKED' %}checklist-box-blocked{% elif item.status == 'SKIPPED' %}checklist-box-skipped{% endif %}"
+                  title="{% if item.is_automatic %}{{ auto_label }}{% else %}{{ item.get_status_display }}{% endif %}">
+                {% if item.is_done %}
+                    <i class="fa-solid fa-check"></i>
+                {% elif item.status == "BLOCKED" %}
+                    <i class="fa-solid fa-exclamation"></i>
+                {% elif item.status == "SKIPPED" %}
+                    <i class="fa-solid fa-minus"></i>
+                {% elif item.is_automatic %}
+                    <i class="fa-solid fa-wand-magic-sparkles"></i>
+                {% endif %}
+            </span>
+        {% endif %}
+        <div class="flex-grow-1 min-w-0">
+            <div>
+                <a href="{% url 'speakers:my_item_detail' item.pk %}"
+                   class="link-body-emphasis text-decoration-none {% if item.is_done %}checklist-title-done{% endif %}">{{ item.title }}</a>
+                {% if item.is_automatic %}
+                    <span class="small text-secondary">· {{ auto_label|lower }}</span>
+                {% endif %}
+                {% if item.status == "BLOCKED" %}
+                    <span class="badge text-bg-danger">{% trans "Blocked" %}</span>
+                {% elif item.status == "SKIPPED" %}
+                    <span class="badge text-bg-secondary">{% trans "Skipped" %}</span>
+                {% endif %}
+            </div>
+            {% if item.description_md %}
+                <div class="small text-body-secondary item-description">
+                    {{ item.description_md|speaker_md }}
+                </div>
             {% endif %}
-        </span>
-    {% endif %}
-    <div class="flex-grow-1">
-        <div>
-            <a href="{% url 'speakers:my_item_detail' item.pk %}"
-               class="link-body-emphasis text-decoration-none">{{ item.title }}</a>
-            {% if item.is_automatic %}
-                <i class="fa-solid fa-wand-magic-sparkles text-secondary small"
-                   title="{{ auto_label }}"></i>
+            <div class="small text-secondary">
+                {% if item.session %}
+                    {{ item.session.title }}
+                {% endif %}
+                {% if show_assignee %}
+                    {% if item.session %}·{% endif %}
+                    {% if item.is_done %}
+                        {% if item.completed_by %}
+                            {% blocktranslate with name=item.completed_by.get_full_name|default:item.completed_by.username date=item.completed_at|date:"j M" %}done by {{ name }} on {{ date }}{% endblocktranslate %}
+                        {% else %}
+                            {% blocktranslate with date=item.completed_at|date:"j M" %}done automatically on {{ date }}{% endblocktranslate %}
+                        {% endif %}
+                    {% elif item.owner_label %}
+                        {% blocktranslate with name=item.owner_label %}{{ name }} is on it{% endblocktranslate %}
+                    {% else %}
+                        {% trans "not yet assigned" %}
+                    {% endif %}
+                {% endif %}
+            </div>
+            {% if show_assignee and not item.is_done %}
+                <div class="small text-secondary fst-italic">
+                    {% trans "A team task: nothing for you to do here." %}
+                </div>
+            {% endif %}
+            {% if item.status == "BLOCKED" and item.note %}
+                <div class="small text-danger">
+                    {{ item.note }}
+                </div>
             {% endif %}
         </div>
-        {% if item.description_md %}
-            <div class="small text-body-secondary item-description">
-                {{ item.description_md|speaker_md }}
-            </div>
-        {% endif %}
-        <div class="small text-secondary">
-            {% if item.session %}
-                {{ item.session.title }} ·
-            {% endif %}
+        <div class="flex-shrink-0 text-end">
             {% if item.due_date %}
-                <span {% if item.overdue %}class="text-danger fw-semibold"{% endif %}>
-                    {% trans "due" %} {{ item.due_date|date:"j M" }}
-                    {% if item.overdue %}
-                        ({% trans "overdue" %})
+                <span class="badge checklist-due checklist-due-{{ item.due_tone }}">
+                    {{ item.due_date|date:"j M" }}
+                    {% if item.due_tone == "overdue" %}
+                        · {% trans "overdue" %}
+                    {% elif item.due_tone == "soon" %}
+                        ·
+                        {% if item.days_left == 0 %}
+                            {% trans "today" %}
+                        {% elif item.days_left == 1 %}
+                            {% trans "tomorrow" %}
+                        {% else %}
+                            {% blocktranslate with n=item.days_left %}in {{ n }} days{% endblocktranslate %}
+                        {% endif %}
                     {% endif %}
                 </span>
-            {% endif %}
-            {% if show_assignee %}
-                ·
-                {% if item.is_done %}
-                    {% if item.completed_by %}
-                        {% blocktranslate with name=item.completed_by.get_full_name|default:item.completed_by.username date=item.completed_at|date:"j M" %}done by {{ name }} on {{ date }}{% endblocktranslate %}
-                    {% else %}
-                        {% blocktranslate with date=item.completed_at|date:"j M" %}done automatically on {{ date }}{% endblocktranslate %}
-                    {% endif %}
-                {% elif item.owner_label %}
-                    {% blocktranslate with name=item.owner_label %}{{ name }} is on it{% endblocktranslate %}
-                {% else %}
-                    {% trans "not yet assigned" %}
-                {% endif %}
+            {% elif item.is_open %}
+                <span class="badge checklist-due checklist-due-quiet">{% trans "no deadline" %}</span>
             {% endif %}
         </div>
-        {% if show_assignee and not item.is_done %}
-            <div class="small text-secondary fst-italic">
-                {% trans "A team task: nothing for you to do here." %}
-            </div>
-        {% endif %}
-        {% if item.status == "BLOCKED" and item.note %}
-            <div class="small text-danger">
-                {{ item.note }}
-            </div>
-        {% endif %}
     </div>
 </li>

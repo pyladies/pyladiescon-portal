@@ -240,7 +240,7 @@ class TestDashboardLists:
         client.force_login(speaker)
         response = client.get(CHECKLIST)
         content = response.content.decode()
-        assert "(overdue)" in content
+        assert "checklist-due-overdue" in content
         by_id = {i.pk: i for i in response.context["speaker_items"]}
         assert by_id[late.pk].overdue is True
         assert by_id[soon.pk].overdue is False
@@ -255,17 +255,19 @@ class TestToggle:
             conference, "Read the guide", ItemOwner.SPEAKER, presenter=presenter
         )
         client.force_login(speaker)
-        assertRedirects(client.post(toggle(item)), CHECKLIST)
+        # Ticking lands back on the item, not at the top of the page.
+        assertRedirects(client.post(toggle(item)), f"{CHECKLIST}#item-{item.pk}")
         item.refresh_from_db()
         assert item.status == ItemStatus.DONE
         assert item.completed_by == speaker
         # The form sends the page it was on; anything off-site is ignored.
         assertRedirects(
             client.post(toggle(item), {"next": f"{CHECKLIST}?view=session"}),
-            f"{CHECKLIST}?view=session",
+            f"{CHECKLIST}?view=session#item-{item.pk}",
         )
         assertRedirects(
-            client.post(toggle(item), {"next": "https://evil.example/x"}), CHECKLIST
+            client.post(toggle(item), {"next": "https://evil.example/x"}),
+            f"{CHECKLIST}#item-{item.pk}",
         )
         client.post(toggle(item))
         item.refresh_from_db()
