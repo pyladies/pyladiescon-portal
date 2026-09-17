@@ -89,6 +89,7 @@ from .models import (
     Presenter,
     PresenterRole,
     Session,
+    SessionPresenter,
     SessionType,
     SpeakerSettings,
 )
@@ -779,9 +780,25 @@ class PresenterInviteView(LoginRequiredMixin, SpeakerOrganizerRequiredMixin, Vie
         )
         form = PresenterInviteForm(request.POST, presenter=presenter)
         if not form.is_valid():
-            messages.error(request, "Pick one of the presenter's sessions.")
+            messages.error(request, "Pick a session of this edition.")
             return redirect(presenter.get_absolute_url())
         session = form.cleaned_data["session"]
+        added = ""
+        if form.is_new_session:
+            link = SessionPresenter.objects.create(
+                session=session, presenter=presenter, role=form.cleaned_data["role"]
+            )
+            ActivityLog.record(
+                self.conference,
+                "session.presenter_added",
+                target=session,
+                actor=request.user,
+                presenter_id=presenter.pk,
+                role=link.role.code,
+            )
+            added = f" They were added to {session.title} as {link.role.name}."
+            if presenter_added_to_session(link, actor=request.user):
+                added += " They had already accepted, so they are confirmed on it."
         invitation = (
             Invitation.objects.filter(presenter=presenter, session=session)
             .exclude(accepted_at__isnull=False)
@@ -796,7 +813,8 @@ class PresenterInviteView(LoginRequiredMixin, SpeakerOrganizerRequiredMixin, Vie
         send_invitation(invitation, actor=request.user)
         messages.success(
             request,
-            f"Invitation {'resent' if resend else 'sent'} to {presenter.email}.",
+            f"Invitation {'resent' if resend else 'sent'} to {presenter.email}."
+            + added,
         )
         return redirect(presenter.get_absolute_url())
 

@@ -18,6 +18,7 @@ from .constants import (
     SLUG_MAX_LENGTH,
     Delivery,
     ItemOwner,
+    SessionStatus,
     format_owner,
     parse_owner,
 )
@@ -709,10 +710,20 @@ class HandbookForm(forms.ModelForm):
 
 
 class PresenterInviteForm(InviteForm):
-    """Invite from the presenter page: pick the session (or the conference
-    in general) and write the note."""
+    """Invite from the presenter page: pick one of their sessions, any other
+    session of the edition (they are added to it with the chosen role), or
+    the conference in general, and write the note."""
 
     session = forms.ChoiceField(required=False, label="Invite to")
+    role = forms.ModelChoiceField(
+        queryset=PresenterRole.objects.none(),
+        required=False,
+        label="Role on a new session",
+        help_text=(
+            "Only used when the session is not yet one of theirs. Left "
+            "blank, the session type's own role is used."
+        ),
+    )
 
     def __init__(self, *args, presenter, **kwargs):
         super().__init__(*args, **kwargs)
@@ -722,22 +733,75 @@ class PresenterInviteForm(InviteForm):
                 "session__title"
             )
         )
-        self.fields["session"].choices = [
+        linked = {link.session_id for link in self.links}
+        theirs = [
             (str(link.session_id), f"{link.session.title} ({link.role.name})")
             for link in self.links
-        ] + [("", "The conference in general")]
-        self.order_fields(["session", "message_md"])
+        ]
+        # Every other session someone could be invited to. A type with no
+        # active role is one nobody presents (a break, a social), so it is
+        # not on the list.
+        others = [
+            (str(session.pk), f"{session.title} ({session.kind.name})")
+            for session in Session.objects.for_conference(presenter.conference)
+            .exclude(status=SessionStatus.CANCELLED)
+            .exclude(pk__in=linked)
+            .filter(kind__roles__is_active=True)
+            .select_related("kind")
+            .order_by("title")
+            .distinct()
+        ]
+        choices = [("", "The conference in general")]
+        if theirs:
+            choices.append(("Their sessions", theirs))
+        if others:
+            choices.append(("Other sessions", others))
+        self.fields["session"].choices = choices
+        self.fields["role"].queryset = PresenterRole.objects.filter(
+            conference=presenter.conference, is_active=True
+        ).order_by("sort_order", "name")
+        self.order_fields(["session", "role", "message_md"])
 
     def clean_session(self):
-        """The choices were built from ``self.links``, and ChoiceField has
-        already refused anything else, so read the answer off that list
-        instead of querying for it again."""
+        """The choices were built from this edition and ChoiceField has
+        already refused anything else."""
         value = self.cleaned_data["session"]
         if not value:
             return None
-        return next(
-            link.session for link in self.links if str(link.session_id) == value
+        for link in self.links:
+            if str(link.session_id) == value:
+                return link.session
+        return (
+            Session.objects.for_conference(self.presenter.conference)
+            .select_related("kind", "kind__default_role")
+            .get(pk=value)
         )
+
+    @property
+    def is_new_session(self):
+        """Whether the chosen session is not yet one of the presenter's."""
+        session = self.cleaned_data.get("session")
+        return session is not None and session.pk not in {
+            link.session_id for link in self.links
+        }
+
+    def clean(self):
+        """A role is needed only when they are being added to a session, and
+        it has to be one that session's type allows: a panel has no
+        Performer. Left blank, the type's own default is used."""
+        cleaned = super().clean()
+        if not self.is_new_session:
+            cleaned["role"] = None
+            return cleaned
+        kind = cleaned["session"].kind
+        role = cleaned.get("role") or kind.default_role
+        if role is None:
+            self.add_error("role", f"A {kind.name} has no role to add them with.")
+        elif not kind.roles.filter(pk=role.pk).exists():
+            self.add_error("role", f"A {kind.name} has no {role.name} role.")
+        else:
+            cleaned["role"] = role
+        return cleaned
 
 
 class SpeakerOnboardingForm(forms.Form):
