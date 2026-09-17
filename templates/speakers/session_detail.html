@@ -282,22 +282,23 @@
     </h2>
     {% for group in checklist_groups %}
         <div class="mb-4" data-checklist-presenter="{{ group.presenter.pk }}">
-            <h3 class="h6 text-uppercase text-secondary">
-                <a href="{{ group.presenter.get_absolute_url }}">{{ group.presenter.display_name }}</a>
+            <h3 class="h6 fw-bold text-uppercase mb-2">
+                <a href="{{ group.presenter.get_absolute_url }}"
+                   class="link-body-emphasis">{{ group.presenter.display_name }}</a>
             </h3>
             {% if group.speaker %}
-                <div class="small text-secondary mb-1">
+                <h4 class="h6 fw-bold mb-2">
                     {% trans "Their to-dos" %}
-                </div>
+                </h4>
                 <div class="mb-2">
                     {% trans "None." as empty_speaker %}
                     {% include "speakers/_organizer_item_table.html" with items=group.speaker owner_choices=owner_choices can_assign=can_assign empty=empty_speaker %}
                 </div>
             {% endif %}
             {% if group.organizer %}
-                <div class="small text-secondary mb-1">
+                <h4 class="h6 fw-bold mt-3 mb-2">
                     {% trans "What we're preparing for them" %}
-                </div>
+                </h4>
                 {% trans "None." as empty_organizer %}
                 {% include "speakers/_organizer_item_table.html" with items=group.organizer owner_choices=owner_choices can_assign=can_assign empty=empty_organizer %}
             {% endif %}

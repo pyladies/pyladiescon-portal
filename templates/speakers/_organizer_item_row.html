@@ -1,6 +1,9 @@
 {% load i18n %}
 {% load portal_extras speakers_extras %}
 {% trans "Assignee" as assignee_label %}
+{% trans "Mark as done" as do_label %}
+{% trans "Mark as not done" as undo_label %}
+{% trans "Ticks itself" as auto_label %}
 {% comment %}
 One checklist item as a table row on organizer pages. Params:
     item             — ChecklistItem with .overdue set
@@ -8,7 +11,9 @@ One checklist item as a table row on organizer pages. Params:
     can_assign       — truthy to render the assignee select (organizers)
     error            — text to show inline; an htmx swap never shows messages
 The row is the htmx target for status and assignee changes. The CSRF header
-for htmx is set once on <body> by the organizer shell.
+for htmx is set once on <body> by the organizer shell. The box at the start
+of the row ticks and unticks (empty while open, ticked once done);
+automatic items get a dashed box nobody can click.
 {% endcomment %}
 <tr id="item-{{ item.pk }}"
     data-item-id="{{ item.pk }}"
@@ -20,26 +25,68 @@ for htmx is set once on <body> by the organizer shell.
                 {{ error }}
             </div>
         {% endif %}
-        <a href="{% url 'speakers:item_detail' item.pk %}"
-           class="link-body-emphasis text-decoration-none">{{ item.title }}</a>
-        {% if item.is_automatic %}
-            <i class="fa-solid fa-wand-magic-sparkles text-secondary small"></i>
-        {% endif %}
-        {% if item.description_md %}
-            <div class="small text-body-secondary item-description">
-                {{ item.description_md|speaker_md }}
+        <div class="d-flex align-items-start gap-2">
+            {% if item.is_automatic %}
+                <span class="checklist-box checklist-box-static {% if item.is_done %}checklist-box-done{% elif item.status == 'BLOCKED' %}checklist-box-blocked{% elif item.status == 'SKIPPED' %}checklist-box-skipped{% endif %}"
+                      title="{{ auto_label }}">
+                    {% if item.is_done %}
+                        <i class="fa-solid fa-check"></i>
+                    {% elif item.status == "BLOCKED" %}
+                        <i class="fa-solid fa-exclamation"></i>
+                    {% elif item.status == "SKIPPED" %}
+                        <i class="fa-solid fa-minus"></i>
+                    {% else %}
+                        <i class="fa-solid fa-wand-magic-sparkles"></i>
+                    {% endif %}
+                </span>
+            {% else %}
+                <form method="post"
+                      class="d-inline"
+                      action="{% url 'speakers:item_status' item.pk %}"
+                      hx-post="{% url 'speakers:item_status' item.pk %}"
+                      hx-target="#item-{{ item.pk }}"
+                      hx-swap="outerHTML">
+                    {% csrf_token %}
+                    <button type="submit"
+                            name="status"
+                            value="{% if item.is_open %}DONE{% else %}TODO{% endif %}"
+                            class="checklist-box {% if item.is_done %}checklist-box-done{% elif item.status == 'SKIPPED' %}checklist-box-skipped{% elif item.status == 'BLOCKED' %}checklist-box-blocked{% endif %}"
+                            aria-label="{% if item.is_open %}{{ do_label }}{% else %}{{ undo_label }}{% endif %}"
+                            title="{% if item.is_open %}{{ do_label }}{% else %}{{ undo_label }}{% endif %}"
+                            aria-pressed="{% if item.is_done %}true{% else %}false{% endif %}">
+                        {% if item.is_done %}
+                            <i class="fa-solid fa-check"></i>
+                        {% elif item.status == "SKIPPED" %}
+                            <i class="fa-solid fa-minus"></i>
+                        {% elif item.status == "BLOCKED" %}
+                            <i class="fa-solid fa-exclamation"></i>
+                        {% endif %}
+                    </button>
+                </form>
+            {% endif %}
+            <div class="min-w-0">
+                <a href="{% url 'speakers:item_detail' item.pk %}"
+                   class="link-body-emphasis text-decoration-none {% if item.is_done %}checklist-title-done{% endif %}">{{ item.title }}</a>
+                {% if item.is_automatic %}
+                    <span class="small text-secondary">· {{ auto_label|lower }}</span>
+                {% endif %}
+                {% if item.description_md %}
+                    <div class="small text-body-secondary item-description">
+                        {{ item.description_md|speaker_md }}
+                    </div>
+                {% endif %}
+                {% if item.session %}
+                    <div class="small text-secondary">
+                        {{ item.session.title }}
+                    </div>
+                {% endif %}
+                {% if item.note %}
+                    <div class="small text-secondary">
+                        {{ item.note }}
+                    </div>
+                {% endif %}
             </div>
-        {% endif %}
-        {% if item.session %}
-            <div class="small text-secondary">
-                {{ item.session.title }}
-            </div>
-        {% endif %}
-        {% if item.note %}
-            <div class="small text-secondary">
-                {{ item.note }}
-            </div>
-        {% endif %}
+        </div>
     </td>
     <td class="text-nowrap">
         {% if item.due_date %}
@@ -104,31 +151,6 @@ for htmx is set once on <body> by the organizer shell.
         {% endif %}
     </td>
     <td class="text-nowrap">
-        {% if not item.is_automatic %}
-            <form method="post"
-                  class="d-inline"
-                  action="{% url 'speakers:item_status' item.pk %}"
-                  hx-post="{% url 'speakers:item_status' item.pk %}"
-                  hx-target="#item-{{ item.pk }}"
-                  hx-swap="outerHTML">
-                {% csrf_token %}
-                {% if item.is_open %}
-                    <button class="btn btn-sm btn-outline-success"
-                            name="status"
-                            value="DONE"
-                            type="submit">
-                        <i class="fa-solid fa-check"></i>
-                    </button>
-                {% else %}
-                    <button class="btn btn-sm btn-outline-secondary"
-                            name="status"
-                            value="TODO"
-                            type="submit">
-                        <i class="fa-solid fa-rotate-left"></i>
-                    </button>
-                {% endif %}
-            </form>
-        {% endif %}
         {% if item.status != "SKIPPED" %}
             <form method="post"
                   class="d-inline"
