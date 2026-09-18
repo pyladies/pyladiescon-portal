@@ -159,6 +159,11 @@ installed; this app keeps small factory functions in `tests/speakers/factories.p
   per-edition settings (program visibility, pretix, media limits).
 - Organizer predicate: `speakers.permissions.is_speaker_organizer`
   (superuser or staff, matching the rest of the portal).
+- One migration per pull request. While a branch is being built it may
+  grow several steps, but before the PR is opened they are squashed into a
+  single regenerated file (delete them, `makemigrations speakers`, check
+  with `makemigrations --check` and a `migrate` on a fresh database). Once
+  a PR merges its migration is frozen; later changes are new files.
 - Every model: `conference` FK, admin registration, factory function,
   isolation test. Join and child rows (`SessionPresenter`, `ScheduleSlot`)
   carry a non-editable `conference` copied from their session on save.
