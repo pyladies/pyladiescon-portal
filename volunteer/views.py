@@ -26,6 +26,9 @@ from portal.common import (
     get_volunteer_teams_stat_cache,
 )
 from portal.models import Conference
+from speakers.models import speaker_module_enabled
+from speakers.permissions import can_open_queue
+from speakers.stats import my_task_stats
 
 from .forms import TeamForm, VolunteerProfileForm, VolunteerProfileReviewForm
 from .models import (  # Language,
@@ -62,6 +65,15 @@ def index(request):
     context["conferences_count"] = VolunteerProfile.objects.filter(
         user=request.user
     ).count()
+    # Their volunteering tasks (speaker-portal items assigned to them or a
+    # team they are on), when the module is on and they may open the list.
+    conference = Conference.get_active()
+    context["task_stats"] = (
+        my_task_stats(request.user, conference)
+        if speaker_module_enabled(conference)
+        and can_open_queue(request.user, conference)
+        else None
+    )
     return render(request, "volunteer/index.html", context)
 
 

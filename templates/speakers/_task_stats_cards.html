@@ -1,0 +1,107 @@
+{% load i18n %}
+{% comment %}
+Task numbers as a row of small cards plus a done/open/overdue bar. Params:
+    stats     — dict from speakers.stats (total, done, open, done_percent,
+                overdue, due_this_week, blocked, waiting, and optionally
+                unassigned). Overdue and due-soon count only items someone
+                could start; a waiting item is in the totals and chased by
+                nobody.
+    tasks_url — where the bar and cards link to
+{% endcomment %}
+<div class="row row-cols-2 row-cols-md-4 g-3 mb-3">
+    <div class="col">
+        <div class="card h-100">
+            <div class="card-body">
+                <div class="text-secondary small mb-1">
+                    <i class="fa-solid fa-list-check"></i> {% trans "Done" %}
+                </div>
+                <div class="fs-3 fw-medium">
+                    {{ stats.done_percent }}%
+                </div>
+                <div class="text-muted small">
+                    {% blocktranslate with done=stats.done total=stats.total %}{{ done }} of {{ total }} tasks{% endblocktranslate %}
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col">
+        <div class="card h-100 {% if stats.overdue %}border-danger-subtle{% endif %}">
+            <div class="card-body">
+                <div class="text-secondary small mb-1">
+                    <i class="fa-solid fa-triangle-exclamation"></i> {% trans "Overdue" %}
+                </div>
+                <div class="fs-3 fw-medium {% if stats.overdue %}text-danger{% endif %}">
+                    {{ stats.overdue }}
+                </div>
+                <div class="text-muted small">
+                    {% trans "past their due date" %}
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col">
+        <div class="card h-100">
+            <div class="card-body">
+                <div class="text-secondary small mb-1">
+                    <i class="fa-solid fa-calendar-week"></i> {% trans "Due this week" %}
+                </div>
+                <div class="fs-3 fw-medium {% if stats.due_this_week %}text-warning-emphasis{% endif %}">
+                    {{ stats.due_this_week }}
+                </div>
+                <div class="text-muted small">
+                    {% trans "within seven days" %}
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col">
+        <div class="card h-100">
+            <div class="card-body">
+                {% if stats.unassigned is not None %}
+                    <div class="text-secondary small mb-1">
+                        <i class="fa-solid fa-user-slash"></i> {% trans "Unassigned" %}
+                    </div>
+                    <div class="fs-3 fw-medium {% if stats.unassigned %}text-warning-emphasis{% endif %}">
+                        {{ stats.unassigned }}
+                    </div>
+                    <div class="text-muted small">
+                        {% trans "team tasks with nobody on them" %}
+                    </div>
+                {% else %}
+                    <div class="text-secondary small mb-1">
+                        <i class="fa-solid fa-inbox"></i> {% trans "Open" %}
+                    </div>
+                    <div class="fs-3 fw-medium">
+                        {{ stats.open }}
+                    </div>
+                    <div class="text-muted small">
+                        {% if stats.blocked %}
+                            {% blocktranslate count counter=stats.blocked %}{{ counter }} blocked{% plural %}{{ counter }} blocked{% endblocktranslate %}
+                        {% elif stats.waiting %}
+                            {% blocktranslate count counter=stats.waiting %}{{ counter }} waiting on us{% plural %}{{ counter }} waiting on us{% endblocktranslate %}
+                        {% else %}
+                            {% trans "still to do" %}
+                        {% endif %}
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% if stats.total %}
+    {% trans "Task progress" as bar_label %}
+    {# djlint:off #}
+    <div class="progress-stacked mb-1" role="img" aria-label="{{ bar_label }}" style="height: 10px;">
+        <div class="progress" style="width: {{ stats.done_percent }}%"><div class="progress-bar bg-success"></div></div>
+        <div class="progress" style="width: {% widthratio stats.overdue stats.total 100 %}%"><div class="progress-bar bg-danger"></div></div>
+    </div>
+    {# djlint:on #}
+    <div class="small text-secondary mb-3">
+        <span class="text-success">■</span> {% trans "done" %}
+        <span class="text-danger ms-2">■</span> {% trans "overdue" %}
+        <span class="ms-2 task-legend-open">■</span> {% trans "open" %}
+        {% if tasks_url %}
+            · <a href="{{ tasks_url }}">{% trans "See the list" %}</a>
+        {% endif %}
+    </div>
+{% endif %}

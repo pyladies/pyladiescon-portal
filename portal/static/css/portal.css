@@ -241,3 +241,8 @@ button.checklist-box-done:hover {
 .invitation-preview-note > :last-child {
     margin-bottom: 0;
 }
+/* Task stats legend (templates/speakers/_task_stats_cards.html): the "open"
+   swatch matches the empty part of the stacked bar. */
+.task-legend-open {
+    color: var(--bs-secondary-bg);
+}

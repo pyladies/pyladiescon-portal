@@ -208,6 +208,19 @@
                 </a>
             </div>
         {% endif %}
+        {# My volunteering tasks: speaker-portal items assigned to me or my team. #}
+        {% if task_stats %}
+            <h2 class="h6 text-body-emphasis mb-2">
+                {% trans "My volunteering tasks" %}
+            </h2>
+            {% url 'speakers:checklist_queue' as tasks_url %}
+            {% include "speakers/_task_stats_cards.html" with stats=task_stats tasks_url=tasks_url %}
+            {% if not task_stats.total %}
+                <div class="alert alert-light border mb-4">
+                    {% trans "Nothing assigned to you yet. Tasks appear here when an organizer hands you one, or your team gets one." %}
+                </div>
+            {% endif %}
+        {% endif %}
         {# Contextual reference links: volunteering for everyone here; speaking #}
         {# stays here until speaker profiles exist and give it a real home. #}
         {% include "portal/_resources_card.html" with group="volunteering" %}

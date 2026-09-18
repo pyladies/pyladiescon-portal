@@ -136,17 +136,25 @@ An organizer checklist item is owned by a person (`assignee`) or by a
 `ChecklistItem.owner_label` renders whichever is set. Template lines can
 start an item unassigned, with the presenter's liaison, or with a named
 team (`default_team_name`, matched by name per edition so templates clone
-forward). "My queue" shows items assigned to me or to a team I am an
-approved member of; team reminders go to every approved member. A volunteer
-who is neither an organizer nor a liaison can still open that list (as "My
-speaker tasks" under their personal rail, offered once something is assigned
-to them or their team), mark those items done and reopen one they closed too
-early. The page then hangs off the volunteer rail instead of the Organize
-one, whose entries they cannot open. Reassigning stays with organizers, and
+forward). "My volunteering tasks" shows items assigned to me or to a team I
+am an approved member of, by due date or grouped by presenter, with the same
+rows as the speaker checklist; team reminders go to every approved member.
+It sits under the personal "My volunteering" rail for everyone, organizers
+included, because it is a person's own work rather than a view of the
+edition, and the Organize rail no longer carries it. A volunteer who is
+neither an organizer nor a liaison sees the entry once something is assigned
+to them or their team, and may mark those items done and reopen one they
+closed too early. Reassigning stays with organizers, and
 skipping an item, which is a judgement that it does not apply and carries a
 note that may be internal, stays with organizers and liaisons
 (`permissions.owned_by` decides who carries an item; `can_work_queue`
-decides who reaches the page).
+decides who reaches the page, and the same predicate puts the entry on the
+rail).
+
+`speakers/stats.py` feeds three places from the same numbers: a person's own
+tally on the volunteer hub, the edition's on the organizer dashboard, and
+overall totals on the public stats page and its JSON, cached like the other
+public stats and absent when the module is off.
 
 A note on an item is written by whoever changed its status. The presenter
 reads it only when the item is blocked, on their checklist and on the item

@@ -95,6 +95,20 @@
                 </div>
             </div>
         </div>
+        {# ---- Speaker-portal tasks across the edition ---- #}
+        {% if task_stats %}
+            <h2 class="h6 text-body-emphasis mb-2">
+                {% trans "Conference tasks" %}
+            </h2>
+            {% url 'speakers:checklist_board' as board_url %}
+            {% include "speakers/_task_stats_cards.html" with stats=task_stats tasks_url=board_url %}
+            {% if task_stats.total %}
+                <p class="small text-secondary mb-4">
+                    {% blocktranslate with sp=task_stats.speaker_percent sd=task_stats.speaker_done st=task_stats.speaker_total tp=task_stats.team_percent td=task_stats.team_done tt=task_stats.team_total %}Speakers: {{ sd }} of {{ st }} done ({{ sp }}%). Team: {{ td }} of {{ tt }} done ({{ tp }}%).{% endblocktranslate %}
+                    <a href="{% url 'speakers:checklist_queue' %}">{% trans "My volunteering tasks" %}</a>
+                </p>
+            {% endif %}
+        {% endif %}
         {# ---- Needs attention ---- #}
         <h2 class="h6 text-body-emphasis mb-2">
             {% trans "Needs attention" %}

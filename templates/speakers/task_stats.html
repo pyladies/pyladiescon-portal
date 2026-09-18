@@ -1,0 +1,36 @@
+{% comment %}
+Public stats block: conference tasks overall (no split by who does them).
+Rendered only when the speaker module is on for the edition.
+{% endcomment %}
+{% if stats.tasks_total_count is not None %}
+    <div class="container border rounded-3 p-3 mb-4">
+        <div class="row">
+            <div class="col-sm-4">
+                <div class="card border-0">
+                    <div class="card-body">
+                        <h5 class="card-title">
+                            Conference Tasks
+                        </h5>
+                        <h1 class="display-4 text-primary">
+                            {{ stats.tasks_total_count }}
+                        </h1>
+                        <span class="text-muted">to get the program ready</span>
+                    </div>
+                </div>
+            </div>
+            <div class="col-sm-4">
+                <div class="card border-0">
+                    <div class="card-body">
+                        <h5 class="card-title">
+                            Tasks Completed
+                        </h5>
+                        <h1 class="display-4 text-success">
+                            {{ stats.tasks_done_count }}
+                        </h1>
+                        <span class="text-muted">{{ stats.tasks_done_percent }}% of the way there</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endif %}

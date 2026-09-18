@@ -33,6 +33,7 @@ from portal.services import (
 )
 from speakers.models import Presenter, SpeakerSettings, speaker_module_enabled
 from speakers.seeds import clone_speaker_setup
+from speakers.stats import edition_task_stats
 from sponsorship.models import SponsorshipProfile
 from volunteer.constants import ApplicationStatus
 from volunteer.models import Team, VolunteerProfile
@@ -196,6 +197,12 @@ class OrganizerDashboardView(AdminRequiredMixin, TemplateView):
             context["unled_teams"] = 0
             context["awaiting_invoice"] = 0
         context["pending_status"] = ApplicationStatus.PENDING.value
+        # Speaker-portal tasks across the edition, when the module is on.
+        context["task_stats"] = (
+            edition_task_stats(conference)
+            if speaker_module_enabled(conference)
+            else None
+        )
         return context
 
 
