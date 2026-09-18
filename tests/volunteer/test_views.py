@@ -1990,7 +1990,7 @@ class TestMyTeams:
         assert led in teams
         assert other not in teams
 
-    def test_non_lead_sees_empty_state(self, client, portal_user, conference):
+    def test_non_member_sees_empty_state(self, client, portal_user, conference):
         Team.objects.create(
             short_name="Some Team", description="d", conference=conference
         )
@@ -1998,7 +1998,49 @@ class TestMyTeams:
         response = client.get(reverse("my_teams"))
         assert response.status_code == 200
         assert list(response.context["teams"]) == []
-        assert "You don't lead any teams yet." in response.content.decode()
+        assert "You're not on any team yet." in response.content.decode()
+
+    def test_member_sees_their_teams_without_the_dashboard(
+        self, client, portal_user, conference
+    ):
+        """Members see the teams they are on with their role; only leads get
+        the dashboard link. A pending application shows as under review."""
+        profile = VolunteerProfile.objects.create(
+            user=portal_user,
+            conference=conference,
+            application_status=ApplicationStatus.APPROVED,
+        )
+        design = Team.objects.create(
+            short_name="Design Team",
+            description="Makes it pretty",
+            conference=conference,
+        )
+        profile.teams.add(design)
+        Team.objects.create(
+            short_name="Not mine", description="d", conference=conference
+        )
+        client.force_login(portal_user)
+        response = client.get(reverse("my_teams"))
+        assert [r["team"] for r in response.context["rows"]] == [design]
+        content = response.content.decode()
+        assert "Design Team" in content and "Makes it pretty" in content
+        assert "Member" in content and "Open dashboard" not in content
+        assert reverse("team_dashboard", args=[design.id]) not in content
+        assert "Not mine" not in content
+        # Same person, pending on next year's edition.
+        later = Conference.objects.create(year=2027, name="Next", slug="2027")
+        pending = VolunteerProfile.objects.create(user=portal_user, conference=later)
+        media = Team.objects.create(
+            short_name="Media", description="d", conference=later
+        )
+        pending.teams.add(media)
+        content = client.get(reverse("my_teams")).content.decode()
+        assert "Under review" in content and "Media" in content
+        # Lead of one team, member of another: both listed, one with the link.
+        design.team_leads.add(profile)
+        content = client.get(reverse("my_teams")).content.decode()
+        assert reverse("team_dashboard", args=[design.id]) in content
+        assert "Lead" in content and "Under review" in content
 
     def test_nav_shows_my_teams_for_lead(self, client, portal_user, conference):
         # Asserted on a page without the personal rail (which always offers

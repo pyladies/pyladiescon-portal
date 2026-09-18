@@ -190,7 +190,6 @@ class TestContextProcessor:
         assert speaker_module(request) == {
             "speaker_module_enabled": True,
             "is_speaker_liaison": True,
-            "can_work_speaker_queue": False,
             "is_speaker_presenter": False,
             # Liaisons may always open My volunteering tasks.
             "can_work_speaker_queue": True,

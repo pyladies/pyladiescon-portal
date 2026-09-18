@@ -1597,9 +1597,7 @@ class ChecklistQueueView(LoginRequiredMixin, SpeakerQueueRequiredMixin, Template
                 owner=ItemOwner.ORGANIZER,
                 status__in=list(OPEN_ITEM_STATUSES),
             )
-            .select_related(
-                "presenter", "session", "team", "ready_gate", "waits_for"
-            )
+            .select_related("presenter", "session", "team", "ready_gate", "waits_for")
             .order_by(F("due_date").asc(nulls_last=True), "order", "id")
         ]
         view = "presenter" if self.request.GET.get("view") == "presenter" else "all"

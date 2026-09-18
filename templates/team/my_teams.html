@@ -15,7 +15,10 @@
         <h1 class="display-6 pb-2 border-bottom">
             {% trans "My teams" %}
         </h1>
-        {% if teams %}
+        {% if rows %}
+            <p class="text-secondary">
+                {% trans "Every team you lead or are a member of, across editions. Leads can open the team dashboard." %}
+            </p>
             <table class="table table-hover align-middle">
                 <thead class="table-light">
                     <tr>
@@ -26,23 +29,58 @@
                             {% trans "Name" %}
                         </th>
                         <th>
+                            {% trans "Your role" %}
+                        </th>
+                        <th>
                             {% trans "Members" %}
+                        </th>
+                        <th>
                         </th>
                     </tr>
                 </thead>
                 <tbody>
-                    {% for team in teams %}
-                        <tr>
+                    {% for row in rows %}
+                        <tr data-team-id="{{ row.team.id }}">
                             <td>
-                                {{ team.conference.year }}
+                                {{ row.team.conference.year }}
                             </td>
                             <td>
-                                <a href="{% url 'team_dashboard' team.id %}">{{ team.short_name }}</a>
+                                {% if row.is_lead %}
+                                    <a href="{% url 'team_dashboard' row.team.id %}">{{ row.team.short_name }}</a>
+                                {% else %}
+                                    <span class="fw-semibold">{{ row.team.short_name }}</span>
+                                {% endif %}
+                                {% if row.team.description %}
+                                    <div class="small text-secondary">
+                                        {{ row.team.description|truncatechars:120 }}
+                                    </div>
+                                {% endif %}
                             </td>
                             <td>
-                                <span class="badge bg-primary rounded-pill">{{ team.approved_members.count }}</span> {% trans "approved" %}
-                                <span class="badge bg-warning rounded-pill">{{ team.pending_members.count }}</span> {% trans "pending" %}
-                                <span class="badge bg-secondary rounded-pill">{{ team.waitlisted_members.count }}</span> {% trans "waitlisted" %}
+                                {% if row.is_lead %}
+                                    <span class="badge text-bg-success">{% trans "Lead" %}</span>
+                                {% elif row.status == "Approved" %}
+                                    <span class="badge text-bg-light border">{% trans "Member" %}</span>
+                                {% elif row.status == "Waitlisted" %}
+                                    <span class="badge text-bg-secondary">{% trans "Waitlisted" %}</span>
+                                {% elif row.status == "Rejected" or row.status == "Cancelled" %}
+                                    <span class="badge text-bg-secondary">{{ row.status }}</span>
+                                {% else %}
+                                    <span class="badge text-bg-warning">{% trans "Under review" %}</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <span class="badge bg-primary rounded-pill">{{ row.team.approved_members.count }}</span> {% trans "approved" %}
+                                {% if row.is_lead %}
+                                    <span class="badge bg-warning rounded-pill">{{ row.team.pending_members.count }}</span> {% trans "pending" %}
+                                    <span class="badge bg-secondary rounded-pill">{{ row.team.waitlisted_members.count }}</span> {% trans "waitlisted" %}
+                                {% endif %}
+                            </td>
+                            <td class="text-end">
+                                {% if row.is_lead %}
+                                    <a class="btn btn-sm btn-outline-primary"
+                                       href="{% url 'team_dashboard' row.team.id %}"><i class="fa-solid fa-gauge-high"></i> {% trans "Open dashboard" %}</a>
+                                {% endif %}
                             </td>
                         </tr>
                     {% endfor %}
@@ -50,7 +88,7 @@
             </table>
         {% else %}
             <p class="text-secondary">
-                {% trans "You don't lead any teams yet." %}
+                {% trans "You're not on any team yet. Once your volunteer application is matched to a team, it appears here." %}
             </p>
         {% endif %}
     </div>

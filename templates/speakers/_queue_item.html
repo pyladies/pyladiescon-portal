@@ -21,7 +21,8 @@ why and cannot be ticked. The tick form swaps this row in place over htmx.
     {% endif %}
     <div class="d-flex align-items-start gap-3">
         {% if item.is_waiting %}
-            <span class="checklist-box checklist-box-waiting" title="{{ waiting_label }}">
+            <span class="checklist-box checklist-box-waiting"
+                  title="{{ waiting_label }}">
                 <i class="fa-solid fa-hourglass-half"></i>
             </span>
         {% elif item.is_automatic %}

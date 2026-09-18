@@ -4,6 +4,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.postgres.search import SearchQuery, SearchVector
+from django.db.models import Q
 from django.http import Http404
 from django.shortcuts import redirect, render
 from django.urls import reverse, reverse_lazy
@@ -27,7 +28,7 @@ from portal.common import (
 )
 from portal.models import Conference
 from speakers.models import speaker_module_enabled
-from speakers.permissions import can_open_queue
+from speakers.permissions import can_work_queue
 from speakers.stats import my_task_stats
 
 from .forms import TeamForm, VolunteerProfileForm, VolunteerProfileReviewForm
@@ -71,7 +72,7 @@ def index(request):
     context["task_stats"] = (
         my_task_stats(request.user, conference)
         if speaker_module_enabled(conference)
-        and can_open_queue(request.user, conference)
+        and can_work_queue(request.user, conference)
         else None
     )
     return render(request, "volunteer/index.html", context)
@@ -508,10 +509,12 @@ class AddApplicantToTeamView(TeamLeadRequiredMixin, View):
 
 
 class MyTeamsView(LoginRequiredMixin, ListView):
-    """Teams the current user leads, across every edition.
+    """Teams the current user is on, across every edition: the ones they
+    lead (linked to the team dashboard) and the ones they are a member of,
+    including applications still under review.
 
-    A one-screen landing for leads: each team links to its dashboard. The "My
-    teams" nav entry (gated on ``leads_any_team``) points here.
+    The "My teams" nav entry (gated on ``leads_any_team``) and the personal
+    rail both point here.
     """
 
     model = Team
@@ -519,12 +522,34 @@ class MyTeamsView(LoginRequiredMixin, ListView):
     context_object_name = "teams"
 
     def get_queryset(self):
+        user = self.request.user
         return (
-            Team.objects.filter(team_leads__user=self.request.user)
+            Team.objects.filter(Q(team_leads__user=user) | Q(members__user=user))
             .select_related("conference")
             .order_by("-conference__year", "short_name")
             .distinct()
         )
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        user = self.request.user
+        led_ids = set(
+            Team.objects.filter(team_leads__user=user).values_list("id", flat=True)
+        )
+        status_by_conference = dict(
+            VolunteerProfile.objects.filter(user=user).values_list(
+                "conference_id", "application_status"
+            )
+        )
+        context["rows"] = [
+            {
+                "team": team,
+                "is_lead": team.id in led_ids,
+                "status": status_by_conference.get(team.conference_id),
+            }
+            for team in context["teams"]
+        ]
+        return context
 
 
 class TeamCreate(VolunteerAdminRequiredMixin, CreateView):
