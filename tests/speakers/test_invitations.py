@@ -523,8 +523,15 @@ class TestInvitationView:
 @pytest.mark.django_db
 class TestLoginByCode:
     def test_login_page_offers_code_sign_in(self, client):
+        """Password and code sit side by side with an "or" between them."""
         content = client.get(reverse("account_login")).content.decode()
         assert reverse("account_request_login_code") in content
+        assert "Sign in with your password" in content
+        assert "Sign in with a code" in content
+        assert 'class="login-or"' in content
+        assert content.index("Sign in with your password") < content.index(
+            "Sign in with a code"
+        )
 
     def test_presenter_can_request_code(self, client, invitation):
         send_invitation(invitation)

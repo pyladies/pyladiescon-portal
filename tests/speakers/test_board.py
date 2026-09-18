@@ -945,7 +945,6 @@ class TestQueuePage:
         content = client.get(QUEUE, {"view": "presenter"}).content.decode()
         assert 'id="completed"' in content
 
-
     def test_organizer_gets_the_personal_shell_too(self, client, organizer, enabled):
         client.force_login(organizer)
         content = client.get(QUEUE).content.decode()

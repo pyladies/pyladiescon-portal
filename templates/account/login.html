@@ -1,6 +1,12 @@
 {% extends "account/base_entrance.html" %}
 {% load i18n %}
 {% load allauth account %}
+{% comment %}
+Two ways in, side by side: the password form on the left, the emailed
+sign-in code (and passkey when enabled) on the right, with an "or" divider
+between them (vertical on wide screens, a rule on narrow ones; see
+.login-or in portal.css). Social providers, when enabled, stay below.
+{% endcomment %}
 {% block head_title %}
     {% trans "Sign In" %}
 {% endblock head_title %}
@@ -18,13 +24,18 @@
 {% element p %}
 {% blocktranslate %}If you have not created an account yet, then please {{ link }}sign up{{ end_link }} first.{% endblocktranslate %}
 {% endelement %}
-{% url 'account_login' as login_url %}
-{% element form form=form method="post" action=login_url tags="entrance,login" %}
-{% slot body %}
-{% csrf_token %}
-{% element fields form=form unlabeled=True %}
-{% endelement %}
-{{ redirect_field }}
+<div class="row g-4 login-methods">
+    <div class="col-md">
+        <h2 class="h5 mb-3">
+            {% trans "Sign in with your password" %}
+        </h2>
+        {% url 'account_login' as login_url %}
+        {% element form form=form method="post" action=login_url tags="entrance,login" %}
+        {% slot body %}
+        {% csrf_token %}
+        {% element fields form=form unlabeled=True %}
+    {% endelement %}
+    {{ redirect_field }}
 {% endslot %}
 {% slot actions %}
 {% element button type="submit" tags="prominent,login" %}
@@ -32,22 +43,35 @@
 {% endelement %}
 {% endslot %}
 {% endelement %}
-{% endif %}
+</div>
 {% if LOGIN_BY_CODE_ENABLED or PASSKEY_LOGIN_ENABLED %}
-    {% element hr %}
-{% endelement %}
-{% element button_group vertical=True %}
-{% if PASSKEY_LOGIN_ENABLED %}
-    {% element button type="submit" form="mfa_login" id="passkey_login" tags="prominent,login,outline,primary" %}
-    {% trans "Sign in with a passkey" %}
-{% endelement %}
+    <div class="col-md-auto d-flex align-items-stretch justify-content-center">
+        <div class="login-or" aria-hidden="true">
+            <span>{% trans "or" %}</span>
+        </div>
+    </div>
+    <div class="col-md">
+        <h2 class="h5 mb-3">
+            {% trans "Sign in with a code" %}
+        </h2>
+        <p class="text-secondary">
+            {% trans "No password needed: we email you a one-time code and you are in. This is how speakers sign in." %}
+        </p>
+        {% element button_group vertical=True %}
+        {% if LOGIN_BY_CODE_ENABLED %}
+            {% element button href=request_login_code_url tags="prominent,login,outline,primary" %}
+            {% trans "Send me a sign-in code" %}
+        {% endelement %}
+    {% endif %}
+    {% if PASSKEY_LOGIN_ENABLED %}
+        {% element button type="submit" form="mfa_login" id="passkey_login" tags="prominent,login,outline,primary" %}
+        {% trans "Sign in with a passkey" %}
+    {% endelement %}
 {% endif %}
-{% if LOGIN_BY_CODE_ENABLED %}
-    {% element button href=request_login_code_url tags="prominent,login,outline,primary" %}
-    {% trans "Send me a sign-in code" %}
 {% endelement %}
+</div>
 {% endif %}
-{% endelement %}
+</div>
 {% endif %}
 {% if SOCIALACCOUNT_ENABLED %}
     {% include "socialaccount/snippets/login.html" with page_layout="entrance" %}

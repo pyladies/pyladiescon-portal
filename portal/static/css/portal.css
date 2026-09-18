@@ -260,3 +260,38 @@ body:has([data-rail-section="volunteer"]) .navbar .nav-link[data-nav-section="vo
 body:has([data-rail-section="speaking"]) .navbar .nav-link[data-nav-section="speaking"] {
     color: var(--bs-navbar-active-color);
 }
+
+/* Login page (templates/account/login.html): the "or" between the password
+   form and the sign-in code. A rule with the word in the middle on narrow
+   screens; a vertical rule between the two columns from md up. */
+.login-or {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    width: 100%;
+    color: var(--bs-secondary);
+    font-size: 0.8rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+.login-or::before,
+.login-or::after {
+    content: "";
+    flex: 1;
+    border-top: 1px solid var(--bs-border-color);
+}
+@media (min-width: 768px) {
+    .login-or {
+        flex-direction: column;
+        width: auto;
+        height: 100%;
+        min-height: 14rem;
+        padding: 0 0.5rem;
+    }
+    .login-or::before,
+    .login-or::after {
+        border-top: 0;
+        border-left: 1px solid var(--bs-border-color);
+        width: 0;
+    }
+}
