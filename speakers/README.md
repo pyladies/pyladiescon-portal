@@ -164,4 +164,16 @@ installed; this app keeps small factory functions in `tests/speakers/factories.p
 - Status changes are model methods on `Session` (`mark_invited`, `confirm`,
   `schedule`, `publish`, `cancel`) that raise `speakers.models.TransitionError`
   when a precondition fails; views turn that into a message.
-- Enumerations live in `speakers/constants.py` as `TextChoices`.
+- Enumerations live in `speakers/constants.py` as `TextChoices`, except
+  session types and presenter roles, which are rows: `SessionType` (code,
+  name, `is_content`, default duration and delivery, `spans_all_channels`,
+  the allowed `roles` and a `default_role`) and `PresenterRole` (code, name,
+  `email_word`), both per edition. `speakers/program_types.py` seeds the
+  defaults (`seed_program_types`, also run when a `SpeakerSettings` row is
+  saved and by `manage.py seed_program_types`) and never overwrites organizer
+  edits. Code reads the flags, never a particular code; seeds, clones and
+  tests look rows up by `code`. `SessionPresenter.clean()` refuses a role the
+  session's type does not allow, and `Session.clean()` refuses a type change
+  that would leave someone in a disallowed role. A type with no roles (a
+  break) takes no presenters. Names are English only for now; per-language
+  names arrive with the public schedule (design §7.1 and Stage 5).

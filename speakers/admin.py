@@ -7,9 +7,11 @@ from .models import (
     DiscordChannel,
     Invitation,
     Presenter,
+    PresenterRole,
     ScheduleSlot,
     Session,
     SessionPresenter,
+    SessionType,
     SpeakerSettings,
 )
 
@@ -19,6 +21,39 @@ class SpeakerSettingsAdmin(admin.ModelAdmin):
     list_display = ("conference", "speaker_module_enabled", "default_premiere_location")
     list_filter = ("speaker_module_enabled",)
     list_select_related = ("conference",)
+
+
+@admin.register(PresenterRole)
+class PresenterRoleAdmin(admin.ModelAdmin):
+    list_display = (
+        "name",
+        "code",
+        "email_word",
+        "sort_order",
+        "is_active",
+        "conference",
+    )
+    list_filter = (ActiveConferenceFilter, "is_active")
+    search_fields = ("name", "code")
+    list_select_related = ("conference",)
+
+
+@admin.register(SessionType)
+class SessionTypeAdmin(admin.ModelAdmin):
+    list_display = (
+        "name",
+        "code",
+        "is_content",
+        "default_duration_minutes",
+        "default_delivery",
+        "sort_order",
+        "is_active",
+        "conference",
+    )
+    list_filter = (ActiveConferenceFilter, "is_content", "is_active")
+    search_fields = ("name", "code")
+    list_select_related = ("conference",)
+    filter_horizontal = ("roles",)
 
 
 class SessionPresenterInline(admin.TabularInline):
@@ -39,7 +74,7 @@ class SessionAdmin(admin.ModelAdmin):
     list_display = ("title", "kind", "delivery", "status", "is_public", "conference")
     list_filter = (ActiveConferenceFilter, "kind", "delivery", "status", "is_public")
     search_fields = ("title", "slug")
-    list_select_related = ("conference",)
+    list_select_related = ("conference", "kind")
     prepopulated_fields = {"slug": ("title",)}
     inlines = [SessionPresenterInline, ScheduleSlotInline]
 
@@ -65,7 +100,7 @@ class PresenterAdmin(admin.ModelAdmin):
 class SessionPresenterAdmin(admin.ModelAdmin):
     list_display = ("presenter", "session", "role", "order", "confirmed_at")
     list_filter = (ActiveConferenceFilter, "role")
-    list_select_related = ("presenter", "session", "conference")
+    list_select_related = ("presenter", "session", "role", "conference")
     autocomplete_fields = ("session", "presenter")
 
 

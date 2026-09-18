@@ -1,3 +1,4 @@
+import re
 from datetime import timedelta
 
 import pytest
@@ -9,7 +10,7 @@ from django.template.loader import render_to_string
 from django.urls import reverse
 
 from portal.models import Conference
-from speakers.constants import PresenterRole, SessionKind, SessionStatus
+from speakers.constants import SessionStatus
 from speakers.emails import signed_invitation_token
 from speakers.models import ActivityLog, Invitation, InvitationStatus
 from speakers.services import (
@@ -38,7 +39,7 @@ def enabled(conference):
 
 @pytest.fixture
 def invitation(conference, enabled):
-    session = make_session(conference, kind=SessionKind.WORKSHOP, title="Django 101")
+    session = make_session(conference, kind="WORKSHOP", title="Django 101")
     presenter = make_presenter(
         conference, display_name="Ada Lovelace", email="ada@example.com"
     )
@@ -48,6 +49,15 @@ def invitation(conference, enabled):
 
 def _url(invitation):
     return reverse("speakers:invitation", args=[signed_invitation_token(invitation)])
+
+
+def _link_from_mail():
+    """The invitation path as it appears in the last email sent.
+
+    Signed tokens carry a timestamp, so re-signing in the test a second later
+    would not match the email byte for byte.
+    """
+    return re.search(r"/speakers/invitations/[^\s)>]+/", mail.outbox[-1].body).group(0)
 
 
 @pytest.mark.django_db
@@ -68,8 +78,11 @@ class TestSendInvitation:
         assert "Hope you can join!" in message.body
         html = message.alternatives[0][0]
         assert "<strong>join</strong>" in html
-        assert _url(invitation) in message.body
-        assert _url(invitation) in html
+        link = _link_from_mail()
+        assert link in html
+        assert (
+            resolve_invitation(link.split("/")[3], invitation.conference) == invitation
+        )
         entry = ActivityLog.for_target(invitation).get()
         assert entry.action == "invitation.sent"
         assert entry.actor == admin_user
@@ -247,13 +260,13 @@ class TestAcceptInvitation:
         assert accept_invitation(invitation).username == "ada.lovelace"
 
     def test_session_waits_for_all_required_presenters(self, conference, enabled):
-        panel = make_session(conference, kind=SessionKind.PANEL)
+        panel = make_session(conference, kind="PANEL")
         moderator = make_presenter(conference)
         panelist = make_presenter(conference)
         guest = make_presenter(conference)
-        add_presenter(panel, moderator, role=PresenterRole.MODERATOR)
-        add_presenter(panel, panelist, role=PresenterRole.PANELIST)
-        add_presenter(panel, guest, role=PresenterRole.PANELIST, is_required=False)
+        add_presenter(panel, moderator, role="MODERATOR")
+        add_presenter(panel, panelist, role="PANELIST")
+        add_presenter(panel, guest, role="PANELIST", is_required=False)
         first = make_invitation(moderator, panel)
         second = make_invitation(panelist, panel)
         send_invitation(first)
@@ -267,10 +280,10 @@ class TestAcceptInvitation:
 
     def test_general_invitation_confirms_every_session(self, conference, enabled):
         presenter = make_presenter(conference)
-        talk = make_session(conference, kind=SessionKind.TALK)
-        panel = make_session(conference, kind=SessionKind.PANEL)
+        talk = make_session(conference, kind="TALK")
+        panel = make_session(conference, kind="PANEL")
         add_presenter(talk, presenter)
-        add_presenter(panel, presenter, role=PresenterRole.PANELIST)
+        add_presenter(panel, presenter, role="PANELIST")
         invitation = make_invitation(presenter)
         send_invitation(invitation)
         accept_invitation(invitation)
@@ -282,10 +295,10 @@ class TestAcceptInvitation:
         assert panel.status == SessionStatus.CONFIRMED
 
     def test_already_confirmed_session_untouched(self, conference, enabled):
-        session = make_session(conference, kind=SessionKind.BREAK)
+        session = make_session(conference, kind="OPENING")
         session.confirm()
         presenter = make_presenter(conference)
-        add_presenter(session, presenter, role=PresenterRole.HOST)
+        add_presenter(session, presenter, role="HOST")
         invitation = make_invitation(presenter, session)
         send_invitation(invitation)
         accept_invitation(invitation)

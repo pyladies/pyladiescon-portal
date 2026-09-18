@@ -7,8 +7,6 @@ from portal.models import Conference
 from speakers.constants import (
     Delivery,
     PremiereLocation,
-    PresenterRole,
-    SessionKind,
     SessionStatus,
 )
 from speakers.models import (
@@ -115,20 +113,16 @@ class TestSession:
         assert make_session(conference, title="***").slug == "item"
 
     def test_duration_defaults_by_kind(self, conference):
+        assert make_session(conference, kind="WORKSHOP").duration_minutes == 90
+        assert make_session(conference, kind="PANEL").duration_minutes == 60
         assert (
-            make_session(conference, kind=SessionKind.WORKSHOP).duration_minutes == 90
-        )
-        assert make_session(conference, kind=SessionKind.PANEL).duration_minutes == 60
-        assert (
-            make_session(
-                conference, kind=SessionKind.PANEL, duration_minutes=45
-            ).duration_minutes
+            make_session(conference, kind="PANEL", duration_minutes=45).duration_minutes
             == 45
         )
 
     def test_is_content(self, conference):
-        assert make_session(conference, kind=SessionKind.PYJAM).is_content is True
-        assert make_session(conference, kind=SessionKind.BREAK).is_content is False
+        assert make_session(conference, kind="PYJAM").is_content is True
+        assert make_session(conference, kind="BREAK").is_content is False
 
     def test_is_pre_recorded(self, conference):
         live = make_session(conference)
@@ -148,7 +142,7 @@ class TestSession:
 @pytest.mark.django_db
 class TestSessionTransitions:
     def test_happy_path_content_session(self, conference):
-        session = make_session(conference, kind=SessionKind.WORKSHOP)
+        session = make_session(conference, kind="WORKSHOP")
         link = add_presenter(session, make_presenter(conference))
         session.mark_invited()
         assert session.status == SessionStatus.INVITED
@@ -165,59 +159,59 @@ class TestSessionTransitions:
         assert session.is_public is True
 
     def test_confirms_with_presenter_confirmed_up_front(self, conference):
-        session = make_session(conference, kind=SessionKind.TALK)
+        session = make_session(conference, kind="TALK")
         add_presenter(session, make_presenter(conference), confirmed=True)
         session.confirm()
         assert session.status == SessionStatus.CONFIRMED
 
     def test_program_item_confirms_with_no_presenters(self, conference):
-        session = make_session(conference, kind=SessionKind.BREAK)
+        session = make_session(conference, kind="BREAK")
         session.confirm()
         assert session.status == SessionStatus.CONFIRMED
 
     def test_confirm_rejects_content_session_without_confirmed_presenter(
         self, conference
     ):
-        session = make_session(conference, kind=SessionKind.PANEL)
-        add_presenter(session, make_presenter(conference), role=PresenterRole.PANELIST)
+        session = make_session(conference, kind="PANEL")
+        add_presenter(session, make_presenter(conference), role="PANELIST")
         with pytest.raises(TransitionError, match="confirmed presenter"):
             session.confirm()
         session.refresh_from_db()
         assert session.status == SessionStatus.DRAFT
 
     def test_confirm_rejects_wrong_status(self, conference):
-        session = make_session(conference, kind=SessionKind.BREAK)
+        session = make_session(conference, kind="BREAK")
         session.cancel()
         with pytest.raises(TransitionError, match="from status Cancelled"):
             session.confirm()
 
     def test_mark_invited_rejects_confirmed(self, conference):
-        session = make_session(conference, kind=SessionKind.BREAK)
+        session = make_session(conference, kind="BREAK")
         session.confirm()
         with pytest.raises(TransitionError):
             session.mark_invited()
 
     def test_schedule_rejects_without_slot(self, conference):
-        session = make_session(conference, kind=SessionKind.BREAK)
+        session = make_session(conference, kind="BREAK")
         session.confirm()
         with pytest.raises(TransitionError, match="slot"):
             session.schedule()
 
     def test_schedule_rejects_draft(self, conference):
-        session = make_session(conference, kind=SessionKind.BREAK)
+        session = make_session(conference, kind="BREAK")
         make_slot(session)
         with pytest.raises(TransitionError, match="from status Draft"):
             session.schedule()
 
     def test_publish_rejects_unscheduled(self, conference):
-        session = make_session(conference, kind=SessionKind.BREAK)
+        session = make_session(conference, kind="BREAK")
         session.confirm()
         with pytest.raises(TransitionError, match="from status Confirmed"):
             session.publish()
         assert session.is_public is False
 
     def test_publish_rejects_when_slot_removed(self, conference):
-        session = make_session(conference, kind=SessionKind.BREAK)
+        session = make_session(conference, kind="BREAK")
         session.confirm()
         slot = make_slot(session)
         session.schedule()
@@ -226,7 +220,7 @@ class TestSessionTransitions:
             session.publish()
 
     def test_cancel_unpublishes(self, conference):
-        session = make_session(conference, kind=SessionKind.BREAK)
+        session = make_session(conference, kind="BREAK")
         session.confirm()
         make_slot(session)
         session.schedule()
@@ -237,7 +231,7 @@ class TestSessionTransitions:
         assert session.is_public is False
 
     def test_transition_without_save(self, conference):
-        session = make_session(conference, kind=SessionKind.BREAK)
+        session = make_session(conference, kind="BREAK")
         session.confirm(save=False)
         assert session.status == SessionStatus.CONFIRMED
         session.refresh_from_db()
@@ -274,7 +268,7 @@ class TestPresenter:
 @pytest.mark.django_db
 class TestSessionPresenter:
     def test_str_and_ordering(self, conference):
-        session = make_session(conference, title="Panel")
+        session = make_session(conference, title="Panel", kind="PANEL")
         second = add_presenter(
             session, make_presenter(conference, display_name="B"), order=2
         )
@@ -282,7 +276,7 @@ class TestSessionPresenter:
             session,
             make_presenter(conference, display_name="A"),
             order=1,
-            role=PresenterRole.MODERATOR,
+            role="MODERATOR",
         )
         assert list(session.session_presenters.all()) == [first, second]
         assert str(first) == "A (Moderator) on Panel"
@@ -299,7 +293,7 @@ class TestSessionPresenter:
 @pytest.mark.django_db
 class TestScheduleSlotShell:
     def test_end_defaults_from_duration(self, conference):
-        session = make_session(conference, kind=SessionKind.WORKSHOP)
+        session = make_session(conference, kind="WORKSHOP")
         slot = make_slot(session)
         assert slot.end_utc == slot.start_utc + timedelta(minutes=90)
         assert str(slot) == f"{session} at 2026-12-05 14:00 UTC"

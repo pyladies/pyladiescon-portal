@@ -19,13 +19,9 @@ from django.utils import timezone
 from django.utils.text import slugify
 
 from .constants import (
-    CONTENT_KINDS,
-    DEFAULT_DURATION_MINUTES,
     ChannelKind,
     Delivery,
     PremiereLocation,
-    PresenterRole,
-    SessionKind,
     SessionLevel,
     SessionStatus,
 )
@@ -111,6 +107,14 @@ class SpeakerSettings(TimestampedModel):
 
     def __str__(self):
         return f"Speaker settings ({self.conference})"
+
+    def save(self, *args, **kwargs):
+        """An edition that starts using the module gets the default session
+        types and presenter roles; rerunning changes nothing."""
+        super().save(*args, **kwargs)
+        from .program_types import seed_program_types
+
+        seed_program_types(self.conference)
 
 
 def speaker_module_enabled(conference):
@@ -296,6 +300,139 @@ class Presenter(TimestampedModel):
         return zoneinfo.ZoneInfo(self.timezone)
 
 
+class PresenterRole(TimestampedModel):
+    """What a person is on a session: presenter, panelist, host... (design
+    §8.3). Rows per edition, seeded from ``program_types.DEFAULT_ROLES``;
+    organizers can add more. ``code`` is the stable key seeds and clones use.
+    """
+
+    conference = models.ForeignKey(
+        "portal.Conference",
+        on_delete=models.CASCADE,
+        related_name="presenter_roles",
+    )
+    code = models.CharField(
+        max_length=32, help_text="Stable key, e.g. PANELIST; upper case."
+    )
+    name = models.CharField(max_length=60)
+    email_word = models.CharField(
+        max_length=40,
+        default="speaker",
+        help_text='How emails address them: "thank you for being a <word>".',
+    )
+    sort_order = models.PositiveSmallIntegerField(default=100)
+    is_active = models.BooleanField(
+        default=True,
+        help_text="Inactive roles are kept on existing rows but not offered.",
+    )
+
+    class Meta:
+        ordering = ["sort_order", "name"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["conference", "code"], name="speakers_role_code_per_edition"
+            )
+        ]
+
+    def __str__(self):
+        return self.name
+
+    def save(self, *args, **kwargs):
+        self.code = self.code.strip().upper()
+        super().save(*args, **kwargs)
+
+
+class SessionType(TimestampedModel):
+    """What a schedule row is (design §8.1): workshop, panel, break...
+
+    Rows per edition, seeded from ``program_types.DEFAULT_SESSION_TYPES``.
+    The code never checks for a particular type; it reads the flags here.
+    ``roles`` says who can be on a session of this type, and a type with no
+    roles (a break) takes no presenters at all.
+    """
+
+    conference = models.ForeignKey(
+        "portal.Conference",
+        on_delete=models.CASCADE,
+        related_name="session_types",
+    )
+    code = models.CharField(
+        max_length=32, help_text="Stable key, e.g. WORKSHOP; upper case."
+    )
+    name = models.CharField(max_length=60)
+    is_content = models.BooleanField(
+        default=True,
+        help_text="Needs a confirmed presenter to be confirmed. Off for the "
+        "opening, breaks and other program items, which are confirmed as created.",
+    )
+    default_duration_minutes = models.PositiveIntegerField(default=30)
+    default_delivery = models.CharField(
+        max_length=16, choices=Delivery.choices, default=Delivery.LIVE
+    )
+    spans_all_channels = models.BooleanField(
+        default=False,
+        help_text="On the schedule, takes the whole grid rather than one channel.",
+    )
+    roles = models.ManyToManyField(
+        PresenterRole,
+        blank=True,
+        related_name="session_types",
+        help_text="Who can be on a session of this type.",
+    )
+    default_role = models.ForeignKey(
+        PresenterRole,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
+        help_text="Preselected when adding or inviting a presenter.",
+    )
+    sort_order = models.PositiveSmallIntegerField(default=100)
+    is_active = models.BooleanField(
+        default=True,
+        help_text="Inactive types are kept on existing sessions but not offered.",
+    )
+
+    class Meta:
+        ordering = ["sort_order", "name"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["conference", "code"], name="speakers_type_code_per_edition"
+            )
+        ]
+
+    def __str__(self):
+        return self.name
+
+    def save(self, *args, **kwargs):
+        self.code = self.code.strip().upper()
+        super().save(*args, **kwargs)
+
+    def clean(self):
+        super().clean()
+        if (
+            self.default_role_id
+            and self.default_role.conference_id != self.conference_id
+        ):
+            raise ValidationError({"default_role": "Pick a role of this edition."})
+        if (
+            self.pk
+            and self.default_role_id
+            and not self.roles.filter(pk=self.default_role_id).exists()
+        ):
+            raise ValidationError(
+                {"default_role": "The default role must be one of the allowed roles."}
+            )
+
+    @property
+    def has_presenters(self):
+        """Whether sessions of this type carry people at all."""
+        return self.roles.exists()
+
+    def allows(self, role):
+        return self.roles.filter(pk=role.pk).exists()
+
+
 class Session(TimestampedModel):
     """Anything that appears on the schedule (design §8.1).
 
@@ -308,9 +445,14 @@ class Session(TimestampedModel):
         on_delete=models.PROTECT,
         related_name="sessions",
     )
-    kind = models.CharField(max_length=16, choices=SessionKind.choices)
+    kind = models.ForeignKey(
+        SessionType, on_delete=models.PROTECT, related_name="sessions"
+    )
     delivery = models.CharField(
-        max_length=16, choices=Delivery.choices, default=Delivery.LIVE
+        max_length=16,
+        choices=Delivery.choices,
+        blank=True,
+        help_text="Blank takes the type's default; filled in on save.",
     )
     title = models.CharField(max_length=200)
     slug = models.SlugField(max_length=100, blank=True)
@@ -362,17 +504,40 @@ class Session(TimestampedModel):
 
     def save(self, *args, **kwargs):
         if self.duration_minutes is None:
-            self.duration_minutes = DEFAULT_DURATION_MINUTES[SessionKind(self.kind)]
+            self.duration_minutes = self.kind.default_duration_minutes
+        if not self.delivery:
+            self.delivery = self.kind.default_delivery
         if not self.slug:
             self.slug = _unique_slug(
                 Session, self.conference, self.title, exclude_pk=self.pk
             )
         super().save(*args, **kwargs)
 
+    def clean(self):
+        super().clean()
+        if self.kind_id and self.kind.conference_id != self.conference_id:
+            raise ValidationError({"kind": "Pick a session type of this edition."})
+        if self.pk and self.kind_id:
+            # Changing the type must not leave anyone in a role it disallows.
+            allowed = set(self.kind.roles.values_list("pk", flat=True))
+            stuck = [
+                link
+                for link in self.session_presenters.select_related("presenter", "role")
+                if link.role_id not in allowed
+            ]
+            if stuck:
+                names = ", ".join(
+                    f"{link.presenter.display_name} ({link.role.name})"
+                    for link in stuck
+                )
+                raise ValidationError(
+                    {"kind": f"A {self.kind.name} cannot have: {names}."}
+                )
+
     @property
     def is_content(self):
-        """Content kinds need a presenter to be confirmed; program kinds don't."""
-        return self.kind in CONTENT_KINDS
+        """Content types need a presenter to be confirmed; program items don't."""
+        return self.kind.is_content
 
     @property
     def is_pre_recorded(self):
@@ -467,8 +632,8 @@ class SessionPresenter(TimestampedModel):
     presenter = models.ForeignKey(
         Presenter, on_delete=models.CASCADE, related_name="session_presenters"
     )
-    role = models.CharField(
-        max_length=16, choices=PresenterRole.choices, default=PresenterRole.PRESENTER
+    role = models.ForeignKey(
+        PresenterRole, on_delete=models.PROTECT, related_name="session_presenters"
     )
     order = models.PositiveSmallIntegerField(default=0)
     is_required = models.BooleanField(
@@ -488,13 +653,22 @@ class SessionPresenter(TimestampedModel):
         ]
 
     def __str__(self):
-        return f"{self.presenter} ({self.get_role_display()}) on {self.session}"
+        return f"{self.presenter} ({self.role}) on {self.session}"
 
     def clean(self):
         super().clean()
         if self.session.conference_id != self.presenter.conference_id:
             raise ValidationError(
                 "The session and the presenter belong to different editions."
+            )
+        if self.role.conference_id != self.session.conference_id:
+            raise ValidationError({"role": "Pick a role of this edition."})
+        if not self.session.kind.allows(self.role):
+            raise ValidationError(
+                {
+                    "role": f"A {self.session.kind.name} cannot have a "
+                    f"{self.role.name.lower()}."
+                }
             )
 
     def save(self, *args, **kwargs):

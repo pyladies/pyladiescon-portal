@@ -17,6 +17,171 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
+        migrations.CreateModel(
+            name="PresenterRole",
+            fields=[
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                (
+                    "creation_date",
+                    models.DateTimeField(
+                        auto_now_add=True, verbose_name="creation_date"
+                    ),
+                ),
+                (
+                    "modified_date",
+                    models.DateTimeField(auto_now=True, verbose_name="modified_date"),
+                ),
+                (
+                    "code",
+                    models.CharField(
+                        help_text="Stable key, e.g. PANELIST; upper case.",
+                        max_length=32,
+                    ),
+                ),
+                ("name", models.CharField(max_length=60)),
+                (
+                    "email_word",
+                    models.CharField(
+                        default="speaker",
+                        help_text='How emails address them: "thank you for being a <word>".',
+                        max_length=40,
+                    ),
+                ),
+                ("sort_order", models.PositiveSmallIntegerField(default=100)),
+                (
+                    "is_active",
+                    models.BooleanField(
+                        default=True,
+                        help_text="Inactive roles are kept on existing rows but not offered.",
+                    ),
+                ),
+                (
+                    "conference",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="presenter_roles",
+                        to="portal.conference",
+                    ),
+                ),
+            ],
+            options={
+                "ordering": ["sort_order", "name"],
+            },
+        ),
+        migrations.CreateModel(
+            name="SessionType",
+            fields=[
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                (
+                    "creation_date",
+                    models.DateTimeField(
+                        auto_now_add=True, verbose_name="creation_date"
+                    ),
+                ),
+                (
+                    "modified_date",
+                    models.DateTimeField(auto_now=True, verbose_name="modified_date"),
+                ),
+                (
+                    "code",
+                    models.CharField(
+                        help_text="Stable key, e.g. WORKSHOP; upper case.",
+                        max_length=32,
+                    ),
+                ),
+                ("name", models.CharField(max_length=60)),
+                (
+                    "is_content",
+                    models.BooleanField(
+                        default=True,
+                        help_text="Needs a confirmed presenter to be confirmed. Off for the opening, breaks and other program items, which are confirmed as created.",
+                    ),
+                ),
+                ("default_duration_minutes", models.PositiveIntegerField(default=30)),
+                (
+                    "default_delivery",
+                    models.CharField(
+                        choices=[("LIVE", "Live"), ("PRE_RECORDED", "Pre-recorded")],
+                        default="LIVE",
+                        max_length=16,
+                    ),
+                ),
+                (
+                    "spans_all_channels",
+                    models.BooleanField(
+                        default=False,
+                        help_text="On the schedule, takes the whole grid rather than one channel.",
+                    ),
+                ),
+                ("sort_order", models.PositiveSmallIntegerField(default=100)),
+                (
+                    "is_active",
+                    models.BooleanField(
+                        default=True,
+                        help_text="Inactive types are kept on existing sessions but not offered.",
+                    ),
+                ),
+                (
+                    "conference",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="session_types",
+                        to="portal.conference",
+                    ),
+                ),
+                (
+                    "default_role",
+                    models.ForeignKey(
+                        blank=True,
+                        help_text="Preselected when adding or inviting a presenter.",
+                        null=True,
+                        on_delete=django.db.models.deletion.SET_NULL,
+                        related_name="+",
+                        to="speakers.presenterrole",
+                    ),
+                ),
+                (
+                    "roles",
+                    models.ManyToManyField(
+                        blank=True,
+                        help_text="Who can be on a session of this type.",
+                        related_name="session_types",
+                        to="speakers.presenterrole",
+                    ),
+                ),
+            ],
+            options={
+                "ordering": ["sort_order", "name"],
+            },
+        ),
+        migrations.AddConstraint(
+            model_name="presenterrole",
+            constraint=models.UniqueConstraint(
+                fields=("conference", "code"), name="speakers_role_code_per_edition"
+            ),
+        ),
+        migrations.AddConstraint(
+            model_name="sessiontype",
+            constraint=models.UniqueConstraint(
+                fields=("conference", "code"), name="speakers_type_code_per_edition"
+            ),
+        ),
         migrations.AddField(
             model_name="speakersettings",
             name="default_premiere_location",
@@ -209,29 +374,18 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "kind",
-                    models.CharField(
-                        choices=[
-                            ("WORKSHOP", "Workshop"),
-                            ("PANEL", "Panel"),
-                            ("PYJAM", "PyJam performance"),
-                            ("TALK", "Talk"),
-                            ("LIGHTNING", "Lightning talk"),
-                            ("OPENING", "Opening"),
-                            ("CLOSING", "Closing"),
-                            ("KEYNOTE", "Keynote"),
-                            ("ANNOUNCEMENT", "Announcement"),
-                            ("BREAK", "Break"),
-                            ("SOCIAL", "Social"),
-                            ("OTHER", "Other"),
-                        ],
-                        max_length=16,
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.PROTECT,
+                        related_name="sessions",
+                        to="speakers.sessiontype",
                     ),
                 ),
                 (
                     "delivery",
                     models.CharField(
+                        blank=True,
                         choices=[("LIVE", "Live"), ("PRE_RECORDED", "Pre-recorded")],
-                        default="LIVE",
+                        help_text="Blank takes the type's default; filled in on save.",
                         max_length=16,
                     ),
                 ),
@@ -437,17 +591,10 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "role",
-                    models.CharField(
-                        choices=[
-                            ("PRESENTER", "Presenter"),
-                            ("CO_PRESENTER", "Co-presenter"),
-                            ("PANELIST", "Panelist"),
-                            ("MODERATOR", "Moderator"),
-                            ("HOST", "Host"),
-                            ("PERFORMER", "Performer"),
-                        ],
-                        default="PRESENTER",
-                        max_length=16,
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.PROTECT,
+                        related_name="session_presenters",
+                        to="speakers.presenterrole",
                     ),
                 ),
                 ("order", models.PositiveSmallIntegerField(default=0)),
