@@ -7,6 +7,10 @@ majority) render full-width with no rail markup; pages that extend
 
 import pytest
 from django.template import engines
+from django.urls import reverse
+
+from volunteer.constants import ApplicationStatus
+from volunteer.models import VolunteerProfile
 
 
 def _render(template_string):
@@ -60,3 +64,47 @@ class TestSidebarShell:
         )
         assert 'href="/sent"' in html
         assert 'aria-current="page"' not in html
+
+
+@pytest.mark.django_db
+class TestTopNavSections:
+    """The top nav marks the section whose rail is on the page, and shows one
+    tab per hub: Sponsorship only for viewers who are not organizers."""
+
+    def test_no_hard_coded_active_tab(self, client, portal_user, conference):
+        client.force_login(portal_user)
+        html = client.get(reverse("chapters")).content.decode()
+        assert 'class="nav-link active"' not in html
+        assert 'data-nav-section="home"' in html
+        assert "data-rail-section" not in html  # no rail: Home is current
+
+    def test_rails_name_their_section(
+        self, client, admin_user, portal_user, conference
+    ):
+        client.force_login(admin_user)
+        html = client.get(reverse("organizer_dashboard")).content.decode()
+        assert 'data-rail-section="organize"' in html
+        assert 'data-nav-section="organize"' in html
+        client.force_login(portal_user)
+        html = client.get(reverse("volunteer:index")).content.decode()
+        assert 'data-rail-section="volunteer"' in html
+        assert 'data-nav-section="volunteer"' in html
+
+    def test_sponsorship_tab_only_for_non_organizer_viewers(
+        self, client, admin_user, portal_user, conference
+    ):
+        sponsorship = reverse("sponsorship:sponsorship_list")
+        client.force_login(admin_user)
+        html = client.get(reverse("organizer_dashboard")).content.decode()
+        nav = html.split('id="navbarsExample04"')[1].split("</ul>")[0]
+        assert sponsorship not in nav  # it is in the Organize rail instead
+        assert sponsorship in html
+        VolunteerProfile.objects.create(
+            user=portal_user,
+            conference=conference,
+            application_status=ApplicationStatus.APPROVED,
+        )
+        client.force_login(portal_user)
+        html = client.get(reverse("volunteer:index")).content.decode()
+        nav = html.split('id="navbarsExample04"')[1].split("</ul>")[0]
+        assert sponsorship in nav

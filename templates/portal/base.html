@@ -84,11 +84,13 @@
                 <div class="collapse navbar-collapse" id="navbarsExample04">
                     <ul class="navbar-nav me-auto mb-2 mb-md-0">
                         <li class="nav-item">
-                            <a class="nav-link active" aria-current="page" href="{% url "index" %}">{% trans "Home" %}</a>
+                            <a class="nav-link" data-nav-section="home" href="{% url "index" %}">{% trans "Home" %}</a>
                         </li>
                         {% if user.is_authenticated %}
                             <li class="nav-item">
-                                <a class="nav-link" href="{% url 'volunteer:index' %}">{% trans "Volunteer" %}</a>
+                                <a class="nav-link"
+                                   data-nav-section="volunteer"
+                                   href="{% url 'volunteer:index' %}">{% trans "Volunteer" %}</a>
                             </li>
                         {% endif %}
                         {% if leads_any_team %}
@@ -98,22 +100,31 @@
                         {% endif %}
                         {% if is_speaker_presenter %}
                             <li class="nav-item">
-                                <a class="nav-link" href="{% url 'speakers:my_dashboard' %}">{% trans "Speaking" %}</a>
+                                <a class="nav-link"
+                                   data-nav-section="speaking"
+                                   href="{% url 'speakers:my_dashboard' %}">{% trans "Speaking" %}</a>
                             </li>
                         {% endif %}
-                        {# Sponsorship: a single link for anyone who can view; #}
-                        {# managers reach Add/Tiers from the in-app left rail #}
-                        {# (Stage D) rather than a duplicate top-nav dropdown. #}
-                        {% if can_view_sponsorship %}
+                        {# Sponsorship: only for viewers who are not organizers; #}
+                        {# organizers reach Sponsors from the Organize rail, so a #}
+                        {# second tab into the same shell would just confuse. #}
+                        {% if can_view_sponsorship and not is_organizer %}
                             <li class="nav-item">
-                                <a class="nav-link" href="{% url 'sponsorship:sponsorship_list' %}">{% trans "Sponsorship" %}</a>
+                                <a class="nav-link"
+                                   data-nav-section="organize"
+                                   href="{% url 'sponsorship:sponsorship_list' %}">{% trans "Sponsorship" %}</a>
                             </li>
                         {% endif %}
                         {# Organize: one coarse link; the shared Organize rail #}
                         {# on every organizer page carries the detailed nav. #}
+                        {# The current section is marked from the rail on the page #}
+                        {# (data-rail-section, matched in portal.css), so the tab #}
+                        {# follows the shell rather than a hard-coded "active". #}
                         {% if is_organizer %}
                             <li class="nav-item">
-                                <a class="nav-link" href="{% url 'organizer_dashboard' %}">{% trans "Organize" %}</a>
+                                <a class="nav-link"
+                                   data-nav-section="organize"
+                                   href="{% url 'organizer_dashboard' %}">{% trans "Organize" %}</a>
                             </li>
                         {% endif %}
                         <li class="nav-item dropdown">
