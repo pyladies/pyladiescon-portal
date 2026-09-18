@@ -1,134 +1,78 @@
-{% extends shell %}
+{% extends "portal/base_sidebar.html" %}
 {% load i18n %}
 {% comment %}
-Organizers and liaisons get this inside the Organize shell ("My queue");
-a volunteer who was handed an item gets the same list under the personal
-volunteer rail ("My speaker tasks"), whose other entries they can actually
-open. ``shell`` is one of two templates the view picks:
-"speakers/_organize_shell.html" or "portal/base_sidebar.html".
+My volunteering tasks: items assigned to me or to a team I'm on, under the
+personal "My volunteering" rail for everyone (organizers included). Same
+rows as the speaker checklist; ticking swaps the row in place over htmx.
 {% endcomment %}
+{% block extra_head %}
+    {{ block.super }}
+    <script src="https://cdn.jsdelivr.net/npm/htmx.org@2.0.4/dist/htmx.min.js"
+            integrity="sha384-HGfztofotfshcF7+8n44JQL2oJmowVChPTg48S+jvZoztPfvwD79OC/LTtG6dMp+"
+            crossorigin="anonymous"></script>
+{% endblock extra_head %}
 {% block head_title %}
-    {% if organizer_side %}
-        {% trans "My queue" %}
-    {% else %}
-        {% trans "My speaker tasks" %}
-    {% endif %}
+    {% trans "My volunteering tasks" %}
 {% endblock head_title %}
 {% block breadcrumb %}
-    {% if organizer_side %}
-        {% trans "My queue" as bc_section %}
-    {% else %}
-        {% trans "My speaker tasks" as bc_section %}
-    {% endif %}
+    {% trans "My volunteering tasks" as bc_section %}
     {% include "portal/_breadcrumbs.html" with section=bc_section %}
 {% endblock breadcrumb %}
 {% block sidebar_title %}
-    {% if organizer_side %}
-        {% trans "Organize" %}
-    {% else %}
-        {% trans "My volunteering" %}
-    {% endif %}
+    {% trans "My volunteering" %}
 {% endblock sidebar_title %}
 {% block sidebar %}
-    {% if organizer_side %}
-        {% include "portal/_organize_rail.html" with active=rail_active %}
-    {% else %}
-        {% include "volunteer/_volunteer_rail.html" with active="queue" %}
-    {% endif %}
+    {% include "volunteer/_volunteer_rail.html" with active="tasks" %}
 {% endblock sidebar %}
 {% block content %}
-    <h1 class="h3 mb-1">
-        {% if organizer_side %}
-            {% trans "My queue" %}
-        {% else %}
-            {% trans "My speaker tasks" %}
-        {% endif %}
-    </h1>
-    <p class="text-secondary">
-        {% trans "Items assigned to you or to a team you are on, soonest first." %}
-    </p>
-    <div class="table-responsive">
-        <table class="table table-sm table-bordered align-middle">
-            <thead class="table-light">
-                <tr>
-                    <th>
-                        {% trans "Item" %}
-                    </th>
-                    <th>
-                        {% trans "For" %}
-                    </th>
-                    <th>
-                        {% trans "Due" %}
-                    </th>
-                    <th>
-                    </th>
-                </tr>
-            </thead>
-            <tbody>
+    {% trans "View" as view_label %}
+    <div class="container px-4 py-4">
+        <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-1">
+            <h1 class="h3 mb-0">
+                {% trans "My volunteering tasks" %}
+            </h1>
+            <div class="btn-group btn-group-sm"
+                 role="group"
+                 aria-label="{{ view_label }}">
+                <a class="btn {% if view == 'all' %}btn-primary{% else %}btn-outline-primary{% endif %}"
+                   href="{% url 'speakers:checklist_queue' %}">{% trans "All, by due date" %}</a>
+                <a class="btn {% if view == 'presenter' %}btn-primary{% else %}btn-outline-primary{% endif %}"
+                   href="{% url 'speakers:checklist_queue' %}?view=presenter">{% trans "By presenter" %}</a>
+            </div>
+        </div>
+        <p class="text-secondary">
+            {% blocktranslate with name=conference.name %}Speaker-portal items assigned to you or to a team you're on for {{ name }}, soonest first.{% endblocktranslate %}
+        </p>
+        {% if not items %}
+            <p class="text-secondary">
+                {% trans "Nothing assigned to you. Enjoy the quiet." %}
+            </p>
+        {% elif view == "all" %}
+            <ul class="list-group">
                 {% for item in items %}
-                    <tr id="item-{{ item.pk }}"
-                        class="{% if item.overdue %}table-warning{% elif item.status == 'BLOCKED' %}table-danger{% endif %}">
-                        <td>
-                            <a href="{% url 'speakers:item_detail' item.pk %}"
-                               class="link-body-emphasis text-decoration-none">{{ item.title }}</a>
-                            {% if item.session %}
-                                <div class="small text-secondary">
-                                    {{ item.session.title }}
-                                </div>
-                            {% endif %}
-                        </td>
-                        <td>
-                            {% if item.presenter %}
-                                {% if can_open_pages %}
-                                    <a href="{{ item.presenter.get_absolute_url }}">{{ item.presenter.display_name }}</a>
-                                {% else %}
-                                    {{ item.presenter.display_name }}
-                                {% endif %}
-                            {% elif item.session %}
-                                {% if can_open_pages %}
-                                    <a href="{{ item.session.get_absolute_url }}">{{ item.session.title }}</a>
-                                {% else %}
-                                    {{ item.session.title }}
-                                {% endif %}
-                            {% endif %}
-                            {% if item.team %}
-                                <div class="small text-secondary">
-                                    {% blocktranslate with team=item.team.short_name %}via the {{ team }} team{% endblocktranslate %}
-                                </div>
-                            {% endif %}
-                        </td>
-                        <td class="text-nowrap">
-                            {% if item.due_date %}
-                                <span {% if item.overdue %}class="text-danger fw-semibold"{% endif %}>{{ item.due_date|date:"j M" }}</span>
-                            {% else %}
-                                —
-                            {% endif %}
-                        </td>
-                        <td>
-                            {% if not item.is_automatic %}
-                                <form method="post" action="{% url 'speakers:item_status' item.pk %}">
-                                    {% csrf_token %}
-                                    <input type="hidden"
-                                           name="next"
-                                           value="{% url 'speakers:checklist_queue' %}">
-                                    <button class="btn btn-sm btn-outline-success"
-                                            name="status"
-                                            value="DONE"
-                                            type="submit">
-                                        <i class="fa-solid fa-check"></i> {% trans "Done" %}
-                                    </button>
-                                </form>
-                            {% endif %}
-                        </td>
-                    </tr>
-                {% empty %}
-                    <tr>
-                        <td colspan="4" class="text-secondary">
-                            {% trans "Nothing assigned to you. Enjoy the quiet." %}
-                        </td>
-                    </tr>
+                    {% include "speakers/_queue_item.html" with item=item %}
                 {% endfor %}
-            </tbody>
-        </table>
+            </ul>
+        {% else %}
+            {% for group in groups %}
+                <section class="mb-4" data-queue-group="{{ group.key }}">
+                    <h2 class="h6 fw-bold mb-2">
+                        {% if group.presenter %}
+                            <a href="{{ group.presenter.get_absolute_url }}"
+                               class="link-body-emphasis">{{ group.presenter.display_name }}</a>
+                        {% else %}
+                            {{ group.session.title }}
+                            <span class="small fw-normal text-secondary">({% trans "session item" %})</span>
+                        {% endif %}
+                        <span class="badge text-bg-light border ms-1">{{ group.items|length }}</span>
+                    </h2>
+                    <ul class="list-group">
+                        {% for item in group.items %}
+                            {% include "speakers/_queue_item.html" with item=item %}
+                        {% endfor %}
+                    </ul>
+                </section>
+            {% endfor %}
+        {% endif %}
     </div>
 {% endblock content %}

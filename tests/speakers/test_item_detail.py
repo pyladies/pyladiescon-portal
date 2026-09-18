@@ -271,7 +271,7 @@ class TestOrganizerItemDetail:
         response = client.get(detail(world["video_item"]))
         assert response.status_code == 200
         content = response.content.decode()
-        assert "My volunteering" in content and "My speaker tasks" in content
+        assert "My volunteering" in content and "My volunteering tasks" in content
         assert (
             reverse("speakers:item_assign", args=[world["video_item"].pk])
             not in content

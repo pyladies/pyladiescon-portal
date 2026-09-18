@@ -13,11 +13,7 @@ their personal rail and may only mark it done or reopen it.
     {{ item.title }}
 {% endblock head_title %}
 {% block breadcrumb %}
-    {% if organizer_side %}
-        {% trans "My queue" as bc_section %}
-    {% else %}
-        {% trans "My speaker tasks" as bc_section %}
-    {% endif %}
+    {% trans "My volunteering tasks" as bc_section %}
     {% url 'speakers:checklist_queue' as bc_url %}
     {% include "portal/_breadcrumbs.html" with section=bc_section section_url=bc_url page=item.title %}
 {% endblock breadcrumb %}
@@ -40,11 +36,7 @@ their personal rail and may only mark it done or reopen it.
         <a href="{% url 'speakers:checklist_queue' %}"
            class="text-secondary text-decoration-none">
             <i class="fa-solid fa-arrow-left"></i>
-            {% if organizer_side %}
-                {% trans "My queue" %}
-            {% else %}
-                {% trans "My speaker tasks" %}
-            {% endif %}
+            {% trans "My volunteering tasks" %}
         </a>
     </p>
     <h1 class="h3 mb-3">

@@ -1,0 +1,123 @@
+{% load i18n %}
+{% trans "Mark as done" as do_label %}
+{% trans "Mark as not done" as undo_label %}
+{% trans "Ticks itself" as auto_label %}
+{% trans "Waiting" as waiting_label %}
+{% comment %}
+One row on My volunteering tasks: the same shape as the speaker checklist
+row, but the second line says who the work is for. Params: item (with
+.overdue, .days_left and .due_tone set) and error (shown inline, since a
+swapped row never displays queued messages). An item that is waiting shows
+why and cannot be ticked. The tick form swaps this row in place over htmx.
+{% endcomment %}
+<li class="list-group-item checklist-row {% if item.is_automatic %}checklist-item-auto{% else %}checklist-item-manual{% endif %}{% if item.is_done %} checklist-item-done{% endif %}{% if item.is_waiting %} checklist-row-waiting{% endif %}"
+    id="item-{{ item.pk }}"
+    data-item-id="{{ item.pk }}"
+    data-status="{{ item.status }}">
+    {% if error %}
+        <div class="alert alert-danger py-1 px-2 small mb-2" role="alert">
+            {{ error }}
+        </div>
+    {% endif %}
+    <div class="d-flex align-items-start gap-3">
+        {% if item.is_waiting %}
+            <span class="checklist-box checklist-box-waiting" title="{{ waiting_label }}">
+                <i class="fa-solid fa-hourglass-half"></i>
+            </span>
+        {% elif item.is_automatic %}
+            <span class="checklist-box checklist-box-static {% if item.is_done %}checklist-box-done{% elif item.status == 'BLOCKED' %}checklist-box-blocked{% endif %}"
+                  title="{{ auto_label }}">
+                {% if item.is_done %}
+                    <i class="fa-solid fa-check"></i>
+                {% elif item.status == "BLOCKED" %}
+                    <i class="fa-solid fa-exclamation"></i>
+                {% else %}
+                    <i class="fa-solid fa-wand-magic-sparkles"></i>
+                {% endif %}
+            </span>
+        {% else %}
+            <form method="post"
+                  action="{% url 'speakers:item_status' item.pk %}"
+                  hx-post="{% url 'speakers:item_status' item.pk %}"
+                  hx-target="#item-{{ item.pk }}"
+                  hx-swap="outerHTML"
+                  hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
+                {% csrf_token %}
+                <input type="hidden" name="partial" value="queue">
+                <input type="hidden"
+                       name="next"
+                       value="{% url 'speakers:checklist_queue' %}">
+                <button type="submit"
+                        name="status"
+                        value="{% if item.is_open %}DONE{% else %}TODO{% endif %}"
+                        class="checklist-box {% if item.is_done %}checklist-box-done{% elif item.status == 'BLOCKED' %}checklist-box-blocked{% endif %}"
+                        aria-label="{% if item.is_open %}{{ do_label }}{% else %}{{ undo_label }}{% endif %}"
+                        aria-pressed="{% if item.is_done %}true{% else %}false{% endif %}">
+                    {% if item.is_done %}
+                        <i class="fa-solid fa-check"></i>
+                    {% elif item.status == "BLOCKED" %}
+                        <i class="fa-solid fa-exclamation"></i>
+                    {% endif %}
+                </button>
+            </form>
+        {% endif %}
+        <div class="flex-grow-1 min-w-0">
+            <div>
+                <a href="{% url 'speakers:item_detail' item.pk %}"
+                   class="link-body-emphasis text-decoration-none {% if item.is_done %}checklist-title-done{% elif item.is_waiting %}checklist-title-waiting{% endif %}">{{ item.title }}</a>
+                {% if item.is_automatic %}
+                    <span class="small text-secondary">· {{ auto_label|lower }}</span>
+                {% endif %}
+                {% if item.is_waiting %}
+                    <span class="badge text-bg-light border">{{ waiting_label }}</span>
+                {% elif item.status == "BLOCKED" %}
+                    <span class="badge text-bg-danger">{% trans "Blocked" %}</span>
+                {% endif %}
+            </div>
+            <div class="small text-secondary">
+                {% if item.presenter %}
+                    {% blocktranslate with name=item.presenter.display_name %}for {{ name }}{% endblocktranslate %}
+                    {% if item.session %}
+                        · {{ item.session.title }}
+                    {% endif %}
+                {% elif item.session %}
+                    {% blocktranslate with title=item.session.title %}for the session {{ title }}{% endblocktranslate %}
+                {% endif %}
+                {% if item.team %}
+                    · {% blocktranslate with team=item.team.short_name %}via the {{ team }} team{% endblocktranslate %}
+                {% endif %}
+            </div>
+            {% if item.is_waiting and item.waiting_reason %}
+                <div class="small text-secondary fst-italic">
+                    {% blocktranslate with reason=item.waiting_reason %}waiting: {{ reason }}{% endblocktranslate %}
+                </div>
+            {% endif %}
+            {% if item.status == "BLOCKED" and item.note %}
+                <div class="small text-danger">
+                    {{ item.note }}
+                </div>
+            {% endif %}
+        </div>
+        <div class="flex-shrink-0 text-end">
+            {% if item.due_date %}
+                <span class="badge checklist-due checklist-due-{{ item.due_tone }}">
+                    {{ item.due_date|date:"j M" }}
+                    {% if item.due_tone == "overdue" %}
+                        · {% trans "overdue" %}
+                    {% elif item.due_tone == "soon" %}
+                        ·
+                        {% if item.days_left == 0 %}
+                            {% trans "today" %}
+                        {% elif item.days_left == 1 %}
+                            {% trans "tomorrow" %}
+                        {% else %}
+                            {% blocktranslate with n=item.days_left %}in {{ n }} days{% endblocktranslate %}
+                        {% endif %}
+                    {% endif %}
+                </span>
+            {% elif item.is_open %}
+                <span class="badge checklist-due checklist-due-quiet">{% trans "no deadline" %}</span>
+            {% endif %}
+        </div>
+    </div>
+</li>

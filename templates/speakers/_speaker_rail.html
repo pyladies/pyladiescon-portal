@@ -14,9 +14,9 @@ Expects:
 {% endif %}
 {% url 'speakers:my_checklist' as checklist_url %}
 {% if active == "checklist" %}
-    {% include "portal/_sidebar_item.html" with url=checklist_url label=_("My checklist") icon="fa-list-check" active=True only %}
+    {% include "portal/_sidebar_item.html" with url=checklist_url label=_("My speaker checklist") icon="fa-list-check" active=True only %}
 {% else %}
-    {% include "portal/_sidebar_item.html" with url=checklist_url label=_("My checklist") icon="fa-list-check" only %}
+    {% include "portal/_sidebar_item.html" with url=checklist_url label=_("My speaker checklist") icon="fa-list-check" only %}
 {% endif %}
 {% url 'speakers:my_profile' as profile_url %}
 {% if active == "profile" %}
