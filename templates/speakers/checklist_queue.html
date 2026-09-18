@@ -45,7 +45,11 @@ rows as the speaker checklist; ticking swaps the row in place over htmx.
         </p>
         {% if not items %}
             <p class="text-secondary">
-                {% trans "Nothing assigned to you. Enjoy the quiet." %}
+                {% if done_items %}
+                    {% trans "Nothing open. Everything assigned to you is done; nice work." %}
+                {% else %}
+                    {% trans "Nothing assigned to you. Enjoy the quiet." %}
+                {% endif %}
             </p>
         {% elif view == "all" %}
             <ul class="list-group">
@@ -77,6 +81,22 @@ rows as the speaker checklist; ticking swaps the row in place over htmx.
                     </ul>
                 </section>
             {% endfor %}
+        {% endif %}
+        {% if done_items %}
+            <section class="mt-5" id="completed">
+                <h2 class="h5 mb-1">
+                    {% trans "Completed" %}
+                    <span class="badge text-bg-success ms-1">{{ done_items|length }}</span>
+                </h2>
+                <p class="text-secondary small">
+                    {% trans "What you and your teams have finished this edition, newest first. Untick one if it needs another look." %}
+                </p>
+                <ul class="list-group">
+                    {% for item in done_items %}
+                        {% include "speakers/_queue_item.html" with item=item %}
+                    {% endfor %}
+                </ul>
+            </section>
         {% endif %}
     </div>
 {% endblock content %}

@@ -87,6 +87,16 @@ why and cannot be ticked. The tick form swaps this row in place over htmx.
                 {% if item.team %}
                     · {% blocktranslate with team=item.team.short_name %}via the {{ team }} team{% endblocktranslate %}
                 {% endif %}
+                {% if item.is_done %}
+                    ·
+                    {% if item.completed_by == request.user %}
+                        {% blocktranslate with date=item.completed_at|date:"j M" %}you did this on {{ date }}{% endblocktranslate %}
+                    {% elif item.completed_by %}
+                        {% blocktranslate with name=item.completed_by.get_full_name|default:item.completed_by.username date=item.completed_at|date:"j M" %}done by {{ name }} on {{ date }}{% endblocktranslate %}
+                    {% else %}
+                        {% blocktranslate with date=item.completed_at|date:"j M" %}done automatically on {{ date }}{% endblocktranslate %}
+                    {% endif %}
+                {% endif %}
             </div>
             {% if item.is_waiting and item.waiting_reason %}
                 <div class="small text-secondary fst-italic">

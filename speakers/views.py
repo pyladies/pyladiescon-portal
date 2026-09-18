@@ -1601,6 +1601,19 @@ class ChecklistQueueView(LoginRequiredMixin, SpeakerQueueRequiredMixin, Template
             .order_by(F("due_date").asc(nulls_last=True), "order", "id")
         ]
         view = "presenter" if self.request.GET.get("view") == "presenter" else "all"
+        # What they (or their team) already finished, newest first: the
+        # accomplishments list under the open items.
+        done_items = [
+            annotate_due(item, as_of)
+            for item in ChecklistItem.objects.filter(
+                owned_by(self.request.user, self.conference),
+                conference=self.conference,
+                owner=ItemOwner.ORGANIZER,
+                status=ItemStatus.DONE,
+            )
+            .select_related("presenter", "session", "team", "completed_by")
+            .order_by(F("completed_at").desc(nulls_last=True), "-id")
+        ]
         context.update(
             {
                 "conference": self.conference,
@@ -1608,6 +1621,7 @@ class ChecklistQueueView(LoginRequiredMixin, SpeakerQueueRequiredMixin, Template
                 "view": view,
                 "items": items,
                 "groups": _queue_groups(items) if view == "presenter" else [],
+                "done_items": done_items,
                 "today": as_of,
                 # A volunteer assignee may not open a presenter page, so the
                 # group headings name them without linking. The rows name

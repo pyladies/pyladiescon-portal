@@ -617,8 +617,11 @@ class TestVolunteerAssignee:
         assertRedirects(response, QUEUE)
         item.refresh_from_db()
         assert item.status == ItemStatus.DONE and item.completed_by == volunteer
-        # Their last item is done; the queue still opens, so they can reopen it.
-        assert "Nothing assigned to you" in client.get(QUEUE).content.decode()
+        # Their last item is done; the queue still opens, and the item is
+        # under Completed, where they can untick it.
+        content = client.get(QUEUE).content.decode()
+        assert "Everything assigned to you is done" in content
+        assert 'id="completed"' in content
 
     def test_the_page_hangs_off_the_rail_they_can_use(
         self, client, volunteer, organizer, people
@@ -891,7 +894,57 @@ def _rail_entry(content, url):
 @pytest.mark.django_db
 class TestQueuePage:
     """The page itself: one rail entry for everyone, two views, rows that
-    tick in place."""
+    tick in place, and what has been finished."""
+
+    def test_completed_section_lists_accomplishments(
+        self, client, volunteer, liaison, people, conference, design_team, organizer
+    ):
+        ada = people["ada"]
+        mine = add_adhoc_item(
+            conference,
+            "Edit transcript",
+            ItemOwner.ORGANIZER,
+            presenter=ada,
+            assignee=volunteer,
+        )
+        teams = add_adhoc_item(
+            conference,
+            "Promo card",
+            ItemOwner.ORGANIZER,
+            presenter=ada,
+            team=design_team,
+        )
+        open_one = add_adhoc_item(
+            conference,
+            "Still open",
+            ItemOwner.ORGANIZER,
+            presenter=ada,
+            assignee=volunteer,
+        )
+        profile = VolunteerProfile.objects.get(user=volunteer, conference=conference)
+        profile.teams.add(design_team)
+        complete_item(teams, actor=liaison)
+        complete_item(mine, actor=volunteer)
+        client.force_login(volunteer)
+        response = client.get(QUEUE)
+        assert [i.title for i in response.context["done_items"]] == [
+            "Edit transcript",
+            "Promo card",
+        ]
+        content = response.content.decode()
+        assert 'id="completed"' in content and "Completed" in content
+        assert "you did this on" in content and "done by Lena on" in content
+        assert 'checklist-title-done">Edit transcript</a>' in content
+        assert open_one in response.context["items"]
+        # Nothing open but things done: a different empty line.
+        complete_item(open_one, actor=volunteer)
+        content = client.get(QUEUE).content.decode()
+        assert "Everything assigned to you is done" in content
+        assert "Enjoy the quiet" not in content
+        # Grouped view keeps the section too.
+        content = client.get(QUEUE, {"view": "presenter"}).content.decode()
+        assert 'id="completed"' in content
+
 
     def test_organizer_gets_the_personal_shell_too(self, client, organizer, enabled):
         client.force_login(organizer)
