@@ -44,6 +44,16 @@ class TestUserCapabilities:
         caps = user_capabilities(_request(portal_user))
         assert caps["can_start_next_year"] is False
 
+    def test_conferences_are_superuser_only(self, django_user_model, conference):
+        """Staff organizers get the Organize rail but the Conference views
+        require a superuser, so the rail must not offer what 403s."""
+        staff = django_user_model.objects.create_user("staff", is_staff=True)
+        caps = user_capabilities(_request(staff))
+        assert caps["is_organizer"] is True
+        assert caps["can_manage_conferences"] is False
+        assert caps["can_start_next_year"] is False
+        assert user_capabilities(_request())["can_manage_conferences"] is False
+
     def test_can_start_next_year_false_while_edition_running(
         self, admin_user, conference
     ):

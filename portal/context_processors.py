@@ -23,7 +23,9 @@ def user_capabilities(request):
     * ``can_view_sponsorship``  — organizer OR an approved volunteer (read-only)
     * ``active_volunteer_profile`` — this user's profile for the active edition
     * ``leads_any_team``        — true if they lead at least one team
-    * ``can_start_next_year``   — organizer AND a new edition can be started;
+    * ``can_manage_conferences``— superuser only (matches the Conference views
+      and StartNewYearView, which use SuperuserRequiredMixin)
+    * ``can_start_next_year``   — superuser AND a new edition can be started;
       the shared Organize rail renders on every organizer page, so the flag
       must be available everywhere, not just in the views that used to pass it
     * ``is_maintainer``         - holds ``portal_account.view_maintenance``;
@@ -37,6 +39,7 @@ def user_capabilities(request):
             "can_view_sponsorship": False,
             "active_volunteer_profile": None,
             "leads_any_team": False,
+            "can_manage_conferences": False,
             "can_start_next_year": False,
             "is_maintainer": False,
         }
@@ -53,6 +56,7 @@ def user_capabilities(request):
         "can_view_sponsorship": is_organizer or is_approved,
         "active_volunteer_profile": profile,
         "leads_any_team": bool(profile and profile.team_leads.exists()),
-        "can_start_next_year": is_organizer and Conference.can_start_next_year(),
+        "can_manage_conferences": user.is_superuser,
+        "can_start_next_year": user.is_superuser and Conference.can_start_next_year(),
         "is_maintainer": is_maintainer(user),
     }
