@@ -180,7 +180,10 @@ button.checklist-box-done:hover {
 }
 /* Due dates, right-aligned, louder the closer they are. */
 .checklist-due {
-    font-weight: 500;
+    /* Bootstrap badges are 0.75em; a deadline deserves body size. */
+    font-size: 0.95rem;
+    font-weight: 600;
+    padding: 0.4em 0.65em;
     white-space: nowrap;
 }
 .checklist-due-overdue {
