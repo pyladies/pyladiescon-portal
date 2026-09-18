@@ -1,11 +1,20 @@
-{% extends can_manage_sponsorship|yesno:"portal/base_sidebar.html,portal/base.html" %}
+{% extends "portal/base_sidebar.html" %}
 {% load allauth i18n %}
 {% load django_bootstrap5 %}
 {% block sidebar_title %}
-    {% trans "Organize" %}
+    {% if can_manage_sponsorship %}
+        {% trans "Organize" %}
+    {% else %}
+        {% trans "My volunteering" %}
+    {% endif %}
 {% endblock sidebar_title %}
 {% block sidebar %}
-    {% include "portal/_organize_rail.html" with active="sponsors" %}
+    {% if can_manage_sponsorship %}
+        {% include "portal/_organize_rail.html" with active="sponsors" %}
+    {% else %}
+        {# Read-only viewers (approved volunteers) browse from their own hub. #}
+        {% include "volunteer/_volunteer_rail.html" with active="sponsors" %}
+    {% endif %}
 {% endblock sidebar %}
 {% block content %}
     <div class="py-3">

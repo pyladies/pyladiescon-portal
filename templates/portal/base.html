@@ -105,16 +105,8 @@
                                    href="{% url 'speakers:my_dashboard' %}">{% trans "Speaking" %}</a>
                             </li>
                         {% endif %}
-                        {# Sponsorship: only for viewers who are not organizers; #}
-                        {# organizers reach Sponsors from the Organize rail, so a #}
-                        {# second tab into the same shell would just confuse. #}
-                        {% if can_view_sponsorship and not is_organizer %}
-                            <li class="nav-item">
-                                <a class="nav-link"
-                                   data-nav-section="organize"
-                                   href="{% url 'sponsorship:sponsorship_list' %}">{% trans "Sponsorship" %}</a>
-                            </li>
-                        {% endif %}
+                        {# Sponsorship has no tab: organizers reach Sponsors from #}
+                        {# the Organize rail, read-only viewers from My volunteering. #}
                         {# Organize: one coarse link; the shared Organize rail #}
                         {# on every organizer page carries the detailed nav. #}
                         {# The current section is marked from the rail on the page #}

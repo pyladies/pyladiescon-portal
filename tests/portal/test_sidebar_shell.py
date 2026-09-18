@@ -90,15 +90,16 @@ class TestTopNavSections:
         assert 'data-rail-section="volunteer"' in html
         assert 'data-nav-section="volunteer"' in html
 
-    def test_sponsorship_tab_only_for_non_organizer_viewers(
+    def test_no_sponsorship_tab_for_anyone(
         self, client, admin_user, portal_user, conference
     ):
+        """Organizers have Sponsors in the Organize rail, approved volunteers
+        in their personal rail; the top nav carries neither."""
         sponsorship = reverse("sponsorship:sponsorship_list")
         client.force_login(admin_user)
         html = client.get(reverse("organizer_dashboard")).content.decode()
         nav = html.split('id="navbarsExample04"')[1].split("</ul>")[0]
-        assert sponsorship not in nav  # it is in the Organize rail instead
-        assert sponsorship in html
+        assert sponsorship not in nav and sponsorship in html
         VolunteerProfile.objects.create(
             user=portal_user,
             conference=conference,
@@ -107,4 +108,12 @@ class TestTopNavSections:
         client.force_login(portal_user)
         html = client.get(reverse("volunteer:index")).content.decode()
         nav = html.split('id="navbarsExample04"')[1].split("</ul>")[0]
-        assert sponsorship in nav
+        assert sponsorship not in nav
+        rail = html.split('id="appSidebar"')[1]
+        assert sponsorship in rail and "Sponsors" in rail
+        # A volunteer who is not approved gets neither.
+        VolunteerProfile.objects.filter(user=portal_user).update(
+            application_status=ApplicationStatus.PENDING
+        )
+        html = client.get(reverse("volunteer:index")).content.decode()
+        assert sponsorship not in html

@@ -6,9 +6,12 @@ Rule: rails are menus (sections + actions), never data rows. The teams a
 volunteer is on are listed in content (My teams page), not here.
 
 Expects:
-    active: one of: "overview", "profile", "teams", "conferences".
+    active: one of: "overview", "profile", "teams", "queue", "sponsors",
+    "conferences".
 Uses from the user_capabilities context processor:
     active_volunteer_profile (the "My profile" item is hidden until one exists)
+    can_view_sponsorship / is_organizer (the read-only "Sponsors" item for
+    approved volunteers; organizers have it in the Organize rail)
 and from speakers.context_processors.speaker_module:
     is_speaker_liaison (the "My speakers" item for volunteers who liaise)
     can_work_speaker_queue (the "My volunteering tasks" item, for anyone who
@@ -52,6 +55,14 @@ and from speakers.context_processors.speaker_module:
         {% include "portal/_sidebar_item.html" with url=speaker_queue_url label=_("My volunteering tasks") icon="fa-inbox" active=True only %}
     {% else %}
         {% include "portal/_sidebar_item.html" with url=speaker_queue_url label=_("My volunteering tasks") icon="fa-inbox" only %}
+    {% endif %}
+{% endif %}
+{% if can_view_sponsorship and not is_organizer %}
+    {% url 'sponsorship:sponsorship_list' as sponsors_url %}
+    {% if active == "sponsors" %}
+        {% include "portal/_sidebar_item.html" with url=sponsors_url label=_("Sponsors") icon="fa-handshake" active=True only %}
+    {% else %}
+        {% include "portal/_sidebar_item.html" with url=sponsors_url label=_("Sponsors") icon="fa-handshake" only %}
     {% endif %}
 {% endif %}
 {% url 'volunteer:my_conferences' as my_conferences_url %}
