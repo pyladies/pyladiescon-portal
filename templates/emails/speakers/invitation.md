@@ -4,7 +4,7 @@
 
 Hi {{ presenter.display_name }},
 
-{% if session %}We would love for you to be part of **{{ conference.name }}** with **{{ session.title }}** ({{ session.get_kind_display }}).{% else %}We would love for you to be part of **{{ conference.name }}**.{% endif %}
+{% if session %}We would love for you to be part of **{{ conference.name }}** with **{{ session.title }}** ({{ session.kind.name }}).{% else %}We would love for you to be part of **{{ conference.name }}**.{% endif %}
 
 {% if invitation.message_md %}
 {{ invitation.message_md }}

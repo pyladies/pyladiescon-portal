@@ -110,11 +110,14 @@ class SpeakerSettings(TimestampedModel):
 
     def save(self, *args, **kwargs):
         """An edition that starts using the module gets the default session
-        types and presenter roles; rerunning changes nothing."""
+        types and presenter roles (``manage.py seed_program_types`` for any
+        later top-up)."""
+        creating = self._state.adding
         super().save(*args, **kwargs)
-        from .program_types import seed_program_types
+        if creating:
+            from .program_types import seed_program_types
 
-        seed_program_types(self.conference)
+            seed_program_types(self.conference)
 
 
 def speaker_module_enabled(conference):
@@ -287,6 +290,12 @@ class Presenter(TimestampedModel):
     def __str__(self):
         return self.display_name
 
+    def clean(self):
+        # Before validate_constraints runs, so "Ada@Example.com" collides
+        # with "ada@example.com" in the form instead of on the database.
+        self.email = self.email.strip().lower()
+        super().clean()
+
     def save(self, *args, **kwargs):
         self.email = self.email.strip().lower()
         if not self.slug:
@@ -409,20 +418,15 @@ class SessionType(TimestampedModel):
         super().save(*args, **kwargs)
 
     def clean(self):
+        """``default_role`` must be of this edition. Whether it is one of
+        ``roles`` is a form-level check (the many-to-many is saved after
+        ``full_clean`` in the admin), left to the settings form."""
         super().clean()
         if (
             self.default_role_id
             and self.default_role.conference_id != self.conference_id
         ):
             raise ValidationError({"default_role": "Pick a role of this edition."})
-        if (
-            self.pk
-            and self.default_role_id
-            and not self.roles.filter(pk=self.default_role_id).exists()
-        ):
-            raise ValidationError(
-                {"default_role": "The default role must be one of the allowed roles."}
-            )
 
     @property
     def has_presenters(self):
@@ -723,7 +727,7 @@ class ScheduleSlot(TimestampedModel):
     def save(self, *args, **kwargs):
         self.conference_id = self.session.conference_id
         if not self.end_utc:
-            self.end_utc = self.start_utc + timezone.timedelta(
+            self.end_utc = self.start_utc + timedelta(
                 minutes=self.session.duration_minutes
             )
         super().save(*args, **kwargs)
@@ -778,9 +782,20 @@ class Invitation(TimestampedModel):
         "personal message", blank=True, help_text="Markdown, included in the email."
     )
     token = models.CharField(max_length=64, blank=True, editable=False)
+    sent_to = models.EmailField(
+        blank=True,
+        editable=False,
+        help_text="The address the current link went to. Accepting verifies "
+        "this address, not whatever the presenter's email says later.",
+    )
     sent_at = models.DateTimeField(null=True, blank=True)
     expires_at = models.DateTimeField(null=True, blank=True)
-    opened_at = models.DateTimeField(null=True, blank=True)
+    opened_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="First visit of the link. A soft signal only: mail scanners "
+        'and link previews open links too, so never nag on "not opened".',
+    )
     accepted_at = models.DateTimeField(null=True, blank=True)
     declined_at = models.DateTimeField(null=True, blank=True)
     cancelled_at = models.DateTimeField(null=True, blank=True)
@@ -831,6 +846,7 @@ class Invitation(TimestampedModel):
         """Mint a fresh token and expiry; the previous link stops working."""
         now = now or timezone.now()
         self.token = secrets.token_urlsafe(32)
+        self.sent_to = self.presenter.email
         self.sent_at = now
         self.expires_at = now + self.TOKEN_MAX_AGE
         self.opened_at = None

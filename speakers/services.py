@@ -7,9 +7,9 @@ account machinery directly.
 import re
 
 from allauth.account.models import EmailAddress
-from allauth.account.utils import filter_users_by_email
 from django.contrib.auth import get_user_model
 from django.core import signing
+from django.db import transaction
 from django.utils import timezone
 
 from common.tasks import enqueue
@@ -37,21 +37,26 @@ def send_invitation(invitation, actor=None):
     """
     if invitation.status == InvitationStatus.ACCEPTED:
         raise ValueError("This invitation has already been accepted.")
-    invitation.issue_token()
-    invitation.save()
-    session = invitation.session
-    if session is not None and session.status == SessionStatus.DRAFT:
-        session.mark_invited()
-    ActivityLog.record(
-        invitation.conference,
-        "invitation.sent",
-        target=invitation,
-        actor=actor,
-        message=f"Invitation sent to {invitation.presenter.email}",
-        presenter_id=invitation.presenter_id,
-        session_id=invitation.session_id,
-    )
-    enqueue(send_invitation_email_task, invitation.pk)
+    with transaction.atomic():
+        invitation.issue_token()
+        invitation.save()
+        session = invitation.session
+        if session is not None and session.status == SessionStatus.DRAFT:
+            session.mark_invited()
+        ActivityLog.record(
+            invitation.conference,
+            "invitation.sent",
+            target=invitation,
+            actor=actor,
+            message=f"Invitation sent to {invitation.sent_to}",
+            presenter_id=invitation.presenter_id,
+            session_id=invitation.session_id,
+        )
+        # Only once the token is durably stored, so the email never carries
+        # a link the database rolled back.
+        transaction.on_commit(
+            lambda: enqueue(send_invitation_email_task, invitation.pk)
+        )
 
 
 def resolve_invitation(signed, conference):
@@ -92,32 +97,42 @@ def _unique_username(base):
     return candidate
 
 
-def link_presenter_user(presenter):
-    """Attach the account for ``presenter.email``, creating one if needed.
+def link_presenter_user(presenter, email=None):
+    """Attach the account for ``email`` (the address the invitation went
+    to), creating one if needed.
 
-    The invitation token proves control of the address, so the address is
-    recorded as verified on whichever account ends up linked.
+    The token proves control of that address, so only an account that has
+    already *verified* it may be linked. An unverified claim on another
+    account (someone signed up with the address but never confirmed it) is
+    dropped, exactly as allauth's own confirmation does under
+    ``ACCOUNT_UNIQUE_EMAIL``; linking to it would hand that account, and its
+    password, a verified address it never proved. A user whose ``User.email``
+    merely matches is not enough either.
     """
     if presenter.user is not None:
         return presenter.user
+    email = (email or presenter.email).strip().lower()
     User = get_user_model()
-    users = filter_users_by_email(
-        presenter.email, is_active=True, prefer_verified=True
-    ) or list(User.objects.filter(email__iexact=presenter.email, is_active=True))
-    if users:
-        user = users[0]
+    verified = (
+        EmailAddress.objects.filter(email__iexact=email, verified=True)
+        .select_related("user")
+        .first()
+    )
+    if verified is not None:
+        user = verified.user
     else:
+        EmailAddress.objects.filter(email__iexact=email, verified=False).delete()
         first, _, last = presenter.display_name.partition(" ")
         user = User.objects.create_user(
-            username=_unique_username(presenter.email),
-            email=presenter.email,
+            username=_unique_username(email),
+            email=email,
             first_name=first[:150],
             last_name=last[:150],
         )
         user.set_unusable_password()
         user.save(update_fields=["password"])
     address, _ = EmailAddress.objects.get_or_create(
-        user=user, email=presenter.email, defaults={"primary": True}
+        user=user, email__iexact=email, defaults={"email": email, "primary": True}
     )
     if not address.verified:
         address.verified = True
@@ -153,32 +168,35 @@ def accept_invitation(invitation):
     conference invitation) confirms every session the presenter is on.
     """
     presenter = invitation.presenter
-    user = link_presenter_user(presenter)
-    now = timezone.now()
-    links = presenter.session_presenters.select_related("session").filter(
-        confirmed_at__isnull=True
-    )
-    if invitation.session_id is not None:
-        links = links.filter(session=invitation.session)
-    sessions = []
-    for link in links:
-        link.confirm(when=now)
-        sessions.append(link.session)
-    invitation.accepted_at = now
-    invitation.save(update_fields=["accepted_at", "modified_date"])
-    ActivityLog.record(
-        invitation.conference,
-        "invitation.accepted",
-        target=invitation,
-        actor=user,
-        presenter_id=presenter.pk,
-        session_id=invitation.session_id,
-    )
-    for session in sessions:
-        confirm_session_if_ready(session)
-    invitation_accepted.send(
-        sender=Invitation, invitation=invitation, presenter=presenter, user=user
-    )
+    # All or nothing: a receiver of ``invitation_accepted`` that fails must
+    # not leave the account linked and the session half confirmed.
+    with transaction.atomic():
+        user = link_presenter_user(presenter, email=invitation.sent_to)
+        now = timezone.now()
+        links = presenter.session_presenters.select_related("session").filter(
+            confirmed_at__isnull=True
+        )
+        if invitation.session_id is not None:
+            links = links.filter(session=invitation.session)
+        sessions = []
+        for link in links:
+            link.confirm(when=now)
+            sessions.append(link.session)
+        invitation.accepted_at = now
+        invitation.save(update_fields=["accepted_at", "modified_date"])
+        ActivityLog.record(
+            invitation.conference,
+            "invitation.accepted",
+            target=invitation,
+            actor=user,
+            presenter_id=presenter.pk,
+            session_id=invitation.session_id,
+        )
+        for session in sessions:
+            confirm_session_if_ready(session)
+        invitation_accepted.send(
+            sender=Invitation, invitation=invitation, presenter=presenter, user=user
+        )
     return user
 
 

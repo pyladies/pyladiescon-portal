@@ -4,8 +4,8 @@ from .emails import send_invitation_email
 from .models import Invitation
 
 
-@shared_task(bind=True, max_retries=3, default_retry_delay=60)
-def send_invitation_email_task(self, invitation_id):
+@shared_task
+def send_invitation_email_task(invitation_id):
     """Send the invitation email for ``invitation_id``."""
     invitation = (
         Invitation.objects.filter(pk=invitation_id)

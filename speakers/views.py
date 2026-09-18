@@ -1,5 +1,6 @@
+from allauth.account.adapter import get_adapter as get_account_adapter
 from django.contrib import messages
-from django.contrib.auth import login, logout
+from django.contrib.auth import logout
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.shortcuts import redirect, render
 from django.utils import timezone
@@ -40,9 +41,9 @@ class InvitationView(SpeakerModuleRequiredMixin, View):
     as their first magic-link login.
     """
 
-    def get_invitation(self, request, token):
+    def dispatch(self, request, *args, **kwargs):
         try:
-            return resolve_invitation(token, self.conference)
+            return super().dispatch(request, *args, **kwargs)
         except InvitationError as exc:
             return render(
                 request,
@@ -51,9 +52,7 @@ class InvitationView(SpeakerModuleRequiredMixin, View):
             )
 
     def get(self, request, token):
-        invitation = self.get_invitation(request, token)
-        if not hasattr(invitation, "presenter"):
-            return invitation
+        invitation = resolve_invitation(token, self.conference)
         if invitation.opened_at is None:
             invitation.opened_at = timezone.now()
             invitation.save(update_fields=["opened_at", "modified_date"])
@@ -64,9 +63,7 @@ class InvitationView(SpeakerModuleRequiredMixin, View):
         )
 
     def post(self, request, token):
-        invitation = self.get_invitation(request, token)
-        if not hasattr(invitation, "presenter"):
-            return invitation
+        invitation = resolve_invitation(token, self.conference)
         if request.POST.get("action") == "decline":
             decline_invitation(invitation)
             return render(
@@ -77,7 +74,9 @@ class InvitationView(SpeakerModuleRequiredMixin, View):
         user = accept_invitation(invitation)
         if request.user.is_authenticated and request.user != user:
             logout(request)
-        login(request, user, backend="django.contrib.auth.backends.ModelBackend")
+        # Through allauth, so its signals and adapter hooks fire as on any
+        # other sign-in.
+        get_account_adapter(request).login(request, user)
         messages.success(
             request,
             f"Thanks for accepting, {invitation.presenter.display_name}. "

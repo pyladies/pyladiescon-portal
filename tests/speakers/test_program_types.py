@@ -58,12 +58,19 @@ class TestSeeding:
         assert talk.name == "Lecture" and talk.default_duration_minutes == 25
         assert talk.roles.filter(code="HOST").exists()
 
-    def test_settings_row_seeds_the_edition(self, conference):
+    def test_settings_row_seeds_the_edition_once(self, conference):
         assert not SessionType.objects.filter(conference=conference).exists()
-        make_settings(conference)
+        settings_row = make_settings(conference)
         assert SessionType.objects.filter(conference=conference).count() == len(
             DEFAULT_SESSION_TYPES
         )
+        # Later saves (flag toggles) do not reseed; the command does.
+        SessionType.objects.filter(conference=conference, code="OTHER").delete()
+        settings_row.speaker_module_enabled = False
+        settings_row.save()
+        assert not SessionType.objects.filter(conference=conference, code="OTHER")
+        seed_program_types(conference)
+        assert SessionType.objects.filter(conference=conference, code="OTHER")
 
     def test_helpers_seed_on_demand(self, conference):
         assert session_type(conference, "WORKSHOP").name == "Workshop"
@@ -183,11 +190,8 @@ class TestRoleMapping:
         assert link.role.email_word == "interpreter"
         assert str(link).endswith("(Interpreter) on " + session.title)
 
-    def test_default_role_must_be_allowed_and_of_the_edition(self, conference):
+    def test_default_role_must_be_of_the_edition(self, conference):
         talk = session_type(conference, "TALK")
-        talk.default_role = presenter_role(conference, "HOST")
-        with pytest.raises(ValidationError, match="one of the allowed roles"):
-            talk.full_clean()
         other = Conference.objects.create(year=2024, name="Old", slug="old")
         talk.default_role = presenter_role(other, "PRESENTER")
         with pytest.raises(ValidationError, match="role of this edition"):

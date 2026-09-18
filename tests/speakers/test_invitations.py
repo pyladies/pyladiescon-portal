@@ -6,6 +6,7 @@ from allauth.account.models import EmailAddress
 from django.contrib.auth.models import User
 from django.core import mail
 from django.core.exceptions import ValidationError
+from django.db import transaction
 from django.template.loader import render_to_string
 from django.urls import reverse
 
@@ -23,6 +24,7 @@ from speakers.services import (
 from speakers.signals import invitation_accepted
 from speakers.tasks import send_invitation_email_task
 
+from .conftest import REAL_ON_COMMIT
 from .factories import (
     add_presenter,
     make_invitation,
@@ -76,6 +78,7 @@ class TestSendInvitation:
         assert message.to == ["ada@example.com"]
         assert "Django 101" in message.subject
         assert "Hope you can join!" in message.body
+        assert "Django 101 (Workshop)" in message.body
         html = message.alternatives[0][0]
         assert "<strong>join</strong>" in html
         link = _link_from_mail()
@@ -225,28 +228,94 @@ class TestAcceptInvitation:
         assert "invitation.accepted" in actions
         assert "session.confirmed" in actions
 
-    def test_links_existing_user_by_user_email(self, invitation, portal_user):
+    def test_matching_user_email_alone_does_not_link(self, invitation, portal_user):
+        """``User.email`` proves nothing; only a verified address does."""
         portal_user.email = "ADA@example.com"
         portal_user.save()
         send_invitation(invitation)
-        assert accept_invitation(invitation) == portal_user
-        assert EmailAddress.objects.get(user=portal_user).verified is True
+        user = accept_invitation(invitation)
+        assert user != portal_user and user.username == "ada"
+        assert not EmailAddress.objects.filter(user=portal_user).exists()
 
-    def test_links_existing_user_by_verified_email_address(
-        self, invitation, portal_user
+    def test_unverified_signup_cannot_take_over_the_presenter(
+        self, invitation, django_user_model
     ):
+        """Mallory signed up with Ada's address and never verified it. Ada's
+        invitation must not link to that account, which would hand Mallory
+        a verified address and Ada's speaker profile behind Mallory's
+        password. The unverified claim is dropped, as allauth does on
+        confirmation, and Ada gets her own account."""
+        mallory = django_user_model.objects.create_user(
+            username="mallory", email="ada@example.com", password="secret-pw"
+        )
         EmailAddress.objects.create(
-            user=portal_user, email="ada@example.com", verified=True, primary=False
+            user=mallory, email="ada@example.com", verified=False, primary=True
         )
         send_invitation(invitation)
-        assert accept_invitation(invitation) == portal_user
-        assert User.objects.filter(username="ada").exists() is False
+        user = accept_invitation(invitation)
+        assert user != mallory
+        assert user.has_usable_password() is False
+        assert not EmailAddress.objects.filter(user=mallory).exists()
+        address = EmailAddress.objects.get(email="ada@example.com")
+        assert address.user == user and address.verified is True
+        invitation.presenter.refresh_from_db()
+        assert invitation.presenter.user == user
+        mallory.refresh_from_db()
+        assert mallory.check_password("secret-pw")  # untouched, just unlinked
 
     def test_already_linked_presenter_keeps_user(self, invitation, portal_user):
         invitation.presenter.user = portal_user
         invitation.presenter.save()
         send_invitation(invitation)
         assert accept_invitation(invitation) == portal_user
+
+    def test_failing_receiver_rolls_everything_back(self, invitation):
+        """A Stage 2 receiver that blows up must not leave the account linked
+        and the session half confirmed."""
+        send_invitation(invitation)
+
+        def explode(**kwargs):
+            raise RuntimeError("checklist instantiation failed")
+
+        invitation_accepted.connect(explode, weak=False)
+        try:
+            with pytest.raises(RuntimeError):
+                accept_invitation(invitation)
+        finally:
+            invitation_accepted.disconnect(explode)
+        invitation.refresh_from_db()
+        invitation.presenter.refresh_from_db()
+        assert invitation.accepted_at is None
+        assert invitation.presenter.user is None
+        assert not User.objects.filter(username="ada").exists()
+        assert invitation.session.session_presenters.get().is_confirmed is False
+
+    def test_email_is_queued_only_after_commit(
+        self, invitation, monkeypatch, django_capture_on_commit_callbacks
+    ):
+        monkeypatch.setattr(transaction, "on_commit", REAL_ON_COMMIT)
+        mail.outbox.clear()
+        with django_capture_on_commit_callbacks(execute=False) as callbacks:
+            send_invitation(invitation)
+            assert mail.outbox == []  # nothing goes out inside the transaction
+        assert len(callbacks) == 1
+        callbacks[0]()
+        assert len(mail.outbox) == 1
+
+    def test_accepting_verifies_the_address_the_link_went_to(self, invitation):
+        """Changing the presenter's email after sending must not let whoever
+        holds the old address claim the new one as verified."""
+        send_invitation(invitation)
+        assert invitation.sent_to == "ada@example.com"
+        invitation.presenter.email = "ada@new.example"
+        invitation.presenter.save()
+        user = accept_invitation(invitation)
+        assert user.email == "ada@example.com"
+        assert not EmailAddress.objects.filter(email="ada@new.example").exists()
+        # A resend snapshots the current address again.
+        later = make_invitation(make_presenter(invitation.conference, email="b@x.io"))
+        send_invitation(later)
+        assert later.sent_to == "b@x.io"
 
     def test_username_collision_gets_suffix(self, invitation):
         User.objects.create_user(username="ada", email="other@example.com")
@@ -365,8 +434,9 @@ class TestInvitationView:
     def test_accept_keeps_matching_logged_in_user(
         self, client, invitation, portal_user
     ):
-        portal_user.email = "ada@example.com"
-        portal_user.save()
+        EmailAddress.objects.create(
+            user=portal_user, email="ada@example.com", verified=True, primary=True
+        )
         client.force_login(portal_user)
         send_invitation(invitation)
         client.post(_url(invitation), {"action": "accept"})

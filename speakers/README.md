@@ -2,7 +2,8 @@
 
 The speaker portal for PyLadiesCon: sessions, presenters, invitations,
 checklists, scheduling, media pipeline and the public program. The design is
-in the repository root (`DESIGN.md`) and the task breakdown in `TASKS.md`. This
+`docs/architecture/speaker-portal.md` on the docs site; the task breakdown
+that drives the build is kept by the maintainer outside the repository. This
 file records how the existing portal works, with file paths, and the
 conventions this module follows so every task session starts from the same
 map.

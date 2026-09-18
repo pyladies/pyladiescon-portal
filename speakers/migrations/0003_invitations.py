@@ -53,9 +53,25 @@ class Migration(migrations.Migration):
                     ),
                 ),
                 ("token", models.CharField(blank=True, editable=False, max_length=64)),
+                (
+                    "sent_to",
+                    models.EmailField(
+                        blank=True,
+                        editable=False,
+                        help_text="The address the current link went to. Accepting verifies this address, not whatever the presenter's email says later.",
+                        max_length=254,
+                    ),
+                ),
                 ("sent_at", models.DateTimeField(blank=True, null=True)),
                 ("expires_at", models.DateTimeField(blank=True, null=True)),
-                ("opened_at", models.DateTimeField(blank=True, null=True)),
+                (
+                    "opened_at",
+                    models.DateTimeField(
+                        blank=True,
+                        help_text='First visit of the link. A soft signal only: mail scanners and link previews open links too, so never nag on "not opened".',
+                        null=True,
+                    ),
+                ),
                 ("accepted_at", models.DateTimeField(blank=True, null=True)),
                 ("declined_at", models.DateTimeField(blank=True, null=True)),
                 ("cancelled_at", models.DateTimeField(blank=True, null=True)),

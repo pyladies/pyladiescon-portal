@@ -240,6 +240,15 @@ class TestSessionTransitions:
 
 @pytest.mark.django_db
 class TestPresenter:
+    def test_case_variant_email_collides_in_validation(self, conference):
+        make_presenter(conference, email="ada@example.com")
+        double = Presenter(
+            conference=conference, display_name="Ada", email="Ada@Example.COM"
+        )
+        with pytest.raises(ValidationError):
+            double.full_clean()
+        assert double.email == "ada@example.com"  # normalised by clean()
+
     def test_str_slug_and_email_normalised(self, conference):
         presenter = make_presenter(
             conference, display_name="Ada Lovelace", email="  Ada@Example.COM "
