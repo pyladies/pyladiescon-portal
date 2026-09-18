@@ -1,27 +1,48 @@
 {% for breakdown in stats.volunteer_breakdown %}
-    var data = google.visualization.arrayToDataTable([
-    ['{{ breakdown.columns.0 }}', '{{ breakdown.columns.1 }}'],
-    {% for data in breakdown.data %}
-        ['{{ data.0 }}', {{ data.1 }},],
-    {% endfor %}
-    ]);
-    var paddingHeight = 120;
-    var rowHeight = 40;
-    var chartHeight = Math.max(500, (data.getNumberOfRows() * rowHeight) + paddingHeight);
-    document.getElementById('{{ breakdown.chart_id }}').style.height = chartHeight + 'px';
-    var options = {
-    chart: {
-    'title':'{{ breakdown.title }}'
-    },
-    hAxis: {title: '{{ breakdown.columns.1 }}', minValue: 0, format:'0'},
-    vAxis: {title: '{{ breakdown.columns.0 }}'},
-    height: chartHeight,
-    chartArea: {
-    width: '75%',
-    height: '85%'
-    },
-    bars: 'horizontal'
-    };
-    var chart = new google.charts.Bar(document.getElementById('{{ breakdown.chart_id }}'));
-    chart.draw(data, google.charts.Bar.convertOptions(options));
+    {% if breakdown.chart_type == 'geochart' %}
+        var data = google.visualization.arrayToDataTable([
+            ['{{ breakdown.columns.0 }}', '{{ breakdown.columns.1 }}'],
+            {% for data in breakdown.data %}
+                ['{{ data.0 }}', {{ data.1 }}],
+            {% endfor %}
+        ]);
+        var options = {
+            resolution: 'continents',
+            colorAxis: {
+                colors: ['#f8bbd0', '#c2185b', '#880e4f']
+            },
+            backgroundColor: 'transparent',
+            datalessRegionColor: '#f0f0f0',
+            defaultColor: '#f0f0f0',
+            legend: { textStyle: { color: '#333', fontSize: 12 } }
+        };
+        var chart = new google.visualization.GeoChart(document.getElementById('{{ breakdown.chart_id }}'));
+        chart.draw(data, options);
+    {% else %}
+        var data = google.visualization.arrayToDataTable([
+            ['{{ breakdown.columns.0 }}', '{{ breakdown.columns.1 }}'],
+            {% for data in breakdown.data %}
+                ['{{ data.0 }}', {{ data.1 }},],
+            {% endfor %}
+        ]);
+        var paddingHeight = 120;
+        var rowHeight = 40;
+        var chartHeight = Math.max(500, (data.getNumberOfRows() * rowHeight) + paddingHeight);
+        document.getElementById('{{ breakdown.chart_id }}').style.height = chartHeight + 'px';
+        var options = {
+            chart: {
+                'title':'{{ breakdown.title }}'
+            },
+            hAxis: {title: '{{ breakdown.columns.1 }}', minValue: 0, format:'0'},
+            vAxis: {title: '{{ breakdown.columns.0 }}'},
+            height: chartHeight,
+            chartArea: {
+                width: '75%',
+                height: '85%'
+            },
+            bars: 'horizontal'
+        };
+        var chart = new google.charts.Bar(document.getElementById('{{ breakdown.chart_id }}'));
+        chart.draw(data, google.charts.Bar.convertOptions(options));
+    {% endif %}
 {% endfor %}

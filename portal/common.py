@@ -528,6 +528,7 @@ def get_volunteer_breakdown(conference):
                 "columns": ["Chapter", "Volunteers"],
                 "data": result,
                 "chart_id": "volunteer_by_chapter",
+                "chart_type": "barchart",
             }
         )
 
@@ -544,6 +545,7 @@ def get_volunteer_breakdown(conference):
                 "columns": ["Region", "Volunteers"],
                 "data": result,
                 "chart_id": "volunteers_by_region",
+                "chart_type": "geochart",
             }
         )
 
@@ -562,6 +564,7 @@ def get_volunteer_breakdown(conference):
                 "columns": ["Language", "Volunteers"],
                 "data": result,
                 "chart_id": "volunteers_by_languages",
+                "chart_type": "barchart",
             }
         )
 
