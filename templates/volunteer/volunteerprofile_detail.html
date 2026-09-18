@@ -26,7 +26,7 @@
     {% endif %}
 {% endblock sidebar %}
 {% block content %}
-    <h1 class="display-5 mb-4">
+    <h1 class="h3 mb-4">
         {% if user.is_superuser and user.username != object.user.username %}
             Volunteer Profile for:  {{ object.user.username }}
         {% else %}

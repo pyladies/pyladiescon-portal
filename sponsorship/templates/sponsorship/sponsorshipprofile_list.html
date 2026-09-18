@@ -24,7 +24,7 @@
     {% endif %}
 {% endblock sidebar %}
 {% block content %}
-    <h1 class="display-5">
+    <h1 class="h3 mb-3">
         {% if request.user.is_superuser %}
             Manage Sponsors <a class="btn btn-primary"
     href="{% url 'sponsorship:sponsorship_profile_new' %}">Add New Sponsor</a>

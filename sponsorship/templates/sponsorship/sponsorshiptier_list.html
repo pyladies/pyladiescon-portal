@@ -14,7 +14,7 @@
 {% endblock sidebar %}
 {% block content %}
     <div class="py-3">
-        <h1 class="display-5">
+        <h1 class="h3 mb-3">
             {% trans "Sponsorship Tiers" %} — {{ selected_conference.year }}
             <a class="btn btn-primary" href="{% url 'sponsorship:tier_new' %}">{% trans "New Tier" %}</a>
         </h1>
