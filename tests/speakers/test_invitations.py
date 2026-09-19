@@ -6,7 +6,6 @@ from allauth.account.models import EmailAddress
 from django.contrib.auth.models import User
 from django.core import mail
 from django.core.exceptions import ValidationError
-from django.db import transaction
 from django.template.loader import render_to_string
 from django.urls import reverse
 
@@ -24,7 +23,6 @@ from speakers.services import (
 from speakers.signals import invitation_accepted
 from speakers.tasks import send_invitation_email_task
 
-from .conftest import REAL_ON_COMMIT
 from .factories import (
     add_presenter,
     make_invitation,
@@ -64,9 +62,9 @@ def _link_from_mail():
 
 @pytest.mark.django_db
 class TestSendInvitation:
-    def test_send_issues_token_and_email(self, invitation, admin_user):
+    def test_send_issues_token_and_email(self, invitation, admin_user, send):
         mail.outbox.clear()
-        send_invitation(invitation, actor=admin_user)
+        send(invitation, actor=admin_user)
         invitation.refresh_from_db()
         assert invitation.token
         assert invitation.sent_at is not None
@@ -119,11 +117,11 @@ class TestSendInvitation:
         with pytest.raises(ValueError, match="already been accepted"):
             send_invitation(invitation)
 
-    def test_general_invitation_without_session(self, conference, enabled):
+    def test_general_invitation_without_session(self, conference, enabled, send):
         presenter = make_presenter(conference)
         invitation = make_invitation(presenter)
         mail.outbox.clear()
-        send_invitation(invitation)
+        send(invitation)
         assert str(invitation) == f"Invitation for {presenter} to {conference}"
         assert mail.outbox[0].subject.endswith("You're invited to PyLadiesCon 2025")
 
@@ -291,9 +289,8 @@ class TestAcceptInvitation:
         assert invitation.session.session_presenters.get().is_confirmed is False
 
     def test_email_is_queued_only_after_commit(
-        self, invitation, monkeypatch, django_capture_on_commit_callbacks
+        self, invitation, django_capture_on_commit_callbacks
     ):
-        monkeypatch.setattr(transaction, "on_commit", REAL_ON_COMMIT)
         mail.outbox.clear()
         with django_capture_on_commit_callbacks(execute=False) as callbacks:
             send_invitation(invitation)

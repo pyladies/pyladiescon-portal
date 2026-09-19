@@ -1,21 +1,23 @@
 """Fixtures shared by the speakers tests."""
 
 import pytest
-from django.db import transaction
 
-# Kept so a test can restore it and watch the real commit hook.
-REAL_ON_COMMIT = transaction.on_commit
+from speakers.services import send_invitation
 
 
-@pytest.fixture(autouse=True)
-def run_on_commit_now(monkeypatch):
-    """Run ``transaction.on_commit`` callbacks immediately.
+@pytest.fixture
+def send(django_capture_on_commit_callbacks):
+    """Send an invitation and run the commit hooks, so the email goes out.
 
-    Tests run inside a transaction that never commits, so callbacks the
-    services register (queueing the invitation email, for one) would never
-    fire and every "the email was sent" assertion would fail. Tests about
-    the commit hook itself restore ``REAL_ON_COMMIT``.
+    ``send_invitation`` queues the email with ``transaction.on_commit``,
+    and a test's transaction never commits. Tests that read the mailbox
+    send through this; the rest call ``send_invitation`` directly and just
+    get a token.
     """
-    monkeypatch.setattr(
-        transaction, "on_commit", lambda func, using=None, robust=False: func()
-    )
+
+    def _send(invitation, **kwargs):
+        with django_capture_on_commit_callbacks(execute=True):
+            send_invitation(invitation, **kwargs)
+        return invitation
+
+    return _send
