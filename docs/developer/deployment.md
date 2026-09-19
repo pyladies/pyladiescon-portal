@@ -8,7 +8,62 @@ description: Deployment Information for PyLadiesCon Portal
 ## Web app deployment
 
 The web app is deployed to [cabotage](https://cabotage.us-east-2.psfhosted.computer/)
-automatically whenever the PR is merged.
+automatically whenever a PR is merged to `main`. Open pull requests are
+**not** deployed; see [Pull request deployments](#pull-request-deployments)
+for why.
+
+### Release step and migrations
+
+The `release` line in the `Procfile` runs before the new version starts
+serving. It creates the cache table and runs `python manage.py migrate`
+against the production database. Every migration file that reaches `main`
+is therefore applied to production on the next deploy, without anyone
+confirming it.
+
+That gives migrations one rule: **a migration is frozen once it is merged.**
+
+- While a pull request is open, its migration files may be regenerated,
+  renamed or squashed freely. Nothing applies them except a developer's own
+  database and the CI test run.
+- After the pull request is merged, the migration is part of production's
+  history. Never edit it in place, delete it or renumber it. Any further
+  schema change is a new migration file, even a one-line fix.
+- If production ever diverges from the migration files (a column missing,
+  a migration recorded as applied that did something else), repair it with a
+  new migration that checks before it acts, such as a `RunSQL` with
+  `ADD COLUMN IF NOT EXISTS`. `speakers/migrations/0002_repair_invitation_sent_to.py`
+  is an example.
+
+Keep pull requests to one migration per app: squash the steps a branch
+accumulated into a single regenerated file before asking for review, and
+check it with `makemigrations --check` and a `migrate` on a fresh database.
+
+### Pull request deployments
+
+Cabotage can build and deploy every push of an open pull request as a
+preview environment. This was **disabled on 2026-09-19** and should stay
+disabled.
+
+The preview environments shared the production database. Each push of a
+pull request ran the same `release` step as a real deploy, so `migrate` was
+applied to production from code that had not been reviewed or merged, and
+that might never merge at all. Two things went wrong with that:
+
+- A migration that was later changed on the branch (regenerated, squashed
+  into another file, or dropped) had already been recorded as applied in
+  production. Django then skipped the merged version, and production ended
+  up with a schema that matched neither the branch nor `main`. This is how
+  the `speakers_invitation.sent_to` column went missing and every session
+  page returned a 500 until [#414](https://github.com/pyladies/pyladiescon-portal/pull/414)
+  added it back.
+- A pull request that is abandoned or rejected still leaves its tables and
+  columns behind in production, with nothing in `main` describing them.
+
+With pull request deployments off, only `main` touches production. Pull
+requests are verified by the CI test run, which builds its own database
+from the migration files, and by the Netlify preview for documentation.
+If preview environments are wanted again, they need a database of their
+own, separate from production, before they are re-enabled.
 
 ### Processes
 

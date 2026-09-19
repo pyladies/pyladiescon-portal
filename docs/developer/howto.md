@@ -27,6 +27,12 @@ docker-compose logs -f
     python manage.py makemigrations
     ```
 
+Migrations that reach `main` are applied to production automatically by
+the deploy's release step, so a merged migration is frozen: never edit it,
+add a new one instead. Keep one migration per app per pull request. The
+[deployment guide](deployment.md#release-step-and-migrations) has the full
+rule and the reason behind it.
+
 ## Running Migrations
 
 === "With Docker"
