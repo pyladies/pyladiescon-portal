@@ -179,10 +179,14 @@ installed; this app keeps small factory functions in `tests/speakers/factories.p
   `speakers/tasks.py` (Celery). The `invitation_accepted` signal in
   `speakers/signals.py` is where Stage 2 instantiates checklists.
 - One migration per pull request. While a branch is being built it may
-  grow several steps, but before the PR is opened they are squashed into a
-  single regenerated file (delete them, `makemigrations speakers`, check
-  with `makemigrations --check` and a `migrate` on a fresh database). Once
-  a PR merges its migration is frozen; later changes are new files.
+  grow several steps, but before the PR branch is pushed they are squashed
+  into a single regenerated file (delete them, `makemigrations speakers`,
+  check with `makemigrations --check` and a `migrate` on a fresh database).
+  A migration is frozen the moment it is **pushed**, not merged: cabotage
+  deploys every push of an open pull request and its release step runs
+  `migrate` against the production database, so an in-place edit after a
+  push never reaches production (see `0002_repair_invitation_sent_to`, the
+  cost of learning this). Later changes are always new files.
 - Every model: `conference` FK, admin registration, factory function,
   isolation test. Join and child rows (`SessionPresenter`, `ScheduleSlot`)
   carry a non-editable `conference` copied from their session on save.
