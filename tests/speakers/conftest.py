@@ -1,8 +1,25 @@
 """Fixtures shared by the speakers tests."""
 
 import pytest
+from django.test import Client, TestCase
 
 from speakers.services import send_invitation
+
+
+class CommittingClient(Client):
+    """A test client that runs ``transaction.on_commit`` hooks after each
+    request, the way a real request's commit would, so a view that queues
+    an email leaves it in ``mail.outbox``."""
+
+    def request(self, **request):
+        with TestCase.captureOnCommitCallbacks(execute=True):
+            return super().request(**request)
+
+
+@pytest.fixture
+def client():
+    """Overrides pytest-django's client for the speakers tests."""
+    return CommittingClient()
 
 
 @pytest.fixture

@@ -27,7 +27,9 @@ class SessionTable(tables.Table):
     where it stands, when it runs, who looks after it."""
 
     title = tables.Column(linkify=True)
-    kind = tables.Column(accessor="get_kind_display", order_by="kind")
+    kind = tables.Column(
+        accessor="kind__name", order_by="kind__sort_order", verbose_name="Type"
+    )
     presenters = tables.Column(empty_values=(), orderable=False)
     status = tables.Column()
     slot = tables.Column(empty_values=(), orderable=False, verbose_name="Slot")
@@ -51,7 +53,7 @@ class SessionTable(tables.Table):
             (
                 (
                     link.presenter.display_name,
-                    link.get_role_display(),
+                    link.role.name,
                     (
                         ""
                         if link.is_confirmed
@@ -146,7 +148,7 @@ class PresenterTable(tables.Table):
                 (
                     link.session.get_absolute_url(),
                     link.session.title,
-                    link.get_role_display(),
+                    link.role.name,
                 )
                 for link in record.session_links
             ),

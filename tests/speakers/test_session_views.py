@@ -5,11 +5,13 @@ from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 from pytest_django.asserts import assertRedirects
 
-from speakers.constants import Delivery, PresenterRole, SessionKind, SessionStatus
+from portal.models import Conference
+from speakers.constants import Delivery, SessionStatus
 from speakers.context_processors import speaker_module
 from speakers.forms import ProgramItemForm, SessionForm
 from speakers.models import ActivityLog, Session
 from speakers.permissions import can_work_sessions, is_speaker_liaison
+from speakers.program_types import session_type
 
 from .factories import (
     add_presenter,
@@ -44,13 +46,13 @@ def liaison(db):
 def sessions(conference, enabled, liaison):
     """Two content sessions (one liaised by ``liaison``) and a break."""
     mine = make_session(conference, title="Liaised workshop")
-    theirs = make_session(conference, title="Other panel", kind=SessionKind.PANEL)
-    coffee = make_session(conference, title="Coffee", kind=SessionKind.BREAK)
+    theirs = make_session(conference, title="Other panel", kind="PANEL")
+    coffee = make_session(conference, title="Coffee", kind="BREAK")
     add_presenter(mine, make_presenter(conference, display_name="Ada", liaison=liaison))
     add_presenter(
         theirs,
         make_presenter(conference, display_name="Grace"),
-        role=PresenterRole.PANELIST,
+        role="PANELIST",
         confirmed=True,
     )
     return {"mine": mine, "theirs": theirs, "coffee": coffee}
@@ -124,12 +126,13 @@ class TestSessionList:
         assert "14:00 UTC · stage" in content
         assert "14:00 UTC · all channels" in content
 
-    def test_filters(self, client, organizer, sessions):
+    def test_filters(self, client, organizer, sessions, conference):
         sessions["theirs"].confirm()
         client.force_login(organizer)
         rows = client.get(LIST, {"status": SessionStatus.CONFIRMED}).context["table"]
         assert [r.title for r in rows.data] == ["Other panel"]
-        rows = client.get(LIST, {"kind": SessionKind.BREAK}).context["table"]
+        coffee = session_type(conference, "BREAK").pk
+        rows = client.get(LIST, {"kind": coffee}).context["table"]
         assert [r.title for r in rows.data] == ["Coffee"]
         rows = client.get(LIST, {"search": "work"}).context["table"]
         assert [r.title for r in rows.data] == ["Liaised workshop"]
@@ -228,7 +231,7 @@ class TestSessionForms:
         response = client.post(
             reverse("speakers:session_create"),
             {
-                "kind": SessionKind.PANEL,
+                "kind": session_type(conference, "PANEL").pk,
                 "delivery": Delivery.LIVE,
                 "title": "Careers panel",
                 "summary_md": "Talking careers",
@@ -255,7 +258,7 @@ class TestSessionForms:
         response = client.post(
             url,
             {
-                "kind": SessionKind.WORKSHOP,
+                "kind": session_type(session.conference, "WORKSHOP").pk,
                 "delivery": Delivery.LIVE,
                 "title": "Renamed workshop",
                 "duration_minutes": 120,
@@ -282,16 +285,17 @@ class TestSessionForms:
             == 404
         )
 
-    def test_video_fields_rejected_for_live_session(self):
+    def test_video_fields_rejected_for_live_session(self, conference):
         form = SessionForm(
+            conference=conference,
             data={
-                "kind": SessionKind.PYJAM,
+                "kind": session_type(conference, "PYJAM").pk,
                 "delivery": Delivery.LIVE,
                 "title": "Jam",
                 "video_length_limit_minutes": 10,
                 "youtube_url": "https://youtube.com/watch?v=x",
                 "premiere_location": "YOUTUBE",
-            }
+            },
         )
         assert form.is_valid() is False
         assert set(form.errors) == {
@@ -302,36 +306,83 @@ class TestSessionForms:
 
     def test_video_fields_allowed_for_pre_recorded(self, conference):
         form = SessionForm(
+            conference=conference,
             data={
-                "kind": SessionKind.PYJAM,
+                "kind": session_type(conference, "PYJAM").pk,
                 "delivery": Delivery.PRE_RECORDED,
                 "title": "Jam",
                 "video_length_limit_minutes": 10,
                 "youtube_publish_at": "2026-12-05T14:00",
-            }
+            },
         )
         assert form.is_valid(), form.errors
 
-    def test_title_required(self):
-        form = SessionForm(data={"kind": SessionKind.TALK, "delivery": Delivery.LIVE})
+    def test_title_required(self, conference):
+        form = SessionForm(
+            conference=conference,
+            data={"kind": session_type(conference, "TALK").pk, "delivery": ""},
+        )
         assert "title" in form.errors
+
+    def test_blank_delivery_follows_the_type(self, conference):
+        """A PyJam left on the blank delivery is pre-recorded, so the video
+        fields are allowed; a talk on the blank delivery is live."""
+        jam = session_type(conference, "PYJAM").pk
+        form = SessionForm(
+            conference=conference,
+            data={
+                "kind": jam,
+                "delivery": "",
+                "title": "Jam",
+                "youtube_url": "https://youtube.com/watch?v=x",
+            },
+        )
+        assert form.is_valid(), form.errors
+        assert form.save(commit=False).delivery == ""  # filled in on save
+        talk = session_type(conference, "TALK").pk
+        form = SessionForm(
+            conference=conference,
+            data={
+                "kind": talk,
+                "delivery": "",
+                "title": "T",
+                "youtube_url": "https://youtube.com/watch?v=x",
+            },
+        )
+        assert "youtube_url" in form.errors
+        # Types of another edition are not offered.
+        other = Conference.objects.create(year=2024, name="Old", slug="old")
+        form = SessionForm(
+            conference=conference,
+            data={"kind": session_type(other, "TALK").pk, "title": "T"},
+        )
+        assert "kind" in form.errors
 
 
 @pytest.mark.django_db
 class TestProgramItem:
-    def test_only_program_kinds_offered(self):
-        kinds = [k for k, _ in ProgramItemForm().fields["kind"].choices]
-        assert SessionKind.BREAK in kinds and SessionKind.OPENING in kinds
-        assert SessionKind.WORKSHOP not in kinds
-        form = ProgramItemForm(data={"kind": SessionKind.WORKSHOP, "title": "x"})
+    def test_only_program_types_offered(self, conference):
+        session_type(conference, "BREAK")  # seeds the edition
+        codes = [
+            t.code
+            for t in ProgramItemForm(conference=conference).fields["kind"].queryset
+        ]
+        assert "BREAK" in codes and "OPENING" in codes
+        assert "WORKSHOP" not in codes
+        form = ProgramItemForm(
+            conference=conference,
+            data={"kind": session_type(conference, "WORKSHOP").pk, "title": "x"},
+        )
         assert "kind" in form.errors
 
-    def test_created_confirmed_skipping_invited(self, client, organizer, enabled):
+    def test_created_confirmed_skipping_invited(
+        self, client, organizer, enabled, conference
+    ):
         client.force_login(organizer)
         assert client.get(reverse("speakers:program_item_create")).status_code == 200
         response = client.post(
             reverse("speakers:program_item_create"),
-            {"kind": SessionKind.OPENING, "title": "Opening"},
+            {"kind": session_type(conference, "OPENING").pk, "title": "Opening"},
         )
         assertRedirects(response, LIST)
         session = Session.objects.get(title="Opening")

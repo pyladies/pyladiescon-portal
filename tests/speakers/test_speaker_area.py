@@ -9,7 +9,6 @@ from PIL import Image
 from pytest_django.asserts import assertRedirects
 
 from portal_account.models import PortalProfile
-from speakers.constants import PresenterRole, SessionKind
 from speakers.context_processors import speaker_module
 from speakers.emails import organizer_recipients
 from speakers.mixins import PresenterRequiredMixin
@@ -59,13 +58,13 @@ def other_presenter(conference, enabled, other_speaker):
 def my_session(conference, presenter, other_presenter):
     session = make_session(conference, title="Django 101")
     add_presenter(session, presenter, confirmed=True)
-    add_presenter(session, other_presenter, role=PresenterRole.CO_PRESENTER)
+    add_presenter(session, other_presenter, role="PRESENTER")
     return session
 
 
 @pytest.fixture
 def their_session(conference, other_presenter):
-    session = make_session(conference, title="Grace's talk", kind=SessionKind.TALK)
+    session = make_session(conference, title="Grace's talk", kind="TALK")
     add_presenter(session, other_presenter)
     return session
 
@@ -232,7 +231,7 @@ class TestSessions:
         client.force_login(speaker)
         content = client.get(SESSIONS).content.decode()
         assert "Django 101" in content
-        assert "Grace" in content and "Co-presenter" in content
+        assert "Grace" in content and "Presenter" in content
         assert reverse("speakers:my_session_edit", args=[my_session.pk]) in content
 
     def test_edit_own_session(self, client, speaker, presenter, my_session):

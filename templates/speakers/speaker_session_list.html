@@ -25,7 +25,7 @@
                 <div class="d-flex flex-wrap justify-content-between align-items-start gap-2">
                     <div>
                         <div class="text-secondary small">
-                            {{ link.session.get_kind_display }} · {{ link.session.duration_minutes }} {% trans "min" %}
+                            {{ link.session.kind.name }} · {{ link.session.duration_minutes }} {% trans "min" %}
                         </div>
                         <h2 class="h5 mb-1">
                             {{ link.session.title }}
@@ -33,7 +33,7 @@
                         <div class="small">
                             {% for other in link.session.session_presenters.all %}
                                 {{ other.presenter.display_name }}
-                                <span class="badge text-bg-light border">{{ other.get_role_display }}</span>
+                                <span class="badge text-bg-light border">{{ other.role.name }}</span>
                                 {% if not forloop.last %}
                                     ·
                                 {% endif %}

@@ -200,5 +200,9 @@ installed; this app keeps small factory functions in `tests/speakers/factories.p
   tests look rows up by `code`. `SessionPresenter.clean()` refuses a role the
   session's type does not allow, and `Session.clean()` refuses a type change
   that would leave someone in a disallowed role. A type with no roles (a
-  break) takes no presenters. Names are English only for now; per-language
-  names arrive with the public schedule (design §7.1 and Stage 5).
+  break) takes no presenters. Organizers edit both on the "Types and roles"
+  settings page (`speakers:program_types`), whose `SessionTypeForm` is
+  where "the default role must be one of the allowed roles" is enforced
+  (the admin saves the many-to-many after `full_clean`, so the model cannot
+  check it). Names are English only for now; per-language names arrive with
+  the public schedule (design §7.1 and Stage 5).

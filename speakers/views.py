@@ -19,9 +19,11 @@ from .filters import PresenterFilter, SessionFilter
 from .forms import (
     InviteForm,
     PresenterForm,
+    PresenterRoleForm,
     ProgramItemForm,
     SessionForm,
     SessionPresenterForm,
+    SessionTypeForm,
     SpeakerProfileForm,
     SpeakerSessionForm,
     SuggestCoPresenterForm,
@@ -32,7 +34,14 @@ from .mixins import (
     SpeakerOrganizerRequiredMixin,
     SpeakerStaffRequiredMixin,
 )
-from .models import ActivityLog, Invitation, Presenter, Session
+from .models import (
+    ActivityLog,
+    Invitation,
+    Presenter,
+    PresenterRole,
+    Session,
+    SessionType,
+)
 from .permissions import can_work_sessions
 from .services import (
     InvitationError,
@@ -140,6 +149,11 @@ class SessionListView(
             .order_by("title")
         )
 
+    def get_filterset_kwargs(self, filterset_class):
+        kwargs = super().get_filterset_kwargs(filterset_class)
+        kwargs["conference"] = self.conference
+        return kwargs
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context["conference"] = self.conference
@@ -183,6 +197,11 @@ class SessionUpdateView(SessionScopedMixin, UpdateView):
     form_class = SessionForm
     template_name = "speakers/session_form.html"
 
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["conference"] = self.conference
+        return kwargs
+
     def form_valid(self, form):
         messages.success(self.request, f"Saved “{form.instance.title}”.")
         return super().form_valid(form)
@@ -197,6 +216,11 @@ class SessionCreateView(LoginRequiredMixin, SpeakerOrganizerRequiredMixin, Creat
     model = Session
     form_class = SessionForm
     template_name = "speakers/session_form.html"
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["conference"] = self.conference
+        return kwargs
 
     def form_valid(self, form):
         form.instance.conference = self.conference
@@ -224,6 +248,11 @@ class ProgramItemCreateView(
     model = Session
     form_class = ProgramItemForm
     template_name = "speakers/program_item_form.html"
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["conference"] = self.conference
+        return kwargs
 
     def form_valid(self, form):
         form.instance.conference = self.conference
@@ -374,11 +403,11 @@ class SessionAddPresenterView(OrganizerSessionActionMixin, View):
                 target=session,
                 actor=request.user,
                 presenter_id=link.presenter_id,
-                role=link.role,
+                role=link.role.code,
             )
             messages.success(
                 request,
-                f"Added {link.presenter.display_name} as {link.get_role_display()}.",
+                f"Added {link.presenter.display_name} as {link.role.name}.",
             )
         else:
             messages.error(
@@ -620,3 +649,75 @@ class SpeakerScheduleView(LoginRequiredMixin, PresenterRequiredMixin, TemplateVi
         context["conference"] = self.conference
         context["presenter"] = self.presenter
         return context
+
+
+class ProgramTypesView(LoginRequiredMixin, SpeakerOrganizerRequiredMixin, TemplateView):
+    """Settings: the edition's session types, what each allows, and the
+    presenter roles. Organizers add to both here without a code change."""
+
+    template_name = "speakers/program_types.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context.update(
+            {
+                "conference": self.conference,
+                "rail_active": "program_types",
+                "session_types": SessionType.objects.filter(conference=self.conference)
+                .select_related("default_role")
+                .prefetch_related("roles"),
+                "roles": PresenterRole.objects.filter(conference=self.conference),
+            }
+        )
+        return context
+
+
+class ProgramTypeFormMixin(LoginRequiredMixin, SpeakerOrganizerRequiredMixin):
+    """Shared by the four settings forms: edition-scoped rows, the edition
+    passed to the form, back to the settings page when done."""
+
+    def get_queryset(self):
+        return self.model.objects.filter(conference=self.conference)
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["conference"] = self.conference
+        return kwargs
+
+    def get_success_url(self):
+        return reverse("speakers:program_types")
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["conference"] = self.conference
+        context["rail_active"] = "program_types"
+        return context
+
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        messages.success(self.request, f"Saved {self.object.name}.")
+        return response
+
+
+class SessionTypeCreateView(ProgramTypeFormMixin, CreateView):
+    model = SessionType
+    form_class = SessionTypeForm
+    template_name = "speakers/session_type_form.html"
+
+
+class SessionTypeUpdateView(ProgramTypeFormMixin, UpdateView):
+    model = SessionType
+    form_class = SessionTypeForm
+    template_name = "speakers/session_type_form.html"
+
+
+class PresenterRoleCreateView(ProgramTypeFormMixin, CreateView):
+    model = PresenterRole
+    form_class = PresenterRoleForm
+    template_name = "speakers/presenter_role_form.html"
+
+
+class PresenterRoleUpdateView(ProgramTypeFormMixin, UpdateView):
+    model = PresenterRole
+    form_class = PresenterRoleForm
+    template_name = "speakers/presenter_role_form.html"

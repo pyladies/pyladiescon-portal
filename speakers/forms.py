@@ -6,8 +6,8 @@ from django.db.models import Q
 
 from volunteer.constants import ApplicationStatus
 
-from .constants import CONTENT_KINDS, DEFAULT_DURATION_MINUTES, Delivery, SessionKind
-from .models import Presenter, Session, SessionPresenter
+from .constants import Delivery
+from .models import Presenter, PresenterRole, Session, SessionPresenter, SessionType
 
 MARKDOWN_HELP = "Markdown supported: headings, lists, links, **bold**, *italics*."
 
@@ -50,18 +50,33 @@ class SessionForm(forms.ModelForm):
             "prerequisites_md": MARKDOWN_HELP,
             "audience_md": MARKDOWN_HELP,
             "notes_md": MARKDOWN_HELP + " Internal, never shown to the public.",
-            "duration_minutes": "Leave blank to use the default for the kind: "
-            + ", ".join(
-                f"{SessionKind(kind).label.lower()} {minutes}"
-                for kind, minutes in DEFAULT_DURATION_MINUTES.items()
-                if kind in CONTENT_KINDS
-            )
-            + ".",
+            "delivery": "Leave blank to use the type's default.",
         }
+
+    def __init__(self, *args, conference, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.conference = conference
+        if not self.instance.conference_id:
+            self.instance.conference = conference
+        types = SessionType.objects.filter(conference=conference, is_active=True)
+        self.fields["kind"].queryset = types
+        self.fields["kind"].label = "Type"
+        self.fields["duration_minutes"].help_text = (
+            "Leave blank to use the default for the type: "
+            + ", ".join(
+                f"{t.name.lower()} {t.default_duration_minutes}"
+                for t in types
+                if t.is_content
+            )
+            + "."
+        )
 
     def clean(self):
         cleaned = super().clean()
-        if cleaned.get("delivery") == Delivery.LIVE:
+        delivery = cleaned.get("delivery")
+        if not delivery and cleaned.get("kind"):
+            delivery = cleaned["kind"].default_delivery
+        if delivery == Delivery.LIVE:
             for field in (
                 "video_length_limit_minutes",
                 "youtube_url",
@@ -82,17 +97,18 @@ class ProgramItemForm(forms.ModelForm):
         fields = ["kind", "title", "duration_minutes", "summary_md"]
         widgets = {"summary_md": forms.Textarea(attrs={"rows": 2})}
         help_texts = {
-            "duration_minutes": "Leave blank to use the default for the kind.",
+            "duration_minutes": "Leave blank to use the default for the type.",
             "summary_md": MARKDOWN_HELP,
         }
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, conference, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["kind"].choices = [
-            (kind, label)
-            for kind, label in SessionKind.choices
-            if kind not in CONTENT_KINDS
-        ]
+        if not self.instance.conference_id:
+            self.instance.conference = conference
+        self.fields["kind"].queryset = SessionType.objects.filter(
+            conference=conference, is_content=False, is_active=True
+        )
+        self.fields["kind"].label = "Type"
 
 
 def timezone_choices():
@@ -185,6 +201,10 @@ class SessionPresenterForm(forms.ModelForm):
             .exclude(session_presenters__session=session)
             .order_by("display_name")
         )
+        # Only the roles the session's type allows; its default preselected.
+        self.fields["role"].queryset = session.kind.roles.filter(is_active=True)
+        self.fields["role"].empty_label = None
+        self.fields["role"].initial = session.kind.default_role_id
         self.instance.session = session
 
 
@@ -270,3 +290,71 @@ class SuggestCoPresenterForm(forms.Form):
         widget=forms.Textarea(attrs={"rows": 3}),
         help_text="Why they would be a great addition (optional).",
     )
+
+
+class PresenterRoleForm(forms.ModelForm):
+    """A role organizers can put people in (settings page)."""
+
+    class Meta:
+        model = PresenterRole
+        fields = ["name", "code", "email_word", "sort_order", "is_active"]
+        help_texts = {
+            "code": "Upper-case key used by seeds and next year's copy; "
+            "cannot change once sessions use the role.",
+        }
+
+    def __init__(self, *args, conference, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.conference = conference
+        self.instance.conference = conference
+        if self.instance.pk and self.instance.session_presenters.exists():
+            self.fields["code"].disabled = True
+
+
+class SessionTypeForm(forms.ModelForm):
+    """A kind of schedule row and who can be on it (settings page). This is
+    where "the default role is one of the allowed roles" is enforced: the
+    model cannot check it because the admin saves the many-to-many after
+    ``full_clean``."""
+
+    class Meta:
+        model = SessionType
+        fields = [
+            "name",
+            "code",
+            "is_content",
+            "default_duration_minutes",
+            "default_delivery",
+            "spans_all_channels",
+            "roles",
+            "default_role",
+            "sort_order",
+            "is_active",
+        ]
+        widgets = {"roles": forms.CheckboxSelectMultiple}
+        help_texts = {
+            "code": "Upper-case key used by seeds and next year's copy; "
+            "cannot change once sessions use the type.",
+            "roles": "Leave every box empty for a row that takes no people, "
+            "such as a break.",
+        }
+
+    def __init__(self, *args, conference, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.conference = conference
+        self.instance.conference = conference
+        roles = PresenterRole.objects.filter(conference=conference, is_active=True)
+        self.fields["roles"].queryset = roles
+        self.fields["default_role"].queryset = roles
+        if self.instance.pk and self.instance.sessions.exists():
+            self.fields["code"].disabled = True
+
+    def clean(self):
+        cleaned = super().clean()
+        default = cleaned.get("default_role")
+        roles = cleaned.get("roles")
+        if default is not None and roles is not None and default not in roles:
+            self.add_error(
+                "default_role", "The default role must be one of the allowed roles."
+            )
+        return cleaned

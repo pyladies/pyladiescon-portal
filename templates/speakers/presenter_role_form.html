@@ -1,0 +1,38 @@
+{% extends "speakers/_organize_shell.html" %}
+{% load i18n %}
+{% load django_bootstrap5 %}
+{% block head_title %}
+    {% if object.pk %}
+        {% trans "Edit presenter role" %}
+    {% else %}
+        {% trans "New presenter role" %}
+    {% endif %}
+{% endblock head_title %}
+{% block breadcrumb %}
+    {% url 'speakers:program_types' as bc_url %}
+    {% trans "Session types and roles" as bc_section %}
+    {% if object.pk %}
+        {% include "portal/_breadcrumbs.html" with section=bc_section section_url=bc_url page=object.name %}
+    {% else %}
+        {% trans "New presenter role" as bc_page %}
+        {% include "portal/_breadcrumbs.html" with section=bc_section section_url=bc_url page=bc_page %}
+    {% endif %}
+{% endblock breadcrumb %}
+{% block sidebar %}
+    {% include "portal/_organize_rail.html" with active="program_types" %}
+{% endblock sidebar %}
+{% block content %}
+    <h1 class="h3 mb-3">
+        {% if object.pk %}
+            {% blocktranslate with name=object.name %}Edit “{{ name }}”{% endblocktranslate %}
+        {% else %}
+            {% trans "New presenter role" %}
+        {% endif %}
+    </h1>
+    <form method="post" class="col-lg-7">
+        {% csrf_token %}
+        {% bootstrap_form form %}
+        {% bootstrap_button "Save" button_type="submit" %}
+        <a href="{% url 'speakers:program_types' %}" class="btn btn-link">{% trans "Cancel" %}</a>
+    </form>
+{% endblock content %}

@@ -9,9 +9,10 @@ from django.urls import reverse
 from pytest_django.asserts import assertRedirects
 
 from portal.models import Conference
-from speakers.constants import PresenterRole, SessionKind, SessionStatus
+from speakers.constants import SessionStatus
 from speakers.forms import PresenterForm, liaison_candidates
 from speakers.models import ActivityLog, Invitation, InvitationStatus, Presenter
+from speakers.program_types import presenter_role, session_type
 from speakers.services import send_invitation
 from speakers.tables import invitation_badge
 from volunteer.constants import ApplicationStatus
@@ -232,28 +233,40 @@ class TestPresenterDetail:
 
 @pytest.mark.django_db
 class TestSessionPresenterActions:
-    def test_add_and_remove(self, client, organizer, presenters):
+    def test_add_and_remove(self, client, organizer, presenters, conference):
         session, grace = presenters["session"], presenters["grace"]
+        presenter_role_pk = presenter_role(conference, "PRESENTER").pk
         client.force_login(organizer)
         content = client.get(session.get_absolute_url()).content.decode()
         assert "Add presenter" in content
+        # The role select offers only what a workshop allows, preselected.
+        form = client.get(session.get_absolute_url()).context["add_presenter_form"]
+        assert [r.code for r in form.fields["role"].queryset] == ["PRESENTER"]
+        assert form.fields["role"].initial == presenter_role_pk
         url = reverse("speakers:session_add_presenter", args=[session.pk])
         response = client.post(
-            url,
-            {"presenter": grace.pk, "role": PresenterRole.CO_PRESENTER, "order": 2},
+            url, {"presenter": grace.pk, "role": presenter_role_pk, "order": 2}
         )
         assertRedirects(response, session.get_absolute_url())
         link = session.session_presenters.get(presenter=grace)
-        assert link.role == PresenterRole.CO_PRESENTER
+        assert link.role.code == "PRESENTER"
         assert link.is_required is False
         # Already on the session: the select no longer offers them.
         response = client.post(
             url,
-            {"presenter": grace.pk, "role": PresenterRole.PANELIST, "order": 3},
+            {"presenter": grace.pk, "role": presenter_role_pk, "order": 3},
             follow=True,
         )
         assert "Could not add the presenter" in response.content.decode()
         assert session.session_presenters.count() == 2
+        # A role the type does not allow is refused by the form.
+        panelist = presenter_role(conference, "PANELIST").pk
+        ada_two = make_presenter(conference, display_name="Zed")
+        response = client.post(
+            url, {"presenter": ada_two.pk, "role": panelist, "order": 4}, follow=True
+        )
+        assert "Could not add the presenter" in response.content.decode()
+        assert "role" in response.content.decode()
         remove = reverse(
             "speakers:session_remove_presenter", args=[session.pk, link.pk]
         )
@@ -313,9 +326,11 @@ class TestSessionPresenterActions:
 
 @pytest.mark.django_db
 class TestInvitationActions:
-    def test_resend_invalidates_previous_link(self, client, organizer, presenters):
+    def test_resend_invalidates_previous_link(
+        self, client, organizer, presenters, send
+    ):
         invitation = make_invitation(presenters["ada"], presenters["session"])
-        send_invitation(invitation)
+        send(invitation)
         old_link = _link_from_mail()
         client.force_login(organizer)
         response = client.post(
@@ -337,9 +352,9 @@ class TestInvitationActions:
         )
         assert "already been accepted" in response.content.decode()
 
-    def test_cancel(self, client, organizer, presenters):
+    def test_cancel(self, client, organizer, presenters, send):
         invitation = make_invitation(presenters["ada"], presenters["session"])
-        send_invitation(invitation)
+        send(invitation)
         link = _link_from_mail()
         client.force_login(organizer)
         response = client.post(
@@ -371,7 +386,11 @@ class TestEndToEnd:
         client.force_login(organizer)
         client.post(
             reverse("speakers:session_create"),
-            {"kind": SessionKind.WORKSHOP, "delivery": "LIVE", "title": "Testing 101"},
+            {
+                "kind": session_type(conference, "WORKSHOP").pk,
+                "delivery": "LIVE",
+                "title": "Testing 101",
+            },
         )
         session = conference.sessions.get()
         client.post(
@@ -387,7 +406,7 @@ class TestEndToEnd:
             reverse("speakers:session_add_presenter", args=[session.pk]),
             {
                 "presenter": presenter.pk,
-                "role": PresenterRole.PRESENTER,
+                "role": presenter_role(conference, "PRESENTER").pk,
                 "order": 1,
                 "is_required": "on",
             },

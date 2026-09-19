@@ -2,17 +2,17 @@ import django_filters
 from django.contrib.auth.models import User
 from django.db.models import Q
 
-from .constants import SessionKind, SessionStatus
+from .constants import SessionStatus
 from .forms import liaison_candidates
-from .models import Presenter, Session
+from .models import Presenter, Session, SessionType
 
 
 class SessionFilter(django_filters.FilterSet):
     status = django_filters.ChoiceFilter(
         choices=SessionStatus.choices, empty_label="Any status"
     )
-    kind = django_filters.ChoiceFilter(
-        choices=SessionKind.choices, empty_label="Any kind"
+    kind = django_filters.ModelChoiceFilter(
+        queryset=SessionType.objects.none(), empty_label="Any type", label="Type"
     )
     search = django_filters.CharFilter(
         field_name="title", lookup_expr="icontains", label="Title contains"
@@ -21,6 +21,12 @@ class SessionFilter(django_filters.FilterSet):
     class Meta:
         model = Session
         fields = ["status", "kind", "search"]
+
+    def __init__(self, *args, conference=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.filters["kind"].queryset = SessionType.objects.filter(
+            conference=conference
+        )
 
 
 class PresenterFilter(django_filters.FilterSet):

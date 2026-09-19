@@ -700,6 +700,8 @@ class SessionPresenter(TimestampedModel):
             raise ValidationError(
                 "The session and the presenter belong to different editions."
             )
+        if self.role_id is None:
+            return  # the field itself already failed validation
         if self.role.conference_id != self.session.conference_id:
             raise ValidationError({"role": "Pick a role of this edition."})
         if not self.session.kind.allows(self.role):

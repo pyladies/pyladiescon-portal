@@ -14,7 +14,7 @@
 {% endblock sidebar %}
 {% block content %}
     <div class="text-secondary small">
-        {{ session.get_kind_display }} · {{ session.get_delivery_display }}
+        {{ session.kind.name }} · {{ session.get_delivery_display }}
     </div>
     <h1 class="h3 mb-1">
         {{ session.title }}
@@ -41,7 +41,7 @@
                     {% for link in co_presenters %}
                         <li class="list-group-item">
                             {{ link.presenter.display_name }}
-                            <span class="badge text-bg-light border">{{ link.get_role_display }}</span>
+                            <span class="badge text-bg-light border">{{ link.role.name }}</span>
                         </li>
                     {% empty %}
                         <li class="list-group-item text-secondary">
