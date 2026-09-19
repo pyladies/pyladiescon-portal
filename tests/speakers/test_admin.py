@@ -1,6 +1,9 @@
 import pytest
 from django.urls import reverse
 
+from speakers.checklists import add_adhoc_item
+from speakers.constants import ItemOwner
+
 from .factories import (
     add_presenter,
     make_channel,
@@ -32,6 +35,25 @@ class TestSpeakersAdmin:
         client.force_login(admin_user)
         response = client.get(reverse(f"admin:speakers_{model}_changelist"))
         assert response.status_code == 200
+
+    def test_checklist_item_status_is_read_only(self, client, admin_user, conference):
+        """Status changes go through the service, which logs them and
+        refuses to hand-tick automatic items; the admin only shows them."""
+        item = add_adhoc_item(
+            conference,
+            "Sign the form",
+            ItemOwner.SPEAKER,
+            presenter=make_presenter(conference),
+        )
+        client.force_login(admin_user)
+        response = client.get(
+            reverse("admin:speakers_checklistitem_change", args=[item.pk])
+        )
+        content = response.content.decode()
+        assert response.status_code == 200
+        assert 'name="status"' not in content
+        assert 'name="note"' not in content
+        assert 'name="assignee"' in content
 
     def test_session_change_form_renders_inlines(self, client, admin_user, conference):
         session = make_session(conference)

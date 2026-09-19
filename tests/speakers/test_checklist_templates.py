@@ -233,11 +233,15 @@ class TestValidation:
         with pytest.raises(ValidationError, match="Unknown rule"):
             make_item(make_template(conference), auto_complete_rule="teleport")
 
-    def test_asset_kind_implies_asset_rule(self, conference):
+    def test_asset_kind_needs_a_rule(self, conference):
+        template = make_template(conference)
+        with pytest.raises(ValidationError, match="needs a rule"):
+            make_item(template, requires_asset_kind=MediaKind.RAW_VIDEO)
         item = make_item(
-            make_template(conference), requires_asset_kind=MediaKind.RAW_VIDEO
+            template,
+            requires_asset_kind=MediaKind.RAW_VIDEO,
+            auto_complete_rule=AutoRule.ASSET_EXISTS,
         )
-        assert item.auto_complete_rule == AutoRule.ASSET_EXISTS
         assert item.is_automatic is True
         assert str(item) == "Do the thing"
 

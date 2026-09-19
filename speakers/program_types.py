@@ -114,7 +114,12 @@ def presenter_role(conference, code):
 def clone_program_types(target, source):
     """Copy ``source``'s roles, types and the mapping into ``target`` by
     code, keeping whatever ``target`` already has. Returns
-    ``(types_created, roles_created)``."""
+    ``(types_created, roles_created)``.
+
+    This is the speaker module's "start next year" hook, reached through
+    ``seeds.clone_checklists``. The conference creation flow in
+    ``portal.views`` (the one that calls ``portal.services.clone_teams``)
+    is where it should be wired in when the 2027 edition is set up."""
     roles_created = types_created = 0
     role_map = {}
     for role in PresenterRole.objects.filter(conference=source):

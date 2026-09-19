@@ -92,6 +92,11 @@ def session_scheduled(item):
 
 @rule(AutoRule.PRETIX_REGISTERED)
 def pretix_registered(item):
+    """A paid order for the presenter: the manual ``pretix_order`` link, else
+    the order's buyer email (case-insensitive), else an attendee email in
+    the order's positions. Position emails live in JSON and are matched
+    exactly against the lower-cased presenter email, so ``Ada@Example.com``
+    typed into pretix is missed; the manual link is the fallback for that."""
     presenter = item.presenter
     if presenter is None:
         return False
@@ -181,9 +186,7 @@ def evaluate_item(item):
     if item.status == ItemStatus.BLOCKED or (
         item.status == ItemStatus.DONE and item.completed_by_id is None
     ):
-        reopen_item(item, manual=False)
-        item.note = ""
-        item.save(update_fields=["note", "modified_date"])
+        reopen_item(item, manual=False, note="")
         return ItemStatus.TODO
     return None
 

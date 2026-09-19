@@ -26,6 +26,7 @@ from speakers.constants import (
     MediaKind,
     SessionStatus,
 )
+from speakers.lifecycle import _record_blocked, confirm_session_if_ready
 from speakers.models import (
     ActivityLog,
     ChecklistItem,
@@ -44,6 +45,11 @@ from .factories import (
     make_settings,
     make_slot,
 )
+
+
+def require_seed_line(title):
+    """Mark one seeded template line required, as an organizer would."""
+    assert ChecklistTemplateItem.objects.filter(title=title).update(is_required=True)
 
 
 @pytest.fixture
@@ -99,9 +105,26 @@ class TestInstantiateOnAccept:
         promo = presenter.checklist_items.get(title="Promo materials prepared")
         assert promo.assignee is None
 
-    def test_required_item_gates_confirmation(self, seeded):
+    def test_seeds_have_no_required_line(self, seeded):
+        """Accepting the invitation is the confirmation; nothing in the
+        defaults holds a session back (review decision, 2026-09-16)."""
+        assert not ChecklistTemplateItem.objects.filter(is_required=True).exists()
+
+    def test_accepting_confirms_with_default_seeds(self, seeded):
         session = make_session(seeded, kind="WORKSHOP")
         presenter = make_presenter(seeded)
+        add_presenter(session, presenter)
+        invitation = make_invitation(presenter, session)
+        send_invitation(invitation)
+        accept_invitation(invitation)
+        session.refresh_from_db()
+        assert session.status == SessionStatus.CONFIRMED
+        assert not ActivityLog.objects.filter(action="session.confirm_blocked").exists()
+
+    def test_required_item_gates_confirmation(self, seeded):
+        require_seed_line("Confirm your session title and summary")
+        session = make_session(seeded, kind="WORKSHOP")
+        presenter = make_presenter(seeded, display_name="Ada")
         add_presenter(session, presenter)
         invitation = make_invitation(presenter, session)
         send_invitation(invitation)
@@ -110,6 +133,17 @@ class TestInstantiateOnAccept:
         assert session.status == SessionStatus.INVITED
         with pytest.raises(TransitionError, match="Required checklist items"):
             session.confirm()
+        blocked = ActivityLog.for_target(session).filter(
+            action="session.confirm_blocked"
+        )
+        assert blocked.count() == 1
+        assert (
+            blocked.get().message
+            == "Waiting on: Confirm your session title and summary (Ada)"
+        )
+        # A retry that finds the same items open does not log again.
+        assert confirm_session_if_ready(session) is False
+        assert blocked.count() == 1
         item = presenter.checklist_items.get(
             title="Confirm your session title and summary"
         )
@@ -117,6 +151,39 @@ class TestInstantiateOnAccept:
         complete_item(item, actor=presenter.user)
         session.refresh_from_db()
         assert session.status == SessionStatus.CONFIRMED
+
+    def test_blocked_log_names_session_items_and_new_sets(self, seeded):
+        session = make_session(seeded, kind="WORKSHOP")
+        add_presenter(
+            session, make_presenter(seeded, display_name="Ada"), confirmed=True
+        )
+        session.mark_invited()
+        form = add_adhoc_item(
+            seeded, "Sign the form", ItemOwner.SPEAKER, session=session
+        )
+        ChecklistItem.objects.filter(pk=form.pk).update(is_required=True)
+        assert confirm_session_if_ready(session) is False
+        blocked = ActivityLog.for_target(session).filter(
+            action="session.confirm_blocked"
+        )
+        assert blocked.get().message == "Waiting on: Sign the form"
+        ada = session.session_presenters.get().presenter
+        add_adhoc_item(
+            seeded, "Send bio", ItemOwner.SPEAKER, presenter=ada, session=session
+        )
+        ChecklistItem.objects.update(is_required=True)
+        assert confirm_session_if_ready(session) is False
+        assert blocked.count() == 2
+        assert blocked.first().message == "Waiting on: Sign the form, Send bio (Ada)"
+        assert blocked.first().data["items"][1] == {
+            "title": "Send bio",
+            "presenter": "Ada",
+        }
+
+    def test_blocked_log_skips_when_nothing_blocks(self, seeded):
+        session = make_session(seeded, kind="WORKSHOP")
+        _record_blocked(session)
+        assert not ActivityLog.for_target(session).exists()
 
     def test_accepting_again_does_not_duplicate(self, seeded):
         session = make_session(seeded, kind="WORKSHOP")
@@ -295,6 +362,7 @@ class TestLifecycle:
         assert "→ nobody" in entries.first().message
 
     def test_required_skip_confirms_session(self, seeded):
+        require_seed_line("Confirm your session title and summary")
         session = make_session(seeded, kind="WORKSHOP")
         presenter = make_presenter(seeded)
         link = add_presenter(session, presenter, confirmed=True)

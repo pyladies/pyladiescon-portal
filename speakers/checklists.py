@@ -29,7 +29,7 @@ class ChecklistError(ValueError):
     """A status change that is not allowed (ticking an automatic item)."""
 
 
-def _anchors(session, presenter=None, accepted_at=None):
+def _anchors(session, accepted_at=None):
     conference = session.conference
     slot = getattr(session, "slot", None)
     return {
@@ -99,7 +99,7 @@ def instantiate_presenter_checklist(link, accepted_at=None):
     template = ChecklistTemplate.for_presenter(link.session, link.role)
     if template is None:
         return []
-    anchors = _anchors(link.session, link.presenter, accepted_at or link.confirmed_at)
+    anchors = _anchors(link.session, accepted_at or link.confirmed_at)
     created = []
     for template_item in template.items.all():
         item = _create_instance(
@@ -147,7 +147,7 @@ def backfill_template_item(template_item):
             confirmed_at__isnull=False,
         ).select_related("session", "presenter", "presenter__liaison")
         for link in links:
-            anchors = _anchors(link.session, link.presenter, link.confirmed_at)
+            anchors = _anchors(link.session, link.confirmed_at)
             if _create_instance(
                 template_item,
                 session=link.session,
@@ -254,8 +254,8 @@ def complete_item(item, actor=None, note=None, manual=True):
     return set_item_status(item, ItemStatus.DONE, actor=actor, note=note, manual=manual)
 
 
-def reopen_item(item, actor=None, manual=True):
-    return set_item_status(item, ItemStatus.TODO, actor=actor, manual=manual)
+def reopen_item(item, actor=None, note=None, manual=True):
+    return set_item_status(item, ItemStatus.TODO, actor=actor, note=note, manual=manual)
 
 
 def skip_item(item, actor=None, note=None):

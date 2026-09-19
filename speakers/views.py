@@ -29,6 +29,7 @@ from .forms import (
     SpeakerSessionForm,
     SuggestCoPresenterForm,
 )
+from .lifecycle import waiting_on_labels
 from .mixins import (
     PresenterRequiredMixin,
     SpeakerModuleRequiredMixin,
@@ -183,6 +184,7 @@ class SessionDetailView(SessionScopedMixin, DetailView):
         context["conference"] = self.conference
         context["presenter_links"] = self.object.presenter_links
         context["activity"] = ActivityLog.for_target(self.object)[:20]
+        context["waiting_on"] = waiting_on_labels(self.object)
         context["add_presenter_form"] = SessionPresenterForm(session=self.object)
         context["invite_form"] = InviteForm()
         latest = {}

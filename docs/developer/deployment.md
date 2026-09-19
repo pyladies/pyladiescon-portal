@@ -36,6 +36,21 @@ else. In the Django admin, under *Periodic tasks*, a task whose *Last run at*
 is empty has never been dispatched, which almost always means `worker-beat`
 is not running.
 
+### Database
+
+The portal needs **PostgreSQL 15 or newer**. The speakers app declares unique
+constraints with `nulls_distinct=False` (so a row with a NULL presenter
+still counts as a duplicate of another). Django only emits that clause on
+Postgres 15+; on an older server it warns with `models.W047` at check time
+and creates the constraint without it, which silently allows the duplicates
+the constraint exists to prevent. Local development and CI run
+`postgres:16` from `compose.yml`. Confirm the production server's version
+before enabling the speaker module on it:
+
+```
+python manage.py dbshell -c "SELECT version();"
+```
+
 ## Documentation deployment
 
 The documentation is deployed to Netlify automatically whenever the PR is merged.

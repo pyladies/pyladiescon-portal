@@ -178,6 +178,27 @@ installed; this app keeps small factory functions in `tests/speakers/factories.p
   cancel), `speakers/emails.py` (rendering, signed token, URL),
   `speakers/tasks.py` (Celery). The `invitation_accepted` signal in
   `speakers/signals.py` is where Stage 2 instantiates checklists.
+- Checklist engine layering, lowest first: `lifecycle` (session status
+  helpers, models only) < `checklists` (instances and status changes) <
+  `rules` (auto-completion registry) < `receivers` (signals, registered in
+  `apps.py`). A module imports only from layers below it.
+- Celery tasks are plain `@shared_task` unless the body calls
+  `self.retry`; `bind=True` and `max_retries` on a task that never retries
+  are noise.
+- Checklist item status changes go through `speakers.checklists`
+  (`set_item_status` and friends), never a bare save or the admin: that is
+  where the activity log entry, the "no hand-ticking automatic items" rule
+  and the session confirmation retry live. `ChecklistItemAdmin` shows
+  status read-only for that reason.
+- Pretix registration matches the manual `Presenter.pretix_order` link,
+  then the order's buyer email case-insensitively, then attendee emails in
+  the order's JSON positions, which are compared exactly against the
+  lower-cased presenter email. An attendee email typed with capitals in
+  pretix is missed; link the order by hand in that case.
+- The two checklist unique constraints use `nulls_distinct=False`, which
+  needs PostgreSQL 15 or newer (older servers drop the clause with a
+  `models.W047` warning, and session-level items could then duplicate).
+  `compose.yml` runs Postgres 16; see the deployment docs for production.
 - One migration per pull request. While a branch is being built it may
   grow several steps, but before the PR branch is pushed they are squashed
   into a single regenerated file (delete them, `makemigrations speakers`,

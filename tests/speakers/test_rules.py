@@ -22,6 +22,7 @@ from speakers.models import (
     HandbookReadReceipt,
     MediaAsset,
 )
+from speakers.receivers import _order_emails
 from speakers.rules import RULES, evaluate_item, reevaluate_all
 from speakers.seeds import seed_checklists
 from speakers.services import accept_invitation, send_invitation
@@ -247,6 +248,80 @@ class TestPretixRegistered:
             conference, AutoRule.PRETIX_REGISTERED, session=make_session(conference)
         )
         assert evaluate_item(item) is None
+
+    def test_order_save_evaluates_only_its_presenters(self, conference, monkeypatch):
+        """N presenters must not mean N rule queries per pretix webhook."""
+        ada = make_presenter(conference, email="ada@example.com")
+        bea = make_presenter(conference, email="bea@example.com")
+        cy = make_presenter(conference, email="cy@example.com")
+        dee = make_presenter(conference, email="dee@example.com")
+        items = {
+            p.email: auto_item(conference, AutoRule.PRETIX_REGISTERED, presenter=p)
+            for p in (ada, bea, cy, dee)
+        }
+        cy.pretix_order = self.make_order(conference, "X1", "someone@example.com")
+        cy.save(update_fields=["pretix_order"])
+        seen = []
+        monkeypatch.setattr(
+            "speakers.receivers.evaluate_items", lambda qs: seen.extend(qs)
+        )
+        self.make_order(
+            conference,
+            "Y1",
+            "Ada@Example.com",
+            positions=[{"attendee_name": "Bea", "attendee_email": "BEA@example.com "}],
+        )
+        assert {item.pk for item in seen} == {
+            items["ada@example.com"].pk,
+            items["bea@example.com"].pk,
+        }
+        seen.clear()
+        cy.pretix_order.status = PretixOrderstatus.CANCELLED
+        cy.pretix_order.save()
+        assert [item.pk for item in seen] == [items["cy@example.com"].pk]
+
+    def test_order_emails_tolerate_missing_data(self):
+        assert _order_emails(PretixOrder(email=None, raw_data=None)) == set()
+        order = PretixOrder(
+            email=" Buyer@Example.com ",
+            raw_data={
+                "positions": [{"attendee_email": None}, {}, {"attendee_email": "a@b.c"}]
+            },
+        )
+        assert _order_emails(order) == {"buyer@example.com", "a@b.c"}
+
+
+@pytest.mark.django_db
+class TestReceiverGuards:
+    """A save whose ``update_fields`` touches nothing a rule reads is skipped."""
+
+    def test_irrelevant_update_fields_skip_evaluation(self, conference, monkeypatch):
+        presenter = make_presenter(conference)
+        session = make_session(conference)
+        link = add_presenter(session, presenter)
+        invitation = make_invitation(presenter, session)
+        order = PretixOrder.objects.create(
+            conference=conference, order_code="Z1", email="z@example.com"
+        )
+        handbook = Handbook.objects.create(conference=conference, title="Guide")
+        calls = []
+        monkeypatch.setattr(
+            "speakers.receivers.evaluate_items", lambda qs: calls.append(qs)
+        )
+        for row in (presenter, session, link, invitation, order, handbook):
+            row.save(update_fields=["modified_date"])
+        session.mark_invited()  # the engine's own status save
+        assert calls == []
+        for row, field in (
+            (presenter, "bio_md"),
+            (session, "youtube_url"),
+            (link, "confirmed_at"),
+            (invitation, "sent_at"),
+            (order, "status"),
+            (handbook, "published_at"),
+        ):
+            row.save(update_fields=[field])
+        assert len(calls) == 6
 
 
 @pytest.mark.django_db

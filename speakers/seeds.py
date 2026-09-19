@@ -4,6 +4,16 @@ Templates are data the organizers edit in the portal; these defaults only
 seed an edition that has none. ``seed_checklists`` is idempotent: it keys
 templates on (scope, type, role, delivery) and items on their title. Types
 and roles are named by ``code`` and resolved to the edition's rows.
+
+The defaults are opinionated starting points for PyLadiesCon (they name
+Discord, the speaker guide, the PyJam post-production steps), not fixtures
+the code depends on: an edition may rename, drop or add lines freely.
+
+No default line is required. Accepting the invitation is the presenter's
+confirmation (review decision, 2026-09-16), so a session confirms as soon
+as its required presenters accept. Organizers may mark a line required in
+the template editor; from then on it gates the session, so do that only
+once the speaker checklist pages exist for the presenter to tick it.
 """
 
 from .constants import (
@@ -40,9 +50,7 @@ def _item(owner, title, anchor="", offset=0, rule="", **extra):
 
 
 BIO = _item(SPK, "Update your bio and headshot", ACCEPTED, 7, AutoRule.BIO_AND_HEADSHOT)
-CONFIRM_TITLE = _item(
-    SPK, "Confirm your session title and summary", ACCEPTED, 7, is_required=True
-)
+CONFIRM_TITLE = _item(SPK, "Confirm your session title and summary", ACCEPTED, 7)
 GUIDE = _item(SPK, "Read the speaker guide", ACCEPTED, 14, AutoRule.HANDBOOK_READ)
 REGISTER = _item(
     SPK, "Register for the conference", CONF, 14, AutoRule.PRETIX_REGISTERED
@@ -119,13 +127,14 @@ TALK_SPEAKER = [
 PANEL_LIGHT = [BIO, GUIDE, REGISTER, DISCORD, CONFIRM_SLOT, TECH_CHECK]
 PERFORMER = [
     BIO,
-    _item(SPK, "Confirm your title and description", ACCEPTED, 7, is_required=True),
+    _item(SPK, "Confirm your title and description", ACCEPTED, 7),
     _item(SPK, "Read the performer guide", ACCEPTED, 14, AutoRule.HANDBOOK_READ),
     _item(
         SPK,
         "Upload your performance video",
         CONF,
         28,
+        AutoRule.ASSET_EXISTS,
         requires_asset_kind=MediaKind.RAW_VIDEO,
     ),
     _item(SPK, "Approve the final cut", CONF, 7),
@@ -133,7 +142,7 @@ PERFORMER = [
     DISCORD,
 ]
 HOST = [
-    _item(SPK, "Confirm you can host this slot", ACCEPTED, 7, is_required=True),
+    _item(SPK, "Confirm you can host this slot", ACCEPTED, 7),
     DISCORD,
 ]
 HOST_ORGANIZER = [
@@ -143,10 +152,20 @@ HOST_ORGANIZER = [
 
 POST_PRODUCTION = [
     _item(
-        ORG, "Record intro video (MC)", CONF, 21, requires_asset_kind=MediaKind.INTRO
+        ORG,
+        "Record intro video (MC)",
+        CONF,
+        21,
+        AutoRule.ASSET_EXISTS,
+        requires_asset_kind=MediaKind.INTRO,
     ),
     _item(
-        ORG, "Record outro video (MC)", CONF, 21, requires_asset_kind=MediaKind.OUTRO
+        ORG,
+        "Record outro video (MC)",
+        CONF,
+        21,
+        AutoRule.ASSET_EXISTS,
+        requires_asset_kind=MediaKind.OUTRO,
     ),
     _item(ORG, "Review audio and video quality", CONF, 21),
     _item(
@@ -157,6 +176,7 @@ POST_PRODUCTION = [
         "Transcribe",
         CONF,
         14,
+        AutoRule.ASSET_EXISTS,
         requires_asset_kind=MediaKind.TRANSCRIPT,
         requires_asset_language=SESSION_LANGUAGE,
     ),
@@ -166,6 +186,7 @@ POST_PRODUCTION = [
         "Translate",
         CONF,
         7,
+        AutoRule.ASSET_EXISTS,
         requires_asset_kind=MediaKind.TRANSLATION,
         per_translation_language=True,
     ),
@@ -174,6 +195,7 @@ POST_PRODUCTION = [
         "Add title card and assemble final video",
         CONF,
         7,
+        AutoRule.ASSET_EXISTS,
         requires_asset_kind=MediaKind.PROCESSED_VIDEO,
     ),
     _item(

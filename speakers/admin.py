@@ -217,7 +217,10 @@ class ChecklistItemAdmin(admin.ModelAdmin):
     search_fields = ("title", "presenter__display_name", "session__title")
     list_select_related = ("presenter", "session", "assignee", "conference")
     autocomplete_fields = ("presenter", "session", "assignee", "template_item")
-    readonly_fields = ("completed_by", "completed_at")
+    # Status changes go through ``speakers.checklists.set_item_status`` (the
+    # organizer views), which logs them, refuses to hand-tick automatic items
+    # and re-tries the session's confirmation. The admin is for looking.
+    readonly_fields = ("status", "note", "completed_by", "completed_at")
 
 
 @admin.register(ChecklistTemplateItem)

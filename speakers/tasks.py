@@ -32,8 +32,8 @@ def send_copresenter_suggestion_task(presenter_id, session_id, name, email, note
     return f"Sent co-presenter suggestion to {sent} organizer(s)"
 
 
-@shared_task(bind=True, max_retries=3, default_retry_delay=60)
-def reevaluate_checklists_task(self):
+@shared_task
+def reevaluate_checklists_task():
     """Nightly safety net: re-run every auto-completion rule (design §9.3)."""
     changed = reevaluate_all()
     return f"Re-evaluated checklists; {changed} item(s) changed"

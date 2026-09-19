@@ -675,7 +675,11 @@ class Session(TimestampedModel):
     def confirm(self, save=True):
         """-> CONFIRMED. Content kinds need at least one confirmed presenter,
         and no required checklist item may still be open. Sends
-        ``session_confirmed`` so the session-scope checklist is created."""
+        ``session_confirmed`` so the session-scope checklist is created.
+
+        With ``save=False`` only the attribute changes: nothing is written
+        and no signal is sent, so no session checklist appears. The caller
+        must save and send ``session_confirmed`` itself."""
         self._require_status(SessionStatus.DRAFT, SessionStatus.INVITED)
         if self.is_content and self.confirmed_presenter_count == 0:
             raise TransitionError(
@@ -1098,7 +1102,14 @@ class ChecklistTemplateItem(TimestampedModel):
                 {"auto_complete_rule": f"Unknown rule {self.auto_complete_rule!r}."}
             )
         if self.requires_asset_kind and not self.auto_complete_rule:
-            self.auto_complete_rule = AutoRule.ASSET_EXISTS
+            raise ValidationError(
+                {
+                    "auto_complete_rule": (
+                        "An item that requires an asset needs a rule; "
+                        'pick "Asset exists".'
+                    )
+                }
+            )
 
     def save(self, *args, **kwargs):
         self.clean()
