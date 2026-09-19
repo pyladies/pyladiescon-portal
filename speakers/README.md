@@ -182,11 +182,13 @@ installed; this app keeps small factory functions in `tests/speakers/factories.p
   grow several steps, but before the PR branch is pushed they are squashed
   into a single regenerated file (delete them, `makemigrations speakers`,
   check with `makemigrations --check` and a `migrate` on a fresh database).
-  A migration is frozen the moment it is **pushed**, not merged: cabotage
-  deploys every push of an open pull request and its release step runs
-  `migrate` against the production database, so an in-place edit after a
-  push never reaches production (see `0002_repair_invitation_sent_to`, the
-  cost of learning this). Later changes are always new files.
+  A migration is frozen the moment it is **merged**: the cabotage release
+  step runs `migrate` against production on every deploy of `main`, so a
+  merged file is never edited, deleted or renumbered again, and later
+  changes are always new files. Pull request deployments used to apply
+  migrations from open branches too; they are disabled for exactly that
+  reason (`0002_repair_invitation_sent_to` is the cost of learning it).
+  See the deployment docs, "Release step and migrations".
 - Every model: `conference` FK, admin registration, factory function,
   isolation test. Join and child rows (`SessionPresenter`, `ScheduleSlot`)
   carry a non-editable `conference` copied from their session on save.
