@@ -3,6 +3,7 @@ from django.contrib import messages
 from django.contrib.auth import logout
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import PermissionDenied
+from django.db import transaction
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -193,9 +194,15 @@ class SessionDetailView(SessionScopedMixin, DetailView):
         return context
 
 
-class SessionUpdateView(SessionScopedMixin, UpdateView):
+class SessionUpdateView(LoginRequiredMixin, SpeakerOrganizerRequiredMixin, UpdateView):
+    """Organizers only: liaisons read sessions but do not change them."""
+
+    model = Session
     form_class = SessionForm
     template_name = "speakers/session_form.html"
+
+    def get_queryset(self):
+        return Session.objects.for_conference(self.conference)
 
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()
@@ -337,9 +344,24 @@ class PresenterDetailView(PresenterScopedMixin, DetailView):
         return context
 
 
-class PresenterUpdateView(PresenterScopedMixin, UpdateView):
+class PresenterUpdateView(
+    LoginRequiredMixin, SpeakerOrganizerRequiredMixin, UpdateView
+):
+    """Organizers only. A liaison must not change the email an invitation
+    goes to, nor hand the presenter to another liaison."""
+
+    model = Presenter
     form_class = PresenterForm
     template_name = "speakers/presenter_form.html"
+
+    def get_queryset(self):
+        return Presenter.objects.for_conference(self.conference)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["conference"] = self.conference
+        context["rail_active"] = "presenters"
+        return context
 
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()
@@ -425,15 +447,27 @@ class SessionRemovePresenterView(OrganizerSessionActionMixin, View):
     def post(self, request, pk, link_pk):
         session = self.get_session()
         link = get_object_or_404(session.session_presenters, pk=link_pk)
-        name = link.presenter.display_name
-        link.delete()
-        ActivityLog.record(
-            self.conference,
-            "session.presenter_removed",
-            target=session,
-            actor=request.user,
-            presenter_id=link.presenter_id,
-        )
+        name, presenter_id = link.presenter.display_name, link.presenter_id
+        with transaction.atomic():
+            link.delete()
+            # Their link must stop working: an open invitation to a session
+            # they are no longer on would still accept.
+            for invitation in Invitation.objects.filter(
+                presenter_id=presenter_id, session=session
+            ):
+                if invitation.is_open:
+                    cancel_invitation(invitation, actor=request.user)
+            if session.status == SessionStatus.INVITED and not any(
+                i.is_open for i in Invitation.objects.filter(session=session)
+            ):
+                session.back_to_draft()
+            ActivityLog.record(
+                self.conference,
+                "session.presenter_removed",
+                target=session,
+                actor=request.user,
+                presenter_id=presenter_id,
+            )
         messages.success(request, f"Removed {name} from the session.")
         return redirect(session.get_absolute_url())
 
@@ -447,7 +481,11 @@ class SessionInviteView(OrganizerSessionActionMixin, View):
             session.session_presenters.select_related("presenter"), pk=link_pk
         )
         form = InviteForm(request.POST)
-        form.is_valid()
+        if not form.is_valid():
+            messages.error(
+                request, "Could not send: " + "; ".join(form.errors["message_md"])
+            )
+            return redirect(session.get_absolute_url())
         invitation = (
             Invitation.objects.filter(presenter=link.presenter, session=session)
             .exclude(accepted_at__isnull=False)
@@ -516,6 +554,8 @@ class SpeakerDashboardView(LoginRequiredMixin, PresenterRequiredMixin, TemplateV
                 "session__title"
             )
         )
+        # Stage 1 stand-in: the Stage 2 checklist replaces this with real
+        # items, so nothing else should build on it.
         context["profile_complete"] = bool(
             self.presenter.bio_md and self.presenter.headshot
         )
@@ -581,8 +621,17 @@ class SpeakerSessionUpdateView(SpeakerSessionMixin, UpdateView):
     form_class = SpeakerSessionForm
     template_name = "speakers/speaker_session_form.html"
 
+    # Once public (or cancelled), changes go through an organizer so the
+    # public site does not change unseen.
+    LOCKED = (SessionStatus.PUBLISHED, SessionStatus.CANCELLED)
+
     def get_object(self, queryset=None):
-        return self.get_session()
+        session = self.get_session()
+        if session.status in self.LOCKED:
+            raise PermissionDenied(
+                "This session is no longer editable here; ask an organizer."
+            )
+        return session
 
     def get_success_url(self):
         return reverse("speakers:my_sessions")

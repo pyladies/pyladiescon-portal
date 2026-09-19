@@ -53,6 +53,9 @@ def send_invitation_email(invitation):
     )
 
 
+FENCE = "`" * 3  # a note may not close the code block it is shown in
+
+
 def organizer_recipients(presenter=None):
     """Organizer inboxes: staff and superusers, plus the presenter's liaison."""
     users = get_user_model().objects.filter(
@@ -69,19 +72,25 @@ def send_copresenter_suggestion_email(presenter, session, name, email, note):
     recipients = organizer_recipients(presenter)
     if not recipients:
         return 0
-    send_email(
-        f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} Co-presenter suggested for "
-        f"{session.title}",
-        recipients,
-        markdown_template="emails/speakers/copresenter_suggestion.md",
-        context={
-            "presenter": presenter,
-            "session": session,
-            "suggested_name": name,
-            "suggested_email": email,
-            "note": note,
-            "session_url": f"https://{Site.objects.get_current().domain}"
-            f"{session.get_absolute_url()}",
-        },
-    )
+    context = {
+        "presenter": presenter,
+        "session": session,
+        "suggested_name": name,
+        "suggested_email": email,
+        # Presenter-written text goes into the email as a literal block:
+        # no links, headings or markup of theirs reach the organizers.
+        "note": note.replace(FENCE, "'" * 3).strip(),
+        "session_url": f"https://{Site.objects.get_current().domain}"
+        f"{session.get_absolute_url()}",
+    }
+    # One message per organizer, as the sponsorship emails do, so a liaison
+    # does not see every staff address.
+    for recipient in recipients:
+        send_email(
+            f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} Co-presenter suggested for "
+            f"{session.title}",
+            [recipient],
+            markdown_template="emails/speakers/copresenter_suggestion.md",
+            context=context,
+        )
     return len(recipients)

@@ -3,8 +3,8 @@ from django.contrib.auth.models import User
 from django.db.models import Q
 
 from .constants import SessionStatus
-from .forms import liaison_candidates
 from .models import Presenter, Session, SessionType
+from .people import liaison_candidates
 
 
 class SessionFilter(django_filters.FilterSet):

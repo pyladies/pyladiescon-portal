@@ -172,9 +172,35 @@ class TestPresenterForms:
         # and a blank first name sorts first.
         assert list(liaison_candidates(conference)) == [organizer, liaison]
 
-    def test_liaison_edits_own_presenter_only(self, client, liaison, presenters):
+    def test_liaison_reads_but_cannot_edit(self, client, liaison, presenters):
+        """A liaison sees their presenter but must not change the email an
+        invitation goes to, nor hand the presenter to someone else."""
+        ada = presenters["ada"]
         client.force_login(liaison)
-        url = reverse("speakers:presenter_edit", args=[presenters["ada"].pk])
+        content = client.get(ada.get_absolute_url()).content.decode()
+        assert content.count(reverse("speakers:presenter_edit", args=[ada.pk])) == 0
+        url = reverse("speakers:presenter_edit", args=[ada.pk])
+        assert client.get(url).status_code == 403
+        response = client.post(
+            url,
+            {
+                "display_name": "Mallory",
+                "email": "attacker@example.com",
+                "timezone": "Europe/London",
+                "liaison": "",
+            },
+        )
+        assert response.status_code == 403
+        ada.refresh_from_db()
+        assert ada.email == "ada@example.com" and ada.liaison == liaison
+        other = reverse("speakers:presenter_edit", args=[presenters["grace"].pk])
+        assert client.get(other).status_code == 403
+        assert client.get(reverse("speakers:presenter_create")).status_code == 403
+
+    def test_organizer_edits_a_presenter(self, client, organizer, presenters, liaison):
+        ada = presenters["ada"]
+        client.force_login(organizer)
+        url = reverse("speakers:presenter_edit", args=[ada.pk])
         assert client.get(url).status_code == 200
         response = client.post(
             url,
@@ -185,12 +211,9 @@ class TestPresenterForms:
                 "liaison": liaison.pk,
             },
         )
-        assertRedirects(response, presenters["ada"].get_absolute_url())
-        presenters["ada"].refresh_from_db()
-        assert presenters["ada"].display_name == "Ada Lovelace"
-        other = reverse("speakers:presenter_edit", args=[presenters["grace"].pk])
-        assert client.get(other).status_code == 404
-        assert client.get(reverse("speakers:presenter_create")).status_code == 403
+        assertRedirects(response, ada.get_absolute_url())
+        ada.refresh_from_db()
+        assert ada.display_name == "Ada Lovelace" and ada.timezone == "Europe/London"
 
 
 @pytest.mark.django_db
@@ -274,6 +297,61 @@ class TestSessionPresenterActions:
         assert session.session_presenters.filter(presenter=grace).exists() is False
         actions = [e.action for e in ActivityLog.for_target(session)]
         assert actions == ["session.presenter_removed", "session.presenter_added"]
+
+    def test_remove_cancels_their_invitation_and_reverts_the_session(
+        self, client, organizer, presenters, send
+    ):
+        """A removed presenter's link must stop working, and a session left
+        with no open invitation goes back to Draft."""
+        session, ada = presenters["session"], presenters["ada"]
+        invitation = make_invitation(ada, session)
+        send(invitation)
+        link_url = _link_from_mail()
+        session.refresh_from_db()
+        assert session.status == SessionStatus.INVITED
+        client.force_login(organizer)
+        link = session.session_presenters.get(presenter=ada)
+        client.post(
+            reverse("speakers:session_remove_presenter", args=[session.pk, link.pk])
+        )
+        invitation.refresh_from_db()
+        session.refresh_from_db()
+        assert invitation.status == InvitationStatus.CANCELLED
+        assert session.status == SessionStatus.DRAFT
+        client.logout()
+        assert client.get(link_url).context["reason"] == "cancelled"
+        assert ActivityLog.objects.filter(
+            action="session.presenter_removed", data__presenter_id=ada.pk
+        ).exists()
+
+    def test_remove_keeps_session_invited_while_others_are_pending(
+        self, client, organizer, presenters, send
+    ):
+        session, ada = presenters["session"], presenters["ada"]
+        grace = presenters["grace"]
+        add_presenter(session, grace)
+        send(make_invitation(ada, session))
+        send(make_invitation(grace, session))
+        client.force_login(organizer)
+        link = session.session_presenters.get(presenter=ada)
+        client.post(
+            reverse("speakers:session_remove_presenter", args=[session.pk, link.pk])
+        )
+        session.refresh_from_db()
+        assert session.status == SessionStatus.INVITED  # Grace is still invited
+
+    def test_invite_refuses_an_over_long_note(self, client, organizer, presenters):
+        session, ada = presenters["session"], presenters["ada"]
+        link = session.session_presenters.get(presenter=ada)
+        client.force_login(organizer)
+        mail.outbox.clear()
+        response = client.post(
+            reverse("speakers:session_invite", args=[session.pk, link.pk]),
+            {"message_md": "x" * 2001},
+            follow=True,
+        )
+        assert "Could not send" in response.content.decode()
+        assert mail.outbox == [] and not Invitation.objects.exists()
 
     def test_liaison_cannot_add(self, client, liaison, presenters):
         client.force_login(liaison)

@@ -7,7 +7,11 @@
 - **Name:** {{ suggested_name }}
 - **Email:** {{ suggested_email }}
 {% if note %}
-> {{ note }}
+Their note, as written:
+
+```
+{{ note }}
+```
 {% endif %}
 
 Add them from the session page if you agree: {{ session_url }}

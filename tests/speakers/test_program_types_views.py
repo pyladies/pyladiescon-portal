@@ -103,6 +103,50 @@ class TestSessionTypeForms:
             "default_role": ["The default role must be one of the allowed roles."]
         }
 
+    def test_case_variant_code_is_a_form_error_not_a_crash(
+        self, client, organizer, enabled, conference
+    ):
+        client.force_login(organizer)
+        response = client.post(
+            reverse("speakers:presenter_role_create"),
+            {
+                "name": "Panelist again",
+                "code": "panelist",
+                "email_word": "p",
+                "sort_order": 1,
+                "is_active": "on",
+            },
+        )
+        assert response.status_code == 200
+        assert "already exists" in response.content.decode()
+        response = client.post(
+            reverse("speakers:session_type_create"),
+            {
+                "name": "Panel again",
+                "code": " panel ",
+                "default_duration_minutes": 1,
+                "default_delivery": "LIVE",
+                "sort_order": 1,
+                "is_active": "on",
+            },
+        )
+        assert response.status_code == 200
+        assert "already exists" in response.content.decode()
+
+    def test_retired_role_stays_on_the_type_form(
+        self, client, organizer, enabled, conference
+    ):
+        panel = session_type(conference, "PANEL")
+        moderator = presenter_role(conference, "MODERATOR")
+        moderator.is_active = False
+        moderator.save()
+        client.force_login(organizer)
+        url = reverse("speakers:session_type_edit", args=[panel.pk])
+        assert moderator in client.get(url).context["form"].fields["roles"].queryset
+        # A new type is not offered the retired role.
+        form = client.get(reverse("speakers:session_type_create")).context["form"]
+        assert moderator not in form.fields["roles"].queryset
+
     def test_edit_keeps_code_once_in_use(self, client, organizer, enabled, conference):
         talk = session_type(conference, "TALK")
         client.force_login(organizer)

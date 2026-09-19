@@ -1,13 +1,11 @@
 import zoneinfo
 
 from django import forms
-from django.contrib.auth.models import User
 from django.db.models import Q
-
-from volunteer.constants import ApplicationStatus
 
 from .constants import Delivery
 from .models import Presenter, PresenterRole, Session, SessionPresenter, SessionType
+from .people import liaison_candidates, user_label
 
 MARKDOWN_HELP = "Markdown supported: headings, lists, links, **bold**, *italics*."
 
@@ -58,7 +56,9 @@ class SessionForm(forms.ModelForm):
         self.conference = conference
         if not self.instance.conference_id:
             self.instance.conference = conference
-        types = SessionType.objects.filter(conference=conference, is_active=True)
+        types = SessionType.objects.filter(conference=conference).filter(
+            Q(is_active=True) | Q(pk=self.instance.kind_id)  # keep a retired type
+        )
         self.fields["kind"].queryset = types
         self.fields["kind"].label = "Type"
         self.fields["duration_minutes"].help_text = (
@@ -145,7 +145,7 @@ class PresenterForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.conference = conference
         self.fields["liaison"].queryset = liaison_candidates(conference)
-        self.fields["liaison"].label_from_instance = _user_label
+        self.fields["liaison"].label_from_instance = user_label
 
     def clean_email(self):
         email = self.cleaned_data["email"].strip().lower()
@@ -157,25 +157,6 @@ class PresenterForm(forms.ModelForm):
                 "A presenter with this email already exists in this edition."
             )
         return email
-
-
-def _user_label(user):
-    return user.get_full_name() or user.username
-
-
-def liaison_candidates(conference):
-    """Who can be a liaison: staff, or an approved volunteer of the edition."""
-    return (
-        User.objects.filter(
-            Q(is_staff=True)
-            | Q(
-                volunteerprofile__conference=conference,
-                volunteerprofile__application_status=ApplicationStatus.APPROVED,
-            )
-        )
-        .distinct()
-        .order_by("first_name", "last_name", "username")
-    )
 
 
 class SessionPresenterForm(forms.ModelForm):
@@ -214,6 +195,7 @@ class InviteForm(forms.Form):
     message_md = forms.CharField(
         label="Personal message",
         required=False,
+        max_length=2000,
         widget=forms.Textarea(attrs={"rows": 4}),
         help_text=MARKDOWN_HELP,
     )
@@ -292,6 +274,21 @@ class SuggestCoPresenterForm(forms.Form):
     )
 
 
+def _unique_code(form, model, noun):
+    """Normalise a code and refuse a clash within the edition.
+
+    The model's unique constraint spans ``conference``, which is not a form
+    field, so Django's constraint validation skips it here; without this a
+    case variant would only fail on the database."""
+    code = form.cleaned_data["code"].strip().upper()
+    clash = model.objects.filter(conference=form.conference, code=code).exclude(
+        pk=form.instance.pk
+    )
+    if clash.exists():
+        raise forms.ValidationError(f"A {noun} with this code already exists.")
+    return code
+
+
 class PresenterRoleForm(forms.ModelForm):
     """A role organizers can put people in (settings page)."""
 
@@ -309,6 +306,9 @@ class PresenterRoleForm(forms.ModelForm):
         self.instance.conference = conference
         if self.instance.pk and self.instance.session_presenters.exists():
             self.fields["code"].disabled = True
+
+    def clean_code(self):
+        return _unique_code(self, PresenterRole, "role")
 
 
 class SessionTypeForm(forms.ModelForm):
@@ -343,11 +343,19 @@ class SessionTypeForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.conference = conference
         self.instance.conference = conference
-        roles = PresenterRole.objects.filter(conference=conference, is_active=True)
+        keep = Q(is_active=True) | Q(pk=self.instance.default_role_id)
+        if self.instance.pk:
+            keep |= Q(session_types=self.instance)  # a retired role still on it
+        roles = (
+            PresenterRole.objects.filter(conference=conference).filter(keep).distinct()
+        )
         self.fields["roles"].queryset = roles
         self.fields["default_role"].queryset = roles
         if self.instance.pk and self.instance.sessions.exists():
             self.fields["code"].disabled = True
+
+    def clean_code(self):
+        return _unique_code(self, SessionType, "session type")
 
     def clean(self):
         cleaned = super().clean()

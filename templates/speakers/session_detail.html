@@ -23,10 +23,12 @@
                 <span class="badge text-bg-success">{% trans "Public" %}</span>
             {% endif %}
         </div>
-        <a class="btn btn-outline-primary"
-           href="{% url 'speakers:session_edit' session.pk %}">
-            <i class="fa-solid fa-pen"></i> {% trans "Edit" %}
-        </a>
+        {% if is_organizer %}
+            <a class="btn btn-outline-primary"
+               href="{% url 'speakers:session_edit' session.pk %}">
+                <i class="fa-solid fa-pen"></i> {% trans "Edit" %}
+            </a>
+        {% endif %}
     </div>
     <div class="row g-4">
         <div class="col-lg-8">

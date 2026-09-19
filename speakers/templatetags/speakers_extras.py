@@ -3,6 +3,7 @@ from django.utils.safestring import mark_safe
 
 from speakers.constants import SessionStatus
 from speakers.markdown import render_md
+from speakers.people import user_label
 from speakers.tables import INVITATION_BADGE_CLASSES, STATUS_BADGE_CLASSES
 
 register = template.Library()
@@ -26,7 +27,4 @@ def invitation_status_class(invitation):
     return INVITATION_BADGE_CLASSES[invitation.status]
 
 
-@register.filter
-def user_label(user):
-    """Full name, or the username when the profile has none."""
-    return user.get_full_name() or user.username
+register.filter("user_label", user_label)

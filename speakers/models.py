@@ -361,6 +361,12 @@ class PresenterRole(TimestampedModel):
     def __str__(self):
         return self.name
 
+    def clean(self):
+        # Before validate_constraints, so "panelist" collides with PANELIST
+        # in the form instead of on the database.
+        self.code = self.code.strip().upper()
+        super().clean()
+
     def save(self, *args, **kwargs):
         self.code = self.code.strip().upper()
         super().save(*args, **kwargs)
@@ -435,7 +441,10 @@ class SessionType(TimestampedModel):
     def clean(self):
         """``default_role`` must be of this edition. Whether it is one of
         ``roles`` is a form-level check (the many-to-many is saved after
-        ``full_clean`` in the admin), left to the settings form."""
+        ``full_clean`` in the admin), left to the settings form. The code
+        is normalised here so a case variant collides in the form, not on
+        the database."""
+        self.code = self.code.strip().upper()
         super().clean()
         if (
             self.default_role_id
@@ -608,6 +617,13 @@ class Session(TimestampedModel):
             raise TransitionError(
                 f"Cannot do that from status {self.get_status_display()}."
             )
+
+    def back_to_draft(self, save=True):
+        """INVITED -> DRAFT when the last open invitation is gone."""
+        self._require_status(SessionStatus.INVITED)
+        self.status = SessionStatus.DRAFT
+        if save:
+            self.save(update_fields=["status"])
 
     def mark_invited(self, save=True):
         """DRAFT -> INVITED, when the first invitation goes out."""

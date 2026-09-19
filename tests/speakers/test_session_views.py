@@ -271,19 +271,24 @@ class TestSessionForms:
         assert session.title == "Renamed workshop"
         assert session.duration_minutes == 120
 
-    def test_liaison_can_edit_own_session(self, client, liaison, sessions):
+    def test_liaison_reads_but_cannot_edit(self, client, liaison, sessions, conference):
         session = sessions["mine"]
         client.force_login(liaison)
-        assert (
-            client.get(reverse("speakers:session_edit", args=[session.pk])).status_code
-            == 200
+        content = client.get(session.get_absolute_url()).content.decode()
+        assert reverse("speakers:session_edit", args=[session.pk]) not in content
+        url = reverse("speakers:session_edit", args=[session.pk])
+        assert client.get(url).status_code == 403
+        response = client.post(
+            url,
+            {
+                "kind": session_type(conference, "WORKSHOP").pk,
+                "delivery": "LIVE",
+                "title": "Renamed by a liaison",
+            },
         )
-        assert (
-            client.get(
-                reverse("speakers:session_edit", args=[sessions["theirs"].pk])
-            ).status_code
-            == 404
-        )
+        assert response.status_code == 403
+        session.refresh_from_db()
+        assert session.title == "Liaised workshop"
 
     def test_video_fields_rejected_for_live_session(self, conference):
         form = SessionForm(
@@ -357,6 +362,24 @@ class TestSessionForms:
             data={"kind": session_type(other, "TALK").pk, "title": "T"},
         )
         assert "kind" in form.errors
+
+
+@pytest.mark.django_db
+class TestSessionEditKeepsRetiredType:
+    def test_inactive_type_stays_selectable_on_its_own_session(
+        self, client, organizer, sessions, conference
+    ):
+        session = sessions["mine"]
+        session.kind.is_active = False
+        session.kind.save()
+        client.force_login(organizer)
+        form = client.get(reverse("speakers:session_edit", args=[session.pk])).context[
+            "form"
+        ]
+        assert session.kind_id in [t.pk for t in form.fields["kind"].queryset]
+        # ... but not on a new session.
+        form = client.get(reverse("speakers:session_create")).context["form"]
+        assert session.kind_id not in [t.pk for t in form.fields["kind"].queryset]
 
 
 @pytest.mark.django_db

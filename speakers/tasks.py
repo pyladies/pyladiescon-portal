@@ -18,8 +18,8 @@ def send_invitation_email_task(invitation_id):
     return f"Sent invitation email for {invitation_id}"
 
 
-@shared_task(bind=True, max_retries=3, default_retry_delay=60)
-def send_copresenter_suggestion_task(self, presenter_id, session_id, name, email, note):
+@shared_task
+def send_copresenter_suggestion_task(presenter_id, session_id, name, email, note):
     """Email the organizers a presenter's co-presenter suggestion."""
     presenter = (
         Presenter.objects.filter(pk=presenter_id).select_related("liaison").first()

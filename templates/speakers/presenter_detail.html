@@ -35,10 +35,12 @@
                 </div>
             </div>
         </div>
-        <a class="btn btn-outline-primary"
-           href="{% url 'speakers:presenter_edit' presenter.pk %}">
-            <i class="fa-solid fa-pen"></i> {% trans "Edit" %}
-        </a>
+        {% if is_organizer %}
+            <a class="btn btn-outline-primary"
+               href="{% url 'speakers:presenter_edit' presenter.pk %}">
+                <i class="fa-solid fa-pen"></i> {% trans "Edit" %}
+            </a>
+        {% endif %}
     </div>
     <div class="row g-4">
         <div class="col-lg-7">

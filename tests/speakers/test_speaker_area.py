@@ -9,10 +9,11 @@ from PIL import Image
 from pytest_django.asserts import assertRedirects
 
 from portal_account.models import PortalProfile
+from speakers.constants import SessionStatus
 from speakers.context_processors import speaker_module
 from speakers.emails import organizer_recipients
 from speakers.mixins import PresenterRequiredMixin
-from speakers.models import ActivityLog
+from speakers.models import ActivityLog, Session
 from speakers.tasks import send_copresenter_suggestion_task
 from volunteer.models import VolunteerProfile
 
@@ -305,16 +306,41 @@ class TestSuggestCoPresenter:
             follow=True,
         )
         assert "passed Grace Hopper on to the organizers" in response.content.decode()
-        assert len(mail.outbox) == 1
+        # One message per organizer, so the liaison never sees staff addresses.
+        assert sorted(m.to[0] for m in mail.outbox) == [
+            "admin@example.com",
+            "lena@example.com",
+        ]
+        assert all(len(m.to) == 1 for m in mail.outbox)
         message = mail.outbox[0]
-        assert sorted(message.to) == ["admin@example.com", "lena@example.com"]
         assert "Co-presenter suggested for Django 101" in message.subject
         assert "grace@navy.example" in message.body
-        assert "She's great" in message.body
+        # The note is shown verbatim, markdown and all, never rendered.
+        assert "She's *great*" in message.body
+        html = message.alternatives[0][0]
+        assert "<code>" in html and "<em>great</em>" not in html
         assert my_session.get_absolute_url() in message.body
         entry = ActivityLog.for_target(my_session).get()
         assert entry.action == "session.copresenter_suggested"
         assert entry.data == {"name": "Grace Hopper", "email": "grace@navy.example"}
+
+    def test_note_cannot_smuggle_links_or_break_out(
+        self, client, speaker, presenter, my_session, admin_user
+    ):
+        client.force_login(speaker)
+        mail.outbox.clear()
+        client.post(
+            reverse("speakers:my_session_suggest", args=[my_session.pk]),
+            {
+                "name": "Eve",
+                "email": "eve@example.com",
+                "note": "line one [click](https://evil.example)\n```\n# not a heading",
+            },
+        )
+        html = mail.outbox[0].alternatives[0][0]
+        assert "evil.example" in html and 'href="https://evil.example"' not in html
+        assert "<h1>" not in html
+        assert ("'" * 3) in mail.outbox[0].body  # fences are defused
 
     def test_invalid_suggestion(self, client, speaker, presenter, my_session):
         client.force_login(speaker)
@@ -343,3 +369,20 @@ class TestPresenterRequiredMixin:
         mixin.request.user = AnonymousUser()
         mixin.conference = conference
         assert mixin.test_func() is False
+
+
+@pytest.mark.django_db
+class TestLockedSessions:
+    def test_no_presenter_edits_once_published_or_cancelled(
+        self, client, speaker, presenter, my_session
+    ):
+        client.force_login(speaker)
+        url = reverse("speakers:my_session_edit", args=[my_session.pk])
+        assert client.get(url).status_code == 200
+        Session.objects.filter(pk=my_session.pk).update(status=SessionStatus.PUBLISHED)
+        assert client.get(url).status_code == 403
+        assert client.post(url, {"title": "x"}).status_code == 403
+        Session.objects.filter(pk=my_session.pk).update(status=SessionStatus.CANCELLED)
+        assert client.get(url).status_code == 403
+        Session.objects.filter(pk=my_session.pk).update(status=SessionStatus.SCHEDULED)
+        assert client.get(url).status_code == 200
