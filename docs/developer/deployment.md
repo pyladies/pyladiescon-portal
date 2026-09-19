@@ -43,13 +43,17 @@ constraints with `nulls_distinct=False` (so a row with a NULL presenter
 still counts as a duplicate of another). Django only emits that clause on
 Postgres 15+; on an older server it warns with `models.W047` at check time
 and creates the constraint without it, which silently allows the duplicates
-the constraint exists to prevent. Local development and CI run
-`postgres:16` from `compose.yml`. Confirm the production server's version
-before enabling the speaker module on it:
+the constraint exists to prevent. Production runs PostgreSQL 17 (17.2 as of
+September 2026); local development and CI run `postgres:16` from
+`compose.yml`, one major version behind, which is fine for the features the
+portal uses. The image ships no `psql`, so `manage.py dbshell` does not work
+in production; ask Django instead:
 
 ```
-python manage.py dbshell -c "SELECT version();"
+python manage.py shell -c "from django.db import connection; print(connection.pg_version)"
 ```
+
+The number reads as major and minor: `170002` is 17.2.
 
 ## Documentation deployment
 
