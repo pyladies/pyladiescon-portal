@@ -331,7 +331,7 @@ Each `ChecklistTemplateItem` has:
 | `due_offset` | days relative to an anchor: invitation accepted, conference start, or session start |
 | `auto_complete_rule` | optional, from the registry in §9.3 |
 | `requires_asset_kind` | optional: the item is satisfied when a ready `MediaAsset` of that kind (and language) exists on the session |
-| `is_required` | required items gate the session reaching `CONFIRMED` |
+| `is_required` | required items gate the session reaching `CONFIRMED`. None of the default lines below is required: accepting the invitation is the presenter's confirmation (decided in the review round of 2026-09-16), so a seeded edition confirms a session as soon as its required presenters accept. An organizer may mark a line required, and from then on it holds the session at `INVITED` until it is done or skipped; the session page shows what it is waiting on. |
 | `assignee_default` | organizer items only: the presenter's liaison, or unassigned |
 
 Templates exist for content kinds and for hosted program kinds (opening, closing, keynote get a two-item host template). Breaks and socials have no checklist.
