@@ -1,3 +1,11 @@
+[project]
+# The portal is deployed from the Dockerfile (python:3.14), CI tests 3.14 and
+# 3.15, and psycopg2-binary only ships wheels for 3.14 from 2.9.13 on: keep
+# local environments on the same floor.
+name = "pyladiescon-portal"
+version = "0"
+requires-python = ">=3.14"
+
 [tool.djlint]
 # https://www.djlint.com/docs/linter/
 # H030 - Consider adding a meta description.
