@@ -970,12 +970,16 @@ class ChecklistTemplate(TimestampedModel):
     )
     scope = models.CharField(max_length=16, choices=ChecklistScope.choices)
     name = models.CharField(max_length=100)
-    kind = models.CharField(max_length=16, choices=SessionKind.choices)
-    role = models.CharField(
-        max_length=16,
-        choices=PresenterRole.choices,
+    kind = models.ForeignKey(
+        SessionType, on_delete=models.PROTECT, related_name="checklist_templates"
+    )
+    role = models.ForeignKey(
+        PresenterRole,
+        on_delete=models.PROTECT,
+        null=True,
         blank=True,
-        help_text="Presenter scope only.",
+        related_name="checklist_templates",
+        help_text="Presenter templates only.",
     )
     delivery = models.CharField(
         max_length=16,
@@ -990,6 +994,7 @@ class ChecklistTemplate(TimestampedModel):
         constraints = [
             models.UniqueConstraint(
                 fields=["conference", "scope", "kind", "role", "delivery"],
+                nulls_distinct=False,
                 name="speakers_template_key_per_edition",
             )
         ]
@@ -999,14 +1004,18 @@ class ChecklistTemplate(TimestampedModel):
 
     def clean(self):
         super().clean()
-        if self.scope == ChecklistScope.PRESENTER and not self.role:
+        if self.scope == ChecklistScope.PRESENTER and not self.role_id:
             raise ValidationError({"role": "Presenter templates need a role."})
         if self.scope == ChecklistScope.SESSION and not self.delivery:
             raise ValidationError({"delivery": "Session templates need a delivery."})
         if self.scope == ChecklistScope.PRESENTER and self.delivery:
             raise ValidationError({"delivery": "Only session templates use delivery."})
-        if self.scope == ChecklistScope.SESSION and self.role:
+        if self.scope == ChecklistScope.SESSION and self.role_id:
             raise ValidationError({"role": "Only presenter templates use a role."})
+        if self.kind_id and self.kind.conference_id != self.conference_id:
+            raise ValidationError({"kind": "Pick a session type of this edition."})
+        if self.role_id and self.role.conference_id != self.conference_id:
+            raise ValidationError({"role": "Pick a role of this edition."})
 
     def save(self, *args, **kwargs):
         self.clean()
@@ -1014,7 +1023,7 @@ class ChecklistTemplate(TimestampedModel):
 
     @classmethod
     def for_presenter(cls, session, role):
-        """The active presenter-scope template for this session kind and role."""
+        """The active presenter-scope template for this session type and role."""
         return cls.objects.filter(
             conference_id=session.conference_id,
             scope=ChecklistScope.PRESENTER,
@@ -1025,7 +1034,7 @@ class ChecklistTemplate(TimestampedModel):
 
     @classmethod
     def for_session(cls, session):
-        """The active session-scope template for this session's kind and delivery."""
+        """The active session-scope template for this session's type and delivery."""
         return cls.objects.filter(
             conference_id=session.conference_id,
             scope=ChecklistScope.SESSION,

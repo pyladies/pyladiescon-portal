@@ -109,3 +109,45 @@ def presenter_role(conference, code):
     if not PresenterRole.objects.filter(conference=conference).exists():
         seed_program_types(conference)
     return PresenterRole.objects.get(conference=conference, code=code)
+
+
+def clone_program_types(target, source):
+    """Copy ``source``'s roles, types and the mapping into ``target`` by
+    code, keeping whatever ``target`` already has. Returns
+    ``(types_created, roles_created)``."""
+    roles_created = types_created = 0
+    role_map = {}
+    for role in PresenterRole.objects.filter(conference=source):
+        copy, created = PresenterRole.objects.get_or_create(
+            conference=target,
+            code=role.code,
+            defaults={
+                "name": role.name,
+                "email_word": role.email_word,
+                "sort_order": role.sort_order,
+                "is_active": role.is_active,
+            },
+        )
+        role_map[role.pk] = copy
+        roles_created += created
+    for session_type in SessionType.objects.filter(conference=source).prefetch_related(
+        "roles"
+    ):
+        copy, created = SessionType.objects.get_or_create(
+            conference=target,
+            code=session_type.code,
+            defaults={
+                "name": session_type.name,
+                "is_content": session_type.is_content,
+                "default_duration_minutes": session_type.default_duration_minutes,
+                "default_delivery": session_type.default_delivery,
+                "spans_all_channels": session_type.spans_all_channels,
+                "sort_order": session_type.sort_order,
+                "is_active": session_type.is_active,
+                "default_role": role_map.get(session_type.default_role_id),
+            },
+        )
+        if created:
+            copy.roles.set([role_map[r.pk] for r in session_type.roles.all()])
+            types_created += 1
+    return types_created, roles_created

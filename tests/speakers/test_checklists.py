@@ -24,8 +24,6 @@ from speakers.constants import (
     ItemOwner,
     ItemStatus,
     MediaKind,
-    PresenterRole,
-    SessionKind,
     SessionStatus,
 )
 from speakers.models import (
@@ -64,14 +62,14 @@ def liaison(db):
 
 def workshop_template(conference):
     return ChecklistTemplate.objects.get(
-        conference=conference, kind=SessionKind.WORKSHOP, role=PresenterRole.PRESENTER
+        conference=conference, kind__code="WORKSHOP", role__code="PRESENTER"
     )
 
 
 @pytest.mark.django_db
 class TestInstantiateOnAccept:
     def test_accept_creates_exactly_the_template_items(self, seeded, liaison):
-        session = make_session(seeded, kind=SessionKind.WORKSHOP)
+        session = make_session(seeded, kind="WORKSHOP")
         presenter = make_presenter(seeded, liaison=liaison)
         add_presenter(session, presenter)
         invitation = make_invitation(presenter, session)
@@ -102,7 +100,7 @@ class TestInstantiateOnAccept:
         assert promo.assignee is None
 
     def test_required_item_gates_confirmation(self, seeded):
-        session = make_session(seeded, kind=SessionKind.WORKSHOP)
+        session = make_session(seeded, kind="WORKSHOP")
         presenter = make_presenter(seeded)
         add_presenter(session, presenter)
         invitation = make_invitation(presenter, session)
@@ -121,7 +119,7 @@ class TestInstantiateOnAccept:
         assert session.status == SessionStatus.CONFIRMED
 
     def test_accepting_again_does_not_duplicate(self, seeded):
-        session = make_session(seeded, kind=SessionKind.WORKSHOP)
+        session = make_session(seeded, kind="WORKSHOP")
         presenter = make_presenter(seeded)
         link = add_presenter(session, presenter)
         instantiate_presenter_checklist(link)
@@ -135,7 +133,7 @@ class TestInstantiateOnAccept:
         assert instantiate_presenter_checklist(link) == []
 
     def test_slot_anchors_session_items(self, seeded):
-        session = make_session(seeded, kind=SessionKind.WORKSHOP)
+        session = make_session(seeded, kind="WORKSHOP")
         make_slot(session)
         link = add_presenter(session, make_presenter(seeded), confirmed=True)
         instantiate_presenter_checklist(link)
@@ -148,13 +146,11 @@ class TestSessionScope:
     def test_confirm_creates_post_production_items(self, seeded):
         jam = make_session(
             seeded,
-            kind=SessionKind.PYJAM,
+            kind="PYJAM",
             delivery=Delivery.PRE_RECORDED,
             language="en",
         )
-        add_presenter(
-            jam, make_presenter(seeded), role=PresenterRole.PERFORMER, confirmed=True
-        )
+        add_presenter(jam, make_presenter(seeded), role="PERFORMER", confirmed=True)
         jam.confirm()
         titles = list(jam.checklist_items.values_list("title", flat=True))
         assert "Translate (pt-br)" in titles and "Translate (es)" in titles
@@ -170,16 +166,15 @@ class TestSessionScope:
         assert instantiate_session_checklist(jam) == []
 
     def test_live_session_has_no_post_production(self, seeded):
-        jam = make_session(seeded, kind=SessionKind.PYJAM)
+        # A PyJam defaults to pre-recorded; this one is explicitly live.
+        jam = make_session(seeded, kind="PYJAM", delivery=Delivery.LIVE)
         add_presenter(jam, make_presenter(seeded), confirmed=True)
         jam.confirm()
         assert jam.checklist_items.count() == 0
 
     def test_without_settings_row_no_translation_items(self, conference):
         seed_checklists(conference)
-        jam = make_session(
-            conference, kind=SessionKind.PYJAM, delivery=Delivery.PRE_RECORDED
-        )
+        jam = make_session(conference, kind="PYJAM", delivery=Delivery.PRE_RECORDED)
         created = instantiate_session_checklist(jam)
         assert not any(i.title.startswith("Translate") for i in created)
 
@@ -188,7 +183,7 @@ class TestSessionScope:
 class TestBackfill:
     def test_presenter_scope_backfill(self, seeded):
         template = workshop_template(seeded)
-        session = make_session(seeded, kind=SessionKind.WORKSHOP)
+        session = make_session(seeded, kind="WORKSHOP")
         confirmed = add_presenter(session, make_presenter(seeded), confirmed=True)
         pending = add_presenter(session, make_presenter(seeded))
         instantiate_presenter_checklist(confirmed)
@@ -207,12 +202,8 @@ class TestBackfill:
         assert backfill_template_item(new_item) == 0
 
     def test_session_scope_backfill_only_instantiated_sessions(self, seeded):
-        jam = make_session(
-            seeded, kind=SessionKind.PYJAM, delivery=Delivery.PRE_RECORDED
-        )
-        untouched = make_session(
-            seeded, kind=SessionKind.PYJAM, delivery=Delivery.PRE_RECORDED
-        )
+        jam = make_session(seeded, kind="PYJAM", delivery=Delivery.PRE_RECORDED)
+        untouched = make_session(seeded, kind="PYJAM", delivery=Delivery.PRE_RECORDED)
         instantiate_session_checklist(jam)
         template = ChecklistTemplate.for_session(jam)
         new_item = ChecklistTemplateItem.objects.create(
@@ -233,7 +224,7 @@ class TestLifecycle:
     @pytest.fixture
     def item(self, seeded, liaison):
         presenter = make_presenter(seeded, liaison=liaison)
-        session = make_session(seeded, kind=SessionKind.PANEL)
+        session = make_session(seeded, kind="PANEL")
         return add_adhoc_item(
             seeded,
             "Bring cookies",
@@ -304,7 +295,7 @@ class TestLifecycle:
         assert "→ nobody" in entries.first().message
 
     def test_required_skip_confirms_session(self, seeded):
-        session = make_session(seeded, kind=SessionKind.WORKSHOP)
+        session = make_session(seeded, kind="WORKSHOP")
         presenter = make_presenter(seeded)
         link = add_presenter(session, presenter, confirmed=True)
         session.mark_invited()
@@ -325,7 +316,7 @@ class TestLifecycle:
         assert item.status == ItemStatus.DONE
 
     def test_confirm_blocked_message_lists_titles(self, seeded):
-        session = make_session(seeded, kind=SessionKind.WORKSHOP)
+        session = make_session(seeded, kind="WORKSHOP")
         add_presenter(session, make_presenter(seeded), confirmed=True)
         add_adhoc_item(seeded, "Sign the form", ItemOwner.SPEAKER, session=session)
         ChecklistItem.objects.update(is_required=True)
@@ -335,7 +326,7 @@ class TestLifecycle:
         assert session.status == SessionStatus.DRAFT
 
     def test_unsaved_session_skips_gate(self, seeded):
-        session = make_session(seeded, kind=SessionKind.BREAK)
+        session = make_session(seeded, kind="BREAK")
         session.confirm(save=False)
         assert session.status == SessionStatus.CONFIRMED
         assert not session.checklist_items.exists()

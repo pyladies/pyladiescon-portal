@@ -2,7 +2,8 @@
 
 Templates are data the organizers edit in the portal; these defaults only
 seed an edition that has none. ``seed_checklists`` is idempotent: it keys
-templates on (scope, kind, role, delivery) and items on their title.
+templates on (scope, type, role, delivery) and items on their title. Types
+and roles are named by ``code`` and resolved to the edition's rows.
 """
 
 from .constants import (
@@ -14,10 +15,9 @@ from .constants import (
     DueAnchor,
     ItemOwner,
     MediaKind,
-    PresenterRole,
-    SessionKind,
 )
 from .models import ChecklistTemplate, ChecklistTemplateItem
+from .program_types import clone_program_types, presenter_role, session_type
 
 SPK, ORG = ItemOwner.SPEAKER, ItemOwner.ORGANIZER
 ACCEPTED, CONF, SESSION = (
@@ -185,108 +185,92 @@ POST_PRODUCTION = [
     ),
 ]
 
-# (scope, name, kind, role, delivery, items)
+# (scope, name, type code, role code, delivery, items)
 DEFAULT_TEMPLATES = [
     (
         ChecklistScope.PRESENTER,
         "Workshop presenter",
-        SessionKind.WORKSHOP,
-        PresenterRole.PRESENTER,
-        "",
-        WORKSHOP_SPEAKER + ORGANIZER_ITEMS,
-    ),
-    (
-        ChecklistScope.PRESENTER,
-        "Workshop co-presenter",
-        SessionKind.WORKSHOP,
-        PresenterRole.CO_PRESENTER,
+        "WORKSHOP",
+        "PRESENTER",
         "",
         WORKSHOP_SPEAKER + ORGANIZER_ITEMS,
     ),
     (
         ChecklistScope.PRESENTER,
         "Talk presenter",
-        SessionKind.TALK,
-        PresenterRole.PRESENTER,
-        "",
-        TALK_SPEAKER + ORGANIZER_ITEMS,
-    ),
-    (
-        ChecklistScope.PRESENTER,
-        "Talk co-presenter",
-        SessionKind.TALK,
-        PresenterRole.CO_PRESENTER,
+        "TALK",
+        "PRESENTER",
         "",
         TALK_SPEAKER + ORGANIZER_ITEMS,
     ),
     (
         ChecklistScope.PRESENTER,
         "Lightning talk presenter",
-        SessionKind.LIGHTNING,
-        PresenterRole.PRESENTER,
+        "LIGHTNING",
+        "PRESENTER",
         "",
         TALK_SPEAKER + ORGANIZER_ITEMS,
     ),
     (
         ChecklistScope.PRESENTER,
         "Keynote presenter",
-        SessionKind.KEYNOTE,
-        PresenterRole.PRESENTER,
+        "KEYNOTE",
+        "PRESENTER",
         "",
         TALK_SPEAKER + ORGANIZER_ITEMS,
     ),
     (
         ChecklistScope.PRESENTER,
         "Panelist",
-        SessionKind.PANEL,
-        PresenterRole.PANELIST,
+        "PANEL",
+        "PANELIST",
         "",
         PANEL_LIGHT + ORGANIZER_ITEMS,
     ),
     (
         ChecklistScope.PRESENTER,
         "Panel moderator",
-        SessionKind.PANEL,
-        PresenterRole.MODERATOR,
+        "PANEL",
+        "MODERATOR",
         "",
         PANEL_LIGHT + ORGANIZER_ITEMS,
     ),
     (
         ChecklistScope.PRESENTER,
         "PyJam performer",
-        SessionKind.PYJAM,
-        PresenterRole.PERFORMER,
+        "PYJAM",
+        "PERFORMER",
         "",
         PERFORMER + ORGANIZER_ITEMS,
     ),
     (
         ChecklistScope.PRESENTER,
         "Opening host",
-        SessionKind.OPENING,
-        PresenterRole.HOST,
+        "OPENING",
+        "HOST",
         "",
         HOST + HOST_ORGANIZER,
     ),
     (
         ChecklistScope.PRESENTER,
         "Closing host",
-        SessionKind.CLOSING,
-        PresenterRole.HOST,
+        "CLOSING",
+        "HOST",
         "",
         HOST + HOST_ORGANIZER,
     ),
     (
         ChecklistScope.PRESENTER,
         "Keynote host",
-        SessionKind.KEYNOTE,
-        PresenterRole.HOST,
+        "KEYNOTE",
+        "HOST",
         "",
         HOST + HOST_ORGANIZER,
     ),
     (
         ChecklistScope.SESSION,
         "PyJam post-production",
-        SessionKind.PYJAM,
+        "PYJAM",
         "",
         Delivery.PRE_RECORDED,
         POST_PRODUCTION,
@@ -303,8 +287,8 @@ def seed_checklists(conference):
         template, created = ChecklistTemplate.objects.get_or_create(
             conference=conference,
             scope=scope,
-            kind=kind,
-            role=role,
+            kind=session_type(conference, kind),
+            role=presenter_role(conference, role) if role else None,
             delivery=delivery,
             defaults={"name": name},
         )
@@ -346,12 +330,16 @@ def clone_checklists(target, source):
     safe to run more than once. Returns ``(templates_created, items_created)``.
     """
     templates_created = items_created = 0
-    for template in source.checklist_templates.prefetch_related("items"):
+    # Types and roles come along first, matched by code.
+    clone_program_types(target, source)
+    for template in source.checklist_templates.select_related(
+        "kind", "role"
+    ).prefetch_related("items"):
         copy, created = ChecklistTemplate.objects.get_or_create(
             conference=target,
             scope=template.scope,
-            kind=template.kind,
-            role=template.role,
+            kind=session_type(target, template.kind.code),
+            role=presenter_role(target, template.role.code) if template.role else None,
             delivery=template.delivery,
             defaults={"name": template.name, "is_active": template.is_active},
         )

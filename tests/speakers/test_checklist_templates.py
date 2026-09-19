@@ -14,10 +14,9 @@ from speakers.constants import (
     DueAnchor,
     ItemOwner,
     MediaKind,
-    PresenterRole,
-    SessionKind,
 )
 from speakers.models import ChecklistTemplate, ChecklistTemplateItem
+from speakers.program_types import presenter_role, session_type
 from speakers.seeds import DEFAULT_TEMPLATES, clone_checklists, seed_checklists
 
 from .factories import make_session
@@ -31,13 +30,19 @@ def other_conference(db):
 
 
 def make_template(conference, **kwargs):
+    """``kind`` and ``role`` may be codes; they resolve to the edition's rows."""
     kwargs.setdefault("scope", ChecklistScope.PRESENTER)
     kwargs.setdefault("name", "Workshop presenter")
-    kwargs.setdefault("kind", SessionKind.WORKSHOP)
+    kwargs.setdefault("kind", "WORKSHOP")
     if kwargs["scope"] == ChecklistScope.PRESENTER:
-        kwargs.setdefault("role", PresenterRole.PRESENTER)
+        kwargs.setdefault("role", "PRESENTER")
     else:
         kwargs.setdefault("delivery", Delivery.PRE_RECORDED)
+    if isinstance(kwargs["kind"], str):
+        kwargs["kind"] = session_type(conference, kwargs["kind"])
+    role = kwargs.get("role")
+    if isinstance(role, str):
+        kwargs["role"] = presenter_role(conference, role) if role else None
     return ChecklistTemplate.objects.create(conference=conference, **kwargs)
 
 
@@ -65,7 +70,8 @@ class TestSeed:
     def test_seed_adds_missing_items_but_keeps_edits(self, conference):
         seed_checklists(conference)
         template = ChecklistTemplate.for_presenter(
-            make_session(conference, kind=SessionKind.WORKSHOP), PresenterRole.PRESENTER
+            make_session(conference, kind="WORKSHOP"),
+            presenter_role(conference, "PRESENTER"),
         )
         template.name = "Workshop presenter (edited)"
         template.save()
@@ -79,8 +85,8 @@ class TestSeed:
         seed_checklists(conference)
         workshop = ChecklistTemplate.objects.get(
             conference=conference,
-            kind=SessionKind.WORKSHOP,
-            role=PresenterRole.PRESENTER,
+            kind__code="WORKSHOP",
+            role__code="PRESENTER",
         )
         speaker_titles = list(
             workshop.items.filter(owner=ItemOwner.SPEAKER).values_list(
@@ -97,7 +103,7 @@ class TestSeed:
         assert organizer_titles[0] == "Invitation sent"
         assert organizer_titles[-1] == "Day-of reminder sent"
         panelist = ChecklistTemplate.objects.get(
-            conference=conference, kind=SessionKind.PANEL, role=PresenterRole.PANELIST
+            conference=conference, kind__code="PANEL", role__code="PANELIST"
         )
         assert not panelist.items.filter(
             owner=ItemOwner.SPEAKER, title__icontains="materials"
@@ -105,7 +111,7 @@ class TestSeed:
         post = ChecklistTemplate.objects.get(
             conference=conference, scope=ChecklistScope.SESSION
         )
-        assert post.kind == SessionKind.PYJAM and post.delivery == Delivery.PRE_RECORDED
+        assert post.kind.code == "PYJAM" and post.delivery == Delivery.PRE_RECORDED
         translate = post.items.get(title="Translate")
         assert translate.per_translation_language is True
         assert translate.auto_complete_rule == AutoRule.ASSET_EXISTS
@@ -113,7 +119,7 @@ class TestSeed:
         transcribe = post.items.get(title="Transcribe")
         assert transcribe.requires_asset_language == "session"
         host = ChecklistTemplate.objects.get(
-            conference=conference, kind=SessionKind.OPENING, role=PresenterRole.HOST
+            conference=conference, kind__code="OPENING", role__code="HOST"
         )
         assert host.items.filter(owner=ItemOwner.SPEAKER).count() == 2
 
@@ -162,13 +168,15 @@ class TestClone:
                 template__conference=other_conference
             ).count()
         )
+        # Types and roles are matched by code, not by row.
         copy = ChecklistTemplate.objects.get(
             conference=conference,
             scope=template.scope,
-            kind=template.kind,
-            role=template.role,
+            kind__code=template.kind.code,
+            role__code=template.role.code,
             delivery=template.delivery,
         )
+        assert copy.kind.conference == conference and copy.role.conference == conference
         assert copy.is_active is False
         copied_item = copy.items.get(title=item.title)
         assert copied_item.description_md == "Custom note"
@@ -241,34 +249,48 @@ class TestValidation:
         with pytest.raises(ValidationError, match="Only session templates"):
             make_template(conference, delivery=Delivery.LIVE)
         with pytest.raises(ValidationError, match="Only presenter templates"):
-            make_template(
-                conference, scope=ChecklistScope.SESSION, role=PresenterRole.HOST
-            )
+            make_template(conference, scope=ChecklistScope.SESSION, role="HOST")
+
+    def test_type_and_role_must_belong_to_the_edition(
+        self, conference, other_conference
+    ):
+        with pytest.raises(ValidationError, match="session type of this edition"):
+            make_template(conference, kind=session_type(other_conference, "TALK"))
+        with pytest.raises(ValidationError, match="role of this edition"):
+            make_template(conference, role=presenter_role(other_conference, "HOST"))
 
     def test_lookup_helpers(self, conference, other_conference):
         template = make_template(conference)
-        session = make_session(conference, kind=SessionKind.WORKSHOP)
+        session = make_session(conference, kind="WORKSHOP")
         assert (
-            ChecklistTemplate.for_presenter(session, PresenterRole.PRESENTER)
+            ChecklistTemplate.for_presenter(
+                session, presenter_role(conference, "PRESENTER")
+            )
             == template
         )
-        assert ChecklistTemplate.for_presenter(session, PresenterRole.HOST) is None
+        assert (
+            ChecklistTemplate.for_presenter(session, presenter_role(conference, "HOST"))
+            is None
+        )
         template.is_active = False
         template.save()
-        assert ChecklistTemplate.for_presenter(session, PresenterRole.PRESENTER) is None
-        jam = make_session(
-            conference, kind=SessionKind.PYJAM, delivery=Delivery.PRE_RECORDED
+        assert (
+            ChecklistTemplate.for_presenter(
+                session, presenter_role(conference, "PRESENTER")
+            )
+            is None
         )
+        jam = make_session(conference, kind="PYJAM", delivery=Delivery.PRE_RECORDED)
         post = make_template(
             conference,
             scope=ChecklistScope.SESSION,
-            kind=SessionKind.PYJAM,
+            kind="PYJAM",
             name="Post",
         )
         assert ChecklistTemplate.for_session(jam) == post
         assert str(post) == "Post"
         other_jam = make_session(
-            other_conference, kind=SessionKind.PYJAM, delivery=Delivery.PRE_RECORDED
+            other_conference, kind="PYJAM", delivery=Delivery.PRE_RECORDED
         )
         assert ChecklistTemplate.for_session(other_jam) is None
 
@@ -285,7 +307,7 @@ class TestAdmin:
             == 200
         )
         template = conference.checklist_templates.get(
-            kind=SessionKind.WORKSHOP, role=PresenterRole.PRESENTER
+            kind__code="WORKSHOP", role__code="PRESENTER"
         )
         response = client.get(
             reverse("admin:speakers_checklisttemplate_change", args=[template.pk])
