@@ -1,0 +1,53 @@
+{% extends "portal/base.html" %}
+{% load i18n %}
+{% load speakers_extras %}
+{% block head_title %}
+    {% trans "Your invitation" %}
+{% endblock head_title %}
+{% block content %}
+    <div class="col-lg-8 mx-auto">
+        <h1 class="h3 mb-1">
+            {% blocktranslate with conference=conference.name %}You're invited to {{ conference }}{% endblocktranslate %}
+        </h1>
+        <p class="text-secondary">
+            {% blocktranslate with name=invitation.presenter.display_name %}Hi {{ name }}, this invitation is for you.{% endblocktranslate %}
+        </p>
+        {% if invitation.session %}
+            <div class="card mb-3">
+                <div class="card-body">
+                    <div class="text-secondary small">
+                        {{ invitation.session.kind.name }}
+                    </div>
+                    <h2 class="h5 mb-2">
+                        {{ invitation.session.title }}
+                    </h2>
+                    {% if invitation.session.summary_md %}
+                        <div>
+                            {{ invitation.session.summary_md|speaker_md }}
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        {% endif %}
+        {% if invitation.message_md %}
+            <blockquote class="blockquote border-start ps-3 mb-4">
+                {{ invitation.message_md|speaker_md }}
+            </blockquote>
+        {% endif %}
+        <form method="post">
+            {% csrf_token %}
+            <button type="submit" name="action" value="accept" class="btn btn-primary">
+                {% trans "Accept the invitation" %}
+            </button>
+            <button type="submit"
+                    name="action"
+                    value="decline"
+                    class="btn btn-outline-secondary ms-2">
+                {% trans "Decline" %}
+            </button>
+        </form>
+        <p class="text-secondary small mt-3">
+            {% blocktranslate with email=invitation.presenter.email %}Accepting signs you in as {{ email }} and creates your speaker account if you don't have one yet.{% endblocktranslate %}
+        </p>
+    </div>
+{% endblock content %}

@@ -54,6 +54,7 @@ urlpatterns = [
     path("captcha/", include("captcha.urls")),
     path("sponsorship/", include("sponsorship.urls", namespace="sponsorship")),
     path("webhooks/", include("webhooks.urls", namespace="webhooks")),
+    path("speakers/", include("speakers.urls", namespace="speakers")),
     path(
         "portal_account/",
         include("portal_account.urls", namespace="portal_account"),

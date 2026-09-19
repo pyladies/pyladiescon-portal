@@ -1,0 +1,111 @@
+"""Session types and presenter roles are data, seeded per edition.
+
+What a schedule row is (workshop, panel, break...) and what a person can be
+on it (presenter, panelist, host...) used to be enumerations in code. They
+are rows now, so an edition can add a "Sprint" or a "Lightning host" without
+a deploy, and the code only reads the behaviour flags on the type row.
+
+``seed_program_types`` loads the defaults below for one edition and is
+idempotent: it creates what is missing by ``code`` and never overwrites what
+organizers changed.
+"""
+
+from .constants import Delivery
+from .models import PresenterRole, SessionType
+
+# code, name, the word the thank-you preface uses, sort order
+DEFAULT_ROLES = [
+    ("PRESENTER", "Presenter", "speaker", 10),
+    ("PANELIST", "Panelist", "panelist", 20),
+    ("MODERATOR", "Moderator", "moderator", 30),
+    ("HOST", "Host", "host", 40),
+    ("PERFORMER", "Performer", "performer", 50),
+]
+
+# code, name, is_content, default duration, default delivery, spans all
+# channels, allowed role codes (first one is the default), sort order
+DEFAULT_SESSION_TYPES = [
+    ("WORKSHOP", "Workshop", True, 90, Delivery.LIVE, False, ["PRESENTER"], 10),
+    ("TALK", "Talk", True, 30, Delivery.LIVE, False, ["PRESENTER"], 20),
+    ("LIGHTNING", "Lightning talk", True, 5, Delivery.LIVE, False, ["PRESENTER"], 30),
+    ("PANEL", "Panel", True, 60, Delivery.LIVE, False, ["PANELIST", "MODERATOR"], 40),
+    (
+        "PYJAM",
+        "PyJam performance",
+        True,
+        30,
+        Delivery.PRE_RECORDED,
+        False,
+        ["PERFORMER"],
+        50,
+    ),
+    ("KEYNOTE", "Keynote", False, 45, Delivery.LIVE, False, ["PRESENTER", "HOST"], 60),
+    ("OPENING", "Opening", False, 15, Delivery.LIVE, True, ["HOST"], 70),
+    ("CLOSING", "Closing", False, 15, Delivery.LIVE, True, ["HOST"], 80),
+    ("ANNOUNCEMENT", "Announcement", False, 5, Delivery.LIVE, True, ["HOST"], 90),
+    ("BREAK", "Break", False, 15, Delivery.LIVE, True, [], 100),
+    ("SOCIAL", "Social", False, 60, Delivery.LIVE, True, [], 110),
+    ("OTHER", "Other", False, 30, Delivery.LIVE, False, ["PRESENTER", "HOST"], 120),
+]
+
+
+def seed_program_types(conference):
+    """Create the default roles and session types for ``conference``.
+
+    Returns ``(types_created, roles_created)``. Existing rows (matched by
+    ``code``) are left exactly as they are, mapping included, so rerunning
+    after organizers edited a type changes nothing.
+    """
+    roles_created = 0
+    roles = {}
+    for code, name, email_word, order in DEFAULT_ROLES:
+        role, created = PresenterRole.objects.get_or_create(
+            conference=conference,
+            code=code,
+            defaults={"name": name, "email_word": email_word, "sort_order": order},
+        )
+        roles[code] = role
+        roles_created += created
+    types_created = 0
+    for (
+        code,
+        name,
+        is_content,
+        duration,
+        delivery,
+        spans,
+        role_codes,
+        order,
+    ) in DEFAULT_SESSION_TYPES:
+        session_type, created = SessionType.objects.get_or_create(
+            conference=conference,
+            code=code,
+            defaults={
+                "name": name,
+                "is_content": is_content,
+                "default_duration_minutes": duration,
+                "default_delivery": delivery,
+                "spans_all_channels": spans,
+                "sort_order": order,
+                "default_role": roles[role_codes[0]] if role_codes else None,
+            },
+        )
+        if created:
+            session_type.roles.set([roles[c] for c in role_codes])
+            types_created += 1
+    return types_created, roles_created
+
+
+def session_type(conference, code):
+    """The edition's type with this ``code``, seeding the defaults first if
+    the edition has none yet (tests and sample data lean on this)."""
+    if not SessionType.objects.filter(conference=conference).exists():
+        seed_program_types(conference)
+    return SessionType.objects.get(conference=conference, code=code)
+
+
+def presenter_role(conference, code):
+    """The edition's role with this ``code``, seeding first if needed."""
+    if not PresenterRole.objects.filter(conference=conference).exists():
+        seed_program_types(conference)
+    return PresenterRole.objects.get(conference=conference, code=code)

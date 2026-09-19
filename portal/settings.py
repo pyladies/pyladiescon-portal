@@ -86,6 +86,7 @@ INSTALLED_APPS = [
     "widget_tweaks",
     "sponsorship",
     "attendee",
+    "speakers",
 ]
 DJANGO_TABLES2_TEMPLATE = "portal/base-tables-responsive.html"
 
@@ -251,6 +252,10 @@ ACCOUNT_SIGNUP_FIELDS = [
     "password2*",
 ]
 ACCOUNT_MAX_EMAIL_ADDRESSES = 3
+# Passwordless sign-in: "Send me a sign-in code" on the login page. Speaker
+# accounts are created without a password when an invitation is accepted, so
+# this is how presenters get back in.
+ACCOUNT_LOGIN_BY_CODE_ENABLED = True
 ACCOUNT_LOGOUT_ON_GET = True
 
 # Use custom signup form
