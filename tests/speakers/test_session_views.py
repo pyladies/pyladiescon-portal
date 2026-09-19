@@ -6,10 +6,11 @@ from django.urls import reverse
 from pytest_django.asserts import assertRedirects
 
 from portal.models import Conference
-from speakers.constants import Delivery, SessionStatus
+from speakers.checklists import add_adhoc_item
+from speakers.constants import Delivery, ItemOwner, SessionStatus
 from speakers.context_processors import speaker_module
 from speakers.forms import ProgramItemForm, SessionForm
-from speakers.models import ActivityLog, Session
+from speakers.models import ActivityLog, ChecklistItem, Session
 from speakers.permissions import can_work_sessions, is_speaker_liaison
 from speakers.program_types import session_type
 
@@ -211,6 +212,25 @@ class TestSessionDetail:
         assert "Lena" in content
         assert "session.created" in content
         assert "Not scheduled" in content
+
+    def test_waiting_on_required_items(self, client, organizer, sessions, conference):
+        session = sessions["mine"]
+        ada = session.session_presenters.get().presenter
+        item = add_adhoc_item(
+            conference,
+            "Sign the form",
+            ItemOwner.SPEAKER,
+            presenter=ada,
+            session=session,
+        )
+        client.force_login(organizer)
+        assert (
+            "Waiting on:" not in client.get(session.get_absolute_url()).content.decode()
+        )
+        ChecklistItem.objects.filter(pk=item.pk).update(is_required=True)
+        content = client.get(session.get_absolute_url()).content.decode()
+        assert "Waiting on:" in content
+        assert "Sign the form (Ada)" in content
 
     def test_pre_recorded_and_slot(self, client, organizer, sessions, conference):
         session = sessions["theirs"]

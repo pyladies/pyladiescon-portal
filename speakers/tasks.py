@@ -2,6 +2,7 @@ from celery import shared_task
 
 from .emails import send_copresenter_suggestion_email, send_invitation_email
 from .models import Invitation, Presenter, Session
+from .rules import reevaluate_all
 
 
 @shared_task
@@ -29,3 +30,10 @@ def send_copresenter_suggestion_task(presenter_id, session_id, name, email, note
         return "Presenter or session not found"
     sent = send_copresenter_suggestion_email(presenter, session, name, email, note)
     return f"Sent co-presenter suggestion to {sent} organizer(s)"
+
+
+@shared_task
+def reevaluate_checklists_task():
+    """Nightly safety net: re-run every auto-completion rule (design §9.3)."""
+    changed = reevaluate_all()
+    return f"Re-evaluated checklists; {changed} item(s) changed"

@@ -22,6 +22,12 @@
             {% if session.is_public %}
                 <span class="badge text-bg-success">{% trans "Public" %}</span>
             {% endif %}
+            {% if waiting_on %}
+                <div class="small text-warning-emphasis mt-2">
+                    <i class="fa-solid fa-hourglass-half"></i>
+                    {% trans "Waiting on:" %} {{ waiting_on|join:", " }}
+                </div>
+            {% endif %}
         </div>
         {% if is_organizer %}
             <a class="btn btn-outline-primary"

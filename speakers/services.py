@@ -17,6 +17,7 @@ from common.tasks import enqueue
 
 from .constants import SessionStatus
 from .emails import INVITATION_SALT
+from .lifecycle import confirm_session_if_ready
 from .models import ActivityLog, Invitation, InvitationStatus
 from .signals import invitation_accepted
 from .tasks import send_invitation_email_task
@@ -150,25 +151,6 @@ def link_presenter_user(presenter, email=None):
     return user
 
 
-def confirm_session_if_ready(session, actor=None):
-    """Advance a DRAFT/INVITED session once every required presenter accepted."""
-    if session.status not in (SessionStatus.DRAFT, SessionStatus.INVITED):
-        return False
-    links = list(session.session_presenters.all())
-    required = [link for link in links if link.is_required]
-    if not required or any(not link.is_confirmed for link in required):
-        return False
-    session.confirm()
-    ActivityLog.record(
-        session.conference,
-        "session.confirmed",
-        target=session,
-        actor=actor,
-        message="All required presenters accepted their invitations",
-    )
-    return True
-
-
 def accept_invitation(invitation):
     """Link the account, confirm the presenter, advance the session, signal.
 
@@ -186,10 +168,10 @@ def accept_invitation(invitation):
         )
         if invitation.session_id is not None:
             links = links.filter(session=invitation.session)
-        sessions = []
+        confirmed_links = []
         for link in links:
             link.confirm(when=now)
-            sessions.append(link.session)
+            confirmed_links.append(link)
         invitation.accepted_at = now
         invitation.save(update_fields=["accepted_at", "modified_date"])
         ActivityLog.record(
@@ -200,11 +182,17 @@ def accept_invitation(invitation):
             presenter_id=presenter.pk,
             session_id=invitation.session_id,
         )
-        for session in sessions:
-            confirm_session_if_ready(session)
+        # Checklists first (the receiver creates them), then the confirm
+        # attempt, so required items created here already gate the session.
         invitation_accepted.send(
-            sender=Invitation, invitation=invitation, presenter=presenter, user=user
+            sender=Invitation,
+            invitation=invitation,
+            presenter=presenter,
+            user=user,
+            session_presenters=confirmed_links,
         )
+        for link in confirmed_links:
+            confirm_session_if_ready(link.session)
     return user
 
 

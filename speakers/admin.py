@@ -4,8 +4,14 @@ from portal.admin_filters import ActiveConferenceFilter
 
 from .models import (
     ActivityLog,
+    ChecklistItem,
+    ChecklistTemplate,
+    ChecklistTemplateItem,
     DiscordChannel,
+    Handbook,
+    HandbookReadReceipt,
     Invitation,
+    MediaAsset,
     Presenter,
     PresenterRole,
     ScheduleSlot,
@@ -18,7 +24,12 @@ from .models import (
 
 @admin.register(SpeakerSettings)
 class SpeakerSettingsAdmin(admin.ModelAdmin):
-    list_display = ("conference", "speaker_module_enabled", "default_premiere_location")
+    list_display = (
+        "conference",
+        "speaker_module_enabled",
+        "default_premiere_location",
+        "translation_languages",
+    )
     list_filter = ("speaker_module_enabled",)
     list_select_related = ("conference",)
 
@@ -92,7 +103,7 @@ class PresenterAdmin(admin.ModelAdmin):
     list_filter = (ActiveConferenceFilter, "is_public")
     search_fields = ("display_name", "email", "slug")
     list_select_related = ("conference", "user", "liaison")
-    autocomplete_fields = ("user", "liaison")
+    autocomplete_fields = ("user", "liaison", "pretix_order")
     prepopulated_fields = {"slug": ("display_name",)}
 
 
@@ -153,3 +164,103 @@ class InvitationAdmin(admin.ModelAdmin):
         "declined_at",
         "cancelled_at",
     )
+
+
+class ChecklistTemplateItemInline(admin.TabularInline):
+    model = ChecklistTemplateItem
+    extra = 0
+    fields = (
+        "order",
+        "owner",
+        "title",
+        "due_anchor",
+        "due_offset_days",
+        "auto_complete_rule",
+        "requires_asset_kind",
+        "requires_asset_language",
+        "per_translation_language",
+        "is_required",
+        "assignee_default",
+    )
+
+
+@admin.register(ChecklistTemplate)
+class ChecklistTemplateAdmin(admin.ModelAdmin):
+    list_display = (
+        "name",
+        "scope",
+        "kind",
+        "role",
+        "delivery",
+        "is_active",
+        "conference",
+    )
+    list_filter = (ActiveConferenceFilter, "scope", "kind", "is_active")
+    search_fields = ("name",)
+    list_select_related = ("conference",)
+    inlines = [ChecklistTemplateItemInline]
+
+
+@admin.register(ChecklistItem)
+class ChecklistItemAdmin(admin.ModelAdmin):
+    list_display = (
+        "title",
+        "owner",
+        "status",
+        "presenter",
+        "session",
+        "due_date",
+        "assignee",
+        "conference",
+    )
+    list_filter = (ActiveConferenceFilter, "owner", "status", "is_required")
+    search_fields = ("title", "presenter__display_name", "session__title")
+    list_select_related = ("presenter", "session", "assignee", "conference")
+    autocomplete_fields = ("presenter", "session", "assignee", "template_item")
+    # Status changes go through ``speakers.checklists.set_item_status`` (the
+    # organizer views), which logs them, refuses to hand-tick automatic items
+    # and re-tries the session's confirmation. The admin is for looking.
+    readonly_fields = ("status", "note", "completed_by", "completed_at")
+
+
+@admin.register(ChecklistTemplateItem)
+class ChecklistTemplateItemAdmin(admin.ModelAdmin):
+    """Registered so it can be an autocomplete target; edit items inline on
+    the template instead."""
+
+    list_display = ("title", "template", "owner", "order")
+    search_fields = ("title", "template__name")
+    list_select_related = ("template",)
+
+
+@admin.register(MediaAsset)
+class MediaAssetAdmin(admin.ModelAdmin):
+    list_display = (
+        "session",
+        "kind",
+        "language",
+        "version",
+        "status",
+        "duration_seconds",
+        "conference",
+    )
+    list_filter = (ActiveConferenceFilter, "kind", "status")
+    search_fields = ("session__title",)
+    list_select_related = ("session", "conference")
+    autocomplete_fields = ("session", "uploaded_by")
+
+
+class HandbookReadReceiptInline(admin.TabularInline):
+    model = HandbookReadReceipt
+    extra = 0
+    fields = ("presenter", "read_at")
+    readonly_fields = ("read_at",)
+    autocomplete_fields = ("presenter",)
+
+
+@admin.register(Handbook)
+class HandbookAdmin(admin.ModelAdmin):
+    list_display = ("title", "version", "published_at", "conference")
+    list_filter = (ActiveConferenceFilter,)
+    list_select_related = ("conference",)
+    inlines = [HandbookReadReceiptInline]
