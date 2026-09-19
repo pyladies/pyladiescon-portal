@@ -1,0 +1,32 @@
+{% load i18n %}
+{% comment %}
+Personal rail for presenters (design mockups §2.x): dashboard, profile,
+sessions, schedule. Rails are menus, never data rows.
+
+Expects:
+    active: one of "dashboard", "profile", "sessions", "schedule".
+{% endcomment %}
+{% url 'speakers:my_dashboard' as dashboard_url %}
+{% if active == "dashboard" %}
+    {% include "portal/_sidebar_item.html" with url=dashboard_url label=_("Dashboard") icon="fa-house" active=True only %}
+{% else %}
+    {% include "portal/_sidebar_item.html" with url=dashboard_url label=_("Dashboard") icon="fa-house" only %}
+{% endif %}
+{% url 'speakers:my_profile' as profile_url %}
+{% if active == "profile" %}
+    {% include "portal/_sidebar_item.html" with url=profile_url label=_("My profile") icon="fa-id-card" active=True only %}
+{% else %}
+    {% include "portal/_sidebar_item.html" with url=profile_url label=_("My profile") icon="fa-id-card" only %}
+{% endif %}
+{% url 'speakers:my_sessions' as sessions_url %}
+{% if active == "sessions" %}
+    {% include "portal/_sidebar_item.html" with url=sessions_url label=_("My sessions") icon="fa-chalkboard-user" active=True only %}
+{% else %}
+    {% include "portal/_sidebar_item.html" with url=sessions_url label=_("My sessions") icon="fa-chalkboard-user" only %}
+{% endif %}
+{% url 'speakers:my_schedule' as schedule_url %}
+{% if active == "schedule" %}
+    {% include "portal/_sidebar_item.html" with url=schedule_url label=_("Schedule") icon="fa-calendar-days" active=True only %}
+{% else %}
+    {% include "portal/_sidebar_item.html" with url=schedule_url label=_("Schedule") icon="fa-calendar-days" only %}
+{% endif %}

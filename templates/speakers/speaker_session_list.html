@@ -1,0 +1,58 @@
+{% extends "speakers/_speaker_shell.html" %}
+{% load i18n %}
+{% block head_title %}
+    {% trans "My sessions" %}
+{% endblock head_title %}
+{% block breadcrumb %}
+    {% url 'speakers:my_dashboard' as bc_url %}
+    {% trans "Speaking" as bc_section %}
+    {% trans "My sessions" as bc_page %}
+    {% include "portal/_breadcrumbs.html" with section=bc_section section_url=bc_url page=bc_page %}
+{% endblock breadcrumb %}
+{% block sidebar %}
+    {% include "speakers/_speaker_rail.html" with active="sessions" %}
+{% endblock sidebar %}
+{% block content %}
+    <h1 class="h3 mb-1">
+        {% trans "My sessions" %}
+    </h1>
+    <p class="text-secondary">
+        {% trans "A title and two sentences is a complete listing; a full outline is welcome. Nothing is public until the team publishes it." %}
+    </p>
+    {% for link in session_links %}
+        <div class="card mb-3">
+            <div class="card-body">
+                <div class="d-flex flex-wrap justify-content-between align-items-start gap-2">
+                    <div>
+                        <div class="text-secondary small">
+                            {{ link.session.kind.name }} · {{ link.session.duration_minutes }} {% trans "min" %}
+                        </div>
+                        <h2 class="h5 mb-1">
+                            {{ link.session.title }}
+                        </h2>
+                        <div class="small">
+                            {% for other in link.session.session_presenters.all %}
+                                {{ other.presenter.display_name }}
+                                <span class="badge text-bg-light border">{{ other.role.name }}</span>
+                                {% if not forloop.last %}
+                                    ·
+                                {% endif %}
+                            {% endfor %}
+                        </div>
+                    </div>
+                    <div>
+                        {% if not link.session.is_public %}
+                            <span class="badge text-bg-secondary">{% trans "Not yet public" %}</span>
+                        {% endif %}
+                        <a class="btn btn-sm btn-outline-primary ms-2"
+                           href="{% url 'speakers:my_session_edit' link.session.pk %}">{% trans "Edit details" %}</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    {% empty %}
+        <p class="text-secondary">
+            {% trans "You are not on any session yet." %}
+        </p>
+    {% endfor %}
+{% endblock content %}

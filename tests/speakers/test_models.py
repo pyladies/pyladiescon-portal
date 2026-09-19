@@ -130,6 +130,13 @@ class TestSession:
         assert live.is_pre_recorded is False
         assert recorded.is_pre_recorded is True
 
+    def test_liaisons_without_prefetch(self, conference, portal_user):
+        session = make_session(conference)
+        add_presenter(session, make_presenter(conference, liaison=portal_user))
+        add_presenter(session, make_presenter(conference, liaison=portal_user))
+        add_presenter(session, make_presenter(conference))
+        assert Session.objects.get(pk=session.pk).liaisons == [portal_user]
+
     def test_premiere_location_falls_back_to_edition_default(self, conference):
         session = make_session(conference, delivery=Delivery.PRE_RECORDED)
         assert session.effective_premiere_location == PremiereLocation.DISCORD

@@ -119,6 +119,7 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "portal.context_processors.active_conference",
                 "portal.context_processors.user_capabilities",
+                "speakers.context_processors.speaker_module",
             ],
         },
     },

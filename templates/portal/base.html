@@ -88,6 +88,11 @@
                                 <a class="nav-link" href="{% url 'my_teams' %}">{% trans "My teams" %}</a>
                             </li>
                         {% endif %}
+                        {% if is_speaker_presenter %}
+                            <li class="nav-item">
+                                <a class="nav-link" href="{% url 'speakers:my_dashboard' %}">{% trans "Speaking" %}</a>
+                            </li>
+                        {% endif %}
                         {# Sponsorship: a single link for anyone who can view; #}
                         {# managers reach Add/Tiers from the in-app left rail #}
                         {# (Stage D) rather than a duplicate top-nav dropdown. #}

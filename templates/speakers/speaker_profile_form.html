@@ -1,0 +1,35 @@
+{% extends "speakers/_speaker_shell.html" %}
+{% load i18n %}
+{% load django_bootstrap5 %}
+{% block head_title %}
+    {% trans "My profile" %}
+{% endblock head_title %}
+{% block breadcrumb %}
+    {% url 'speakers:my_dashboard' as bc_url %}
+    {% trans "Speaking" as bc_section %}
+    {% trans "My profile" as bc_page %}
+    {% include "portal/_breadcrumbs.html" with section=bc_section section_url=bc_url page=bc_page %}
+{% endblock breadcrumb %}
+{% block sidebar %}
+    {% include "speakers/_speaker_rail.html" with active="profile" %}
+{% endblock sidebar %}
+{% block content %}
+    <h1 class="h3 mb-1">
+        {% trans "My profile" %}
+    </h1>
+    <p class="text-secondary">
+        {% blocktranslate with email=presenter.email %}Signed in as {{ email }}. Ask the organizers if that address should change.{% endblocktranslate %}
+    </p>
+    {% if presenter.headshot %}
+        <img src="{{ presenter.headshot.url }}"
+             alt=""
+             width="96"
+             height="96"
+             class="rounded-circle object-fit-cover mb-3">
+    {% endif %}
+    <form method="post" enctype="multipart/form-data" class="col-lg-8">
+        {% csrf_token %}
+        {% bootstrap_form form %}
+        {% bootstrap_button "Save profile" button_type="submit" %}
+    </form>
+{% endblock content %}

@@ -2,30 +2,76 @@ from allauth.account.adapter import get_adapter as get_account_adapter
 from django.contrib import messages
 from django.contrib.auth import logout
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.shortcuts import redirect, render
+from django.core.exceptions import PermissionDenied
+from django.db import transaction
+from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils import timezone
 from django.views import View
-from django.views.generic import TemplateView
+from django.views.generic import DetailView, TemplateView
+from django.views.generic.edit import CreateView, UpdateView
+from django_filters.views import FilterView
+from django_tables2.views import SingleTableMixin
 
-from .mixins import SpeakerModuleRequiredMixin
+from common.tasks import enqueue
+
+from .constants import SessionStatus
+from .filters import PresenterFilter, SessionFilter
+from .forms import (
+    InviteForm,
+    PresenterForm,
+    PresenterRoleForm,
+    ProgramItemForm,
+    SessionForm,
+    SessionPresenterForm,
+    SessionTypeForm,
+    SpeakerProfileForm,
+    SpeakerSessionForm,
+    SuggestCoPresenterForm,
+)
+from .mixins import (
+    PresenterRequiredMixin,
+    SpeakerModuleRequiredMixin,
+    SpeakerOrganizerRequiredMixin,
+    SpeakerStaffRequiredMixin,
+)
+from .models import (
+    ActivityLog,
+    Invitation,
+    Presenter,
+    PresenterRole,
+    Session,
+    SessionType,
+)
+from .permissions import can_work_sessions
 from .services import (
     InvitationError,
     accept_invitation,
+    cancel_invitation,
     decline_invitation,
     resolve_invitation,
+    send_invitation,
 )
+from .tables import PresenterTable, SessionTable
+from .tasks import send_copresenter_suggestion_task
 
 
 class SpeakerPortalIndexView(
     LoginRequiredMixin, SpeakerModuleRequiredMixin, TemplateView
 ):
-    """Placeholder landing page proving the feature flag is wired.
-
-    Stage 1 replaces this with the organizer sessions list and the speaker
-    dashboard.
-    """
+    """Entry point: presenters go to their dashboard, organizers and
+    liaisons to the sessions list, anyone else to a short explanation."""
 
     template_name = "speakers/index.html"
+
+    def get(self, request, *args, **kwargs):
+        if Presenter.objects.filter(
+            conference=self.conference, user=request.user
+        ).exists():
+            return redirect("speakers:my_dashboard")
+        if can_work_sessions(request.user, self.conference):
+            return redirect("speakers:session_list")
+        return super().get(request, *args, **kwargs)
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -83,3 +129,644 @@ class InvitationView(SpeakerModuleRequiredMixin, View):
             "You're signed in.",
         )
         return redirect("speakers:index")
+
+
+class SessionListView(
+    LoginRequiredMixin, SpeakerStaffRequiredMixin, SingleTableMixin, FilterView
+):
+    """Every schedule row for the edition (design §3.1), liaison-scoped."""
+
+    model = Session
+    table_class = SessionTable
+    filterset_class = SessionFilter
+    template_name = "speakers/session_list.html"
+    paginate_by = 50
+
+    def get_queryset(self):
+        return (
+            Session.objects.for_conference(self.conference)
+            .visible_to(self.request.user)
+            .with_listing_data()
+            .order_by("title")
+        )
+
+    def get_filterset_kwargs(self, filterset_class):
+        kwargs = super().get_filterset_kwargs(filterset_class)
+        kwargs["conference"] = self.conference
+        return kwargs
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["conference"] = self.conference
+        return context
+
+
+class SessionScopedMixin(LoginRequiredMixin, SpeakerStaffRequiredMixin):
+    """Detail/edit views over the sessions this user may see."""
+
+    model = Session
+
+    def get_queryset(self):
+        return (
+            Session.objects.for_conference(self.conference)
+            .visible_to(self.request.user)
+            .with_listing_data()
+        )
+
+
+class SessionDetailView(SessionScopedMixin, DetailView):
+    template_name = "speakers/session_detail.html"
+    context_object_name = "session"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["conference"] = self.conference
+        context["presenter_links"] = self.object.presenter_links
+        context["activity"] = ActivityLog.for_target(self.object)[:20]
+        context["add_presenter_form"] = SessionPresenterForm(session=self.object)
+        context["invite_form"] = InviteForm()
+        latest = {}
+        for invitation in Invitation.objects.filter(session=self.object).order_by(
+            "creation_date", "id"
+        ):
+            latest[invitation.presenter_id] = invitation
+        context["invitations_by_presenter"] = latest
+        return context
+
+
+class SessionUpdateView(LoginRequiredMixin, SpeakerOrganizerRequiredMixin, UpdateView):
+    """Organizers only: liaisons read sessions but do not change them."""
+
+    model = Session
+    form_class = SessionForm
+    template_name = "speakers/session_form.html"
+
+    def get_queryset(self):
+        return Session.objects.for_conference(self.conference)
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["conference"] = self.conference
+        return kwargs
+
+    def form_valid(self, form):
+        messages.success(self.request, f"Saved “{form.instance.title}”.")
+        return super().form_valid(form)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["conference"] = self.conference
+        return context
+
+
+class SessionCreateView(LoginRequiredMixin, SpeakerOrganizerRequiredMixin, CreateView):
+    model = Session
+    form_class = SessionForm
+    template_name = "speakers/session_form.html"
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["conference"] = self.conference
+        return kwargs
+
+    def form_valid(self, form):
+        form.instance.conference = self.conference
+        response = super().form_valid(form)
+        ActivityLog.record(
+            self.conference,
+            "session.created",
+            target=self.object,
+            actor=self.request.user,
+        )
+        messages.success(self.request, f"Created “{self.object.title}”.")
+        return response
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["conference"] = self.conference
+        return context
+
+
+class ProgramItemCreateView(
+    LoginRequiredMixin, SpeakerOrganizerRequiredMixin, CreateView
+):
+    """ "+ program item": an opening, break or social, born CONFIRMED."""
+
+    model = Session
+    form_class = ProgramItemForm
+    template_name = "speakers/program_item_form.html"
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["conference"] = self.conference
+        return kwargs
+
+    def form_valid(self, form):
+        form.instance.conference = self.conference
+        form.instance.status = SessionStatus.CONFIRMED
+        response = super().form_valid(form)
+        ActivityLog.record(
+            self.conference,
+            "session.created",
+            target=self.object,
+            actor=self.request.user,
+            program_item=True,
+        )
+        messages.success(self.request, f"Added “{self.object.title}” to the program.")
+        return response
+
+    def get_success_url(self):
+        return reverse("speakers:session_list")
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["conference"] = self.conference
+        return context
+
+
+class PresenterListView(
+    LoginRequiredMixin, SpeakerStaffRequiredMixin, SingleTableMixin, FilterView
+):
+    """Every presenter in the edition, liaison-scoped."""
+
+    model = Presenter
+    table_class = PresenterTable
+    filterset_class = PresenterFilter
+    template_name = "speakers/presenter_list.html"
+    paginate_by = 50
+
+    def get_queryset(self):
+        return (
+            Presenter.objects.for_conference(self.conference)
+            .visible_to(self.request.user)
+            .with_listing_data()
+            .order_by("display_name")
+        )
+
+    def get_filterset_kwargs(self, filterset_class):
+        kwargs = super().get_filterset_kwargs(filterset_class)
+        kwargs["conference"] = self.conference
+        return kwargs
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["conference"] = self.conference
+        context["rail_active"] = "presenters"
+        return context
+
+
+class PresenterScopedMixin(LoginRequiredMixin, SpeakerStaffRequiredMixin):
+    model = Presenter
+
+    def get_queryset(self):
+        return (
+            Presenter.objects.for_conference(self.conference)
+            .visible_to(self.request.user)
+            .with_listing_data()
+        )
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["conference"] = self.conference
+        context["rail_active"] = "presenters"
+        return context
+
+
+class PresenterDetailView(PresenterScopedMixin, DetailView):
+    template_name = "speakers/presenter_detail.html"
+    context_object_name = "presenter"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["session_links"] = self.object.session_links
+        context["invitations"] = self.object.invitation_history
+        context["activity"] = ActivityLog.for_target(self.object)[:20]
+        return context
+
+
+class PresenterUpdateView(
+    LoginRequiredMixin, SpeakerOrganizerRequiredMixin, UpdateView
+):
+    """Organizers only. A liaison must not change the email an invitation
+    goes to, nor hand the presenter to another liaison."""
+
+    model = Presenter
+    form_class = PresenterForm
+    template_name = "speakers/presenter_form.html"
+
+    def get_queryset(self):
+        return Presenter.objects.for_conference(self.conference)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["conference"] = self.conference
+        context["rail_active"] = "presenters"
+        return context
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["conference"] = self.conference
+        return kwargs
+
+    def form_valid(self, form):
+        messages.success(self.request, f"Saved {form.instance.display_name}.")
+        return super().form_valid(form)
+
+
+class PresenterCreateView(
+    LoginRequiredMixin, SpeakerOrganizerRequiredMixin, CreateView
+):
+    model = Presenter
+    form_class = PresenterForm
+    template_name = "speakers/presenter_form.html"
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["conference"] = self.conference
+        return kwargs
+
+    def form_valid(self, form):
+        form.instance.conference = self.conference
+        response = super().form_valid(form)
+        ActivityLog.record(
+            self.conference,
+            "presenter.created",
+            target=self.object,
+            actor=self.request.user,
+        )
+        messages.success(self.request, f"Added {self.object.display_name}.")
+        return response
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["conference"] = self.conference
+        context["rail_active"] = "presenters"
+        return context
+
+
+class OrganizerSessionActionMixin(LoginRequiredMixin, SpeakerOrganizerRequiredMixin):
+    """POST-only actions on one session, organizer only."""
+
+    def get_session(self):
+        return get_object_or_404(
+            Session.objects.for_conference(self.conference), pk=self.kwargs["pk"]
+        )
+
+
+class SessionAddPresenterView(OrganizerSessionActionMixin, View):
+    def post(self, request, pk):
+        session = self.get_session()
+        form = SessionPresenterForm(request.POST, session=session)
+        if form.is_valid():
+            link = form.save()
+            ActivityLog.record(
+                self.conference,
+                "session.presenter_added",
+                target=session,
+                actor=request.user,
+                presenter_id=link.presenter_id,
+                role=link.role.code,
+            )
+            messages.success(
+                request,
+                f"Added {link.presenter.display_name} as {link.role.name}.",
+            )
+        else:
+            messages.error(
+                request,
+                "Could not add the presenter: "
+                + "; ".join(
+                    f"{field}: {' '.join(errors)}"
+                    for field, errors in form.errors.items()
+                ),
+            )
+        return redirect(session.get_absolute_url())
+
+
+class SessionRemovePresenterView(OrganizerSessionActionMixin, View):
+    def post(self, request, pk, link_pk):
+        session = self.get_session()
+        link = get_object_or_404(session.session_presenters, pk=link_pk)
+        name, presenter_id = link.presenter.display_name, link.presenter_id
+        with transaction.atomic():
+            link.delete()
+            # Their link must stop working: an open invitation to a session
+            # they are no longer on would still accept.
+            for invitation in Invitation.objects.filter(
+                presenter_id=presenter_id, session=session
+            ):
+                if invitation.is_open:
+                    cancel_invitation(invitation, actor=request.user)
+            if session.status == SessionStatus.INVITED and not any(
+                i.is_open for i in Invitation.objects.filter(session=session)
+            ):
+                session.back_to_draft()
+            ActivityLog.record(
+                self.conference,
+                "session.presenter_removed",
+                target=session,
+                actor=request.user,
+                presenter_id=presenter_id,
+            )
+        messages.success(request, f"Removed {name} from the session.")
+        return redirect(session.get_absolute_url())
+
+
+class SessionInviteView(OrganizerSessionActionMixin, View):
+    """Send (or resend) the invitation for one presenter on this session."""
+
+    def post(self, request, pk, link_pk):
+        session = self.get_session()
+        link = get_object_or_404(
+            session.session_presenters.select_related("presenter"), pk=link_pk
+        )
+        form = InviteForm(request.POST)
+        if not form.is_valid():
+            messages.error(
+                request, "Could not send: " + "; ".join(form.errors["message_md"])
+            )
+            return redirect(session.get_absolute_url())
+        invitation = (
+            Invitation.objects.filter(presenter=link.presenter, session=session)
+            .exclude(accepted_at__isnull=False)
+            .order_by("-creation_date", "-id")
+            .first()
+        )
+        if invitation is None:
+            invitation = Invitation(presenter=link.presenter, session=session)
+        invitation.invited_by = request.user
+        invitation.message_md = form.cleaned_data.get("message_md", "")
+        send_invitation(invitation, actor=request.user)
+        messages.success(request, f"Invitation sent to {link.presenter.email}.")
+        return redirect(session.get_absolute_url())
+
+
+class InvitationActionMixin(LoginRequiredMixin, SpeakerOrganizerRequiredMixin):
+    def get_invitation(self):
+        return get_object_or_404(
+            Invitation.objects.filter(conference=self.conference).select_related(
+                "presenter", "session"
+            ),
+            pk=self.kwargs["pk"],
+        )
+
+
+class InvitationResendView(InvitationActionMixin, View):
+    def post(self, request, pk):
+        invitation = self.get_invitation()
+        try:
+            send_invitation(invitation, actor=request.user)
+        except ValueError as exc:
+            messages.error(request, str(exc))
+        else:
+            messages.success(
+                request, f"Invitation resent to {invitation.presenter.email}."
+            )
+        return redirect(invitation.presenter.get_absolute_url())
+
+
+class InvitationCancelView(InvitationActionMixin, View):
+    def post(self, request, pk):
+        invitation = self.get_invitation()
+        if invitation.is_open:
+            cancel_invitation(invitation, actor=request.user)
+            messages.success(request, "Invitation cancelled; its link no longer works.")
+        else:
+            messages.error(request, "Only an open invitation can be cancelled.")
+        return redirect(invitation.presenter.get_absolute_url())
+
+
+# ---- Speaker side -----------------------------------------------------------
+
+
+class SpeakerDashboardView(LoginRequiredMixin, PresenterRequiredMixin, TemplateView):
+    """The presenter's home (design §2.2). Checklists arrive in Stage 2; for
+    now it shows their sessions and where to fill in their profile."""
+
+    template_name = "speakers/speaker_dashboard.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["conference"] = self.conference
+        context["presenter"] = self.presenter
+        context["session_links"] = list(
+            self.presenter.session_presenters.select_related("session").order_by(
+                "session__title"
+            )
+        )
+        # Stage 1 stand-in: the Stage 2 checklist replaces this with real
+        # items, so nothing else should build on it.
+        context["profile_complete"] = bool(
+            self.presenter.bio_md and self.presenter.headshot
+        )
+        return context
+
+
+class SpeakerProfileUpdateView(LoginRequiredMixin, PresenterRequiredMixin, UpdateView):
+    form_class = SpeakerProfileForm
+    template_name = "speakers/speaker_profile_form.html"
+
+    def get_object(self, queryset=None):
+        return self.presenter
+
+    def get_success_url(self):
+        return reverse("speakers:my_profile")
+
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        ActivityLog.record(
+            self.conference,
+            "presenter.profile_updated",
+            target=self.object,
+            actor=self.request.user,
+        )
+        messages.success(self.request, "Your profile is saved.")
+        return response
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["conference"] = self.conference
+        context["presenter"] = self.presenter
+        return context
+
+
+class SpeakerSessionMixin(LoginRequiredMixin, PresenterRequiredMixin):
+    """A session in this edition that the presenter is on; 403 otherwise."""
+
+    def get_session(self):
+        session = get_object_or_404(
+            Session.objects.for_conference(self.conference), pk=self.kwargs["pk"]
+        )
+        if not session.session_presenters.filter(presenter=self.presenter).exists():
+            raise PermissionDenied("You are not a presenter on this session.")
+        return session
+
+
+class SpeakerSessionListView(LoginRequiredMixin, PresenterRequiredMixin, TemplateView):
+    template_name = "speakers/speaker_session_list.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["conference"] = self.conference
+        context["presenter"] = self.presenter
+        context["session_links"] = list(
+            self.presenter.session_presenters.select_related("session")
+            .prefetch_related("session__session_presenters__presenter")
+            .order_by("session__title")
+        )
+        return context
+
+
+class SpeakerSessionUpdateView(SpeakerSessionMixin, UpdateView):
+    form_class = SpeakerSessionForm
+    template_name = "speakers/speaker_session_form.html"
+
+    # Once public (or cancelled), changes go through an organizer so the
+    # public site does not change unseen.
+    LOCKED = (SessionStatus.PUBLISHED, SessionStatus.CANCELLED)
+
+    def get_object(self, queryset=None):
+        session = self.get_session()
+        if session.status in self.LOCKED:
+            raise PermissionDenied(
+                "This session is no longer editable here; ask an organizer."
+            )
+        return session
+
+    def get_success_url(self):
+        return reverse("speakers:my_sessions")
+
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        ActivityLog.record(
+            self.conference,
+            "session.updated_by_presenter",
+            target=self.object,
+            actor=self.request.user,
+        )
+        messages.success(self.request, f"Saved “{self.object.title}”.")
+        return response
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["conference"] = self.conference
+        context["presenter"] = self.presenter
+        context["suggest_form"] = SuggestCoPresenterForm()
+        context["co_presenters"] = self.object.session_presenters.exclude(
+            presenter=self.presenter
+        ).select_related("presenter")
+        return context
+
+
+class SuggestCoPresenterView(SpeakerSessionMixin, View):
+    def post(self, request, pk):
+        session = self.get_session()
+        form = SuggestCoPresenterForm(request.POST)
+        if not form.is_valid():
+            messages.error(request, "Please give a name and a valid email address.")
+            return redirect("speakers:my_session_edit", pk=session.pk)
+        data = form.cleaned_data
+        ActivityLog.record(
+            self.conference,
+            "session.copresenter_suggested",
+            target=session,
+            actor=request.user,
+            name=data["name"],
+            email=data["email"],
+        )
+        enqueue(
+            send_copresenter_suggestion_task,
+            self.presenter.pk,
+            session.pk,
+            data["name"],
+            data["email"],
+            data["note"],
+        )
+        messages.success(
+            request, f"Thanks, we've passed {data['name']} on to the organizers."
+        )
+        return redirect("speakers:my_session_edit", pk=session.pk)
+
+
+class SpeakerScheduleView(LoginRequiredMixin, PresenterRequiredMixin, TemplateView):
+    """Placeholder until Stage 3 renders the schedule in the presenter's zone."""
+
+    template_name = "speakers/speaker_schedule.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["conference"] = self.conference
+        context["presenter"] = self.presenter
+        return context
+
+
+class ProgramTypesView(LoginRequiredMixin, SpeakerOrganizerRequiredMixin, TemplateView):
+    """Settings: the edition's session types, what each allows, and the
+    presenter roles. Organizers add to both here without a code change."""
+
+    template_name = "speakers/program_types.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context.update(
+            {
+                "conference": self.conference,
+                "rail_active": "program_types",
+                "session_types": SessionType.objects.filter(conference=self.conference)
+                .select_related("default_role")
+                .prefetch_related("roles"),
+                "roles": PresenterRole.objects.filter(conference=self.conference),
+            }
+        )
+        return context
+
+
+class ProgramTypeFormMixin(LoginRequiredMixin, SpeakerOrganizerRequiredMixin):
+    """Shared by the four settings forms: edition-scoped rows, the edition
+    passed to the form, back to the settings page when done."""
+
+    def get_queryset(self):
+        return self.model.objects.filter(conference=self.conference)
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["conference"] = self.conference
+        return kwargs
+
+    def get_success_url(self):
+        return reverse("speakers:program_types")
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["conference"] = self.conference
+        context["rail_active"] = "program_types"
+        return context
+
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        messages.success(self.request, f"Saved {self.object.name}.")
+        return response
+
+
+class SessionTypeCreateView(ProgramTypeFormMixin, CreateView):
+    model = SessionType
+    form_class = SessionTypeForm
+    template_name = "speakers/session_type_form.html"
+
+
+class SessionTypeUpdateView(ProgramTypeFormMixin, UpdateView):
+    model = SessionType
+    form_class = SessionTypeForm
+    template_name = "speakers/session_type_form.html"
+
+
+class PresenterRoleCreateView(ProgramTypeFormMixin, CreateView):
+    model = PresenterRole
+    form_class = PresenterRoleForm
+    template_name = "speakers/presenter_role_form.html"
+
+
+class PresenterRoleUpdateView(ProgramTypeFormMixin, UpdateView):
+    model = PresenterRole
+    form_class = PresenterRoleForm
+    template_name = "speakers/presenter_role_form.html"

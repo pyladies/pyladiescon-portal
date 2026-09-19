@@ -9,6 +9,8 @@ Expects:
     active: one of: "overview", "profile", "teams", "conferences".
 Uses from the user_capabilities context processor:
     active_volunteer_profile (the "My profile" item is hidden until one exists)
+and from speakers.context_processors.speaker_module:
+    is_speaker_liaison (the "My speakers" item for volunteers who liaise)
 {% endcomment %}
 {% url 'volunteer:index' as overview_url %}
 {% if active == "overview" %}
@@ -29,6 +31,14 @@ Uses from the user_capabilities context processor:
     {% include "portal/_sidebar_item.html" with url=my_teams_url label=_("My teams") icon="fa-users-rectangle" active=True only %}
 {% else %}
     {% include "portal/_sidebar_item.html" with url=my_teams_url label=_("My teams") icon="fa-users-rectangle" only %}
+{% endif %}
+{% if is_speaker_liaison %}
+    {% url 'speakers:session_list' as liaison_sessions_url %}
+    {% if active == "liaison_sessions" %}
+        {% include "portal/_sidebar_item.html" with url=liaison_sessions_url label=_("My speakers") icon="fa-chalkboard-user" active=True only %}
+    {% else %}
+        {% include "portal/_sidebar_item.html" with url=liaison_sessions_url label=_("My speakers") icon="fa-chalkboard-user" only %}
+    {% endif %}
 {% endif %}
 {% url 'volunteer:my_conferences' as my_conferences_url %}
 {% if active == "conferences" %}

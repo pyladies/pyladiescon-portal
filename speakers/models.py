@@ -15,6 +15,7 @@ from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import ValidationError
 from django.db import models
+from django.urls import reverse
 from django.utils import timezone
 from django.utils.text import slugify
 
@@ -25,6 +26,7 @@ from .constants import (
     SessionLevel,
     SessionStatus,
 )
+from .querysets import PresenterQuerySet, SessionQuerySet
 
 
 class TimestampedModel(models.Model):
@@ -274,6 +276,8 @@ class Presenter(TimestampedModel):
         "the name still appears on their sessions.",
     )
 
+    objects = PresenterQuerySet.as_manager()
+
     class Meta:
         ordering = ["display_name"]
         constraints = [
@@ -307,6 +311,17 @@ class Presenter(TimestampedModel):
     @property
     def tzinfo(self):
         return zoneinfo.ZoneInfo(self.timezone)
+
+    def get_absolute_url(self):
+        return reverse("speakers:presenter_detail", kwargs={"pk": self.pk})
+
+    @property
+    def latest_invitation(self):
+        """Newest invitation, from the listing prefetch when available."""
+        history = getattr(self, "invitation_history", None)
+        if history is None:
+            return self.invitations.order_by("-creation_date", "-id").first()
+        return history[0] if history else None
 
 
 class PresenterRole(TimestampedModel):
@@ -345,6 +360,12 @@ class PresenterRole(TimestampedModel):
 
     def __str__(self):
         return self.name
+
+    def clean(self):
+        # Before validate_constraints, so "panelist" collides with PANELIST
+        # in the form instead of on the database.
+        self.code = self.code.strip().upper()
+        super().clean()
 
     def save(self, *args, **kwargs):
         self.code = self.code.strip().upper()
@@ -420,7 +441,10 @@ class SessionType(TimestampedModel):
     def clean(self):
         """``default_role`` must be of this edition. Whether it is one of
         ``roles`` is a form-level check (the many-to-many is saved after
-        ``full_clean`` in the admin), left to the settings form."""
+        ``full_clean`` in the admin), left to the settings form. The code
+        is normalised here so a case variant collides in the form, not on
+        the database."""
+        self.code = self.code.strip().upper()
         super().clean()
         if (
             self.default_role_id
@@ -495,6 +519,8 @@ class Session(TimestampedModel):
         Presenter, through="SessionPresenter", related_name="sessions", blank=True
     )
 
+    objects = SessionQuerySet.as_manager()
+
     class Meta:
         ordering = ["title"]
         constraints = [
@@ -563,6 +589,22 @@ class Session(TimestampedModel):
     def has_slot(self):
         return ScheduleSlot.objects.filter(session=self).exists()
 
+    def get_absolute_url(self):
+        return reverse("speakers:session_detail", kwargs={"pk": self.pk})
+
+    @property
+    def liaisons(self):
+        """Distinct liaisons of this session's presenters, for the list."""
+        links = getattr(self, "presenter_links", None)
+        if links is None:
+            links = self.session_presenters.select_related("presenter__liaison")
+        seen = {}
+        for link in links:
+            liaison = link.presenter.liaison
+            if liaison is not None and liaison.pk not in seen:
+                seen[liaison.pk] = liaison
+        return list(seen.values())
+
     @property
     def confirmed_presenter_count(self):
         return self.session_presenters.filter(confirmed_at__isnull=False).count()
@@ -575,6 +617,13 @@ class Session(TimestampedModel):
             raise TransitionError(
                 f"Cannot do that from status {self.get_status_display()}."
             )
+
+    def back_to_draft(self, save=True):
+        """INVITED -> DRAFT when the last open invitation is gone."""
+        self._require_status(SessionStatus.INVITED)
+        self.status = SessionStatus.DRAFT
+        if save:
+            self.save(update_fields=["status"])
 
     def mark_invited(self, save=True):
         """DRAFT -> INVITED, when the first invitation goes out."""
@@ -661,10 +710,14 @@ class SessionPresenter(TimestampedModel):
 
     def clean(self):
         super().clean()
+        if self.session_id is None or self.presenter_id is None:
+            return  # a form with a missing field reports that itself
         if self.session.conference_id != self.presenter.conference_id:
             raise ValidationError(
                 "The session and the presenter belong to different editions."
             )
+        if self.role_id is None:
+            return  # the field itself already failed validation
         if self.role.conference_id != self.session.conference_id:
             raise ValidationError({"role": "Pick a role of this edition."})
         if not self.session.kind.allows(self.role):

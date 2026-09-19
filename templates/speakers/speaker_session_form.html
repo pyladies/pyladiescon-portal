@@ -1,0 +1,71 @@
+{% extends "speakers/_speaker_shell.html" %}
+{% load i18n %}
+{% load django_bootstrap5 %}
+{% block head_title %}
+    {{ session.title }}
+{% endblock head_title %}
+{% block breadcrumb %}
+    {% url 'speakers:my_sessions' as bc_url %}
+    {% trans "My sessions" as bc_section %}
+    {% include "portal/_breadcrumbs.html" with section=bc_section section_url=bc_url page=session.title %}
+{% endblock breadcrumb %}
+{% block sidebar %}
+    {% include "speakers/_speaker_rail.html" with active="sessions" %}
+{% endblock sidebar %}
+{% block content %}
+    <div class="text-secondary small">
+        {{ session.kind.name }} · {{ session.get_delivery_display }}
+    </div>
+    <h1 class="h3 mb-1">
+        {{ session.title }}
+    </h1>
+    <p class="text-secondary">
+        {% blocktranslate with minutes=session.duration_minutes %}Duration: {{ minutes }} minutes (set by the organizers).{% endblocktranslate %}
+        {% trans "The title is set by the organizers too; tell them if it should change." %}
+    </p>
+    <div class="row g-4">
+        <div class="col-lg-8">
+            <form method="post">
+                {% csrf_token %}
+                {% bootstrap_form form %}
+                {% bootstrap_button "Save" button_type="submit" %}
+                <a class="btn btn-link" href="{% url 'speakers:my_sessions' %}">{% trans "Back" %}</a>
+            </form>
+        </div>
+        <div class="col-lg-4">
+            <div class="card mb-3">
+                <div class="card-header">
+                    {% trans "Co-presenters" %}
+                </div>
+                <ul class="list-group list-group-flush">
+                    {% for link in co_presenters %}
+                        <li class="list-group-item">
+                            {{ link.presenter.display_name }}
+                            <span class="badge text-bg-light border">{{ link.role.name }}</span>
+                        </li>
+                    {% empty %}
+                        <li class="list-group-item text-secondary">
+                            {% trans "Just you so far." %}
+                        </li>
+                    {% endfor %}
+                </ul>
+                <div class="card-body border-top">
+                    <details>
+                        <summary class="small">
+                            {% trans "Suggest a co-presenter" %}
+                        </summary>
+                        <form method="post"
+                              class="mt-2"
+                              action="{% url 'speakers:my_session_suggest' session.pk %}">
+                            {% csrf_token %}
+                            {% bootstrap_form suggest_form size="sm" %}
+                            <button class="btn btn-sm btn-outline-primary" type="submit">
+                                {% trans "Send to the organizers" %}
+                            </button>
+                        </form>
+                    </details>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock content %}

@@ -1,0 +1,26 @@
+{% extends "speakers/_organize_shell.html" %}
+{% load i18n %}
+{% load django_bootstrap5 %}
+{% block head_title %}
+    {% trans "Add program item" %}
+{% endblock head_title %}
+{% block breadcrumb %}
+    {% url 'speakers:session_list' as bc_url %}
+    {% trans "Sessions" as bc_section %}
+    {% trans "Add program item" as bc_page %}
+    {% include "portal/_breadcrumbs.html" with section=bc_section section_url=bc_url page=bc_page %}
+{% endblock breadcrumb %}
+{% block content %}
+    <h1 class="h3 mb-1">
+        {% trans "Add program item" %}
+    </h1>
+    <p class="text-secondary">
+        {% trans "An opening, closing, break or social. It needs no presenter, so it is confirmed straight away and ready to schedule." %}
+    </p>
+    <form method="post" class="col-lg-7">
+        {% csrf_token %}
+        {% bootstrap_form form %}
+        {% bootstrap_button "Add to program" button_type="submit" %}
+        <a href="{% url 'speakers:session_list' %}" class="btn btn-link">{% trans "Cancel" %}</a>
+    </form>
+{% endblock content %}

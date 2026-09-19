@@ -1,0 +1,44 @@
+{% extends "speakers/_organize_shell.html" %}
+{% load i18n %}
+{% load django_bootstrap5 %}
+{% load render_table from django_tables2 %}
+{% block head_title %}
+    {% trans "Sessions" %}
+{% endblock head_title %}
+{% block breadcrumb %}
+    {% trans "Sessions" as bc_section %}
+    {% include "portal/_breadcrumbs.html" with section=bc_section %}
+{% endblock breadcrumb %}
+{% block content %}
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+        <div>
+            <h1 class="h3 mb-0">
+                {% trans "Sessions" %}
+            </h1>
+            <p class="text-secondary mb-0">
+                {% blocktranslate with conference=conference.name %}Everything on the {{ conference }} schedule: workshops, panels, performances, and the program skeleton.{% endblocktranslate %}
+            </p>
+        </div>
+        {% if is_organizer %}
+            <div class="d-flex gap-2">
+                <a class="btn btn-primary" href="{% url 'speakers:session_create' %}">
+                    <i class="fa-solid fa-plus"></i> {% trans "New session" %}
+                </a>
+                <a class="btn btn-outline-primary"
+                   href="{% url 'speakers:program_item_create' %}">
+                    <i class="fa-solid fa-plus"></i> {% trans "Program item" %}
+                </a>
+            </div>
+        {% endif %}
+    </div>
+    <form method="get" class="row row-cols-lg-auto g-2 align-items-end mb-3">
+        {% bootstrap_form filter.form layout="inline" %}
+        <div class="col-12">
+            {% bootstrap_button "Filter" button_type="submit" button_class="btn-secondary" %}
+            {% if filter.form.is_bound %}
+                <a href="{% url 'speakers:session_list' %}" class="btn btn-link">{% trans "Reset" %}</a>
+            {% endif %}
+        </div>
+    </form>
+    {% render_table table %}
+{% endblock content %}

@@ -1,0 +1,22 @@
+{% extends "speakers/_speaker_shell.html" %}
+{% load i18n %}
+{% block head_title %}
+    {% trans "Schedule" %}
+{% endblock head_title %}
+{% block breadcrumb %}
+    {% url 'speakers:my_dashboard' as bc_url %}
+    {% trans "Speaking" as bc_section %}
+    {% trans "Schedule" as bc_page %}
+    {% include "portal/_breadcrumbs.html" with section=bc_section section_url=bc_url page=bc_page %}
+{% endblock breadcrumb %}
+{% block sidebar %}
+    {% include "speakers/_speaker_rail.html" with active="schedule" %}
+{% endblock sidebar %}
+{% block content %}
+    <h1 class="h3 mb-1">
+        {% trans "Schedule" %}
+    </h1>
+    <p class="text-secondary">
+        {% blocktranslate with tz=presenter.timezone %}The schedule appears here in your timezone ({{ tz }}) once the organizers start placing sessions.{% endblocktranslate %}
+    </p>
+{% endblock content %}

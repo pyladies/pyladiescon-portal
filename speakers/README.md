@@ -158,7 +158,26 @@ installed; this app keeps small factory functions in `tests/speakers/factories.p
   edition is off and sets `self.conference`. The row also hosts later
   per-edition settings (program visibility, pretix, media limits).
 - Organizer predicate: `speakers.permissions.is_speaker_organizer`
-  (superuser or staff, matching the rest of the portal).
+  (superuser or staff, matching the rest of the portal). Liaisons are
+  `Presenter.liaison` users; `SessionQuerySet.visible_to` and
+  `PresenterQuerySet.visible_to` scope what they see, and the
+  `SpeakerStaffRequiredMixin` / `SpeakerOrganizerRequiredMixin` mixins gate
+  the organizer side.
+- Speaker side: `/speakers/me/...`, gated by `PresenterRequiredMixin` (the
+  user must own a `Presenter` row in the active edition, else 403). The
+  personal rail is `templates/speakers/_speaker_rail.html`; the navbar shows
+  "Speaking" through the `is_speaker_presenter` context flag, and the portal
+  index routes presenters who are not volunteering this year to their
+  dashboard.
+- Headshots go through the default storage (`ImageField`, same as
+  `PortalProfile.profile_picture`), so they land on Spaces when
+  `USE_SPACES=true` and on disk otherwise. Direct-to-Spaces presigned upload
+  is reserved for the multi-gigabyte video pipeline (task 4.1); headshots
+  are small enough to pass through the app.
+- Invitations: `speakers/services.py` (send, resolve, accept, decline,
+  cancel), `speakers/emails.py` (rendering, signed token, URL),
+  `speakers/tasks.py` (Celery). The `invitation_accepted` signal in
+  `speakers/signals.py` is where Stage 2 instantiates checklists.
 - One migration per pull request. While a branch is being built it may
   grow several steps, but before the PR is opened they are squashed into a
   single regenerated file (delete them, `makemigrations speakers`, check
@@ -181,5 +200,9 @@ installed; this app keeps small factory functions in `tests/speakers/factories.p
   tests look rows up by `code`. `SessionPresenter.clean()` refuses a role the
   session's type does not allow, and `Session.clean()` refuses a type change
   that would leave someone in a disallowed role. A type with no roles (a
-  break) takes no presenters. Names are English only for now; per-language
-  names arrive with the public schedule (design §7.1 and Stage 5).
+  break) takes no presenters. Organizers edit both on the "Types and roles"
+  settings page (`speakers:program_types`), whose `SessionTypeForm` is
+  where "the default role must be one of the allowed roles" is enforced
+  (the admin saves the many-to-many after `full_clean`, so the model cannot
+  check it). Names are English only for now; per-language names arrive with
+  the public schedule (design §7.1 and Stage 5).
