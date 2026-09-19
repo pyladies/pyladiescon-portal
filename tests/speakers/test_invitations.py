@@ -261,6 +261,28 @@ class TestAcceptInvitation:
         mallory.refresh_from_db()
         assert mallory.check_password("secret-pw")  # untouched, just unlinked
 
+    def test_deactivated_account_is_not_linked(self, client, invitation, portal_user):
+        """A verified address on a deactivated account must not capture the
+        presenter: the login would not stick and they would be told they are
+        signed in while logged out. The dormant row is dropped (allauth
+        allows one verified row per address) and a fresh account is made."""
+        EmailAddress.objects.create(
+            user=portal_user, email="ada@example.com", verified=True, primary=True
+        )
+        portal_user.is_active = False
+        portal_user.save()
+        send_invitation(invitation)
+        response = client.post(_url(invitation), {"action": "accept"})
+        assert response.status_code == 302
+        user = User.objects.get(username="ada")
+        assert user != portal_user and user.is_active
+        assert int(client.session["_auth_user_id"]) == user.pk
+        address = EmailAddress.objects.get(email="ada@example.com")
+        assert address.user == user and address.verified
+        portal_user.refresh_from_db()
+        assert portal_user.is_active is False
+        assert not EmailAddress.objects.filter(user=portal_user).exists()
+
     def test_already_linked_presenter_keeps_user(self, invitation, portal_user):
         invitation.presenter.user = portal_user
         invitation.presenter.save()

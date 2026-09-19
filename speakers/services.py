@@ -10,6 +10,7 @@ from allauth.account.models import EmailAddress
 from django.contrib.auth import get_user_model
 from django.core import signing
 from django.db import transaction
+from django.db.models import Q
 from django.utils import timezone
 
 from common.tasks import enqueue
@@ -101,8 +102,8 @@ def link_presenter_user(presenter, email=None):
     """Attach the account for ``email`` (the address the invitation went
     to), creating one if needed.
 
-    The token proves control of that address, so only an account that has
-    already *verified* it may be linked. An unverified claim on another
+    The token proves control of that address, so only an *active* account
+    that has already *verified* it may be linked. An unverified claim on another
     account (someone signed up with the address but never confirmed it) is
     dropped, exactly as allauth's own confirmation does under
     ``ACCOUNT_UNIQUE_EMAIL``; linking to it would hand that account, and its
@@ -114,14 +115,21 @@ def link_presenter_user(presenter, email=None):
     email = (email or presenter.email).strip().lower()
     User = get_user_model()
     verified = (
-        EmailAddress.objects.filter(email__iexact=email, verified=True)
+        EmailAddress.objects.filter(
+            email__iexact=email, verified=True, user__is_active=True
+        )
         .select_related("user")
         .first()
     )
     if verified is not None:
         user = verified.user
     else:
-        EmailAddress.objects.filter(email__iexact=email, verified=False).delete()
+        # Unverified claims, and a verified one on a deactivated account (it
+        # cannot sign in, and allauth allows one verified row per address),
+        # are dropped so a fresh account can hold the address.
+        EmailAddress.objects.filter(email__iexact=email).filter(
+            Q(verified=False) | Q(user__is_active=False)
+        ).delete()
         first, _, last = presenter.display_name.partition(" ")
         user = User.objects.create_user(
             username=_unique_username(email),
