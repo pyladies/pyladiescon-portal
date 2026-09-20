@@ -25,7 +25,18 @@ class SessionForm(forms.ModelForm):
 
     # Free text, normalised to a slug in clean_slug; a SlugField would refuse
     # "Intro To Django" before the cleaner could turn it into intro-to-django.
-    slug = forms.CharField(required=False, max_length=100)
+    # Declared here, so label and help text live here too: Meta.help_texts
+    # applies only to fields Django generates from the model.
+    slug = forms.CharField(
+        required=False,
+        max_length=100,
+        label="Web address",
+        help_text="Seen publicly as this session's web address, e.g. "
+        "/speakers/sessions/django-101/. Leave blank to derive it from the "
+        "title. Organizers review slugs and may rename them; once the "
+        "schedule is confirmed the address is locked. Links already shared "
+        "break if it changes.",
+    )
 
     class Meta:
         model = Session
@@ -64,11 +75,6 @@ class SessionForm(forms.ModelForm):
             "audience_md": MARKDOWN_HELP,
             "notes_md": MARKDOWN_HELP + " Internal, never shown to the public.",
             "delivery": "Leave blank to use the type's default.",
-            "slug": "Seen publicly as this session's web address, e.g. "
-            "/speakers/sessions/django-101/. Leave blank to derive it from the "
-            "title. Organizers review slugs and may rename them; once the "
-            "schedule is confirmed the address is locked. Links already shared "
-            "break if it changes.",
         }
 
     def __init__(self, *args, conference, **kwargs):
@@ -142,7 +148,16 @@ class PresenterForm(forms.ModelForm):
     """Organizer-side presenter create/edit, including the liaison."""
 
     timezone = forms.ChoiceField(choices=timezone_choices, initial="UTC")
-    slug = forms.CharField(required=False, max_length=100)
+    slug = forms.CharField(
+        required=False,
+        max_length=100,
+        label="Web address",
+        help_text="Seen publicly as this presenter's web address, e.g. "
+        "/speakers/presenters/ada-lovelace/. Leave blank to derive it from "
+        "the name. Organizers review slugs and may rename them; once the "
+        "schedule is confirmed the address is locked. Links already shared "
+        "break if it changes.",
+    )
 
     class Meta:
         model = Presenter
@@ -164,14 +179,7 @@ class PresenterForm(forms.ModelForm):
             "is_public",
         ]
         widgets = {"bio_md": forms.Textarea(attrs={"rows": 5})}
-        help_texts = {
-            "bio_md": MARKDOWN_HELP,
-            "slug": "Seen publicly as this presenter's web address, e.g. "
-            "/speakers/presenters/ada-lovelace/. Leave blank to derive it from "
-            "the name. Organizers review slugs and may rename them; once the "
-            "schedule is confirmed the address is locked. Links already shared "
-            "break if it changes.",
-        }
+        help_texts = {"bio_md": MARKDOWN_HELP}
 
     def __init__(self, *args, conference, **kwargs):
         super().__init__(*args, **kwargs)

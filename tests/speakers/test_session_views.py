@@ -205,6 +205,17 @@ class TestSlugUrls:
         assert session.get_absolute_url() == f"/speakers/sessions/{session.slug}/"
         assert not any(ch.isdigit() for ch in session.get_absolute_url())
 
+    def test_edit_form_explains_the_address(self, client, organizer, sessions):
+        """The help text is on the declared field; Meta.help_texts would be
+        silently ignored for it."""
+        client.force_login(organizer)
+        page = client.get(
+            reverse("speakers:session_edit", args=[sessions["mine"].slug])
+        ).content.decode()
+        assert "Web address" in page
+        assert "Organizers review slugs and may rename them" in page
+        assert "once the schedule is confirmed the address is locked" in page
+
     def test_same_title_gets_a_suffix_within_the_edition(self, conference, enabled):
         first = make_session(conference, title="Django 101")
         second = make_session(conference, title="Django 101")

@@ -227,6 +227,14 @@ class TestPresenterSlugUrls:
         ada.save()
         assert ada.slug == "ada-lovelace"
 
+    def test_edit_form_explains_the_address(self, client, organizer, presenters):
+        client.force_login(organizer)
+        page = client.get(
+            reverse("speakers:presenter_edit", args=[presenters["grace"].slug])
+        ).content.decode()
+        assert "Web address" in page
+        assert "Organizers review slugs and may rename them" in page
+
     def test_organizer_edits_slug_clash_refused(self, client, organizer, presenters):
         grace = presenters["grace"]
         other = make_presenter(presenters["session"].conference, display_name="Mary")
