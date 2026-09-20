@@ -104,6 +104,19 @@ class TestInstantiateOnAccept:
         assert onboarding.assignee == liaison
         promo = presenter.checklist_items.get(title="Promo materials prepared")
         assert promo.assignee is None
+        # Due dates the organizers asked for (2026-09-20): Discord within two
+        # weeks of accepting, on both sides; registration info a month out;
+        # promo material three weeks out. Conference starts 2026-12-05.
+        accepted = invitation.accepted_at.date()
+        by_title = {i.title: i for i in items}
+        assert by_title[
+            "Join the PyLadiesCon Discord"
+        ].due_date == accepted + timedelta(days=14)
+        assert by_title[
+            "Discord channel and speaker role assigned"
+        ].due_date == accepted + timedelta(days=14)
+        assert by_title["Registration info sent"].due_date == date(2026, 11, 5)
+        assert promo.due_date == date(2026, 11, 14)
 
     def test_seeds_have_no_required_line(self, seeded):
         """Accepting the invitation is the confirmation; nothing in the

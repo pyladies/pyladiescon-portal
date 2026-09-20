@@ -12,7 +12,7 @@
         {% blocktranslate with name=presenter.display_name %}Welcome, {{ name }}{% endblocktranslate %}
     </h1>
     <p class="text-secondary mb-4">
-        {% blocktranslate with conference=conference.name %}Everything you need for {{ conference }}, in one place.{% endblocktranslate %}
+        {% blocktranslate with conference=conference.name tz=presenter.timezone %}Everything you need for {{ conference }}, in one place. Dates are in {{ tz }}.{% endblocktranslate %}
     </p>
     {% if not profile_complete %}
         <div class="alert alert-info d-flex align-items-center gap-3">
@@ -23,47 +23,71 @@
             <a class="btn btn-sm btn-primary" href="{% url 'speakers:my_profile' %}">{% trans "Update profile" %}</a>
         </div>
     {% endif %}
+    {% if session_summaries %}
+        <ul class="list-unstyled mb-4">
+            {% for summary in session_summaries %}
+                <li class="d-flex flex-wrap align-items-center gap-2 mb-1">
+                    <a href="{% url 'speakers:my_session_edit' summary.session.pk %}">{{ summary.session.title }}</a>
+                    <span class="text-secondary small">{{ summary.session.kind.name }} · {{ summary.role }}</span>
+                    {% if summary.total %}
+                        <span class="badge text-bg-light border">
+                            {% blocktranslate with done=summary.done total=summary.total %}{{ done }} of {{ total }} to-dos done{% endblocktranslate %}
+                        </span>
+                    {% endif %}
+                    {% if not summary.session.is_public %}
+                        <span class="badge text-bg-secondary">{% trans "Not yet public" %}</span>
+                    {% endif %}
+                </li>
+            {% endfor %}
+        </ul>
+    {% endif %}
     <div class="row g-4">
-        <div class="col-md-6">
+        <div class="col-lg-6">
             <div class="card h-100">
-                <div class="card-header">
-                    {% trans "Your to-dos" %}
+                <div class="card-header d-flex justify-content-between">
+                    <span>{% trans "Your to-dos" %}</span>
+                    <span class="small text-secondary"><i class="fa-solid fa-wand-magic-sparkles"></i> {% trans "= ticks itself" %}</span>
                 </div>
-                <div class="card-body text-secondary">
-                    {% trans "Your checklist appears here once the organizers switch it on." %}
-                </div>
+                <ul class="list-group list-group-flush">
+                    {% for item in speaker_items %}
+                        {% include "speakers/_checklist_item.html" with item=item tickable=True %}
+                    {% empty %}
+                        <li class="list-group-item text-secondary">
+                            {% trans "Nothing on your list yet. Your checklist appears here once you're confirmed on a session." %}
+                        </li>
+                    {% endfor %}
+                </ul>
             </div>
         </div>
-        <div class="col-md-6">
+        <div class="col-lg-6">
             <div class="card h-100">
                 <div class="card-header">
                     {% trans "What we're doing for you" %}
                 </div>
-                <div class="card-body text-secondary">
-                    {% trans "The team's list for you appears here too, with who is on each item." %}
-                </div>
+                <ul class="list-group list-group-flush">
+                    {% for item in organizer_items %}
+                        {% include "speakers/_checklist_item.html" with item=item show_assignee=True %}
+                    {% empty %}
+                        <li class="list-group-item text-secondary">
+                            {% trans "The team's list for you appears here, with who is on each item." %}
+                        </li>
+                    {% endfor %}
+                </ul>
             </div>
         </div>
+        {% if video_items %}
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        {% trans "What we're doing with your video" %}
+                    </div>
+                    <ul class="list-group list-group-flush">
+                        {% for item in video_items %}
+                            {% include "speakers/_checklist_item.html" with item=item show_assignee=True %}
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+        {% endif %}
     </div>
-    <h2 class="h5 mt-4">
-        {% trans "Your sessions" %}
-    </h2>
-    <ul class="list-group mb-3">
-        {% for link in session_links %}
-            <li class="list-group-item d-flex justify-content-between align-items-center">
-                <span>
-                    <a href="{% url 'speakers:my_session_edit' link.session.pk %}">{{ link.session.title }}</a>
-                    <span class="badge text-bg-light border">{{ link.role.name }}</span>
-                    <span class="text-secondary small">{{ link.session.kind.name }}</span>
-                </span>
-                {% if not link.session.is_public %}
-                    <span class="badge text-bg-secondary">{% trans "Not yet public" %}</span>
-                {% endif %}
-            </li>
-        {% empty %}
-            <li class="list-group-item text-secondary">
-                {% trans "No sessions yet." %}
-            </li>
-        {% endfor %}
-    </ul>
 {% endblock content %}

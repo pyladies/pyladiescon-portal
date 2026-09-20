@@ -4,9 +4,12 @@ from django.contrib.auth import logout
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import PermissionDenied
 from django.db import transaction
+from django.db.models import Count, F, Q
+from django.http import HttpResponse, HttpResponseBadRequest
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.views import View
 from django.views.generic import DetailView, TemplateView
 from django.views.generic.edit import CreateView, UpdateView
@@ -15,9 +18,30 @@ from django_tables2.views import SingleTableMixin
 
 from common.tasks import enqueue
 
-from .constants import SessionStatus
+from .board import build_board, write_board_csv
+from .checklists import (
+    ChecklistError,
+    add_adhoc_item,
+    assign_item,
+    backfill_template_item,
+    complete_item,
+    reopen_item,
+    skip_item,
+)
+from .clock import today
+from .constants import (
+    OPEN_ITEM_STATUSES,
+    ChecklistScope,
+    ItemOwner,
+    ItemStatus,
+    SessionStatus,
+)
 from .filters import PresenterFilter, SessionFilter
 from .forms import (
+    AdhocItemForm,
+    AssignItemForm,
+    ChecklistTemplateForm,
+    ChecklistTemplateItemForm,
     InviteForm,
     PresenterForm,
     PresenterRoleForm,
@@ -38,13 +62,19 @@ from .mixins import (
 )
 from .models import (
     ActivityLog,
+    ChecklistItem,
+    ChecklistTemplate,
+    ChecklistTemplateItem,
     Invitation,
     Presenter,
     PresenterRole,
     Session,
     SessionType,
 )
-from .permissions import can_work_sessions
+from .people import liaison_candidates
+from .permissions import can_work_sessions, is_speaker_organizer
+from .rules import evaluate_items
+from .seeds import seed_checklists
 from .services import (
     InvitationError,
     accept_invitation,
@@ -343,6 +373,21 @@ class PresenterDetailView(PresenterScopedMixin, DetailView):
         context["session_links"] = self.object.session_links
         context["invitations"] = self.object.invitation_history
         context["activity"] = ActivityLog.for_target(self.object)[:20]
+        items = list(
+            self.object.checklist_items.select_related("assignee", "session").order_by(
+                "session__title", "order", "id"
+            )
+        )
+        for item in items:
+            item.overdue = item.is_overdue
+        context["speaker_items"] = [i for i in items if i.owner == ItemOwner.SPEAKER]
+        context["organizer_items"] = [
+            i for i in items if i.owner == ItemOwner.ORGANIZER
+        ]
+        # One query for the assignee choices, shared by every row.
+        context["assignee_choices"] = list(liaison_candidates(self.conference))
+        context["adhoc_form"] = AdhocItemForm(conference=self.conference)
+        context["can_assign"] = is_speaker_organizer(self.request.user)
         return context
 
 
@@ -542,26 +587,100 @@ class InvitationCancelView(InvitationActionMixin, View):
 
 
 class SpeakerDashboardView(LoginRequiredMixin, PresenterRequiredMixin, TemplateView):
-    """The presenter's home (design §2.2). Checklists arrive in Stage 2; for
-    now it shows their sessions and where to fill in their profile."""
+    """The presenter's home (design §2.2 and §9.5).
+
+    Two lists side by side: their own to-dos (tickable unless automatic)
+    and what the team is doing for them (read-only, with the assignee).
+    Performers also see the post-production items for their sessions.
+    """
 
     template_name = "speakers/speaker_dashboard.html"
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context["conference"] = self.conference
-        context["presenter"] = self.presenter
-        context["session_links"] = list(
-            self.presenter.session_presenters.select_related("session").order_by(
-                "session__title"
-            )
+        presenter = self.presenter
+        today_here = today(presenter.tzinfo)
+        links = list(
+            presenter.session_presenters.select_related(
+                "session", "session__kind", "role"
+            ).order_by("session__title")
         )
-        # Stage 1 stand-in: the Stage 2 checklist replaces this with real
-        # items, so nothing else should build on it.
-        context["profile_complete"] = bool(
-            self.presenter.bio_md and self.presenter.headshot
+        session_ids = [link.session_id for link in links]
+        items = list(
+            ChecklistItem.objects.filter(
+                Q(presenter=presenter)
+                | Q(presenter__isnull=True, session__in=session_ids)
+            )
+            .select_related("session", "assignee")
+            .order_by("session__title", "order", "id")
+        )
+        for item in items:
+            item.overdue = (
+                item.is_open
+                and item.due_date is not None
+                and item.due_date < today_here
+            )
+        speaker_items = [
+            i for i in items if i.presenter_id and i.owner == ItemOwner.SPEAKER
+        ]
+        organizer_items = [
+            i for i in items if i.presenter_id and i.owner == ItemOwner.ORGANIZER
+        ]
+        video_items = [i for i in items if i.presenter_id is None]
+        summaries = []
+        for link in links:
+            mine = [i for i in speaker_items if i.session_id == link.session_id]
+            summaries.append(
+                {
+                    "session": link.session,
+                    "role": link.role.name,
+                    "done": sum(1 for i in mine if not i.is_open),
+                    "total": len(mine),
+                }
+            )
+        context.update(
+            {
+                "conference": self.conference,
+                "presenter": presenter,
+                "today": today_here,
+                "speaker_items": speaker_items,
+                "organizer_items": organizer_items,
+                "video_items": video_items,
+                "session_summaries": summaries,
+                "profile_complete": bool(presenter.bio_md and presenter.headshot),
+            }
         )
         return context
+
+
+class SpeakerItemToggleView(LoginRequiredMixin, PresenterRequiredMixin, View):
+    """Tick or untick one of the presenter's own items."""
+
+    def post(self, request, pk):
+        item = get_object_or_404(
+            ChecklistItem.objects.select_related("session"),
+            pk=pk,
+            presenter=self.presenter,
+        )
+        if item.owner != ItemOwner.SPEAKER:
+            raise PermissionDenied("Only your own to-dos can be ticked.")
+        try:
+            if item.is_open:
+                complete_item(item, actor=request.user)
+                messages.success(request, f"Done: {item.title}")
+            elif item.status == ItemStatus.DONE:
+                reopen_item(item, actor=request.user)
+                messages.info(request, f"Reopened: {item.title}")
+            else:
+                # SKIPPED: an organizer took it off the list; only they put it back.
+                messages.info(
+                    request,
+                    f"An organizer skipped “{item.title}”; ask them if it should "
+                    "come back.",
+                )
+        except ChecklistError as exc:
+            messages.error(request, str(exc))
+        return redirect("speakers:my_dashboard")
 
 
 class SpeakerProfileUpdateView(LoginRequiredMixin, PresenterRequiredMixin, UpdateView):
@@ -772,3 +891,390 @@ class PresenterRoleUpdateView(ProgramTypeFormMixin, UpdateView):
     model = PresenterRole
     form_class = PresenterRoleForm
     template_name = "speakers/presenter_role_form.html"
+
+
+# ---- Organizer checklists: board, queue, item actions -----------------------
+
+
+class ChecklistBoardView(LoginRequiredMixin, SpeakerStaffRequiredMixin, TemplateView):
+    """Design §9.6: one tab per owner, a colour per cell, sorted by most overdue."""
+
+    template_name = "speakers/checklist_board.html"
+
+    def get_tab(self):
+        tab = self.request.GET.get("tab", "speaker").upper()
+        return tab if tab in ItemOwner.values else ItemOwner.SPEAKER
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        tab = self.get_tab()
+        context.update(
+            {
+                "conference": self.conference,
+                "rail_active": "checklists",
+                "tab": tab,
+                "sort": self.request.GET.get("sort", "overdue"),
+                "board": build_board(
+                    self.conference,
+                    self.request.user,
+                    tab,
+                    sort=self.request.GET.get("sort", "overdue"),
+                ),
+            }
+        )
+        return context
+
+
+class ChecklistBoardExportView(ChecklistBoardView):
+    def get(self, request, *args, **kwargs):
+        tab = self.get_tab()
+        board = build_board(self.conference, request.user, tab)
+        response = HttpResponse(content_type="text/csv")
+        response["Content-Disposition"] = (
+            f'attachment; filename="checklists-{tab.lower()}-{self.conference.slug}.csv"'
+        )
+        write_board_csv(board, response)
+        return response
+
+
+class ChecklistQueueView(LoginRequiredMixin, SpeakerStaffRequiredMixin, TemplateView):
+    """Organizer items assigned to me, soonest first (design §9.6)."""
+
+    template_name = "speakers/checklist_queue.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        items = (
+            ChecklistItem.objects.filter(
+                conference=self.conference,
+                owner=ItemOwner.ORGANIZER,
+                assignee=self.request.user,
+                status__in=list(OPEN_ITEM_STATUSES),
+            )
+            .select_related("presenter", "session")
+            .order_by(F("due_date").asc(nulls_last=True), "order", "id")
+        )
+        items = list(items)
+        for item in items:
+            item.overdue = item.is_overdue
+        context.update(
+            {
+                "conference": self.conference,
+                "rail_active": "queue",
+                "items": items,
+                "today": today(),
+            }
+        )
+        return context
+
+
+class ItemActionMixin(LoginRequiredMixin, SpeakerStaffRequiredMixin):
+    """An item this organizer or liaison may act on."""
+
+    def get_item(self):
+        item = get_object_or_404(
+            ChecklistItem.objects.select_related(
+                "presenter", "presenter__liaison", "session", "assignee"
+            ),
+            pk=self.kwargs["pk"],
+            conference=self.conference,
+        )
+        if not is_speaker_organizer(self.request.user) and (
+            item.presenter is None or item.presenter.liaison_id != self.request.user.pk
+        ):
+            raise PermissionDenied("This item belongs to a presenter you don't liaise.")
+        return item
+
+    def respond(self, request, item, error=""):
+        """An htmx request gets the refreshed row (with ``error`` shown inline,
+        since a swapped row never displays queued messages); a plain form goes
+        back to ``next`` when it points at this site, else to the presenter
+        or session page."""
+        if request.headers.get("HX-Request"):
+            item.overdue = item.is_overdue
+            return render(
+                request,
+                "speakers/_organizer_item_row.html",
+                {
+                    "item": item,
+                    "assignee_choices": list(liaison_candidates(self.conference)),
+                    "can_assign": is_speaker_organizer(request.user),
+                    "error": error,
+                },
+            )
+        if error:
+            messages.error(request, error)
+        fallback = (
+            item.presenter.get_absolute_url()
+            if item.presenter
+            else item.session.get_absolute_url()
+        )
+        target = request.POST.get("next", "")
+        if not url_has_allowed_host_and_scheme(
+            target,
+            allowed_hosts={request.get_host()},
+            require_https=request.is_secure(),
+        ):
+            target = fallback
+        return redirect(target)
+
+
+class ItemStatusView(ItemActionMixin, View):
+    def post(self, request, pk):
+        item = self.get_item()
+        status = request.POST.get("status", "")
+        note = request.POST.get("note")
+        error = ""
+        try:
+            if status == ItemStatus.DONE:
+                complete_item(item, actor=request.user, note=note)
+            elif status == ItemStatus.TODO:
+                reopen_item(item, actor=request.user)
+            elif status == ItemStatus.SKIPPED:
+                skip_item(item, actor=request.user, note=note)
+            elif request.headers.get("HX-Request"):
+                error = "Unknown status."
+            else:
+                return HttpResponseBadRequest("Unknown status.")
+        except ChecklistError as exc:
+            error = str(exc)
+        return self.respond(request, item, error=error)
+
+
+class ItemAssignView(ItemActionMixin, View):
+    """Organizers only: a liaison ticks and skips their presenter's items but
+    does not hand organizer work to someone else (#412 settled that liaisons
+    do not change organizer-side data)."""
+
+    def post(self, request, pk):
+        if not is_speaker_organizer(request.user):
+            raise PermissionDenied("Only organizers reassign items.")
+        item = self.get_item()
+        form = AssignItemForm(request.POST, conference=self.conference)
+        if not form.is_valid():
+            return HttpResponseBadRequest("Unknown assignee.")
+        assign_item(item, form.cleaned_data["assignee"], actor=request.user)
+        return self.respond(request, item)
+
+
+class PresenterAddItemView(PresenterScopedMixin, View):
+    def post(self, request, pk):
+        presenter = get_object_or_404(self.get_queryset(), pk=pk)
+        form = AdhocItemForm(request.POST, conference=self.conference)
+        if form.is_valid():
+            add_adhoc_item(
+                self.conference,
+                form.cleaned_data["title"],
+                form.cleaned_data["owner"],
+                presenter=presenter,
+                due_date=form.cleaned_data["due_date"],
+                assignee=form.cleaned_data["assignee"],
+                description_md=form.cleaned_data["description_md"],
+                actor=request.user,
+            )
+            messages.success(request, f"Added “{form.cleaned_data['title']}”.")
+        else:
+            messages.error(request, "Could not add the item: give it a title.")
+        return redirect(presenter.get_absolute_url())
+
+
+# ---- Template editor (design §9.1, task 2.6) ---------------------------------
+
+
+class TemplateEditorMixin(LoginRequiredMixin, SpeakerOrganizerRequiredMixin):
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["conference"] = self.conference
+        context["rail_active"] = "templates"
+        return context
+
+    def get_template(self, pk):
+        return get_object_or_404(
+            ChecklistTemplate.objects.filter(conference=self.conference).select_related(
+                "kind", "role"
+            ),
+            pk=pk,
+        )
+
+
+class ChecklistTemplateListView(TemplateEditorMixin, TemplateView):
+    template_name = "speakers/template_list.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        templates = list(
+            ChecklistTemplate.objects.filter(conference=self.conference)
+            .select_related("kind", "role")
+            .annotate(item_count=Count("items"))
+            .order_by("scope", "kind__sort_order", "role__sort_order", "delivery")
+        )
+        context["presenter_templates"] = [
+            t for t in templates if t.scope == ChecklistScope.PRESENTER
+        ]
+        context["session_templates"] = [
+            t for t in templates if t.scope == ChecklistScope.SESSION
+        ]
+        return context
+
+
+class ChecklistTemplateSeedView(TemplateEditorMixin, View):
+    """The "Load defaults" button: an idempotent seed, on its own URL so
+    the list page has no POST of its own."""
+
+    def post(self, request):
+        result = seed_checklists(self.conference)
+        messages.success(
+            request,
+            f"Loaded {result.templates} template(s) and {result.items} item(s).",
+        )
+        if result.skipped:
+            names = "; ".join(f"{name} ({why})" for name, why in result.skipped)
+            messages.warning(
+                request,
+                f"Skipped {len(result.skipped)}: {names}. Add the type or role "
+                "under Types and roles, then load again if you want them.",
+            )
+        return redirect("speakers:template_list")
+
+
+class ChecklistTemplateCreateView(TemplateEditorMixin, CreateView):
+    model = ChecklistTemplate
+    form_class = ChecklistTemplateForm
+    template_name = "speakers/template_form.html"
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["conference"] = self.conference
+        return kwargs
+
+    def form_valid(self, form):
+        form.instance.conference = self.conference
+        messages.success(self.request, f"Created “{form.instance.name}”.")
+        return super().form_valid(form)
+
+    def get_success_url(self):
+        return reverse("speakers:template_detail", args=[self.object.pk])
+
+
+class ChecklistTemplateUpdateView(TemplateEditorMixin, UpdateView):
+    model = ChecklistTemplate
+    form_class = ChecklistTemplateForm
+    template_name = "speakers/template_form.html"
+
+    def get_queryset(self):
+        return ChecklistTemplate.objects.filter(
+            conference=self.conference
+        ).select_related("kind", "role")
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["conference"] = self.conference
+        return kwargs
+
+    def form_valid(self, form):
+        messages.success(self.request, f"Saved “{form.instance.name}”.")
+        return super().form_valid(form)
+
+    def get_success_url(self):
+        return reverse("speakers:template_detail", args=[self.object.pk])
+
+
+class ChecklistTemplateDetailView(TemplateEditorMixin, TemplateView):
+    template_name = "speakers/template_detail.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        template = self.get_template(self.kwargs["pk"])
+        context["template"] = template
+        context["items"] = list(
+            template.items.annotate(instance_count=Count("instances")).order_by(
+                "order", "id"
+            )
+        )
+        return context
+
+
+class TemplateItemFormMixin(TemplateEditorMixin):
+    form_class = ChecklistTemplateItemForm
+    template_name = "speakers/template_item_form.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["template"] = self.get_template(self.kwargs["pk"])
+        return context
+
+    def get_success_url(self):
+        return reverse("speakers:template_detail", args=[self.kwargs["pk"]])
+
+
+class TemplateItemCreateView(TemplateItemFormMixin, CreateView):
+    model = ChecklistTemplateItem
+
+    def form_valid(self, form):
+        template = self.get_template(self.kwargs["pk"])
+        form.instance.template = template
+        form.instance.order = template.items.count()
+        messages.success(
+            self.request,
+            f"Added “{form.instance.title}”. Existing checklists are unchanged "
+            "until you back-fill it.",
+        )
+        return super().form_valid(form)
+
+
+class TemplateItemUpdateView(TemplateItemFormMixin, UpdateView):
+    model = ChecklistTemplateItem
+
+    def get_queryset(self):
+        return ChecklistTemplateItem.objects.filter(
+            template=self.get_template(self.kwargs["pk"])
+        )
+
+    def get_object(self, queryset=None):
+        return get_object_or_404(self.get_queryset(), pk=self.kwargs["item_pk"])
+
+    def form_valid(self, form):
+        messages.success(self.request, f"Saved “{form.instance.title}”.")
+        return super().form_valid(form)
+
+
+class TemplateItemActionView(TemplateEditorMixin, View):
+    """POST-only: move up/down, delete, back-fill one template line."""
+
+    def post(self, request, pk, item_pk, action):
+        template = self.get_template(pk)
+        item = get_object_or_404(template.items, pk=item_pk)
+        if action == "delete":
+            title = item.title
+            item.delete()
+            messages.success(
+                request,
+                f"Removed “{title}” from the template. Existing checklists keep "
+                "their copy; it now counts as a one-off item there.",
+            )
+        elif action in ("up", "down"):
+            self.move(template, item, -1 if action == "up" else 1)
+        elif action == "backfill":
+            created = backfill_template_item(item)
+            evaluate_items(
+                ChecklistItem.objects.filter(template_item=item).select_related(
+                    "presenter", "session", "conference"
+                )
+            )
+            messages.success(
+                request, f"Added “{item.title}” to {created} existing checklist(s)."
+            )
+        else:
+            return HttpResponseBadRequest("Unknown action.")
+        return redirect("speakers:template_detail", pk=pk)
+
+    @staticmethod
+    def move(template, item, delta):
+        items = list(template.items.order_by("order", "id"))
+        index = items.index(item)
+        target = index + delta
+        if 0 <= target < len(items):
+            items[index], items[target] = items[target], items[index]
+        for position, each in enumerate(items):
+            if each.order != position:
+                ChecklistTemplateItem.objects.filter(pk=each.pk).update(order=position)

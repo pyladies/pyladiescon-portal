@@ -88,6 +88,16 @@ class TestSendInvitation:
         assert entry.action == "invitation.sent"
         assert entry.actor == admin_user
 
+    def test_url_in_text_part_is_usable(self, send, invitation):
+        """The plain-text part loses link targets, so the address is also
+        written out as an autolink that survives the text conversion."""
+        send(invitation)
+        link = _link_from_mail()
+        assert link in mail.outbox[-1].alternatives[0][0]
+        assert (
+            resolve_invitation(link.split("/")[3], invitation.conference) == invitation
+        )
+
     def test_resend_invalidates_previous_token(self, invitation):
         send_invitation(invitation)
         old_url = _url(invitation)

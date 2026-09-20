@@ -1,0 +1,35 @@
+{% extends "speakers/_organize_shell.html" %}
+{% load i18n %}
+{% load django_bootstrap5 %}
+{% block head_title %}
+    {% if object.pk %}
+        {% trans "Edit template" %}
+    {% else %}
+        {% trans "New template" %}
+    {% endif %}
+{% endblock head_title %}
+{% block breadcrumb %}
+    {% url 'speakers:template_list' as bc_url %}
+    {% trans "Checklist templates" as bc_section %}
+    {% if object.pk %}
+        {% include "portal/_breadcrumbs.html" with section=bc_section section_url=bc_url page=object.name %}
+    {% else %}
+        {% trans "New template" as bc_page %}
+        {% include "portal/_breadcrumbs.html" with section=bc_section section_url=bc_url page=bc_page %}
+    {% endif %}
+{% endblock breadcrumb %}
+{% block content %}
+    <h1 class="h3 mb-3">
+        {% if object.pk %}
+            {% blocktranslate with name=object.name %}Edit “{{ name }}”{% endblocktranslate %}
+        {% else %}
+            {% trans "New template" %}
+        {% endif %}
+    </h1>
+    <form method="post" class="col-lg-7">
+        {% csrf_token %}
+        {% bootstrap_form form %}
+        {% bootstrap_button "Save" button_type="submit" %}
+        <a class="btn btn-link" href="{% url 'speakers:template_list' %}">{% trans "Cancel" %}</a>
+    </form>
+{% endblock content %}

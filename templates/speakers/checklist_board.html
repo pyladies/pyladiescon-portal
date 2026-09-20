@@ -1,0 +1,105 @@
+{% extends "speakers/_organize_shell.html" %}
+{% load i18n %}
+{% block head_title %}
+    {% trans "Checklists" %}
+{% endblock head_title %}
+{% block breadcrumb %}
+    {% trans "Checklists" as bc_section %}
+    {% include "portal/_breadcrumbs.html" with section=bc_section %}
+{% endblock breadcrumb %}
+{% block content %}
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+        <div>
+            <h1 class="h3 mb-0">
+                {% trans "Checklist board" %}
+            </h1>
+            <p class="text-secondary mb-0">
+                {% trans "One row per presenter, one colour per item. Most overdue first, so the people who need a nudge float to the top." %}
+                {% trans "A presenter on two sessions shows the more urgent copy of a same-titled item; their page has the full list." %}
+            </p>
+        </div>
+        <a class="btn btn-outline-secondary btn-sm"
+           href="{% url 'speakers:checklist_board_export' %}?tab={{ tab|lower }}">
+            <i class="fa-solid fa-file-csv"></i> {% trans "Export CSV" %}
+        </a>
+    </div>
+    <ul class="nav nav-tabs mb-3">
+        <li class="nav-item">
+            <a class="nav-link {% if tab == 'SPEAKER' %}active{% endif %}"
+               href="?tab=speaker&sort={{ sort }}">{% trans "Speaker side" %}</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link {% if tab == 'ORGANIZER' %}active{% endif %}"
+               href="?tab=organizer&sort={{ sort }}">{% trans "Organizer side" %}</a>
+        </li>
+    </ul>
+    <div class="small text-secondary mb-2">
+        {% trans "Sort:" %}
+        <a href="?tab={{ tab|lower }}&sort=overdue"
+           {% if sort == "overdue" %}class="fw-semibold"{% endif %}>{% trans "most overdue" %}</a>
+        ·
+        <a href="?tab={{ tab|lower }}&sort=name"
+           {% if sort == "name" %}class="fw-semibold"{% endif %}>{% trans "name" %}</a>
+    </div>
+    {% trans "Overdue items" as overdue_label %}
+    {% if board.rows %}
+        <div class="table-responsive">
+            <table class="table table-sm table-bordered checklist-board">
+                <thead class="table-light">
+                    <tr>
+                        <th>
+                            {% trans "Presenter" %}
+                        </th>
+                        <th class="text-center" title="{{ overdue_label }}">
+                            <i class="fa-solid fa-triangle-exclamation"></i>
+                        </th>
+                        {% for column in board.columns %}
+                            <th class="rotate small fw-normal">
+                                {{ column }}
+                            </th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in board.rows %}
+                        <tr>
+                            <th class="fw-normal text-nowrap">
+                                <a href="{{ row.presenter.get_absolute_url }}">{{ row.presenter.display_name }}</a>
+                                {% if row.presenter.liaison %}
+                                    <div class="small text-secondary">
+                                        {{ row.presenter.liaison.get_full_name|default:row.presenter.liaison.username }}
+                                    </div>
+                                {% endif %}
+                            </th>
+                            <td class="text-center">
+                                {% if row.overdue %}
+                                    <span class="badge text-bg-danger">{{ row.overdue }}</span>
+                                {% endif %}
+                            </td>
+                            {% for cell, css in row.cells %}
+                                <td class="{{ css }} text-center"
+                                    title="{% if cell %}{{ cell.title }}: {{ cell.get_status_display }}{% if cell.due_date %}, due {{ cell.due_date|date:'j M' }}{% endif %}{% if cell.assignee %}, {{ cell.assignee.get_full_name|default:cell.assignee.username }}{% endif %}{% endif %}">
+                                    {% if not cell %}
+                                        —
+                                    {% elif cell.is_done %}
+                                        <i class="fa-solid fa-check"></i>
+                                    {% elif cell.status == "BLOCKED" %}
+                                        <i class="fa-solid fa-ban"></i>
+                                    {% elif cell.status == "SKIPPED" %}
+                                        <i class="fa-solid fa-forward"></i>
+                                    {% elif cell.due_date %}
+                                        <span class="small">{{ cell.due_date|date:"j M" }}</span>
+                                    {% endif %}
+                                </td>
+                            {% endfor %}
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <p class="text-secondary">
+            {% trans "No presenters with checklists yet." %}
+        </p>
+    {% endif %}
+{% endblock content %}

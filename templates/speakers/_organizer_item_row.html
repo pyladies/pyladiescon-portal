@@ -1,0 +1,124 @@
+{% load i18n %}
+{% trans "Assignee" as assignee_label %}
+{% comment %}
+One checklist item as a table row on organizer pages. Params:
+    item             — ChecklistItem with .overdue set
+    assignee_choices — users the assignee select offers (built once per page)
+    can_assign       — truthy to render the assignee select (organizers)
+    error            — text to show inline; an htmx swap never shows messages
+The row is the htmx target for status and assignee changes. The CSRF header
+for htmx is set once on <body> by the organizer shell.
+{% endcomment %}
+<tr id="item-{{ item.pk }}"
+    data-item-id="{{ item.pk }}"
+    data-status="{{ item.status }}"
+    class="{% if item.is_done %}table-success{% elif item.status == 'BLOCKED' %}table-danger{% elif item.overdue %}table-warning{% endif %}">
+    <td>
+        {% if error %}
+            <div class="alert alert-danger py-1 px-2 small mb-1" role="alert">
+                {{ error }}
+            </div>
+        {% endif %}
+        {{ item.title }}
+        {% if item.is_automatic %}
+            <i class="fa-solid fa-wand-magic-sparkles text-secondary small"></i>
+        {% endif %}
+        {% if item.session %}
+            <div class="small text-secondary">
+                {{ item.session.title }}
+            </div>
+        {% endif %}
+        {% if item.note %}
+            <div class="small text-secondary">
+                {{ item.note }}
+            </div>
+        {% endif %}
+    </td>
+    <td class="text-nowrap">
+        {% if item.due_date %}
+            <span {% if item.overdue %}class="text-danger fw-semibold"{% endif %}>{{ item.due_date|date:"j M" }}</span>
+        {% else %}
+            —
+        {% endif %}
+    </td>
+    <td>
+        {{ item.get_status_display }}
+    </td>
+    <td>
+        {% if item.owner == "ORGANIZER" and can_assign %}
+            <form method="post"
+                  action="{% url 'speakers:item_assign' item.pk %}"
+                  hx-post="{% url 'speakers:item_assign' item.pk %}"
+                  hx-target="#item-{{ item.pk }}"
+                  hx-swap="outerHTML"
+                  hx-trigger="change">
+                {% csrf_token %}
+                <select name="assignee"
+                        class="form-select form-select-sm"
+                        aria-label="{{ assignee_label }}">
+                    <option value="">
+                        {% trans "Unassigned" %}
+                    </option>
+                    {% for user in assignee_choices %}
+                        <option value="{{ user.pk }}"
+                                {% if user.pk == item.assignee_id %}selected{% endif %}>
+                            {{ user.get_full_name|default:user.username }}
+                        </option>
+                    {% endfor %}
+                </select>
+                <noscript>
+                    <button class="btn btn-sm btn-outline-secondary mt-1" type="submit">
+                        {% trans "Assign" %}
+                    </button>
+                </noscript>
+            </form>
+        {% elif item.owner == "ORGANIZER" %}
+            {{ item.assignee.get_full_name|default:item.assignee.username|default:"—" }}
+        {% else %}
+            <span class="text-secondary">{% trans "speaker" %}</span>
+        {% endif %}
+    </td>
+    <td class="text-nowrap">
+        {% if not item.is_automatic %}
+            <form method="post"
+                  class="d-inline"
+                  action="{% url 'speakers:item_status' item.pk %}"
+                  hx-post="{% url 'speakers:item_status' item.pk %}"
+                  hx-target="#item-{{ item.pk }}"
+                  hx-swap="outerHTML">
+                {% csrf_token %}
+                {% if item.is_open %}
+                    <button class="btn btn-sm btn-outline-success"
+                            name="status"
+                            value="DONE"
+                            type="submit">
+                        <i class="fa-solid fa-check"></i>
+                    </button>
+                {% else %}
+                    <button class="btn btn-sm btn-outline-secondary"
+                            name="status"
+                            value="TODO"
+                            type="submit">
+                        <i class="fa-solid fa-rotate-left"></i>
+                    </button>
+                {% endif %}
+            </form>
+        {% endif %}
+        {% if item.status != "SKIPPED" %}
+            <form method="post"
+                  class="d-inline"
+                  action="{% url 'speakers:item_status' item.pk %}"
+                  hx-post="{% url 'speakers:item_status' item.pk %}"
+                  hx-target="#item-{{ item.pk }}"
+                  hx-swap="outerHTML">
+                {% csrf_token %}
+                <button class="btn btn-sm btn-link text-secondary"
+                        name="status"
+                        value="SKIPPED"
+                        type="submit">
+                    {% trans "skip" %}
+                </button>
+            </form>
+        {% endif %}
+    </td>
+</tr>

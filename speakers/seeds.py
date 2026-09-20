@@ -16,6 +16,8 @@ the template editor; from then on it gates the session, so do that only
 once the speaker checklist pages exist for the presenter to tick it.
 """
 
+from typing import NamedTuple
+
 from .constants import (
     SESSION_LANGUAGE,
     AssigneeDefault,
@@ -26,8 +28,13 @@ from .constants import (
     ItemOwner,
     MediaKind,
 )
-from .models import ChecklistTemplate, ChecklistTemplateItem
-from .program_types import clone_program_types, presenter_role, session_type
+from .models import ChecklistTemplate, ChecklistTemplateItem, PresenterRole, SessionType
+from .program_types import (
+    clone_program_types,
+    presenter_role,
+    seed_program_types,
+    session_type,
+)
 
 SPK, ORG = ItemOwner.SPEAKER, ItemOwner.ORGANIZER
 ACCEPTED, CONF, SESSION = (
@@ -55,7 +62,7 @@ GUIDE = _item(SPK, "Read the speaker guide", ACCEPTED, 14, AutoRule.HANDBOOK_REA
 REGISTER = _item(
     SPK, "Register for the conference", CONF, 14, AutoRule.PRETIX_REGISTERED
 )
-DISCORD = _item(SPK, "Join the PyLadiesCon Discord", CONF, 14)
+DISCORD = _item(SPK, "Join the PyLadiesCon Discord", ACCEPTED, 14)
 CONFIRM_SLOT = _item(SPK, "Confirm your scheduled slot", SESSION, 14)
 MATERIALS = _item(SPK, "Share a link to your workshop materials", SESSION, 7)
 SLIDES = _item(SPK, "Share a link to your slides", SESSION, 3)
@@ -74,8 +81,8 @@ ORGANIZER_ITEMS = [
     _item(
         ORG,
         "Registration info sent",
-        ACCEPTED,
-        7,
+        CONF,
+        30,
         assignee_default=AssigneeDefault.LIAISON,
     ),
     _item(ORG, "Promo materials prepared", CONF, 21),
@@ -94,7 +101,7 @@ ORGANIZER_ITEMS = [
         14,
         assignee_default=AssigneeDefault.LIAISON,
     ),
-    _item(ORG, "Discord channel and speaker role assigned", CONF, 7),
+    _item(ORG, "Discord channel and speaker role assigned", ACCEPTED, 14),
     _item(
         ORG,
         "Day-of reminder sent",
@@ -300,17 +307,42 @@ DEFAULT_TEMPLATES = [
 ]
 
 
+class SeedResult(NamedTuple):
+    """What ``seed_checklists`` did: counts, plus the templates it left out
+    because the edition has no type or role of that code."""
+
+    templates: int
+    items: int
+    skipped: list  # of (template name, reason) pairs
+
+
 def seed_checklists(conference):
     """Load the default templates into ``conference``. Safe to run again:
     existing templates keep their edits and only missing items are added.
-    Returns ``(templates_created, items_created)``."""
+
+    An edition with no session types yet gets the default types and roles
+    first. An edition that has types keeps exactly the ones it has: a
+    default template whose type or role the edition lacks (a retired
+    keynote, say) is skipped and named in ``skipped``, never conjured up.
+    Add the type on the "Types and roles" page and load again if wanted."""
+    if not SessionType.objects.filter(conference=conference).exists():
+        seed_program_types(conference)
+    kinds = {t.code: t for t in SessionType.objects.filter(conference=conference)}
+    roles = {r.code: r for r in PresenterRole.objects.filter(conference=conference)}
     templates_created = items_created = 0
+    skipped = []
     for scope, name, kind, role, delivery, items in DEFAULT_TEMPLATES:
+        if kind not in kinds:
+            skipped.append((name, f"no {kind} session type in this edition"))
+            continue
+        if role and role not in roles:
+            skipped.append((name, f"no {role} presenter role in this edition"))
+            continue
         template, created = ChecklistTemplate.objects.get_or_create(
             conference=conference,
             scope=scope,
-            kind=session_type(conference, kind),
-            role=presenter_role(conference, role) if role else None,
+            kind=kinds[kind],
+            role=roles[role] if role else None,
             delivery=delivery,
             defaults={"name": name},
         )
@@ -326,7 +358,7 @@ def seed_checklists(conference):
             existing.add(spec["title"])
             next_order += 1
             items_created += 1
-    return templates_created, items_created
+    return SeedResult(templates_created, items_created, skipped)
 
 
 ITEM_FIELDS = [

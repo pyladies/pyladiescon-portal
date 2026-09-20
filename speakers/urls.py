@@ -95,6 +95,67 @@ urlpatterns = [
     ),
     path("me/schedule/", views.SpeakerScheduleView.as_view(), name="my_schedule"),
     path(
+        "me/items/<int:pk>/toggle/",
+        views.SpeakerItemToggleView.as_view(),
+        name="my_item_toggle",
+    ),
+    path("checklists/", views.ChecklistBoardView.as_view(), name="checklist_board"),
+    path(
+        "checklists/export/",
+        views.ChecklistBoardExportView.as_view(),
+        name="checklist_board_export",
+    ),
+    path(
+        "checklists/queue/", views.ChecklistQueueView.as_view(), name="checklist_queue"
+    ),
+    path("items/<int:pk>/status/", views.ItemStatusView.as_view(), name="item_status"),
+    path("items/<int:pk>/assign/", views.ItemAssignView.as_view(), name="item_assign"),
+    path(
+        "presenters/<int:pk>/items/add/",
+        views.PresenterAddItemView.as_view(),
+        name="presenter_add_item",
+    ),
+    path(
+        "settings/checklists/",
+        views.ChecklistTemplateListView.as_view(),
+        name="template_list",
+    ),
+    path(
+        "settings/checklists/seed/",
+        views.ChecklistTemplateSeedView.as_view(),
+        name="template_seed",
+    ),
+    path(
+        "settings/checklists/new/",
+        views.ChecklistTemplateCreateView.as_view(),
+        name="template_create",
+    ),
+    path(
+        "settings/checklists/<int:pk>/",
+        views.ChecklistTemplateDetailView.as_view(),
+        name="template_detail",
+    ),
+    path(
+        "settings/checklists/<int:pk>/edit/",
+        views.ChecklistTemplateUpdateView.as_view(),
+        name="template_edit",
+    ),
+    path(
+        "settings/checklists/<int:pk>/items/add/",
+        views.TemplateItemCreateView.as_view(),
+        name="template_item_add",
+    ),
+    path(
+        "settings/checklists/<int:pk>/items/<int:item_pk>/edit/",
+        views.TemplateItemUpdateView.as_view(),
+        name="template_item_edit",
+    ),
+    path(
+        "settings/checklists/<int:pk>/items/<int:item_pk>/<slug:action>/",
+        views.TemplateItemActionView.as_view(),
+        name="template_item_action",
+    ),
+    path(
         "invitations/<int:pk>/resend/",
         views.InvitationResendView.as_view(),
         name="invitation_resend",

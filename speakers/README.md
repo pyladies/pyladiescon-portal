@@ -182,6 +182,12 @@ installed; this app keeps small factory functions in `tests/speakers/factories.p
   helpers, models only) < `checklists` (instances and status changes) <
   `rules` (auto-completion registry) < `receivers` (signals, registered in
   `apps.py`). A module imports only from layers below it.
+- "Today" comes from `speakers.clock.today(tzinfo=None)` and nowhere else.
+  Organizer pages, the board, the queue and `ChecklistItem.is_overdue` use
+  the UTC date; the speaker dashboard passes the presenter's timezone so a
+  due date is not overdue at breakfast in Lima because it is already
+  tomorrow in Berlin. Anything that judges "overdue" on a presenter's
+  behalf (reminder emails, task 2.8) must pass `presenter.tzinfo` too.
 - Celery tasks are plain `@shared_task` unless the body calls
   `self.retry`; `bind=True` and `max_retries` on a task that never retries
   are noise.

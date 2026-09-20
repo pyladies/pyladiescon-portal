@@ -105,3 +105,29 @@ body {
 .footer-heading {
     letter-spacing: 0.04em;
 }
+
+/* Speaker checklists (templates/speakers/_checklist_item.html): items the
+   portal ticks by itself are dashed so a speaker knows not to tick them. */
+.checklist-item-auto {
+    border-left: 3px dashed var(--bs-secondary);
+}
+.checklist-item-manual {
+    border-left: 3px solid var(--bs-primary);
+}
+.checklist-item-done {
+    opacity: 0.65;
+}
+
+/* Checklist board cells (templates/speakers/checklist_board.html). */
+.checklist-board td.cell-done { background: var(--bs-success-bg-subtle); }
+.checklist-board td.cell-todo { background: var(--bs-light); }
+.checklist-board td.cell-overdue { background: var(--bs-warning-bg-subtle); }
+.checklist-board td.cell-blocked { background: var(--bs-danger-bg-subtle); }
+.checklist-board td.cell-skipped { background: var(--bs-secondary-bg-subtle); }
+.checklist-board td.cell-none { color: var(--bs-secondary); }
+.checklist-board th.rotate { writing-mode: vertical-rl; transform: rotate(180deg); white-space: nowrap; }
+
+/* Template editor (templates/speakers/template_detail.html): the reorder column. */
+.col-order {
+    width: 5rem;
+}
