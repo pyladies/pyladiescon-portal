@@ -24,9 +24,9 @@
                         <a href="{% url 'speakers:template_detail' template.pk %}">{{ template.name }}</a>
                     </td>
                     <td>
-                        {{ template.get_kind_display }} ·
+                        {{ template.kind.name }} ·
                         {% if template.role %}
-                            {{ template.get_role_display }}
+                            {{ template.role.name }}
                         {% else %}
                             {{ template.get_delivery_display }}
                         {% endif %}

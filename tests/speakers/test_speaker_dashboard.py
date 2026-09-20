@@ -12,8 +12,6 @@ from speakers.constants import (
     Delivery,
     ItemOwner,
     ItemStatus,
-    PresenterRole,
-    SessionKind,
 )
 from speakers.models import ChecklistItem
 
@@ -121,10 +119,8 @@ class TestDashboardLists:
         assert "Ticks itself" in content
 
     def test_blocked_item_and_video_items(self, client, speaker, presenter, conference):
-        jam = make_session(
-            conference, kind=SessionKind.PYJAM, delivery=Delivery.PRE_RECORDED
-        )
-        add_presenter(jam, presenter, role=PresenterRole.PERFORMER, confirmed=True)
+        jam = make_session(conference, kind="PYJAM", delivery=Delivery.PRE_RECORDED)
+        add_presenter(jam, presenter, role="PERFORMER", confirmed=True)
         length = add_adhoc_item(
             conference, "Check video length", ItemOwner.ORGANIZER, session=jam
         )

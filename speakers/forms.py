@@ -1,9 +1,8 @@
 import zoneinfo
 
 from django import forms
+from django.contrib.auth.models import User
 from django.db.models import Q
-
-from volunteer.constants import ApplicationStatus
 
 from .constants import Delivery, ItemOwner
 from .models import (
@@ -377,6 +376,7 @@ class SessionTypeForm(forms.ModelForm):
             )
         return cleaned
 
+
 class AdhocItemForm(forms.Form):
     """A one-off checklist item for one presenter (design §9.2)."""
 
@@ -395,7 +395,7 @@ class AdhocItemForm(forms.Form):
     def __init__(self, *args, conference, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["assignee"].queryset = liaison_candidates(conference)
-        self.fields["assignee"].label_from_instance = _user_label
+        self.fields["assignee"].label_from_instance = user_label
 
 
 class AssignItemForm(forms.Form):
@@ -418,6 +418,15 @@ class ChecklistTemplateForm(forms.ModelForm):
     def __init__(self, *args, conference, **kwargs):
         super().__init__(*args, **kwargs)
         self.conference = conference
+        self.instance.conference = conference
+        keep_kind = Q(is_active=True) | Q(pk=self.instance.kind_id)
+        keep_role = Q(is_active=True) | Q(pk=self.instance.role_id)
+        self.fields["kind"].queryset = SessionType.objects.filter(
+            conference=conference
+        ).filter(keep_kind)
+        self.fields["role"].queryset = PresenterRole.objects.filter(
+            conference=conference
+        ).filter(keep_role)
 
     def clean(self):
         """Per-edition uniqueness of the key; the model's ``clean()`` (run by
@@ -429,7 +438,7 @@ class ChecklistTemplateForm(forms.ModelForm):
             conference=self.conference,
             scope=cleaned.get("scope"),
             kind=cleaned.get("kind"),
-            role=cleaned.get("role", ""),
+            role=cleaned.get("role"),
             delivery=cleaned.get("delivery", ""),
         )
         if self.instance.pk:

@@ -88,10 +88,10 @@ class TestSendInvitation:
         assert entry.action == "invitation.sent"
         assert entry.actor == admin_user
 
-    def test_url_in_text_part_is_usable(self, invitation):
+    def test_url_in_text_part_is_usable(self, send, invitation):
         """The plain-text part loses link targets, so the address is also
         written out as an autolink that survives the text conversion."""
-        send_invitation(invitation)
+        send(invitation)
         link = _link_from_mail()
         assert link in mail.outbox[-1].alternatives[0][0]
         assert (

@@ -12,9 +12,9 @@
     <div class="d-flex flex-wrap align-items-start justify-content-between gap-2 mb-3">
         <div>
             <div class="text-secondary small">
-                {{ template.get_scope_display }} · {{ template.get_kind_display }}
+                {{ template.get_scope_display }} · {{ template.kind.name }}
                 {% if template.role %}
-                    · {{ template.get_role_display }}
+                    · {{ template.role.name }}
                 {% else %}
                     · {{ template.get_delivery_display }}
                 {% endif %}

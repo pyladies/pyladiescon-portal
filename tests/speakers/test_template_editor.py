@@ -11,10 +11,9 @@ from speakers.constants import (
     DueAnchor,
     ItemOwner,
     ItemStatus,
-    PresenterRole,
-    SessionKind,
 )
 from speakers.models import ChecklistItem, ChecklistTemplate, ChecklistTemplateItem
+from speakers.program_types import presenter_role, seed_program_types, session_type
 from speakers.seeds import DEFAULT_TEMPLATES, seed_checklists
 
 from .factories import add_presenter, make_presenter, make_session, make_settings
@@ -38,8 +37,8 @@ def template(conference, enabled):
         conference=conference,
         scope=ChecklistScope.PRESENTER,
         name="Workshop presenter",
-        kind=SessionKind.WORKSHOP,
-        role=PresenterRole.PRESENTER,
+        kind=session_type(conference, "WORKSHOP"),
+        role=presenter_role(conference, "PRESENTER"),
     )
     for order, title in enumerate(["Bio", "Guide", "Register"]):
         ChecklistTemplateItem.objects.create(
@@ -106,8 +105,8 @@ class TestTemplateForms:
             {
                 "scope": ChecklistScope.PRESENTER,
                 "name": "Talk presenter",
-                "kind": SessionKind.TALK,
-                "role": PresenterRole.PRESENTER,
+                "kind": session_type(conference, "TALK").pk,
+                "role": presenter_role(conference, "PRESENTER").pk,
                 "is_active": "on",
             },
         )
@@ -123,18 +122,21 @@ class TestTemplateForms:
             {
                 "scope": ChecklistScope.PRESENTER,
                 "name": "Talk speaker",
-                "kind": SessionKind.TALK,
-                "role": PresenterRole.PRESENTER,
+                "kind": session_type(conference, "TALK").pk,
+                "role": presenter_role(conference, "PRESENTER").pk,
             },
         )
         template.refresh_from_db()
         assert template.name == "Talk speaker" and template.is_active is False
 
-    def test_validation_errors_shown(self, client, organizer, template):
+    def test_validation_errors_shown(self, client, organizer, template, conference):
         client.force_login(organizer)
         response = client.post(
             reverse("speakers:template_create"),
-            {"scope": ChecklistScope.PRESENTER, "kind": SessionKind.WORKSHOP},
+            {
+                "scope": ChecklistScope.PRESENTER,
+                "kind": session_type(conference, "WORKSHOP").pk,
+            },
         )
         assert "name" in response.context["form"].errors
         response = client.post(
@@ -142,7 +144,7 @@ class TestTemplateForms:
             {
                 "scope": ChecklistScope.PRESENTER,
                 "name": "x",
-                "kind": SessionKind.WORKSHOP,
+                "kind": session_type(conference, "WORKSHOP").pk,
             },
         )
         assert response.context["form"].errors["role"] == [
@@ -153,19 +155,20 @@ class TestTemplateForms:
             {
                 "scope": ChecklistScope.PRESENTER,
                 "name": "dup",
-                "kind": SessionKind.WORKSHOP,
-                "role": PresenterRole.PRESENTER,
+                "kind": session_type(conference, "WORKSHOP").pk,
+                "role": presenter_role(conference, "PRESENTER").pk,
             },
         )
         assert "exists" in response.context["form"].errors["kind"][0]
 
     def test_other_edition_template_404(self, client, organizer, enabled):
         other = Conference.objects.create(year=2024, name="Old", slug="2024")
+        seed_program_types(other)
         foreign = ChecklistTemplate.objects.create(
             conference=other,
             scope=ChecklistScope.SESSION,
             name="x",
-            kind=SessionKind.PYJAM,
+            kind=session_type(other, "PYJAM"),
             delivery="PRE_RECORDED",
         )
         client.force_login(organizer)
@@ -196,7 +199,7 @@ class TestItems:
     def test_add_item_with_rule_does_not_touch_instances(
         self, client, organizer, template, conference
     ):
-        session = make_session(conference, kind=SessionKind.WORKSHOP)
+        session = make_session(conference, kind="WORKSHOP")
         link = add_presenter(session, make_presenter(conference), confirmed=True)
         instantiate_presenter_checklist(link)
         assert link.presenter.checklist_items.count() == 3
@@ -243,7 +246,7 @@ class TestItems:
 
     def test_edit_item(self, client, organizer, template, conference):
         item = template.items.get(title="Bio")
-        session = make_session(conference, kind=SessionKind.WORKSHOP)
+        session = make_session(conference, kind="WORKSHOP")
         link = add_presenter(session, make_presenter(conference), confirmed=True)
         instantiate_presenter_checklist(link)
         client.force_login(organizer)
@@ -270,8 +273,8 @@ class TestItems:
             conference=conference,
             scope=ChecklistScope.PRESENTER,
             name="Panelist",
-            kind=SessionKind.PANEL,
-            role=PresenterRole.PANELIST,
+            kind=session_type(conference, "PANEL"),
+            role=presenter_role(conference, "PANELIST"),
         )
         item = template.items.first()
         client.force_login(organizer)
@@ -323,7 +326,7 @@ class TestItems:
     def test_backfill_adds_once_and_evaluates(
         self, client, organizer, template, conference
     ):
-        session = make_session(conference, kind=SessionKind.WORKSHOP)
+        session = make_session(conference, kind="WORKSHOP")
         presenter = make_presenter(
             conference, bio_md="hi", headshot="speakers/headshots/x.png"
         )

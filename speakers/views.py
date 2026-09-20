@@ -886,6 +886,8 @@ class PresenterRoleUpdateView(ProgramTypeFormMixin, UpdateView):
     model = PresenterRole
     form_class = PresenterRoleForm
     template_name = "speakers/presenter_role_form.html"
+
+
 # ---- Organizer checklists: board, queue, item actions -----------------------
 
 
@@ -1067,7 +1069,10 @@ class TemplateEditorMixin(LoginRequiredMixin, SpeakerOrganizerRequiredMixin):
 
     def get_template(self, pk):
         return get_object_or_404(
-            ChecklistTemplate.objects.filter(conference=self.conference), pk=pk
+            ChecklistTemplate.objects.filter(conference=self.conference).select_related(
+                "kind", "role"
+            ),
+            pk=pk,
         )
 
 
@@ -1078,8 +1083,9 @@ class ChecklistTemplateListView(TemplateEditorMixin, TemplateView):
         context = super().get_context_data(**kwargs)
         templates = list(
             ChecklistTemplate.objects.filter(conference=self.conference)
+            .select_related("kind", "role")
             .annotate(item_count=Count("items"))
-            .order_by("scope", "kind", "role", "delivery")
+            .order_by("scope", "kind__sort_order", "role__sort_order", "delivery")
         )
         context["presenter_templates"] = [
             t for t in templates if t.scope == ChecklistScope.PRESENTER
@@ -1123,7 +1129,9 @@ class ChecklistTemplateUpdateView(TemplateEditorMixin, UpdateView):
     template_name = "speakers/template_form.html"
 
     def get_queryset(self):
-        return ChecklistTemplate.objects.filter(conference=self.conference)
+        return ChecklistTemplate.objects.filter(
+            conference=self.conference
+        ).select_related("kind", "role")
 
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()
