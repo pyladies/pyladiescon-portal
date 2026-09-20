@@ -64,9 +64,11 @@ class SessionForm(forms.ModelForm):
             "audience_md": MARKDOWN_HELP,
             "notes_md": MARKDOWN_HELP + " Internal, never shown to the public.",
             "delivery": "Leave blank to use the type's default.",
-            "slug": "The address of this session, e.g. /speakers/sessions/django-101/. "
-            "Leave blank to derive it from the title. Links already shared break "
-            "if it changes.",
+            "slug": "Seen publicly as this session's web address, e.g. "
+            "/speakers/sessions/django-101/. Leave blank to derive it from the "
+            "title. Organizers review slugs and may rename them; once the "
+            "schedule is confirmed the address is locked. Links already shared "
+            "break if it changes.",
         }
 
     def __init__(self, *args, conference, **kwargs):
@@ -164,8 +166,11 @@ class PresenterForm(forms.ModelForm):
         widgets = {"bio_md": forms.Textarea(attrs={"rows": 5})}
         help_texts = {
             "bio_md": MARKDOWN_HELP,
-            "slug": "The address of this presenter's page. Leave blank to derive "
-            "it from the name. Links already shared break if it changes.",
+            "slug": "Seen publicly as this presenter's web address, e.g. "
+            "/speakers/presenters/ada-lovelace/. Leave blank to derive it from "
+            "the name. Organizers review slugs and may rename them; once the "
+            "schedule is confirmed the address is locked. Links already shared "
+            "break if it changes.",
         }
 
     def __init__(self, *args, conference, **kwargs):
