@@ -1122,10 +1122,18 @@ class ChecklistTemplateSeedView(TemplateEditorMixin, View):
     the list page has no POST of its own."""
 
     def post(self, request):
-        templates, items = seed_checklists(self.conference)
+        result = seed_checklists(self.conference)
         messages.success(
-            request, f"Loaded {templates} template(s) and {items} item(s)."
+            request,
+            f"Loaded {result.templates} template(s) and {result.items} item(s).",
         )
+        if result.skipped:
+            names = "; ".join(f"{name} ({why})" for name, why in result.skipped)
+            messages.warning(
+                request,
+                f"Skipped {len(result.skipped)}: {names}. Add the type or role "
+                "under Types and roles, then load again if you want them.",
+            )
         return redirect("speakers:template_list")
 
 

@@ -15,10 +15,13 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         conference = resolve_conference(options.get("conference"))
-        templates, items = seed_checklists(conference)
+        result = seed_checklists(conference)
         self.stdout.write(
-            f"Seeded {templates} template(s) and {items} item(s) into {conference}."
+            f"Seeded {result.templates} template(s) and {result.items} item(s) "
+            f"into {conference}."
         )
+        for name, why in result.skipped:
+            self.stdout.write(f"Skipped {name}: {why}.")
 
 
 def resolve_conference(value):

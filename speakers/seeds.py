@@ -16,6 +16,8 @@ the template editor; from then on it gates the session, so do that only
 once the speaker checklist pages exist for the presenter to tick it.
 """
 
+from typing import NamedTuple
+
 from .constants import (
     SESSION_LANGUAGE,
     AssigneeDefault,
@@ -26,7 +28,7 @@ from .constants import (
     ItemOwner,
     MediaKind,
 )
-from .models import ChecklistTemplate, ChecklistTemplateItem
+from .models import ChecklistTemplate, ChecklistTemplateItem, PresenterRole, SessionType
 from .program_types import (
     clone_program_types,
     presenter_role,
@@ -305,23 +307,42 @@ DEFAULT_TEMPLATES = [
 ]
 
 
+class SeedResult(NamedTuple):
+    """What ``seed_checklists`` did: counts, plus the templates it left out
+    because the edition has no type or role of that code."""
+
+    templates: int
+    items: int
+    skipped: list  # of (template name, reason) pairs
+
+
 def seed_checklists(conference):
     """Load the default templates into ``conference``. Safe to run again:
     existing templates keep their edits and only missing items are added.
-    Returns ``(templates_created, items_created)``.
 
-    The default types and roles are seeded first. That fills in any code a
-    template names that the edition lacks (an edition seeded from an older
-    default list, or one where organizers retired a type) and leaves every
-    existing row and its role mapping untouched."""
-    seed_program_types(conference)
+    An edition with no session types yet gets the default types and roles
+    first. An edition that has types keeps exactly the ones it has: a
+    default template whose type or role the edition lacks (a retired
+    keynote, say) is skipped and named in ``skipped``, never conjured up.
+    Add the type on the "Types and roles" page and load again if wanted."""
+    if not SessionType.objects.filter(conference=conference).exists():
+        seed_program_types(conference)
+    kinds = {t.code: t for t in SessionType.objects.filter(conference=conference)}
+    roles = {r.code: r for r in PresenterRole.objects.filter(conference=conference)}
     templates_created = items_created = 0
+    skipped = []
     for scope, name, kind, role, delivery, items in DEFAULT_TEMPLATES:
+        if kind not in kinds:
+            skipped.append((name, f"no {kind} session type in this edition"))
+            continue
+        if role and role not in roles:
+            skipped.append((name, f"no {role} presenter role in this edition"))
+            continue
         template, created = ChecklistTemplate.objects.get_or_create(
             conference=conference,
             scope=scope,
-            kind=session_type(conference, kind),
-            role=presenter_role(conference, role) if role else None,
+            kind=kinds[kind],
+            role=roles[role] if role else None,
             delivery=delivery,
             defaults={"name": name},
         )
@@ -337,7 +358,7 @@ def seed_checklists(conference):
             existing.add(spec["title"])
             next_order += 1
             items_created += 1
-    return templates_created, items_created
+    return SeedResult(templates_created, items_created, skipped)
 
 
 ITEM_FIELDS = [
