@@ -15,8 +15,14 @@ from speakers.constants import (
     ItemOwner,
     MediaKind,
 )
-from speakers.models import ChecklistTemplate, ChecklistTemplateItem
-from speakers.program_types import presenter_role, session_type
+from speakers.models import ChecklistTemplate, ChecklistTemplateItem, SessionType
+from speakers.program_types import (
+    DEFAULT_ROLES,
+    DEFAULT_SESSION_TYPES,
+    presenter_role,
+    seed_program_types,
+    session_type,
+)
 from speakers.seeds import DEFAULT_TEMPLATES, clone_checklists, seed_checklists
 
 from .factories import make_session
@@ -66,6 +72,31 @@ class TestSeed:
             ).count()
             == items
         )
+
+    def test_seed_fills_in_a_missing_type_and_keeps_custom_ones(self, conference):
+        """An edition seeded from an older default list (no KEYNOTE) with a
+        type of its own (OPEN_SPACE) must still load the defaults."""
+        seed_program_types(conference)
+        SessionType.objects.get(conference=conference, code="KEYNOTE").delete()
+        SessionType.objects.create(
+            conference=conference, code="OPEN_SPACE", name="Open space"
+        )
+        templates, _ = seed_checklists(conference)
+        assert templates == len(DEFAULT_TEMPLATES)
+        codes = set(
+            SessionType.objects.filter(conference=conference).values_list(
+                "code", flat=True
+            )
+        )
+        assert {"KEYNOTE", "OPEN_SPACE"} <= codes
+
+    def test_default_templates_name_only_default_codes(self):
+        """A template naming a type or role that the defaults do not seed
+        would raise DoesNotExist on every fresh edition; catch it here."""
+        types = {row[0] for row in DEFAULT_SESSION_TYPES}
+        roles = {row[0] for row in DEFAULT_ROLES}
+        assert {spec[2] for spec in DEFAULT_TEMPLATES} <= types
+        assert {spec[3] for spec in DEFAULT_TEMPLATES if spec[3]} <= roles
 
     def test_seed_adds_missing_items_but_keeps_edits(self, conference):
         seed_checklists(conference)

@@ -27,7 +27,12 @@ from .constants import (
     MediaKind,
 )
 from .models import ChecklistTemplate, ChecklistTemplateItem
-from .program_types import clone_program_types, presenter_role, session_type
+from .program_types import (
+    clone_program_types,
+    presenter_role,
+    seed_program_types,
+    session_type,
+)
 
 SPK, ORG = ItemOwner.SPEAKER, ItemOwner.ORGANIZER
 ACCEPTED, CONF, SESSION = (
@@ -303,7 +308,13 @@ DEFAULT_TEMPLATES = [
 def seed_checklists(conference):
     """Load the default templates into ``conference``. Safe to run again:
     existing templates keep their edits and only missing items are added.
-    Returns ``(templates_created, items_created)``."""
+    Returns ``(templates_created, items_created)``.
+
+    The default types and roles are seeded first. That fills in any code a
+    template names that the edition lacks (an edition seeded from an older
+    default list, or one where organizers retired a type) and leaves every
+    existing row and its role mapping untouched."""
+    seed_program_types(conference)
     templates_created = items_created = 0
     for scope, name, kind, role, delivery, items in DEFAULT_TEMPLATES:
         template, created = ChecklistTemplate.objects.get_or_create(
