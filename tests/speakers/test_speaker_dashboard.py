@@ -6,7 +6,7 @@ from django.contrib.auth.models import User
 from django.urls import reverse
 from pytest_django.asserts import assertRedirects
 
-from speakers.checklists import add_adhoc_item, block_item, complete_item
+from speakers.checklists import add_adhoc_item, block_item, complete_item, skip_item
 from speakers.constants import (
     AutoRule,
     Delivery,
@@ -173,6 +173,11 @@ class TestToggle:
         client.post(toggle(item))
         item.refresh_from_db()
         assert item.status == ItemStatus.TODO
+        skip_item(item, note="not needed")
+        response = client.post(toggle(item), follow=True)
+        item.refresh_from_db()
+        assert item.status == ItemStatus.SKIPPED
+        assert "An organizer skipped" in response.content.decode()
 
     def test_cannot_tick_organizer_item(self, client, speaker, presenter, conference):
         item = add_adhoc_item(

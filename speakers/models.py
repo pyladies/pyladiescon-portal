@@ -20,6 +20,7 @@ from django.urls import reverse
 from django.utils import timezone
 from django.utils.text import slugify
 
+from .clock import today
 from .constants import (
     OPEN_ITEM_STATUSES,
     SESSION_LANGUAGE,
@@ -1251,11 +1252,7 @@ class ChecklistItem(TimestampedModel):
 
     @property
     def is_overdue(self):
-        return (
-            self.is_open
-            and self.due_date is not None
-            and self.due_date < timezone.now().date()
-        )
+        return self.is_open and self.due_date is not None and self.due_date < today()
 
 
 class MediaAsset(TimestampedModel):

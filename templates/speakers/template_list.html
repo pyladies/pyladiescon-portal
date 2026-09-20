@@ -18,7 +18,7 @@
             </p>
         </div>
         <div class="d-flex gap-2">
-            <form method="post">
+            <form method="post" action="{% url 'speakers:template_seed' %}">
                 {% csrf_token %}
                 <button class="btn btn-outline-secondary" type="submit">
                     <i class="fa-solid fa-seedling"></i> {% trans "Load defaults" %}

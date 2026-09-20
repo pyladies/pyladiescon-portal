@@ -2,16 +2,23 @@
 {% trans "Assignee" as assignee_label %}
 {% comment %}
 One checklist item as a table row on organizer pages. Params:
-    item        — ChecklistItem with .overdue set
-    assign_form — AssignItemForm for the assignee select (organizer items)
-    can_assign  — truthy to render the assignee select
-The row is the htmx target for status and assignee changes.
+    item             — ChecklistItem with .overdue set
+    assignee_choices — users the assignee select offers (built once per page)
+    can_assign       — truthy to render the assignee select (organizers)
+    error            — text to show inline; an htmx swap never shows messages
+The row is the htmx target for status and assignee changes. The CSRF header
+for htmx is set once on <body> by the organizer shell.
 {% endcomment %}
 <tr id="item-{{ item.pk }}"
     data-item-id="{{ item.pk }}"
     data-status="{{ item.status }}"
     class="{% if item.is_done %}table-success{% elif item.status == 'BLOCKED' %}table-danger{% elif item.overdue %}table-warning{% endif %}">
     <td>
+        {% if error %}
+            <div class="alert alert-danger py-1 px-2 small mb-1" role="alert">
+                {{ error }}
+            </div>
+        {% endif %}
         {{ item.title }}
         {% if item.is_automatic %}
             <i class="fa-solid fa-wand-magic-sparkles text-secondary small"></i>
@@ -44,8 +51,7 @@ The row is the htmx target for status and assignee changes.
                   hx-post="{% url 'speakers:item_assign' item.pk %}"
                   hx-target="#item-{{ item.pk }}"
                   hx-swap="outerHTML"
-                  hx-trigger="change"
-                  hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
+                  hx-trigger="change">
                 {% csrf_token %}
                 <select name="assignee"
                         class="form-select form-select-sm"
@@ -53,7 +59,7 @@ The row is the htmx target for status and assignee changes.
                     <option value="">
                         {% trans "Unassigned" %}
                     </option>
-                    {% for user in assign_form.fields.assignee.queryset %}
+                    {% for user in assignee_choices %}
                         <option value="{{ user.pk }}"
                                 {% if user.pk == item.assignee_id %}selected{% endif %}>
                             {{ user.get_full_name|default:user.username }}
@@ -79,8 +85,7 @@ The row is the htmx target for status and assignee changes.
                   action="{% url 'speakers:item_status' item.pk %}"
                   hx-post="{% url 'speakers:item_status' item.pk %}"
                   hx-target="#item-{{ item.pk }}"
-                  hx-swap="outerHTML"
-                  hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
+                  hx-swap="outerHTML">
                 {% csrf_token %}
                 {% if item.is_open %}
                     <button class="btn btn-sm btn-outline-success"
@@ -105,8 +110,7 @@ The row is the htmx target for status and assignee changes.
                   action="{% url 'speakers:item_status' item.pk %}"
                   hx-post="{% url 'speakers:item_status' item.pk %}"
                   hx-target="#item-{{ item.pk }}"
-                  hx-swap="outerHTML"
-                  hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
+                  hx-swap="outerHTML">
                 {% csrf_token %}
                 <button class="btn btn-sm btn-link text-secondary"
                         name="status"

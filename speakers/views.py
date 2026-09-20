@@ -9,6 +9,7 @@ from django.http import HttpResponse, HttpResponseBadRequest
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.views import View
 from django.views.generic import DetailView, TemplateView
 from django.views.generic.edit import CreateView, UpdateView
@@ -27,6 +28,7 @@ from .checklists import (
     reopen_item,
     skip_item,
 )
+from .clock import today
 from .constants import (
     OPEN_ITEM_STATUSES,
     ChecklistScope,
@@ -69,6 +71,7 @@ from .models import (
     Session,
     SessionType,
 )
+from .people import liaison_candidates
 from .permissions import can_work_sessions, is_speaker_organizer
 from .rules import evaluate_items
 from .seeds import seed_checklists
@@ -370,28 +373,21 @@ class PresenterDetailView(PresenterScopedMixin, DetailView):
         context["session_links"] = self.object.session_links
         context["invitations"] = self.object.invitation_history
         context["activity"] = ActivityLog.for_target(self.object)[:20]
-        today = timezone.now().date()
         items = list(
             self.object.checklist_items.select_related("assignee", "session").order_by(
                 "session__title", "order", "id"
             )
         )
         for item in items:
-            item.overdue = (
-                item.is_open and item.due_date is not None and item.due_date < today
-            )
+            item.overdue = item.is_overdue
         context["speaker_items"] = [i for i in items if i.owner == ItemOwner.SPEAKER]
         context["organizer_items"] = [
             i for i in items if i.owner == ItemOwner.ORGANIZER
         ]
-        context["assign_forms"] = {
-            item.pk: AssignItemForm(
-                initial={"assignee": item.assignee_id}, conference=self.conference
-            )
-            for item in items
-        }
+        # One query for the assignee choices, shared by every row.
+        context["assignee_choices"] = list(liaison_candidates(self.conference))
         context["adhoc_form"] = AdhocItemForm(conference=self.conference)
-        context["can_assign"] = True
+        context["can_assign"] = is_speaker_organizer(self.request.user)
         return context
 
 
@@ -603,7 +599,7 @@ class SpeakerDashboardView(LoginRequiredMixin, PresenterRequiredMixin, TemplateV
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         presenter = self.presenter
-        today = timezone.now().astimezone(presenter.tzinfo).date()
+        today_here = today(presenter.tzinfo)
         links = list(
             presenter.session_presenters.select_related(
                 "session", "session__kind", "role"
@@ -620,7 +616,9 @@ class SpeakerDashboardView(LoginRequiredMixin, PresenterRequiredMixin, TemplateV
         )
         for item in items:
             item.overdue = (
-                item.is_open and item.due_date is not None and item.due_date < today
+                item.is_open
+                and item.due_date is not None
+                and item.due_date < today_here
             )
         speaker_items = [
             i for i in items if i.presenter_id and i.owner == ItemOwner.SPEAKER
@@ -644,7 +642,7 @@ class SpeakerDashboardView(LoginRequiredMixin, PresenterRequiredMixin, TemplateV
             {
                 "conference": self.conference,
                 "presenter": presenter,
-                "today": today,
+                "today": today_here,
                 "speaker_items": speaker_items,
                 "organizer_items": organizer_items,
                 "video_items": video_items,
@@ -670,9 +668,16 @@ class SpeakerItemToggleView(LoginRequiredMixin, PresenterRequiredMixin, View):
             if item.is_open:
                 complete_item(item, actor=request.user)
                 messages.success(request, f"Done: {item.title}")
-            else:
+            elif item.status == ItemStatus.DONE:
                 reopen_item(item, actor=request.user)
                 messages.info(request, f"Reopened: {item.title}")
+            else:
+                # SKIPPED: an organizer took it off the list; only they put it back.
+                messages.info(
+                    request,
+                    f"An organizer skipped “{item.title}”; ask them if it should "
+                    "come back.",
+                )
         except ChecklistError as exc:
             messages.error(request, str(exc))
         return redirect("speakers:my_dashboard")
@@ -949,15 +954,15 @@ class ChecklistQueueView(LoginRequiredMixin, SpeakerStaffRequiredMixin, Template
             .select_related("presenter", "session")
             .order_by(F("due_date").asc(nulls_last=True), "order", "id")
         )
-        today = timezone.now().date()
+        items = list(items)
         for item in items:
-            item.overdue = item.due_date is not None and item.due_date < today
+            item.overdue = item.is_overdue
         context.update(
             {
                 "conference": self.conference,
                 "rail_active": "queue",
-                "items": list(items),
-                "today": today,
+                "items": items,
+                "today": today(),
             }
         )
         return context
@@ -980,30 +985,37 @@ class ItemActionMixin(LoginRequiredMixin, SpeakerStaffRequiredMixin):
             raise PermissionDenied("This item belongs to a presenter you don't liaise.")
         return item
 
-    def respond(self, request, item):
-        """An htmx request gets the refreshed row; a plain form goes back."""
+    def respond(self, request, item, error=""):
+        """An htmx request gets the refreshed row (with ``error`` shown inline,
+        since a swapped row never displays queued messages); a plain form goes
+        back to ``next`` when it points at this site, else to the presenter
+        or session page."""
         if request.headers.get("HX-Request"):
-            item.overdue = (
-                item.is_open and item.due_date and item.due_date < timezone.now().date()
-            )
+            item.overdue = item.is_overdue
             return render(
                 request,
                 "speakers/_organizer_item_row.html",
                 {
                     "item": item,
-                    "assign_form": AssignItemForm(
-                        initial={"assignee": item.assignee_id},
-                        conference=self.conference,
-                    ),
-                    "can_assign": is_speaker_organizer(request.user)
-                    or item.presenter is not None,
+                    "assignee_choices": list(liaison_candidates(self.conference)),
+                    "can_assign": is_speaker_organizer(request.user),
+                    "error": error,
                 },
             )
-        target = request.POST.get("next") or (
+        if error:
+            messages.error(request, error)
+        fallback = (
             item.presenter.get_absolute_url()
             if item.presenter
             else item.session.get_absolute_url()
         )
+        target = request.POST.get("next", "")
+        if not url_has_allowed_host_and_scheme(
+            target,
+            allowed_hosts={request.get_host()},
+            require_https=request.is_secure(),
+        ):
+            target = fallback
         return redirect(target)
 
 
@@ -1012,6 +1024,7 @@ class ItemStatusView(ItemActionMixin, View):
         item = self.get_item()
         status = request.POST.get("status", "")
         note = request.POST.get("note")
+        error = ""
         try:
             if status == ItemStatus.DONE:
                 complete_item(item, actor=request.user, note=note)
@@ -1019,15 +1032,23 @@ class ItemStatusView(ItemActionMixin, View):
                 reopen_item(item, actor=request.user)
             elif status == ItemStatus.SKIPPED:
                 skip_item(item, actor=request.user, note=note)
+            elif request.headers.get("HX-Request"):
+                error = "Unknown status."
             else:
                 return HttpResponseBadRequest("Unknown status.")
         except ChecklistError as exc:
-            messages.error(request, str(exc))
-        return self.respond(request, item)
+            error = str(exc)
+        return self.respond(request, item, error=error)
 
 
 class ItemAssignView(ItemActionMixin, View):
+    """Organizers only: a liaison ticks and skips their presenter's items but
+    does not hand organizer work to someone else (#412 settled that liaisons
+    do not change organizer-side data)."""
+
     def post(self, request, pk):
+        if not is_speaker_organizer(request.user):
+            raise PermissionDenied("Only organizers reassign items.")
         item = self.get_item()
         form = AssignItemForm(request.POST, conference=self.conference)
         if not form.is_valid():
@@ -1095,8 +1116,12 @@ class ChecklistTemplateListView(TemplateEditorMixin, TemplateView):
         ]
         return context
 
+
+class ChecklistTemplateSeedView(TemplateEditorMixin, View):
+    """The "Load defaults" button: an idempotent seed, on its own URL so
+    the list page has no POST of its own."""
+
     def post(self, request):
-        """The "Load defaults" button: idempotent seed."""
         templates, items = seed_checklists(self.conference)
         messages.success(
             request, f"Loaded {templates} template(s) and {items} item(s)."
@@ -1214,7 +1239,11 @@ class TemplateItemActionView(TemplateEditorMixin, View):
         if action == "delete":
             title = item.title
             item.delete()
-            messages.success(request, f"Removed “{title}” from the template.")
+            messages.success(
+                request,
+                f"Removed “{title}” from the template. Existing checklists keep "
+                "their copy; it now counts as a one-off item there.",
+            )
         elif action in ("up", "down"):
             self.move(template, item, -1 if action == "up" else 1)
         elif action == "backfill":

@@ -88,7 +88,8 @@ class TestListAndSeed:
     def test_empty_then_load_defaults(self, client, organizer, enabled, conference):
         client.force_login(organizer)
         assert "None yet" in client.get(LIST).content.decode()
-        response = client.post(LIST, follow=True)
+        assert client.post(LIST).status_code == 405
+        response = client.post(reverse("speakers:template_seed"), follow=True)
         assert (
             f"Loaded {len(DEFAULT_TEMPLATES)} template(s)" in response.content.decode()
         )

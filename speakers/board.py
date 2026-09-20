@@ -7,8 +7,7 @@ Built from two queries (presenters, items) regardless of size.
 import csv
 from collections import defaultdict
 
-from django.utils import timezone
-
+from .clock import today as current_date
 from .constants import ItemStatus
 from .models import ChecklistItem, Presenter
 
@@ -34,7 +33,7 @@ def build_board(conference, user, owner, sort="overdue"):
     Each row: ``presenter``, ``cells`` (one per column, item or None),
     ``overdue`` (count), ``open`` (count), ``next_due``.
     """
-    today = timezone.now().date()
+    today = current_date()
     presenters = list(
         Presenter.objects.for_conference(conference)
         .visible_to(user)
@@ -98,20 +97,51 @@ def _more_urgent(candidate, current, today):
     return rank(candidate) < rank(current)
 
 
+FORMULA_STARTS = ("=", "+", "-", "@", "\t", "\r")
+
+CSV_NOTE = (
+    "One column per item title. A presenter on two sessions shows the more "
+    "urgent copy of a same-titled item, so open the presenter page for the "
+    "full list."
+)
+
+
+def _safe_cell(value):
+    """Text a spreadsheet will show, not run.
+
+    Presenters type their own display name and titles come from templates
+    organizers edit; either could start with ``=`` and be read as a formula
+    by Excel or Sheets. A leading apostrophe makes the cell literal text."""
+    text = str(value)
+    if text.startswith(FORMULA_STARTS):
+        return "'" + text
+    return text
+
+
 def write_board_csv(board, stream):
-    """Write the board as CSV (presenter, email, liaison, one column per item)."""
+    """Write the board as CSV: a note row, then presenter, email, liaison,
+    overdue count and one column per item title."""
     writer = csv.writer(stream)
-    writer.writerow(["Presenter", "Email", "Liaison", "Overdue"] + board["columns"])
+    writer.writerow([CSV_NOTE])
+    writer.writerow(
+        [_safe_cell(c) for c in ["Presenter", "Email", "Liaison", "Overdue"]]
+        + [_safe_cell(title) for title in board["columns"]]
+    )
     for row in board["rows"]:
         presenter = row["presenter"]
         liaison = presenter.liaison
         writer.writerow(
             [
-                presenter.display_name,
-                presenter.email,
-                (liaison.get_full_name() or liaison.username) if liaison else "",
+                _safe_cell(presenter.display_name),
+                _safe_cell(presenter.email),
+                _safe_cell(
+                    (liaison.get_full_name() or liaison.username) if liaison else ""
+                ),
                 row["overdue"],
             ]
-            + [cell.get_status_display() if cell else "" for cell, _ in row["cells"]]
+            + [
+                _safe_cell(cell.get_status_display() if cell else "")
+                for cell, _ in row["cells"]
+            ]
         )
     return stream

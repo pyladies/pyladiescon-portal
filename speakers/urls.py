@@ -121,6 +121,11 @@ urlpatterns = [
         name="template_list",
     ),
     path(
+        "settings/checklists/seed/",
+        views.ChecklistTemplateSeedView.as_view(),
+        name="template_seed",
+    ),
+    path(
         "settings/checklists/new/",
         views.ChecklistTemplateCreateView.as_view(),
         name="template_create",
