@@ -60,7 +60,7 @@ GUIDE = _item(SPK, "Read the speaker guide", ACCEPTED, 14, AutoRule.HANDBOOK_REA
 REGISTER = _item(
     SPK, "Register for the conference", CONF, 14, AutoRule.PRETIX_REGISTERED
 )
-DISCORD = _item(SPK, "Join the PyLadiesCon Discord", CONF, 14)
+DISCORD = _item(SPK, "Join the PyLadiesCon Discord", ACCEPTED, 14)
 CONFIRM_SLOT = _item(SPK, "Confirm your scheduled slot", SESSION, 14)
 MATERIALS = _item(SPK, "Share a link to your workshop materials", SESSION, 7)
 SLIDES = _item(SPK, "Share a link to your slides", SESSION, 3)
@@ -79,8 +79,8 @@ ORGANIZER_ITEMS = [
     _item(
         ORG,
         "Registration info sent",
-        ACCEPTED,
-        7,
+        CONF,
+        30,
         assignee_default=AssigneeDefault.LIAISON,
     ),
     _item(ORG, "Promo materials prepared", CONF, 21),
@@ -99,7 +99,7 @@ ORGANIZER_ITEMS = [
         14,
         assignee_default=AssigneeDefault.LIAISON,
     ),
-    _item(ORG, "Discord channel and speaker role assigned", CONF, 7),
+    _item(ORG, "Discord channel and speaker role assigned", ACCEPTED, 14),
     _item(
         ORG,
         "Day-of reminder sent",
