@@ -347,7 +347,7 @@ class Presenter(TimestampedModel):
         return zoneinfo.ZoneInfo(self.timezone)
 
     def get_absolute_url(self):
-        return reverse("speakers:presenter_detail", kwargs={"pk": self.pk})
+        return reverse("speakers:presenter_detail", kwargs={"slug": self.slug})
 
     @property
     def latest_invitation(self):
@@ -624,7 +624,7 @@ class Session(TimestampedModel):
         return ScheduleSlot.objects.filter(session=self).exists()
 
     def get_absolute_url(self):
-        return reverse("speakers:session_detail", kwargs={"pk": self.pk})
+        return reverse("speakers:session_detail", kwargs={"slug": self.slug})
 
     @property
     def liaisons(self):

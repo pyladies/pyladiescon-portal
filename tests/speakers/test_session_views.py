@@ -195,6 +195,66 @@ class TestContextProcessor:
 
 
 @pytest.mark.django_db
+class TestSlugUrls:
+    """Sessions are addressed by slug: no number a speaker could read as an
+    ordinal. Slugs are unique per edition, editable by organizers, and never
+    rotate when a title changes."""
+
+    def test_absolute_url_has_no_number(self, sessions):
+        session = sessions["mine"]
+        assert session.get_absolute_url() == f"/speakers/sessions/{session.slug}/"
+        assert not any(ch.isdigit() for ch in session.get_absolute_url())
+
+    def test_same_title_gets_a_suffix_within_the_edition(self, conference, enabled):
+        first = make_session(conference, title="Django 101")
+        second = make_session(conference, title="Django 101")
+        assert first.slug == "django-101" and second.slug == "django-101-2"
+
+    def test_rename_keeps_the_slug(self, sessions):
+        session = sessions["mine"]
+        slug = session.slug
+        session.title = "Renamed"
+        session.save()
+        assert session.slug == slug
+
+    def test_other_edition_slug_does_not_resolve(self, client, organizer, sessions):
+        other = Conference.objects.create(year=2024, name="Old", slug="2024")
+        foreign = make_session(other, title="Elsewhere")
+        client.force_login(organizer)
+        assert client.get(f"/speakers/sessions/{foreign.slug}/").status_code == 404
+        assert client.get("/speakers/sessions/no-such-session/").status_code == 404
+
+    def test_organizer_edits_slug_with_clash_and_reserved_refused(
+        self, client, organizer, sessions, conference
+    ):
+        session = sessions["mine"]
+        taken = sessions["theirs"].slug
+        client.force_login(organizer)
+        url = reverse("speakers:session_edit", args=[session.slug])
+        base = {
+            "kind": session.kind_id,
+            "delivery": Delivery.LIVE,
+            "title": session.title,
+            "duration_minutes": 120,
+            "level": "BEGINNER",
+            "language": "en",
+        }
+        response = client.post(url, {**base, "slug": taken})
+        assert "already uses this address" in response.content.decode()
+        response = client.post(url, {**base, "slug": "new"})
+        assert "reserved" in response.content.decode()
+        response = client.post(url, {**base, "slug": "Intro To Django!"})
+        assert response.status_code == 302, response.context["form"].errors
+        session.refresh_from_db()
+        assert session.slug == "intro-to-django"
+        assertRedirects(response, "/speakers/sessions/intro-to-django/")
+        response = client.post(
+            url.replace(session.slug, "intro-to-django"), {**base, "slug": ""}
+        )
+        session.refresh_from_db()
+        assert session.slug == "intro-to-django"  # blank keeps the current address
+
+
 class TestSessionDetail:
     def test_renders(self, client, organizer, sessions):
         session = sessions["mine"]
@@ -273,7 +333,7 @@ class TestSessionForms:
     def test_edit(self, client, organizer, sessions):
         session = sessions["mine"]
         client.force_login(organizer)
-        url = reverse("speakers:session_edit", args=[session.pk])
+        url = reverse("speakers:session_edit", args=[session.slug])
         assert "Edit" in client.get(url).content.decode()
         response = client.post(
             url,
@@ -295,8 +355,8 @@ class TestSessionForms:
         session = sessions["mine"]
         client.force_login(liaison)
         content = client.get(session.get_absolute_url()).content.decode()
-        assert reverse("speakers:session_edit", args=[session.pk]) not in content
-        url = reverse("speakers:session_edit", args=[session.pk])
+        assert reverse("speakers:session_edit", args=[session.slug]) not in content
+        url = reverse("speakers:session_edit", args=[session.slug])
         assert client.get(url).status_code == 403
         response = client.post(
             url,
@@ -393,9 +453,9 @@ class TestSessionEditKeepsRetiredType:
         session.kind.is_active = False
         session.kind.save()
         client.force_login(organizer)
-        form = client.get(reverse("speakers:session_edit", args=[session.pk])).context[
-            "form"
-        ]
+        form = client.get(
+            reverse("speakers:session_edit", args=[session.slug])
+        ).context["form"]
         assert session.kind_id in [t.pk for t in form.fields["kind"].queryset]
         # ... but not on a new session.
         form = client.get(reverse("speakers:session_create")).context["form"]

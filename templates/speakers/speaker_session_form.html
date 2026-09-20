@@ -56,7 +56,7 @@
                         </summary>
                         <form method="post"
                               class="mt-2"
-                              action="{% url 'speakers:my_session_suggest' session.pk %}">
+                              action="{% url 'speakers:my_session_suggest' session.slug %}">
                             {% csrf_token %}
                             {% bootstrap_form suggest_form size="sm" %}
                             <button class="btn btn-sm btn-outline-primary" type="submit">

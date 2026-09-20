@@ -3,6 +3,7 @@ import zoneinfo
 from django import forms
 from django.contrib.auth.models import User
 from django.db.models import Q
+from django.utils.text import slugify
 
 from .constants import Delivery, ItemOwner
 from .models import (
@@ -22,12 +23,17 @@ MARKDOWN_HELP = "Markdown supported: headings, lists, links, **bold**, *italics*
 class SessionForm(forms.ModelForm):
     """Create or edit a session. Every content field is optional markdown."""
 
+    # Free text, normalised to a slug in clean_slug; a SlugField would refuse
+    # "Intro To Django" before the cleaner could turn it into intro-to-django.
+    slug = forms.CharField(required=False, max_length=100)
+
     class Meta:
         model = Session
         fields = [
             "kind",
             "delivery",
             "title",
+            "slug",
             "summary_md",
             "outline_md",
             "prerequisites_md",
@@ -58,6 +64,9 @@ class SessionForm(forms.ModelForm):
             "audience_md": MARKDOWN_HELP,
             "notes_md": MARKDOWN_HELP + " Internal, never shown to the public.",
             "delivery": "Leave blank to use the type's default.",
+            "slug": "The address of this session, e.g. /speakers/sessions/django-101/. "
+            "Leave blank to derive it from the title. Links already shared break "
+            "if it changes.",
         }
 
     def __init__(self, *args, conference, **kwargs):
@@ -79,6 +88,9 @@ class SessionForm(forms.ModelForm):
             )
             + "."
         )
+
+    def clean_slug(self):
+        return _clean_slug(self, Session, "session")
 
     def clean(self):
         cleaned = super().clean()
@@ -128,11 +140,13 @@ class PresenterForm(forms.ModelForm):
     """Organizer-side presenter create/edit, including the liaison."""
 
     timezone = forms.ChoiceField(choices=timezone_choices, initial="UTC")
+    slug = forms.CharField(required=False, max_length=100)
 
     class Meta:
         model = Presenter
         fields = [
             "display_name",
+            "slug",
             "email",
             "pronouns",
             "liaison",
@@ -148,13 +162,20 @@ class PresenterForm(forms.ModelForm):
             "is_public",
         ]
         widgets = {"bio_md": forms.Textarea(attrs={"rows": 5})}
-        help_texts = {"bio_md": MARKDOWN_HELP}
+        help_texts = {
+            "bio_md": MARKDOWN_HELP,
+            "slug": "The address of this presenter's page. Leave blank to derive "
+            "it from the name. Links already shared break if it changes.",
+        }
 
     def __init__(self, *args, conference, **kwargs):
         super().__init__(*args, **kwargs)
         self.conference = conference
         self.fields["liaison"].queryset = liaison_candidates(conference)
         self.fields["liaison"].label_from_instance = user_label
+
+    def clean_slug(self):
+        return _clean_slug(self, Presenter, "presenter")
 
     def clean_email(self):
         email = self.cleaned_data["email"].strip().lower()
@@ -281,6 +302,48 @@ class SuggestCoPresenterForm(forms.Form):
         widget=forms.Textarea(attrs={"rows": 3}),
         help_text="Why they would be a great addition (optional).",
     )
+
+
+# Path words under /speakers/ that a slug must never collide with.
+RESERVED_SLUGS = frozenset(
+    {
+        "new",
+        "new-program-item",
+        "edit",
+        "add",
+        "invite",
+        "remove",
+        "suggest",
+        "me",
+        "sessions",
+        "presenters",
+        "settings",
+        "items",
+        "invitations",
+        "webhooks",
+    }
+)
+
+
+def _clean_slug(form, model, noun):
+    """Normalise an optional slug and refuse a clash within the edition.
+
+    Blank means "derive from the title or name on save". The unique
+    constraint spans ``conference``, which is not a form field, so Django's
+    constraint validation skips it here."""
+    slug = slugify(form.cleaned_data.get("slug", "") or "")
+    if not slug:
+        # Blank on create derives from the title or name on save; blank on
+        # edit keeps the current address rather than rotating it.
+        return form.instance.slug or ""
+    if slug in RESERVED_SLUGS:
+        raise forms.ValidationError(f"“{slug}” is reserved; pick another address.")
+    clash = model.objects.filter(conference=form.conference, slug=slug).exclude(
+        pk=form.instance.pk
+    )
+    if clash.exists():
+        raise forms.ValidationError(f"Another {noun} already uses this address.")
+    return slug
 
 
 def _unique_code(form, model, noun):

@@ -37,7 +37,7 @@
         </div>
         {% if is_organizer %}
             <a class="btn btn-outline-primary"
-               href="{% url 'speakers:presenter_edit' presenter.pk %}">
+               href="{% url 'speakers:presenter_edit' presenter.slug %}">
                 <i class="fa-solid fa-pen"></i> {% trans "Edit" %}
             </a>
         {% endif %}
@@ -72,7 +72,7 @@
                 </summary>
                 <form method="post"
                       class="row g-2 mt-1"
-                      action="{% url 'speakers:presenter_add_item' presenter.pk %}">
+                      action="{% url 'speakers:presenter_add_item' presenter.slug %}">
                     {% csrf_token %}
                     <div class="col-md-5">
                         {{ adhoc_form.title.label_tag }} {{ adhoc_form.title }}

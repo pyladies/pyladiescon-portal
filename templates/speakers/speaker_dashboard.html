@@ -27,7 +27,7 @@
         <ul class="list-unstyled mb-4">
             {% for summary in session_summaries %}
                 <li class="d-flex flex-wrap align-items-center gap-2 mb-1">
-                    <a href="{% url 'speakers:my_session_edit' summary.session.pk %}">{{ summary.session.title }}</a>
+                    <a href="{% url 'speakers:my_session_edit' summary.session.slug %}">{{ summary.session.title }}</a>
                     <span class="text-secondary small">{{ summary.session.kind.name }} · {{ summary.role }}</span>
                     {% if summary.total %}
                         <span class="badge text-bg-light border">

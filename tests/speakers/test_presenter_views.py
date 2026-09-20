@@ -178,8 +178,8 @@ class TestPresenterForms:
         ada = presenters["ada"]
         client.force_login(liaison)
         content = client.get(ada.get_absolute_url()).content.decode()
-        assert content.count(reverse("speakers:presenter_edit", args=[ada.pk])) == 0
-        url = reverse("speakers:presenter_edit", args=[ada.pk])
+        assert content.count(reverse("speakers:presenter_edit", args=[ada.slug])) == 0
+        url = reverse("speakers:presenter_edit", args=[ada.slug])
         assert client.get(url).status_code == 403
         response = client.post(
             url,
@@ -193,14 +193,14 @@ class TestPresenterForms:
         assert response.status_code == 403
         ada.refresh_from_db()
         assert ada.email == "ada@example.com" and ada.liaison == liaison
-        other = reverse("speakers:presenter_edit", args=[presenters["grace"].pk])
+        other = reverse("speakers:presenter_edit", args=[presenters["grace"].slug])
         assert client.get(other).status_code == 403
         assert client.get(reverse("speakers:presenter_create")).status_code == 403
 
     def test_organizer_edits_a_presenter(self, client, organizer, presenters, liaison):
         ada = presenters["ada"]
         client.force_login(organizer)
-        url = reverse("speakers:presenter_edit", args=[ada.pk])
+        url = reverse("speakers:presenter_edit", args=[ada.slug])
         assert client.get(url).status_code == 200
         response = client.post(
             url,
@@ -214,6 +214,36 @@ class TestPresenterForms:
         assertRedirects(response, ada.get_absolute_url())
         ada.refresh_from_db()
         assert ada.display_name == "Ada Lovelace" and ada.timezone == "Europe/London"
+
+
+@pytest.mark.django_db
+class TestPresenterSlugUrls:
+    def test_absolute_url_and_suffix(self, conference, enabled):
+        ada = make_presenter(conference, display_name="Ada Lovelace")
+        again = make_presenter(conference, display_name="Ada Lovelace")
+        assert ada.get_absolute_url() == "/speakers/presenters/ada-lovelace/"
+        assert again.slug == "ada-lovelace-2"
+        ada.display_name = "Countess Lovelace"
+        ada.save()
+        assert ada.slug == "ada-lovelace"
+
+    def test_organizer_edits_slug_clash_refused(self, client, organizer, presenters):
+        grace = presenters["grace"]
+        other = make_presenter(presenters["session"].conference, display_name="Mary")
+        client.force_login(organizer)
+        url = reverse("speakers:presenter_edit", args=[grace.slug])
+        base = {
+            "display_name": grace.display_name,
+            "email": grace.email,
+            "timezone": "UTC",
+        }
+        response = client.post(url, {**base, "slug": other.slug})
+        assert "already uses this address" in response.content.decode()
+        response = client.post(url, {**base, "slug": "grace-h"})
+        grace.refresh_from_db()
+        assert grace.slug == "grace-h"
+        assertRedirects(response, "/speakers/presenters/grace-h/")
+        assert client.get("/speakers/presenters/no-such-person/").status_code == 404
 
 
 @pytest.mark.django_db
@@ -266,7 +296,7 @@ class TestSessionPresenterActions:
         form = client.get(session.get_absolute_url()).context["add_presenter_form"]
         assert [r.code for r in form.fields["role"].queryset] == ["PRESENTER"]
         assert form.fields["role"].initial == presenter_role_pk
-        url = reverse("speakers:session_add_presenter", args=[session.pk])
+        url = reverse("speakers:session_add_presenter", args=[session.slug])
         response = client.post(
             url, {"presenter": grace.pk, "role": presenter_role_pk, "order": 2}
         )
@@ -291,7 +321,7 @@ class TestSessionPresenterActions:
         assert "Could not add the presenter" in response.content.decode()
         assert "role" in response.content.decode()
         remove = reverse(
-            "speakers:session_remove_presenter", args=[session.pk, link.pk]
+            "speakers:session_remove_presenter", args=[session.slug, link.pk]
         )
         assertRedirects(client.post(remove), session.get_absolute_url())
         assert session.session_presenters.filter(presenter=grace).exists() is False
@@ -312,7 +342,7 @@ class TestSessionPresenterActions:
         client.force_login(organizer)
         link = session.session_presenters.get(presenter=ada)
         client.post(
-            reverse("speakers:session_remove_presenter", args=[session.pk, link.pk])
+            reverse("speakers:session_remove_presenter", args=[session.slug, link.pk])
         )
         invitation.refresh_from_db()
         session.refresh_from_db()
@@ -335,7 +365,7 @@ class TestSessionPresenterActions:
         client.force_login(organizer)
         link = session.session_presenters.get(presenter=ada)
         client.post(
-            reverse("speakers:session_remove_presenter", args=[session.pk, link.pk])
+            reverse("speakers:session_remove_presenter", args=[session.slug, link.pk])
         )
         session.refresh_from_db()
         assert session.status == SessionStatus.INVITED  # Grace is still invited
@@ -346,7 +376,7 @@ class TestSessionPresenterActions:
         client.force_login(organizer)
         mail.outbox.clear()
         response = client.post(
-            reverse("speakers:session_invite", args=[session.pk, link.pk]),
+            reverse("speakers:session_invite", args=[session.slug, link.pk]),
             {"message_md": "x" * 2001},
             follow=True,
         )
@@ -355,7 +385,9 @@ class TestSessionPresenterActions:
 
     def test_liaison_cannot_add(self, client, liaison, presenters):
         client.force_login(liaison)
-        url = reverse("speakers:session_add_presenter", args=[presenters["session"].pk])
+        url = reverse(
+            "speakers:session_add_presenter", args=[presenters["session"].slug]
+        )
         assert (
             client.post(url, {"presenter": presenters["grace"].pk}).status_code == 403
         )
@@ -367,7 +399,7 @@ class TestSessionPresenterActions:
         link = session.session_presenters.get()
         client.force_login(organizer)
         mail.outbox.clear()
-        url = reverse("speakers:session_invite", args=[session.pk, link.pk])
+        url = reverse("speakers:session_invite", args=[session.slug, link.pk])
         assertRedirects(
             client.post(url, {"message_md": "Please *come*"}),
             session.get_absolute_url(),
@@ -398,7 +430,7 @@ class TestSessionPresenterActions:
         invitation.accepted_at = invitation.sent_at
         invitation.save()
         client.force_login(organizer)
-        client.post(reverse("speakers:session_invite", args=[session.pk, link.pk]))
+        client.post(reverse("speakers:session_invite", args=[session.slug, link.pk]))
         assert Invitation.objects.count() == 2
 
 
@@ -481,7 +513,7 @@ class TestEndToEnd:
         )
         presenter = conference.presenters.get()
         client.post(
-            reverse("speakers:session_add_presenter", args=[session.pk]),
+            reverse("speakers:session_add_presenter", args=[session.slug]),
             {
                 "presenter": presenter.pk,
                 "role": presenter_role(conference, "PRESENTER").pk,
@@ -492,7 +524,7 @@ class TestEndToEnd:
         link = session.session_presenters.get()
         mail.outbox.clear()
         client.post(
-            reverse("speakers:session_invite", args=[session.pk, link.pk]),
+            reverse("speakers:session_invite", args=[session.slug, link.pk]),
             {"message_md": "We'd love to have you."},
         )
         client.logout()

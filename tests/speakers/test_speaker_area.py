@@ -233,11 +233,11 @@ class TestSessions:
         content = client.get(SESSIONS).content.decode()
         assert "Django 101" in content
         assert "Grace" in content and "Presenter" in content
-        assert reverse("speakers:my_session_edit", args=[my_session.pk]) in content
+        assert reverse("speakers:my_session_edit", args=[my_session.slug]) in content
 
     def test_edit_own_session(self, client, speaker, presenter, my_session):
         client.force_login(speaker)
-        url = reverse("speakers:my_session_edit", args=[my_session.pk])
+        url = reverse("speakers:my_session_edit", args=[my_session.slug])
         content = client.get(url).content.decode()
         assert "Duration: 90 minutes" in content
         assert "Grace" in content
@@ -267,10 +267,10 @@ class TestSessions:
         self, client, speaker, presenter, their_session
     ):
         client.force_login(speaker)
-        url = reverse("speakers:my_session_edit", args=[their_session.pk])
+        url = reverse("speakers:my_session_edit", args=[their_session.slug])
         assert client.get(url).status_code == 403
         assert client.post(url, {"summary_md": "x"}).status_code == 403
-        suggest = reverse("speakers:my_session_suggest", args=[their_session.pk])
+        suggest = reverse("speakers:my_session_suggest", args=[their_session.slug])
         assert (
             client.post(suggest, {"name": "X", "email": "x@example.com"}).status_code
             == 403
@@ -279,7 +279,9 @@ class TestSessions:
     def test_unknown_session_404(self, client, speaker, presenter):
         client.force_login(speaker)
         assert (
-            client.get(reverse("speakers:my_session_edit", args=[9999])).status_code
+            client.get(
+                reverse("speakers:my_session_edit", args=["no-such-session"])
+            ).status_code
             == 404
         )
 
@@ -295,7 +297,7 @@ class TestSuggestCoPresenter:
         presenter.save()
         client.force_login(speaker)
         mail.outbox.clear()
-        url = reverse("speakers:my_session_suggest", args=[my_session.pk])
+        url = reverse("speakers:my_session_suggest", args=[my_session.slug])
         response = client.post(
             url,
             {
@@ -330,7 +332,7 @@ class TestSuggestCoPresenter:
         client.force_login(speaker)
         mail.outbox.clear()
         client.post(
-            reverse("speakers:my_session_suggest", args=[my_session.pk]),
+            reverse("speakers:my_session_suggest", args=[my_session.slug]),
             {
                 "name": "Eve",
                 "email": "eve@example.com",
@@ -344,7 +346,7 @@ class TestSuggestCoPresenter:
 
     def test_invalid_suggestion(self, client, speaker, presenter, my_session):
         client.force_login(speaker)
-        url = reverse("speakers:my_session_suggest", args=[my_session.pk])
+        url = reverse("speakers:my_session_suggest", args=[my_session.slug])
         response = client.post(url, {"name": "", "email": "nope"}, follow=True)
         assert "valid email" in response.content.decode()
         assert not ActivityLog.for_target(my_session).exists()
@@ -377,7 +379,7 @@ class TestLockedSessions:
         self, client, speaker, presenter, my_session
     ):
         client.force_login(speaker)
-        url = reverse("speakers:my_session_edit", args=[my_session.pk])
+        url = reverse("speakers:my_session_edit", args=[my_session.slug])
         assert client.get(url).status_code == 200
         Session.objects.filter(pk=my_session.pk).update(status=SessionStatus.PUBLISHED)
         assert client.get(url).status_code == 403

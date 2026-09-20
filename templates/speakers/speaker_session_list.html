@@ -45,7 +45,7 @@
                             <span class="badge text-bg-secondary">{% trans "Not yet public" %}</span>
                         {% endif %}
                         <a class="btn btn-sm btn-outline-primary ms-2"
-                           href="{% url 'speakers:my_session_edit' link.session.pk %}">{% trans "Edit details" %}</a>
+                           href="{% url 'speakers:my_session_edit' link.session.slug %}">{% trans "Edit details" %}</a>
                     </div>
                 </div>
             </div>
