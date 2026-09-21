@@ -10,10 +10,15 @@ from django.contrib.sites.models import Site
 from django.core import signing
 from django.db.models import Q
 from django.urls import reverse
+from django.utils import timezone
 
+from common.markdown_emails import MarkdownEmailRenderer
 from common.send_emails import send_email
 
 INVITATION_SALT = "speakers.invitation"
+INVITATION_TEMPLATE = "emails/speakers/invitation.md"
+# Stands in for the signed token in a preview of an email not yet sent.
+PREVIEW_LINK_PLACEHOLDER = "personal-link"
 
 
 def signed_invitation_token(invitation):
@@ -36,28 +41,67 @@ def invitation_url(invitation):
     )
 
 
+def invitation_subject(invitation, conference):
+    subject = (
+        f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} You're invited to {conference.name}"
+    )
+    if invitation.session is not None:
+        subject += f": {invitation.session.title}"
+    return subject
+
+
+def invitation_context(invitation, *, conference, accept_url, expires_at):
+    return {
+        "invitation": invitation,
+        "presenter": invitation.presenter,
+        "session": invitation.session,
+        "conference": conference,
+        "accept_url": accept_url,
+        "expires_at": expires_at,
+    }
+
+
 def send_invitation_email(invitation):
     """Render and send the invitation email, text and HTML parts."""
-    session = invitation.session
-    subject = (
-        f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} You're invited to "
-        f"{invitation.conference.name}"
-    )
-    if session is not None:
-        subject += f": {session.title}"
     send_email(
-        subject,
+        invitation_subject(invitation, invitation.conference),
         [invitation.presenter.email],
-        markdown_template="emails/speakers/invitation.md",
-        context={
-            "invitation": invitation,
-            "presenter": invitation.presenter,
-            "session": session,
-            "conference": invitation.conference,
-            "accept_url": invitation_url(invitation),
-            "expires_at": invitation.expires_at,
-        },
+        markdown_template=INVITATION_TEMPLATE,
+        context=invitation_context(
+            invitation,
+            conference=invitation.conference,
+            accept_url=invitation_url(invitation),
+            expires_at=invitation.expires_at,
+        ),
     )
+
+
+def render_invitation_preview(invitation):
+    """The invitation email as the presenter will read it, for the sender.
+
+    Works on an unsaved draft: the accept link is a placeholder (a real token
+    is only minted when the email goes out) and the expiry is what a link
+    issued now would get. Returns the recipient, the subject and the
+    sanitized HTML body, wrapper included, exactly as ``send_email`` builds
+    it.
+    """
+    conference = invitation.presenter.conference
+    context = invitation_context(
+        invitation,
+        conference=conference,
+        accept_url=absolute_url(
+            reverse("speakers:invitation", args=[PREVIEW_LINK_PLACEHOLDER])
+        ),
+        expires_at=timezone.now() + type(invitation).TOKEN_MAX_AGE,
+    )
+    context["current_site"] = Site.objects.get_current()
+    renderer = MarkdownEmailRenderer()
+    body = renderer.render_template(INVITATION_TEMPLATE, context)
+    return {
+        "recipient": invitation.presenter.email,
+        "subject": invitation_subject(invitation, conference),
+        "html": renderer.markdown_to_html(body),
+    }
 
 
 FENCE = "`" * 3  # a note may not close the code block it is shown in

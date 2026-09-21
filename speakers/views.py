@@ -39,6 +39,7 @@ from .constants import (
     ItemStatus,
     SessionStatus,
 )
+from .emails import render_invitation_preview
 from .filters import PresenterFilter, SessionFilter
 from .forms import (
     DEFAULT_GUIDE_URL,
@@ -279,6 +280,15 @@ class SessionDetailView(SessionScopedMixin, DetailView):
         ):
             latest[invitation.presenter_id] = invitation
         context["invitations_by_presenter"] = latest
+        context["invite_previews"] = {
+            link.pk: _invite_preview(
+                link.presenter,
+                self.object,
+                getattr(latest.get(link.presenter_id), "message_md", ""),
+            )
+            for link in context["presenter_links"]
+            if not link.is_confirmed
+        }
         return context
 
 
@@ -438,6 +448,16 @@ class PresenterDetailView(PresenterScopedMixin, DetailView):
         context["latest_sent"] = max(sent, key=lambda i: i.sent_at) if sent else None
         context["accepted"] = next((i for i in sent if i.accepted_at), None)
         context["invite_form"] = PresenterInviteForm(presenter=self.object)
+        if context["accepted"] is None:
+            # What the form's first choice would send; htmx keeps it current.
+            first = (
+                self.object.session_presenters.select_related("session")
+                .order_by("session__title")
+                .first()
+            )
+            context["invite_preview"] = _invite_preview(
+                self.object, first.session if first is not None else None
+            )
         items = list(
             self.object.checklist_items.select_related(
                 "assignee", "session", "completed_by"
@@ -631,6 +651,45 @@ class SessionInviteView(OrganizerSessionActionMixin, View):
         send_invitation(invitation, actor=request.user)
         messages.success(request, f"Invitation sent to {link.presenter.email}.")
         return redirect(session.get_absolute_url())
+
+
+def _invite_preview(presenter, session=None, message_md=""):
+    """The invitation email a Send button would produce, rendered for the
+    organizer before they commit to it."""
+    return render_invitation_preview(
+        Invitation(presenter=presenter, session=session, message_md=message_md)
+    )
+
+
+class InvitationPreviewView(LoginRequiredMixin, SpeakerOrganizerRequiredMixin, View):
+    """The invitation email as it will be sent, re-rendered while the
+    organizer writes the note (htmx posts the invite form here on input).
+
+    ``presenter`` is a slug; ``session`` the pk of one of that presenter's
+    sessions, or blank for the conference in general. Anything else falls
+    back to the general invitation rather than failing: this is a preview.
+    """
+
+    def post(self, request):
+        presenter = get_object_or_404(
+            Presenter.objects.for_conference(self.conference),
+            slug=request.POST.get("presenter", ""),
+        )
+        session = None
+        value = request.POST.get("session", "")
+        if value.isdigit():
+            link = (
+                presenter.session_presenters.filter(session_id=int(value))
+                .select_related("session")
+                .first()
+            )
+            session = link.session if link is not None else None
+        preview = _invite_preview(
+            presenter, session, request.POST.get("message_md", "")[:2000]
+        )
+        return render(
+            request, "speakers/_invitation_preview.html", {"preview": preview}
+        )
 
 
 class PresenterInviteView(LoginRequiredMixin, SpeakerOrganizerRequiredMixin, View):

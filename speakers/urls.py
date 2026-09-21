@@ -174,6 +174,11 @@ urlpatterns = [
         name="presenter_invite",
     ),
     path(
+        "invite/preview/",
+        views.InvitationPreviewView.as_view(),
+        name="invitation_preview",
+    ),
+    path(
         "presenters/<slug:slug>/pretix/lookup/",
         views.PresenterPretixLookupView.as_view(),
         name="presenter_pretix_lookup",

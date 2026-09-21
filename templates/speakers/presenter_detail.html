@@ -90,13 +90,24 @@
                             </summary>
                             <form method="post"
                                   class="mt-3"
+                                  id="invite-form-{{ presenter.pk }}"
                                   action="{% url 'speakers:presenter_invite' presenter.slug %}">
                                 {% csrf_token %}
+                                <input type="hidden" name="presenter" value="{{ presenter.slug }}">
                                 {% bootstrap_form invite_form %}
                                 <button class="btn btn-sm btn-primary" type="submit">
                                     {% trans "Send" %}
                                 </button>
                             </form>
+                            <h3 class="h6 text-uppercase text-secondary mt-3">
+                                {% trans "Email preview" %}
+                            </h3>
+                            <div hx-post="{% url 'speakers:invitation_preview' %}"
+                                 hx-include="#invite-form-{{ presenter.pk }}"
+                                 hx-trigger="input delay:400ms from:#invite-form-{{ presenter.pk }}"
+                                 hx-swap="innerHTML">
+                                {% include "speakers/_invitation_preview.html" with preview=invite_preview %}
+                            </div>
                         </details>
                     {% endif %}
                 </div>

@@ -712,3 +712,63 @@ class TestInviteFromPresenterPage:
         client.force_login(liaison)
         url = reverse("speakers:presenter_invite", args=[presenters["ada"].slug])
         assert client.post(url, {"session": ""}).status_code == 403
+
+
+@pytest.mark.django_db
+class TestInvitationPreview:
+    """The sender sees the whole email before it goes out."""
+
+    URL = reverse("speakers:invitation_preview")
+
+    def test_presenter_page_shows_the_email_for_the_first_choice(
+        self, client, organizer, presenters
+    ):
+        ada = presenters["ada"]
+        client.force_login(organizer)
+        content = client.get(ada.get_absolute_url()).content.decode()
+        assert "Email preview" in content and self.URL in content
+        assert "<strong>To:</strong> ada@example.com" in content
+        assert "You&#x27;re invited to" in content and "Django 101" in content
+        assert "/speakers/invitations/personal-link/" in content
+        assert "Hello from" in content  # the wrapper is part of the preview
+
+    def test_session_page_previews_the_saved_note(self, client, organizer, presenters):
+        ada, session = presenters["ada"], presenters["session"]
+        make_invitation(ada, session, message_md="Bring *cake*")
+        client.force_login(organizer)
+        content = client.get(session.get_absolute_url()).content.decode()
+        assert "Email preview" in content and "<em>cake</em>" in content
+
+    def test_live_preview_for_a_session(self, client, organizer, presenters):
+        ada, session = presenters["ada"], presenters["session"]
+        client.force_login(organizer)
+        response = client.post(
+            self.URL,
+            {"presenter": ada.slug, "session": session.pk, "message_md": "So *glad*"},
+        )
+        content = response.content.decode()
+        assert response.status_code == 200
+        assert "Django 101" in content and "<em>glad</em>" in content
+        assert "Subject:" in content and "personal-link" in content
+        assert Invitation.objects.count() == 0
+
+    @pytest.mark.parametrize("session_value", ["", "abc", "999999"])
+    def test_anything_but_their_session_previews_the_general_invitation(
+        self, client, organizer, presenters, session_value
+    ):
+        ada = presenters["ada"]
+        client.force_login(organizer)
+        content = client.post(
+            self.URL, {"presenter": ada.slug, "session": session_value}
+        ).content.decode()
+        assert "Django 101" not in content
+        assert "part of <strong>" in content
+
+    def test_organizers_only(self, client, liaison, presenters):
+        client.force_login(liaison)
+        response = client.post(self.URL, {"presenter": presenters["ada"].slug})
+        assert response.status_code == 403
+
+    def test_unknown_presenter_is_404(self, client, organizer, presenters):
+        client.force_login(organizer)
+        assert client.post(self.URL, {"presenter": "nobody"}).status_code == 404

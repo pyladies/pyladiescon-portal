@@ -1,0 +1,17 @@
+{% load i18n %}
+<div class="border rounded p-3 bg-light small">
+    <div class="text-secondary mb-2">
+        <div>
+            <strong>{% trans "To:" %}</strong> {{ preview.recipient }}
+        </div>
+        <div>
+            <strong>{% trans "Subject:" %}</strong> {{ preview.subject }}
+        </div>
+    </div>
+    <div class="bg-white border rounded p-3">
+        {{ preview.html|safe }}
+    </div>
+    <div class="form-text">
+        {% trans "The personal link and its expiry date are set when the email goes out." %}
+    </div>
+</div>
