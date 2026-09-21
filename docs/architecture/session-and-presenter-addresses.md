@@ -64,13 +64,16 @@ in a sequence.
 - **Digits are allowed.** A session titled "2027" gets the slug `2027`.
   That is fine: nothing resolves by number any more, so there is no
   ambiguity to protect against.
-- **Any script is allowed.** Slugs are derived with `allow_unicode=True`,
-  so a presenter called 李华 is addressed as `/speakers/presenters/李华/`
-  and Θεοδώρα as `/speakers/presenters/θεοδώρα/`, not as a numbered
-  placeholder. The routes use a unicode-aware converter
-  (`speakers/converters.py`) because Django's built-in `slug` converter
-  matches ASCII only. A title with no letters at all (emoji, punctuation)
-  falls back to `session` or `presenter`, suffixed if taken.
+- **ASCII only, transliterated.** Addresses are plain ASCII, because a
+  unicode address is shown percent-encoded the moment it is copied into a
+  chat or an email (`/presenters/%E6%9D%8E%E5%8D%8E/`), which is the
+  gibberish this whole decision exists to avoid. Non-Latin names are
+  transliterated before slugifying (`text-unidecode`) rather than dropped,
+  so 李华 is `/speakers/presenters/li-hua/`, Θεοδώρα is `/theodora/` and
+  Zoë Müller is `/zoe-muller/`; nobody gets a numbered placeholder for
+  having a name outside the Latin alphabet. A title with no letters at all
+  (emoji, punctuation) falls back to `session` or `presenter`, suffixed if
+  taken. (Decided 2026-09-21 after a first cut had kept unicode.)
 - **Reserved words are enforced where slugs are made.** The derivation
   helper treats a reserved path word as taken, so a session titled "New"
   gets `new-2` and can never shadow the create route; both models also

@@ -1,5 +1,4 @@
 import re
-from urllib.parse import unquote
 
 import pytest
 from django.contrib.auth.models import User
@@ -238,17 +237,21 @@ class TestPresenterSlugUrls:
         assert "organizers can always rename it" in page
 
     def test_reserved_name_and_non_latin_names(self, client, organizer, presenters):
+        """Addresses are ASCII, so shared links never show percent-encoding;
+        non-Latin names are transliterated rather than dropped, so no one
+        gets a numbered placeholder."""
         conference = presenters["session"].conference
         me = make_presenter(conference, display_name="Me")
         assert me.slug == "me-2"
         li = make_presenter(conference, display_name="李华")
         theo = make_presenter(conference, display_name="Θεοδώρα")
-        assert li.slug == "李华" and theo.slug == "θεοδώρα"
-        assert unquote(li.get_absolute_url()) == "/speakers/presenters/李华/"
+        zoe = make_presenter(conference, display_name="Zoë Müller")
+        assert (li.slug, theo.slug, zoe.slug) == ("li-hua", "theodora", "zoe-muller")
+        assert li.get_absolute_url() == "/speakers/presenters/li-hua/"
         client.force_login(organizer)
         assert client.get(li.get_absolute_url()).status_code == 200
         assert client.get(theo.get_absolute_url()).status_code == 200
-        # Organizer-typed unicode is kept too.
+        # Organizer-typed non-Latin text is transliterated the same way.
         url = reverse("speakers:presenter_edit", args=[li.slug])
         client.post(
             url,
@@ -260,7 +263,7 @@ class TestPresenterSlugUrls:
             },
         )
         li.refresh_from_db()
-        assert li.slug == "li-华"
+        assert li.slug == "li-hua"
         li.slug = "me"
         with pytest.raises(ValidationError, match="reserved"):
             li.full_clean()

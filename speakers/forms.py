@@ -4,6 +4,7 @@ from django import forms
 from django.contrib.auth.models import User
 from django.db.models import Q
 from django.utils.text import slugify
+from text_unidecode import unidecode
 
 from .constants import RESERVED_SLUGS, SLUG_MAX_LENGTH, Delivery, ItemOwner
 from .models import (
@@ -323,9 +324,7 @@ def _clean_slug(form, model, noun):
     Blank means "derive from the title or name on save". The unique
     constraint spans ``conference``, which is not a form field, so Django's
     constraint validation skips it here."""
-    slug = slugify(form.cleaned_data.get("slug", "") or "", allow_unicode=True)[
-        :SLUG_MAX_LENGTH
-    ]
+    slug = slugify(unidecode(form.cleaned_data.get("slug", "") or ""))[:SLUG_MAX_LENGTH]
     if not slug:
         # Blank on create derives from the title or name on save; blank on
         # edit keeps the current address rather than rotating it.

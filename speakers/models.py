@@ -19,6 +19,7 @@ from django.db import models
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.text import slugify
+from text_unidecode import unidecode
 
 from .clock import today
 from .constants import (
@@ -84,15 +85,15 @@ def validate_timezone(value):
 def _unique_slug(model, conference, base, exclude_pk=None):
     """Return ``base`` or ``base-2``, ``base-3``... unused within ``conference``.
 
-    Unicode is kept ("李华" stays "李华"), so a non-Latin name gets a real
-    address rather than a numbered placeholder. A reserved path word counts
-    as taken, so a session titled "New" derives to ``new-2`` instead of
-    shadowing the create route. A title with no letters at all falls back to
-    the model's name ("session", "presenter").
+    Addresses are ASCII, so a shared link never shows percent-encoding; a
+    non-Latin name is transliterated first ("李华" becomes "li-hua",
+    "Θεοδώρα" becomes "theodora") rather than dropped, so nobody gets a
+    numbered placeholder for a name outside the Latin alphabet. A reserved
+    path word counts as taken, so a session titled "New" derives to
+    ``new-2`` instead of shadowing the create route. A title with no letters
+    at all falls back to the model's name ("session", "presenter").
     """
-    base = (
-        slugify(base, allow_unicode=True)[:SLUG_BASE_LENGTH] or model._meta.model_name
-    )
+    base = slugify(unidecode(base))[:SLUG_BASE_LENGTH] or model._meta.model_name
     candidate = base
     counter = 2
     queryset = model.objects.filter(conference=conference)
@@ -311,7 +312,7 @@ class Presenter(TimestampedModel):
         help_text="The organizer or volunteer looking after this presenter.",
     )
     display_name = models.CharField(max_length=200)
-    slug = models.SlugField(max_length=SLUG_MAX_LENGTH, blank=True, allow_unicode=True)
+    slug = models.SlugField(max_length=SLUG_MAX_LENGTH, blank=True)
     email = models.EmailField(help_text="Invitation and reminder target.")
     pronouns = models.CharField(max_length=50, blank=True)
     bio_md = models.TextField("bio", blank=True, help_text="Markdown.")
@@ -548,7 +549,7 @@ class Session(TimestampedModel):
         help_text="Blank takes the type's default; filled in on save.",
     )
     title = models.CharField(max_length=200)
-    slug = models.SlugField(max_length=SLUG_MAX_LENGTH, blank=True, allow_unicode=True)
+    slug = models.SlugField(max_length=SLUG_MAX_LENGTH, blank=True)
     summary_md = models.TextField("summary", blank=True, help_text="Markdown.")
     outline_md = models.TextField("outline", blank=True, help_text="Markdown.")
     prerequisites_md = models.TextField(

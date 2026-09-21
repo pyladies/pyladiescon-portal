@@ -1,9 +1,6 @@
-from django.urls import path, register_converter
+from django.urls import path
 
 from . import views
-from .converters import UnicodeSlugConverter
-
-register_converter(UnicodeSlugConverter, "uslug")
 
 app_name = "speakers"
 
@@ -22,27 +19,27 @@ urlpatterns = [
         name="program_item_create",
     ),
     path(
-        "sessions/<uslug:slug>/",
+        "sessions/<slug:slug>/",
         views.SessionDetailView.as_view(),
         name="session_detail",
     ),
     path(
-        "sessions/<uslug:slug>/edit/",
+        "sessions/<slug:slug>/edit/",
         views.SessionUpdateView.as_view(),
         name="session_edit",
     ),
     path(
-        "sessions/<uslug:slug>/presenters/add/",
+        "sessions/<slug:slug>/presenters/add/",
         views.SessionAddPresenterView.as_view(),
         name="session_add_presenter",
     ),
     path(
-        "sessions/<uslug:slug>/presenters/<int:link_pk>/remove/",
+        "sessions/<slug:slug>/presenters/<int:link_pk>/remove/",
         views.SessionRemovePresenterView.as_view(),
         name="session_remove_presenter",
     ),
     path(
-        "sessions/<uslug:slug>/presenters/<int:link_pk>/invite/",
+        "sessions/<slug:slug>/presenters/<int:link_pk>/invite/",
         views.SessionInviteView.as_view(),
         name="session_invite",
     ),
@@ -53,12 +50,12 @@ urlpatterns = [
         name="presenter_create",
     ),
     path(
-        "presenters/<uslug:slug>/",
+        "presenters/<slug:slug>/",
         views.PresenterDetailView.as_view(),
         name="presenter_detail",
     ),
     path(
-        "presenters/<uslug:slug>/edit/",
+        "presenters/<slug:slug>/edit/",
         views.PresenterUpdateView.as_view(),
         name="presenter_edit",
     ),
@@ -87,12 +84,12 @@ urlpatterns = [
     path("me/profile/", views.SpeakerProfileUpdateView.as_view(), name="my_profile"),
     path("me/sessions/", views.SpeakerSessionListView.as_view(), name="my_sessions"),
     path(
-        "me/sessions/<uslug:slug>/edit/",
+        "me/sessions/<slug:slug>/edit/",
         views.SpeakerSessionUpdateView.as_view(),
         name="my_session_edit",
     ),
     path(
-        "me/sessions/<uslug:slug>/suggest/",
+        "me/sessions/<slug:slug>/suggest/",
         views.SuggestCoPresenterView.as_view(),
         name="my_session_suggest",
     ),
@@ -114,7 +111,7 @@ urlpatterns = [
     path("items/<int:pk>/status/", views.ItemStatusView.as_view(), name="item_status"),
     path("items/<int:pk>/assign/", views.ItemAssignView.as_view(), name="item_assign"),
     path(
-        "presenters/<uslug:slug>/items/add/",
+        "presenters/<slug:slug>/items/add/",
         views.PresenterAddItemView.as_view(),
         name="presenter_add_item",
     ),
