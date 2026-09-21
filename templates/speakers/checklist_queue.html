@@ -45,9 +45,17 @@
                         </td>
                         <td>
                             {% if item.presenter %}
-                                <a href="{{ item.presenter.get_absolute_url }}">{{ item.presenter.display_name }}</a>
+                                {% if can_open_pages %}
+                                    <a href="{{ item.presenter.get_absolute_url }}">{{ item.presenter.display_name }}</a>
+                                {% else %}
+                                    {{ item.presenter.display_name }}
+                                {% endif %}
                             {% elif item.session %}
-                                <a href="{{ item.session.get_absolute_url }}">{{ item.session.title }}</a>
+                                {% if can_open_pages %}
+                                    <a href="{{ item.session.get_absolute_url }}">{{ item.session.title }}</a>
+                                {% else %}
+                                    {{ item.session.title }}
+                                {% endif %}
                             {% endif %}
                         </td>
                         <td class="text-nowrap">

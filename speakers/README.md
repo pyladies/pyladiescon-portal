@@ -155,6 +155,17 @@ workshop gets one item per guide. Organizers manage guides at
 acknowledgement works. There is no automatic tracking. Publishing a new
 version of one guide re-opens only the items that require it.
 
+A new guide starts unpublished, pointed at the docs index above. That
+placeholder is deliberate: it satisfies the editor's "a link or a note"
+check, so an organizer may publish a guide that only says "see the docs"
+and refine the address later. The guide list also names every key the
+edition's checklists require but nobody has written yet, marked "not
+created yet" with a button that opens the add form ready filled; without
+it a "Read the workshop guide" item would sit open with nothing to read
+and nothing on the organizer side to say so. On the speaker side,
+`required_guide_keys` returns only what their own items name: a presenter
+with no checklist yet is asked to read nothing.
+
 ### Background jobs
 
 Celery (`portal/celery.py`, broker from `CELERY_BROKER_URL` or `REDIS_URL`),
@@ -224,7 +235,15 @@ installed; this app keeps small factory functions in `tests/speakers/factories.p
   `Presenter.liaison` users; `SessionQuerySet.visible_to` and
   `PresenterQuerySet.visible_to` scope what they see, and the
   `SpeakerStaffRequiredMixin` / `SpeakerOrganizerRequiredMixin` mixins gate
-  the organizer side.
+  the organizer side. An organizer item can be handed to any approved
+  volunteer (`people.organizer_side_candidates`), so a third predicate,
+  `is_speaker_assignee`, admits whoever carries one: `can_work_queue` (the
+  `SpeakerQueueRequiredMixin`) gates the queue and the per-item actions, and
+  `ItemActionMixin` then lets an actor touch an item only if they organize,
+  liaise its presenter, or are its assignee. Assignees never reassign
+  (`ItemAssignView` stays organizer-only) and never open presenter or
+  session pages; their queue rows name those without linking, and the
+  "My speaker tasks" rail entry keys on the same flag.
 - Speaker side: `/speakers/me/...`, gated by `PresenterRequiredMixin` (the
   user must own a `Presenter` row in the active edition, else 403). The
   personal rail is `templates/speakers/_speaker_rail.html`; the navbar shows

@@ -89,16 +89,18 @@ class TestSpeakerGuide:
         self, client, speaker, presenter, conference
     ):
         Handbook.objects.create(conference=conference, version=1, body_md="draft")
+        guide_item(conference, presenter)
         client.force_login(speaker)
         content = client.get(GUIDE).content.decode()
-        assert "still preparing the guides" in content
+        assert "Nothing to read just yet" in content
         assert client.post(READ, ack()).status_code == 400
 
-    def test_default_guide_shown_before_any_checklist(
+    def test_only_the_guides_the_checklist_asks_for(
         self, client, speaker, presenter, conference
     ):
         publish(conference, 1)
         publish(conference, 1, key="workshop")
+        guide_item(conference, presenter)
         client.force_login(speaker)
         content = client.get(GUIDE).content.decode()
         assert (
@@ -111,6 +113,7 @@ class TestSpeakerGuide:
         self, client, speaker, presenter, conference
     ):
         first = publish(conference, 1)
+        guide_item(conference, presenter)
         client.force_login(speaker)
         response = client.post(READ, ack())
         assertRedirects(response, GUIDE)
@@ -132,9 +135,23 @@ class TestSpeakerGuide:
 
     def test_unticked_box_records_nothing(self, client, speaker, presenter, conference):
         publish(conference, 1)
+        guide_item(conference, presenter)
         client.force_login(speaker)
         response = client.post(READ, {"key": "speaker"}, follow=True)
         assert "Tick the box" in response.content.decode()
+        assert HandbookReadReceipt.objects.count() == 0
+
+    def test_nothing_asked_for_nothing_to_confirm(
+        self, client, speaker, presenter, conference
+    ):
+        """A presenter whose checklist does not exist yet is asked to read
+        nothing, rather than acknowledging a guide it may never name."""
+        publish(conference, 1)
+        client.force_login(speaker)
+        content = client.get(GUIDE).content.decode()
+        assert "Nothing to read just yet" in content
+        assert 'name="acknowledge"' not in content
+        assert client.post(READ, ack()).status_code == 400
         assert HandbookReadReceipt.objects.count() == 0
 
     def test_cannot_acknowledge_a_guide_not_required(
@@ -146,6 +163,7 @@ class TestSpeakerGuide:
 
     def test_note_only_guide_without_link(self, client, speaker, presenter, conference):
         publish(conference, 1, url="")
+        guide_item(conference, presenter)
         client.force_login(speaker)
         content = client.get(GUIDE).content.decode()
         assert "Open the" not in content and "<strong>kind</strong>" in content
@@ -229,13 +247,35 @@ class TestHandbookList:
     ):
         client.force_login(organizer)
         rows = client.get(LIST).context["rows"]
-        assert [r["key"] for r in rows] == ["speaker"] and rows[0]["current"] is None
+        assert [r["key"] for r in rows] == ["speaker"] and rows[0]["missing"]
         current = publish(conference, 1, key="workshop")
         current.record_read(presenter)
         Handbook.objects.create(conference=conference, key="workshop", version=2)
         rows = client.get(LIST).context["rows"]
         assert [r["key"] for r in rows] == ["workshop"]
         assert rows[0]["readers"] == 1 and rows[0]["draft"].version == 2
+
+    def test_lists_keys_the_checklists_ask_for_and_nobody_wrote(
+        self, client, organizer, enabled, conference
+    ):
+        """A seeded edition asks for workshop, keynote and performer guides;
+        until someone writes them the items have nothing to read, so the
+        organizer side says so (review of #424)."""
+        seed_program_types(conference)
+        seed_checklists(conference)
+        publish(conference, 1, key="workshop")
+        client.force_login(organizer)
+        response = client.get(LIST)
+        rows = response.context["rows"]
+        missing = [r["key"] for r in rows if r.get("missing")]
+        assert missing == ["keynote", "performer", "speaker"]
+        assert [r["key"] for r in rows if not r.get("missing")] == ["workshop"]
+        assert response.context["missing_count"] == 3
+        content = response.content.decode()
+        assert "Not created yet" in content and "?key=keynote#add-guide" in content
+        # The button lands on the add form with the key and a title filled in.
+        form = client.get(LIST, {"key": "keynote"}).context["new_form"]
+        assert form.initial == {"key": "keynote", "title": "Keynote guide"}
 
     def test_add_guide(self, client, organizer, enabled, conference):
         client.force_login(organizer)

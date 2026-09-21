@@ -37,11 +37,15 @@
             </thead>
             <tbody>
                 {% for row in rows %}
-                    <tr>
+                    <tr {% if row.missing %}class="table-warning"{% endif %}>
                         <td>
-                            <a href="{% url 'speakers:handbook_editor' row.key %}">{{ row.title }}</a>
-                            {% if row.draft %}
-                                <span class="badge text-bg-secondary">{% trans "draft" %}</span>
+                            {% if row.missing %}
+                                <span class="text-secondary">{% trans "Not created yet" %}</span>
+                            {% else %}
+                                <a href="{% url 'speakers:handbook_editor' row.key %}">{{ row.title }}</a>
+                                {% if row.draft %}
+                                    <span class="badge text-bg-secondary">{% trans "draft" %}</span>
+                                {% endif %}
                             {% endif %}
                         </td>
                         <td>
@@ -50,23 +54,36 @@
                         <td>
                             {% if row.current %}
                                 v{{ row.current.version }} · {{ row.current.published_at|date:"j M" }}
+                            {% elif row.missing %}
+                                <span class="text-secondary">{% trans "asked for by a checklist line" %}</span>
                             {% else %}
                                 <span class="text-secondary">{% trans "not yet" %}</span>
                             {% endif %}
                         </td>
                         <td>
-                            {{ row.readers }}
+                            {% if not row.missing %}
+                                {{ row.readers }}
+                            {% endif %}
                         </td>
                         <td>
-                            <a class="btn btn-sm btn-outline-primary"
-                               href="{% url 'speakers:handbook_editor' row.key %}">{% trans "Edit" %}</a>
+                            {% if row.missing %}
+                                <a class="btn btn-sm btn-warning" href="?key={{ row.key }}#add-guide">{% trans "Start this guide" %}</a>
+                            {% else %}
+                                <a class="btn btn-sm btn-outline-primary"
+                                   href="{% url 'speakers:handbook_editor' row.key %}">{% trans "Edit" %}</a>
+                            {% endif %}
                         </td>
                     </tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
-    <h2 class="h5">
+    {% if missing_count %}
+        <p class="text-secondary">
+            {% blocktranslate count counter=missing_count %}A checklist line asks presenters to read one guide that nobody has written yet; until it exists, that item stays open with nothing to read.{% plural %}Checklist lines ask presenters to read {{ counter }} guides that nobody has written yet; until they exist, those items stay open with nothing to read.{% endblocktranslate %}
+        </p>
+    {% endif %}
+    <h2 class="h5" id="add-guide">
         {% trans "Add a guide" %}
     </h2>
     <form method="post" class="col-lg-6">

@@ -23,7 +23,7 @@ from .models import (
     SessionPresenter,
     SessionType,
 )
-from .people import liaison_candidates, user_label
+from .people import assignee_candidates, liaison_candidates, user_label
 
 MARKDOWN_HELP = "Markdown supported: headings, lists, links, **bold**, *italics*."
 
@@ -501,7 +501,7 @@ class AdhocItemForm(forms.Form):
 
     def __init__(self, *args, conference, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["assignee"].queryset = liaison_candidates(conference)
+        self.fields["assignee"].queryset = assignee_candidates(conference)
         self.fields["assignee"].label_from_instance = user_label
 
 
@@ -510,7 +510,7 @@ class AssignItemForm(forms.Form):
 
     def __init__(self, *args, conference, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["assignee"].queryset = liaison_candidates(conference)
+        self.fields["assignee"].queryset = assignee_candidates(conference)
 
 
 class ChecklistTemplateForm(forms.ModelForm):
@@ -634,17 +634,24 @@ class PresenterInviteForm(InviteForm):
     def __init__(self, *args, presenter, **kwargs):
         super().__init__(*args, **kwargs)
         self.presenter = presenter
-        links = presenter.session_presenters.select_related("session", "role").order_by(
-            "session__title"
+        self.links = list(
+            presenter.session_presenters.select_related("session", "role").order_by(
+                "session__title"
+            )
         )
         self.fields["session"].choices = [
             (str(link.session_id), f"{link.session.title} ({link.role.name})")
-            for link in links
+            for link in self.links
         ] + [("", "The conference in general")]
         self.order_fields(["session", "message_md"])
 
     def clean_session(self):
+        """The choices were built from ``self.links``, and ChoiceField has
+        already refused anything else, so read the answer off that list
+        instead of querying for it again."""
         value = self.cleaned_data["session"]
         if not value:
             return None
-        return self.presenter.session_presenters.get(session_id=value).session
+        return next(
+            link.session for link in self.links if str(link.session_id) == value
+        )

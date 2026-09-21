@@ -66,6 +66,7 @@ from .mixins import (
     PresenterRequiredMixin,
     SpeakerModuleRequiredMixin,
     SpeakerOrganizerRequiredMixin,
+    SpeakerQueueRequiredMixin,
     SpeakerStaffRequiredMixin,
 )
 from .models import (
@@ -82,7 +83,7 @@ from .models import (
     SessionType,
     SpeakerSettings,
 )
-from .people import liaison_candidates
+from .people import assignee_candidates
 from .permissions import can_work_sessions, is_speaker_organizer
 from .pretix import (
     PretixError,
@@ -473,7 +474,7 @@ class PresenterDetailView(PresenterScopedMixin, DetailView):
             i for i in items if i.owner == ItemOwner.ORGANIZER
         ]
         # One query for the assignee choices, shared by every row.
-        context["assignee_choices"] = list(liaison_candidates(self.conference))
+        context["assignee_choices"] = list(assignee_candidates(self.conference))
         context["adhoc_form"] = AdhocItemForm(conference=self.conference)
         context["can_assign"] = is_speaker_organizer(self.request.user)
         # Checklists only make sense once the presenter has been invited; ad-hoc
@@ -1141,8 +1142,11 @@ class ChecklistBoardExportView(ChecklistBoardView):
         return response
 
 
-class ChecklistQueueView(LoginRequiredMixin, SpeakerStaffRequiredMixin, TemplateView):
-    """Organizer items assigned to me, soonest first (design §9.6)."""
+class ChecklistQueueView(LoginRequiredMixin, SpeakerQueueRequiredMixin, TemplateView):
+    """Organizer items assigned to me, soonest first (design §9.6).
+
+    Open to whoever carries one: a volunteer who is neither organizer nor
+    liaison reaches it from the daily digest."""
 
     template_name = "speakers/checklist_queue.html"
 
@@ -1167,13 +1171,16 @@ class ChecklistQueueView(LoginRequiredMixin, SpeakerStaffRequiredMixin, Template
                 "rail_active": "queue",
                 "items": items,
                 "today": today(),
+                # A volunteer assignee may not open presenter or session
+                # pages, so their rows name them without linking.
+                "can_open_pages": can_work_sessions(self.request.user, self.conference),
             }
         )
         return context
 
 
-class ItemActionMixin(LoginRequiredMixin, SpeakerStaffRequiredMixin):
-    """An item this organizer or liaison may act on."""
+class ItemActionMixin(LoginRequiredMixin, SpeakerQueueRequiredMixin):
+    """An item this organizer, liaison or assignee may act on."""
 
     def get_item(self):
         item = get_object_or_404(
@@ -1183,10 +1190,14 @@ class ItemActionMixin(LoginRequiredMixin, SpeakerStaffRequiredMixin):
             pk=self.kwargs["pk"],
             conference=self.conference,
         )
-        if not is_speaker_organizer(self.request.user) and (
-            item.presenter is None or item.presenter.liaison_id != self.request.user.pk
-        ):
-            raise PermissionDenied("This item belongs to a presenter you don't liaise.")
+        user = self.request.user
+        if is_speaker_organizer(user) or item.assignee_id == user.pk:
+            return item
+        if item.presenter is None or item.presenter.liaison_id != user.pk:
+            raise PermissionDenied(
+                "This item is not yours: you neither liaise its presenter nor "
+                "carry it."
+            )
         return item
 
     def respond(self, request, item, error=""):
@@ -1201,18 +1212,23 @@ class ItemActionMixin(LoginRequiredMixin, SpeakerStaffRequiredMixin):
                 "speakers/_organizer_item_row.html",
                 {
                     "item": item,
-                    "assignee_choices": list(liaison_candidates(self.conference)),
+                    "assignee_choices": list(assignee_candidates(self.conference)),
                     "can_assign": is_speaker_organizer(request.user),
                     "error": error,
                 },
             )
         if error:
             messages.error(request, error)
-        fallback = (
-            item.presenter.get_absolute_url()
-            if item.presenter
-            else item.session.get_absolute_url()
-        )
+        # An assignee who is neither organizer nor liaison cannot open the
+        # presenter or session page, so their fallback is the queue.
+        if can_work_sessions(request.user, self.conference):
+            fallback = (
+                item.presenter.get_absolute_url()
+                if item.presenter
+                else item.session.get_absolute_url()
+            )
+        else:
+            fallback = reverse("speakers:checklist_queue")
         target = request.POST.get("next", "")
         if not url_has_allowed_host_and_scheme(
             target,
@@ -1577,15 +1593,33 @@ class SpeakerGuideView(LoginRequiredMixin, PresenterRequiredMixin, TemplateView)
 
 
 def required_guide_keys(presenter):
-    """Guide keys named by the presenter's "read the guide" items, sorted;
-    the default guide when they have none yet."""
+    """Guide keys named by the presenter's "read the guide" items, sorted.
+
+    Empty until they have such an item: a presenter whose checklist does not
+    exist yet is asked to read nothing, rather than acknowledging a guide
+    their eventual checklist may never name.
+    """
     keys = {
         key or DEFAULT_GUIDE_KEY
         for key in ChecklistItem.objects.filter(
             presenter=presenter, auto_complete_rule=AutoRule.HANDBOOK_READ
         ).values_list("requires_handbook", flat=True)
     }
-    return sorted(keys) or [DEFAULT_GUIDE_KEY]
+    return sorted(keys)
+
+
+def required_handbook_keys(conference):
+    """Every guide key this edition's checklists ask for, from the templates
+    and from items already handed out. A blank key means the default guide."""
+    template_keys = ChecklistTemplateItem.objects.filter(
+        template__conference=conference, auto_complete_rule=AutoRule.HANDBOOK_READ
+    ).values_list("requires_handbook", flat=True)
+    item_keys = ChecklistItem.objects.filter(
+        conference=conference,
+        auto_complete_rule=AutoRule.HANDBOOK_READ,
+        status__in=list(OPEN_ITEM_STATUSES),
+    ).values_list("requires_handbook", flat=True)
+    return {key or DEFAULT_GUIDE_KEY for key in [*template_keys, *item_keys]}
 
 
 class SpeakerGuideReadView(LoginRequiredMixin, PresenterRequiredMixin, View):
@@ -1627,10 +1661,9 @@ class HandbookListView(LoginRequiredMixin, SpeakerOrganizerRequiredMixin, Templa
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
+        existing = Handbook.keys(self.conference)
         rows = []
-        for key, title in Handbook.keys(self.conference) or [
-            (DEFAULT_GUIDE_KEY, "Speaker guide")
-        ]:
+        for key, title in existing:
             current = Handbook.current(self.conference, key)
             rows.append(
                 {
@@ -1641,21 +1674,43 @@ class HandbookListView(LoginRequiredMixin, SpeakerOrganizerRequiredMixin, Templa
                     "readers": current.receipts.count() if current else 0,
                 }
             )
+        referenced = required_handbook_keys(self.conference)
+        if not referenced and not existing:
+            # Nothing written and no checklist asking yet: still offer the
+            # default guide, so a fresh edition has somewhere to start.
+            referenced = {DEFAULT_GUIDE_KEY}
+        missing = sorted(referenced - {key for key, _ in existing})
+        rows += [{"key": key, "missing": True} for key in missing]
         context.update(
             {
                 "conference": self.conference,
                 "rail_active": "handbook",
                 "rows": rows,
-                "new_form": kwargs.get("new_form")
-                or NewHandbookForm(conference=self.conference),
+                "missing_count": len(missing),
+                "new_form": kwargs.get("new_form") or self.prefilled_form(),
             }
         )
         return context
+
+    def prefilled_form(self):
+        """The add form, filled in when an organizer clicks "start this
+        guide" on a key the checklists ask for but nobody has written."""
+        key = self.request.GET.get("key", "")
+        initial = (
+            {"key": key, "title": f"{key.replace('-', ' ').capitalize()} guide"}
+            if key
+            else None
+        )
+        return NewHandbookForm(conference=self.conference, initial=initial)
 
     def post(self, request):
         form = NewHandbookForm(request.POST, conference=self.conference)
         if not form.is_valid():
             return self.render_to_response(self.get_context_data(new_form=form))
+        # A new guide starts unpublished and pointed at the conference's
+        # docs index. That placeholder satisfies the editor's "a link or a
+        # note" check, which is deliberate: an organizer may publish a guide
+        # that only says "see the docs" and refine the address later.
         Handbook.objects.create(
             conference=self.conference,
             key=form.cleaned_data["key"],
