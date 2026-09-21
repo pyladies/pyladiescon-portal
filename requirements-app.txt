@@ -24,3 +24,4 @@ sentry-sdk[django]==2.43.0
 requests==2.32.5
 celery==5.6.0
 redis==6.4.0
+text-unidecode==1.3

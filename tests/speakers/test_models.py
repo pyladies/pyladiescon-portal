@@ -110,7 +110,8 @@ class TestSession:
         assert session.slug == "keep-me"
 
     def test_slug_for_untitled_symbols(self, conference):
-        assert make_session(conference, title="***").slug == "item"
+        # No letters at all: the model name, not a numbered placeholder.
+        assert make_session(conference, title="***").slug == "session"
 
     def test_duration_defaults_by_kind(self, conference):
         assert make_session(conference, kind="WORKSHOP").duration_minutes == 90

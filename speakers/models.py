@@ -19,11 +19,15 @@ from django.db import models
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.text import slugify
+from text_unidecode import unidecode
 
 from .clock import today
 from .constants import (
     OPEN_ITEM_STATUSES,
+    RESERVED_SLUGS,
     SESSION_LANGUAGE,
+    SLUG_BASE_LENGTH,
+    SLUG_MAX_LENGTH,
     AssigneeDefault,
     AutoRule,
     ChannelKind,
@@ -79,17 +83,44 @@ def validate_timezone(value):
 
 
 def _unique_slug(model, conference, base, exclude_pk=None):
-    """Return ``base`` or ``base-2``, ``base-3``... unused within ``conference``."""
-    base = slugify(base)[:80] or "item"
+    """Return ``base`` or ``base-2``, ``base-3``... unused within ``conference``.
+
+    Addresses are ASCII, so a shared link never shows percent-encoding; a
+    non-Latin name is transliterated first ("李华" becomes "li-hua",
+    "Θεοδώρα" becomes "theodora") rather than dropped, so nobody gets a
+    numbered placeholder for a name outside the Latin alphabet. A reserved
+    path word counts as taken, so a session titled "New" derives to
+    ``new-2`` instead of shadowing the create route. A title with no letters
+    at all falls back to the model's name ("session", "presenter").
+    """
+    base = slugify(unidecode(base))[:SLUG_BASE_LENGTH] or model._meta.model_name
     candidate = base
     counter = 2
     queryset = model.objects.filter(conference=conference)
     if exclude_pk is not None:
         queryset = queryset.exclude(pk=exclude_pk)
-    while queryset.filter(slug=candidate).exists():
+    while candidate in RESERVED_SLUGS or queryset.filter(slug=candidate).exists():
         candidate = f"{base}-{counter}"
         counter += 1
     return candidate
+
+
+def _validate_slug(instance, model, noun):
+    """Model-level guard so the admin (and any other ModelForm) reports a
+    reserved word or a per-edition clash instead of the database doing it."""
+    if not instance.slug:
+        return
+    if instance.slug in RESERVED_SLUGS:
+        raise ValidationError(
+            {"slug": f"“{instance.slug}” is reserved; pick another address."}
+        )
+    clash = model.objects.filter(
+        conference_id=instance.conference_id, slug=instance.slug
+    )
+    if instance.pk:
+        clash = clash.exclude(pk=instance.pk)
+    if clash.exists():
+        raise ValidationError({"slug": f"Another {noun} already uses this address."})
 
 
 class SpeakerSettings(TimestampedModel):
@@ -281,7 +312,7 @@ class Presenter(TimestampedModel):
         help_text="The organizer or volunteer looking after this presenter.",
     )
     display_name = models.CharField(max_length=200)
-    slug = models.SlugField(max_length=100, blank=True)
+    slug = models.SlugField(max_length=SLUG_MAX_LENGTH, blank=True)
     email = models.EmailField(help_text="Invitation and reminder target.")
     pronouns = models.CharField(max_length=50, blank=True)
     bio_md = models.TextField("bio", blank=True, help_text="Markdown.")
@@ -333,6 +364,7 @@ class Presenter(TimestampedModel):
         # with "ada@example.com" in the form instead of on the database.
         self.email = self.email.strip().lower()
         super().clean()
+        _validate_slug(self, Presenter, "presenter")
 
     def save(self, *args, **kwargs):
         self.email = self.email.strip().lower()
@@ -347,7 +379,7 @@ class Presenter(TimestampedModel):
         return zoneinfo.ZoneInfo(self.timezone)
 
     def get_absolute_url(self):
-        return reverse("speakers:presenter_detail", kwargs={"pk": self.pk})
+        return reverse("speakers:presenter_detail", kwargs={"slug": self.slug})
 
     @property
     def latest_invitation(self):
@@ -517,7 +549,7 @@ class Session(TimestampedModel):
         help_text="Blank takes the type's default; filled in on save.",
     )
     title = models.CharField(max_length=200)
-    slug = models.SlugField(max_length=100, blank=True)
+    slug = models.SlugField(max_length=SLUG_MAX_LENGTH, blank=True)
     summary_md = models.TextField("summary", blank=True, help_text="Markdown.")
     outline_md = models.TextField("outline", blank=True, help_text="Markdown.")
     prerequisites_md = models.TextField(
@@ -579,6 +611,7 @@ class Session(TimestampedModel):
 
     def clean(self):
         super().clean()
+        _validate_slug(self, Session, "session")
         if self.kind_id and self.kind.conference_id != self.conference_id:
             raise ValidationError({"kind": "Pick a session type of this edition."})
         if self.pk and self.kind_id:
@@ -624,7 +657,7 @@ class Session(TimestampedModel):
         return ScheduleSlot.objects.filter(session=self).exists()
 
     def get_absolute_url(self):
-        return reverse("speakers:session_detail", kwargs={"pk": self.pk})
+        return reverse("speakers:session_detail", kwargs={"slug": self.slug})
 
     @property
     def liaisons(self):

@@ -193,9 +193,12 @@ class SessionListView(
 
 
 class SessionScopedMixin(LoginRequiredMixin, SpeakerStaffRequiredMixin):
-    """Detail/edit views over the sessions this user may see."""
+    """Detail/edit views over the sessions this user may see. Sessions are
+    addressed by slug (unique per edition), never by number."""
 
     model = Session
+    slug_field = "slug"
+    slug_url_kwarg = "slug"
 
     def get_queryset(self):
         return (
@@ -349,6 +352,8 @@ class PresenterListView(
 
 class PresenterScopedMixin(LoginRequiredMixin, SpeakerStaffRequiredMixin):
     model = Presenter
+    slug_field = "slug"
+    slug_url_kwarg = "slug"
 
     def get_queryset(self):
         return (
@@ -456,12 +461,12 @@ class OrganizerSessionActionMixin(LoginRequiredMixin, SpeakerOrganizerRequiredMi
 
     def get_session(self):
         return get_object_or_404(
-            Session.objects.for_conference(self.conference), pk=self.kwargs["pk"]
+            Session.objects.for_conference(self.conference), slug=self.kwargs["slug"]
         )
 
 
 class SessionAddPresenterView(OrganizerSessionActionMixin, View):
-    def post(self, request, pk):
+    def post(self, request, slug):
         session = self.get_session()
         form = SessionPresenterForm(request.POST, session=session)
         if form.is_valid():
@@ -491,7 +496,7 @@ class SessionAddPresenterView(OrganizerSessionActionMixin, View):
 
 
 class SessionRemovePresenterView(OrganizerSessionActionMixin, View):
-    def post(self, request, pk, link_pk):
+    def post(self, request, slug, link_pk):
         session = self.get_session()
         link = get_object_or_404(session.session_presenters, pk=link_pk)
         name, presenter_id = link.presenter.display_name, link.presenter_id
@@ -522,7 +527,7 @@ class SessionRemovePresenterView(OrganizerSessionActionMixin, View):
 class SessionInviteView(OrganizerSessionActionMixin, View):
     """Send (or resend) the invitation for one presenter on this session."""
 
-    def post(self, request, pk, link_pk):
+    def post(self, request, slug, link_pk):
         session = self.get_session()
         link = get_object_or_404(
             session.session_presenters.select_related("presenter"), pk=link_pk
@@ -716,7 +721,7 @@ class SpeakerSessionMixin(LoginRequiredMixin, PresenterRequiredMixin):
 
     def get_session(self):
         session = get_object_or_404(
-            Session.objects.for_conference(self.conference), pk=self.kwargs["pk"]
+            Session.objects.for_conference(self.conference), slug=self.kwargs["slug"]
         )
         if not session.session_presenters.filter(presenter=self.presenter).exists():
             raise PermissionDenied("You are not a presenter on this session.")
@@ -780,12 +785,12 @@ class SpeakerSessionUpdateView(SpeakerSessionMixin, UpdateView):
 
 
 class SuggestCoPresenterView(SpeakerSessionMixin, View):
-    def post(self, request, pk):
+    def post(self, request, slug):
         session = self.get_session()
         form = SuggestCoPresenterForm(request.POST)
         if not form.is_valid():
             messages.error(request, "Please give a name and a valid email address.")
-            return redirect("speakers:my_session_edit", pk=session.pk)
+            return redirect("speakers:my_session_edit", slug=session.slug)
         data = form.cleaned_data
         ActivityLog.record(
             self.conference,
@@ -806,7 +811,7 @@ class SuggestCoPresenterView(SpeakerSessionMixin, View):
         messages.success(
             request, f"Thanks, we've passed {data['name']} on to the organizers."
         )
-        return redirect("speakers:my_session_edit", pk=session.pk)
+        return redirect("speakers:my_session_edit", slug=session.slug)
 
 
 class SpeakerScheduleView(LoginRequiredMixin, PresenterRequiredMixin, TemplateView):
@@ -1058,8 +1063,8 @@ class ItemAssignView(ItemActionMixin, View):
 
 
 class PresenterAddItemView(PresenterScopedMixin, View):
-    def post(self, request, pk):
-        presenter = get_object_or_404(self.get_queryset(), pk=pk)
+    def post(self, request, slug):
+        presenter = get_object_or_404(self.get_queryset(), slug=slug)
         form = AdhocItemForm(request.POST, conference=self.conference)
         if form.is_valid():
             add_adhoc_item(

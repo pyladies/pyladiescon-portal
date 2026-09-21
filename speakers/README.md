@@ -178,6 +178,20 @@ installed; this app keeps small factory functions in `tests/speakers/factories.p
   cancel), `speakers/emails.py` (rendering, signed token, URL),
   `speakers/tasks.py` (Celery). The `invitation_accepted` signal in
   `speakers/signals.py` is where Stage 2 instantiates checklists.
+- Sessions and presenters are addressed by slug in every portal URL
+  (`/speakers/sessions/django-101/`, `/speakers/presenters/ada-lovelace/`,
+  `/speakers/me/sessions/django-101/edit/`), never by number: the portal
+  replaces a spreadsheet with gibberish links, and a speaker should not
+  read an ordinal out of their address. Slugs are unique per edition by
+  database constraint (`-2`, `-3` on collision), derived from the title or
+  display name on first save, and never rotated by a rename. Organizers may
+  edit a slug on the session and presenter forms (free text, normalised;
+  reserved path words in `speakers/forms.py`; per-edition clash refused;
+  blank keeps the current address). Scoped views resolve through
+  `slug_field`/`slug_url_kwarg` on the session and presenter mixins, and
+  lookups stay scoped to the active edition, so the same slug in another
+  year does not resolve. Settings pages (types, roles, checklist templates)
+  and item actions keep integer ids: they are not identities anyone shares.
 - Checklist engine layering, lowest first: `lifecycle` (session status
   helpers, models only) < `checklists` (instances and status changes) <
   `rules` (auto-completion registry) < `receivers` (signals, registered in

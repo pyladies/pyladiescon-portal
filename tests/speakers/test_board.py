@@ -278,14 +278,14 @@ class TestPresenterPageChecklists:
             reverse("speakers:item_assign", args=[people["items"]["Ada", "promo"].pk])
             in content
         )
-        assert reverse("speakers:presenter_add_item", args=[ada.pk]) in content
+        assert reverse("speakers:presenter_add_item", args=[ada.slug]) in content
         assert 'name="assignee"' in content and "Lena" in content
         assert "htmx.min.js" in content
 
     def test_add_one_off_item(self, client, organizer, people, liaison):
         ada = people["ada"]
         client.force_login(organizer)
-        url = reverse("speakers:presenter_add_item", args=[ada.pk])
+        url = reverse("speakers:presenter_add_item", args=[ada.slug])
         response = client.post(
             url,
             {
@@ -307,12 +307,12 @@ class TestPresenterPageChecklists:
 
     def test_liaison_can_add_for_own_presenter_only(self, client, liaison, people):
         client.force_login(liaison)
-        ok = reverse("speakers:presenter_add_item", args=[people["ada"].pk])
+        ok = reverse("speakers:presenter_add_item", args=[people["ada"].slug])
         assert (
             client.post(ok, {"title": "x", "owner": ItemOwner.SPEAKER}).status_code
             == 302
         )
-        other = reverse("speakers:presenter_add_item", args=[people["grace"].pk])
+        other = reverse("speakers:presenter_add_item", args=[people["grace"].slug])
         assert (
             client.post(other, {"title": "x", "owner": ItemOwner.SPEAKER}).status_code
             == 404
