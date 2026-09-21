@@ -10,6 +10,7 @@ from .constants import RESERVED_SLUGS, SLUG_MAX_LENGTH, Delivery, ItemOwner
 from .models import (
     ChecklistTemplate,
     ChecklistTemplateItem,
+    Handbook,
     Presenter,
     PresenterRole,
     Session,
@@ -572,3 +573,11 @@ class ChecklistTemplateItemForm(forms.ModelForm):
             + " Speakers see this under the title on their to-do list.",
             "auto_complete_rule": "Pick a rule and the portal ticks the item itself.",
         }
+
+
+class HandbookForm(forms.ModelForm):
+    class Meta:
+        model = Handbook
+        fields = ["title", "body_md"]
+        widgets = {"body_md": forms.Textarea(attrs={"rows": 24})}
+        help_texts = {"body_md": MARKDOWN_HELP}

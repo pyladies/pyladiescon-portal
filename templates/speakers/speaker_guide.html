@@ -1,0 +1,53 @@
+{% extends "speakers/_speaker_shell.html" %}
+{% load i18n %}
+{% load static %}
+{% load speakers_extras %}
+{% block head_title %}
+    {% trans "Speaker guide" %}
+{% endblock head_title %}
+{% block breadcrumb %}
+    {% url 'speakers:my_dashboard' as bc_url %}
+    {% trans "Speaking" as bc_section %}
+    {% trans "Speaker guide" as bc_page %}
+    {% include "portal/_breadcrumbs.html" with section=bc_section section_url=bc_url page=bc_page %}
+{% endblock breadcrumb %}
+{% block sidebar %}
+    {% include "speakers/_speaker_rail.html" with active="guide" %}
+{% endblock sidebar %}
+{% block content %}
+    {% if handbook %}
+        <div class="text-secondary small">
+            {% blocktranslate with version=handbook.version date=handbook.published_at|date:"j F Y" %}Version {{ version }}, published {{ date }}{% endblocktranslate %}
+        </div>
+        <h1 class="h3 mb-3">
+            {{ handbook.title }}
+        </h1>
+        <article class="mb-4">
+            {{ handbook.body_md|speaker_md }}
+        </article>
+        <div id="guide-read-done"
+             class="alert alert-success"
+             {% if not has_read %}hidden{% endif %}>
+            <i class="fa-solid fa-check"></i> {% trans "You've read this version. Thank you!" %}
+        </div>
+        <form id="guide-read-form"
+              method="post"
+              action="{% url 'speakers:my_guide_read' %}"
+              data-read="{{ has_read|yesno:'true,false' }}"
+              {% if has_read %}hidden{% endif %}>
+            {% csrf_token %}
+            <button class="btn btn-primary" type="submit">
+                <i class="fa-solid fa-check"></i> {% trans "I've read this" %}
+            </button>
+            <span class="text-secondary small ms-2">{% trans "Reaching the end also counts." %}</span>
+        </form>
+        <script src="{% static 'js/speakers-guide.js' %}" defer></script>
+    {% else %}
+        <h1 class="h3 mb-1">
+            {% trans "Speaker guide" %}
+        </h1>
+        <p class="text-secondary">
+            {% trans "The organizers are still writing the guide. It appears here, and on your checklist, once it is published." %}
+        </p>
+    {% endif %}
+{% endblock content %}

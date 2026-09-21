@@ -101,6 +101,54 @@ Digital Ocean Spaces through the `AWS_*` env vars, with `AWS_DEFAULT_ACL =
 (`PortalProfile.profile_picture`, `PyladiesChapter.logo`). There is no private
 bucket or presigned-URL code yet; Stage 1.5 and 4.1 add it.
 
+### Secrets at rest
+
+`speakers/encryption.py` provides `EncryptedTextField` (Fernet), used for the
+pretix API token and webhook secret on `SpeakerSettings`. Keys come from the
+`FERNET_KEYS` environment variable (comma-separated: the first encrypts,
+every key decrypts, so rotate by putting the new key first, deploying,
+re-saving the secrets, then dropping the old key) or the single `FERNET_KEY`;
+local development and the test suite derive one from `SECRET_KEY`. Production
+must set one (generate with `Fernet.generate_key()`), or saving those fields
+raises. Reading is forgiving: a row this deploy cannot decrypt loads as
+`encryption.Undecryptable` (falsy, logged once) instead of raising, so a
+missing key degrades pretix to "not configured" rather than taking every page
+that loads `SpeakerSettings` down with it; `pretix_configured` and the webhook
+treat it as absent, and saving it back is refused. The admin never renders the
+secrets; leave the field blank to keep the stored value.
+
+### Pretix
+
+Orders live in `attendee.PretixOrder` (per edition, resolved from the pretix
+event slug). The attendee app has its own global webhook
+(`webhooks/views.py`, hardcoded organizer and event); the speaker portal
+adds a per-edition receiver at `/speakers/webhooks/pretix/<slug>/?secret=`
+(`speakers/webhooks.py`) that re-fetches the order through
+`speakers/pretix.py` (`PretixClient` with pagination and retry) and upserts
+it with the attendee app's own field mapping, so both paths agree. Nightly
+`pretix_reconcile_task` pages through `modified_since` the last run.
+`Presenter.pretix_order` is the manual link that wins over email matching.
+
+### Reminders
+
+`speakers/reminders.py` sends one digest per presenter (open speaker items
+due within 7, 3 or 1 days, computed against today in the presenter's
+timezone) and one per assignee, or to `SpeakerSettings.organizers_email`
+(falling back to staff accounts) for unassigned organizer items, using the
+edition's `conference_timezone`. `ReminderLog` is unique on
+(item, threshold), so a reminder is never repeated. Daily Celery task
+`send_checklist_digests_task`, seeded by migration 0004 (07:00 UTC for every edition: the "today" logic is per presenter timezone, the send time is not, so a presenter in Vancouver gets theirs late in their evening; per-timezone send times are a later refinement).
+
+### Handbook
+
+`Handbook` is versioned per edition (`current()` = newest published,
+`draft()` = the unpublished one being written). Organizers edit and publish
+at `/speakers/settings/handbook/`; presenters read at `/speakers/me/guide/`,
+where the "I've read this" button or scrolling to the end
+(`portal/static/js/speakers-guide.js`) records a `HandbookReadReceipt` for
+that version. Publishing fires the `handbook_read` rule, which re-opens the
+guide item for everyone who read an earlier version.
+
 ### Background jobs
 
 Celery (`portal/celery.py`, broker from `CELERY_BROKER_URL` or `REDIS_URL`),
@@ -217,7 +265,10 @@ installed; this app keeps small factory functions in `tests/speakers/factories.p
   due date is not overdue at breakfast in Lima because it is already
   tomorrow in Berlin. Anything that judges "overdue" on a presenter's
   behalf (reminder emails, task 2.8) must pass `presenter.tzinfo` too.
-- Celery tasks are plain `@shared_task` unless the body calls
+- Celery tasks are plain `@shared_task` unless they retry for real:
+  `sync_order_task` and `pretix_reconcile_task` declare `autoretry_for=(PretixError,)`
+  with back-off, because pretix being briefly unavailable is exactly the
+  case a retry fixes. Otherwise no `bind=True` / `max_retries` unless the body calls
   `self.retry`; `bind=True` and `max_retries` on a task that never retries
   are noise.
 - Checklist item status changes go through `speakers.checklists`

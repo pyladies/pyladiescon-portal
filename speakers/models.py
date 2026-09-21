@@ -21,6 +21,8 @@ from django.utils import timezone
 from django.utils.text import slugify
 from text_unidecode import unidecode
 
+from portal.constants import BASE_PRETIX_URL
+
 from .clock import today
 from .constants import (
     IDENTITY_LOCKED_STATUSES,
@@ -43,6 +45,7 @@ from .constants import (
     SessionLevel,
     SessionStatus,
 )
+from .encryption import EncryptedTextField, usable
 from .querysets import PresenterQuerySet, SessionQuerySet
 from .signals import session_confirmed
 
@@ -159,6 +162,57 @@ class SpeakerSettings(TimestampedModel):
         blank=True,
         help_text="Length limit for pre-recorded videos unless a session says otherwise.",
     )
+    conference_timezone = models.CharField(
+        max_length=64,
+        default="UTC",
+        validators=[validate_timezone],
+        help_text="The organizers' default display timezone; the conference "
+        "itself has none.",
+    )
+    organizers_email = models.EmailField(
+        blank=True,
+        help_text="Where unassigned organizer reminders go; blank sends them to "
+        "every staff account.",
+    )
+    # Pretix (design §12.1). The event slug falls back to
+    # Conference.pretix_event_slug; token and secret are encrypted at rest.
+    pretix_base_url = models.URLField(
+        default=BASE_PRETIX_URL, help_text="The pretix API root, ending in /api/v1/."
+    )
+    pretix_organizer = models.CharField(max_length=100, blank=True)
+    pretix_event = models.CharField(
+        max_length=100,
+        blank=True,
+        help_text="Event slug; blank uses the conference's pretix event slug.",
+    )
+    pretix_api_token = EncryptedTextField(blank=True)
+    pretix_webhook_secret = EncryptedTextField(
+        blank=True, help_text="Sent by pretix as ?secret= on the webhook URL."
+    )
+    pretix_last_synced_at = models.DateTimeField(null=True, blank=True)
+    pretix_create_vouchers = models.BooleanField(
+        default=False,
+        help_text="Create a pretix voucher per presenter (not implemented yet).",
+    )
+
+    @property
+    def tzinfo(self):
+        return zoneinfo.ZoneInfo(self.conference_timezone)
+
+    @property
+    def pretix_event_slug(self):
+        return self.pretix_event or self.conference.pretix_event_slug
+
+    @property
+    def pretix_configured(self):
+        """Organizer, event and a token this deploy can actually decrypt: a
+        token loaded as ``Undecryptable`` reads as not configured, so a
+        missing key degrades pretix alone rather than every edition page."""
+        return bool(
+            self.pretix_organizer
+            and self.pretix_event_slug
+            and usable(self.pretix_api_token)
+        )
 
     class Meta:
         verbose_name = "speaker settings"
@@ -1393,6 +1447,36 @@ class Handbook(TimestampedModel):
             .first()
         )
 
+    @classmethod
+    def draft(cls, conference):
+        """The unpublished version being written, or None."""
+        return (
+            cls.objects.filter(conference=conference, published_at__isnull=True)
+            .order_by("-version")
+            .first()
+        )
+
+    @classmethod
+    def next_version(cls, conference):
+        latest = cls.objects.filter(conference=conference).order_by("-version").first()
+        return latest.version + 1 if latest else 1
+
+    @property
+    def is_published(self):
+        return self.published_at is not None
+
+    def publish(self):
+        """Make this version the current guide. Saving fires the
+        ``handbook_read`` rule so prior readers' items re-open."""
+        self.published_at = timezone.now()
+        self.save()
+
+    def record_read(self, presenter):
+        """A presenter finished this version. Returns (receipt, created)."""
+        return HandbookReadReceipt.objects.get_or_create(
+            presenter=presenter, handbook=self
+        )
+
 
 class HandbookReadReceipt(TimestampedModel):
     """A presenter read one version of the guide."""
@@ -1423,4 +1507,38 @@ class HandbookReadReceipt(TimestampedModel):
 
     def save(self, *args, **kwargs):
         self.conference_id = self.handbook.conference_id
+        super().save(*args, **kwargs)
+
+
+class ReminderLog(TimestampedModel):
+    """One reminder sent for one item at one threshold (design §9.4).
+
+    The unique constraint is what stops a digest repeating a reminder.
+    """
+
+    conference = models.ForeignKey(
+        "portal.Conference",
+        on_delete=models.PROTECT,
+        related_name="reminder_logs",
+        editable=False,
+    )
+    item = models.ForeignKey(
+        ChecklistItem, on_delete=models.CASCADE, related_name="reminders"
+    )
+    threshold_days = models.PositiveSmallIntegerField()
+    recipient = models.EmailField()
+    sent_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["item", "threshold_days"], name="speakers_reminder_once"
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.item} ({self.threshold_days}d) to {self.recipient}"
+
+    def save(self, *args, **kwargs):
+        self.conference_id = self.item.conference_id
         super().save(*args, **kwargs)

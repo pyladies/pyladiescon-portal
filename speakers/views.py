@@ -5,7 +5,7 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import PermissionDenied
 from django.db import transaction
 from django.db.models import Count, F, Q
-from django.http import HttpResponse, HttpResponseBadRequest
+from django.http import HttpResponse, HttpResponseBadRequest, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -16,6 +16,7 @@ from django.views.generic.edit import CreateView, UpdateView
 from django_filters.views import FilterView
 from django_tables2.views import SingleTableMixin
 
+from attendee.models import PretixOrder
 from common.tasks import enqueue
 
 from .board import build_board, write_board_csv
@@ -42,6 +43,7 @@ from .forms import (
     AssignItemForm,
     ChecklistTemplateForm,
     ChecklistTemplateItemForm,
+    HandbookForm,
     InviteForm,
     PresenterForm,
     PresenterRoleForm,
@@ -65,14 +67,23 @@ from .models import (
     ChecklistItem,
     ChecklistTemplate,
     ChecklistTemplateItem,
+    Handbook,
+    HandbookReadReceipt,
     Invitation,
     Presenter,
     PresenterRole,
     Session,
     SessionType,
+    SpeakerSettings,
 )
 from .people import liaison_candidates
 from .permissions import can_work_sessions, is_speaker_organizer
+from .pretix import (
+    PretixError,
+    link_presenter_order,
+    lookup_presenter_orders,
+    unlink_presenter_order,
+)
 from .rules import evaluate_items
 from .seeds import seed_checklists
 from .services import (
@@ -433,6 +444,17 @@ class PresenterDetailView(PresenterScopedMixin, DetailView):
         context["assignee_choices"] = list(liaison_candidates(self.conference))
         context["adhoc_form"] = AdhocItemForm(conference=self.conference)
         context["can_assign"] = is_speaker_organizer(self.request.user)
+        settings_row = SpeakerSettings.objects.filter(
+            conference=self.conference
+        ).first()
+        context["pretix_configured"] = bool(
+            settings_row and settings_row.pretix_configured
+        )
+        context["matched_orders"] = list(
+            PretixOrder.objects.filter(
+                conference=self.conference, email__iexact=self.object.email
+            ).order_by("-datetime")[:5]
+        )
         return context
 
 
@@ -1351,3 +1373,166 @@ class TemplateItemActionView(TemplateEditorMixin, View):
         for position, each in enumerate(items):
             if each.order != position:
                 ChecklistTemplateItem.objects.filter(pk=each.pk).update(order=position)
+
+
+# ---- Pretix on the presenter page (design §12.1) -----------------------------
+
+
+class PresenterPretixLookupView(
+    LoginRequiredMixin, SpeakerOrganizerRequiredMixin, View
+):
+    def post(self, request, slug):
+        presenter = get_object_or_404(
+            Presenter.objects.for_conference(self.conference), slug=slug
+        )
+        try:
+            orders = lookup_presenter_orders(presenter, actor=request.user)
+        except PretixError as exc:
+            messages.error(request, f"Pretix lookup failed: {exc}")
+        else:
+            if orders is None:
+                messages.error(request, "Pretix is not configured for this edition.")
+            elif orders:
+                codes = ", ".join(o.order_code for o in orders)
+                messages.success(request, f"Found {len(orders)} order(s): {codes}.")
+            else:
+                messages.info(request, f"No pretix order under {presenter.email}.")
+        return redirect(presenter.get_absolute_url())
+
+
+class PresenterPretixLinkView(LoginRequiredMixin, SpeakerOrganizerRequiredMixin, View):
+    def post(self, request, slug):
+        presenter = get_object_or_404(
+            Presenter.objects.for_conference(self.conference), slug=slug
+        )
+        code = request.POST.get("order_code", "").strip().upper()
+        if request.POST.get("action") == "unlink":
+            unlink_presenter_order(presenter, actor=request.user)
+            messages.success(request, "Unlinked the pretix order.")
+        elif not code:
+            messages.error(request, "Give the pretix order code.")
+        else:
+            try:
+                order = link_presenter_order(presenter, code, actor=request.user)
+            except PretixError as exc:
+                messages.error(request, f"Could not link order {code}: {exc}")
+            else:
+                messages.success(request, f"Linked order {order.order_code}.")
+        return redirect(presenter.get_absolute_url())
+
+
+# ---- Handbook (design §8.7, task 2.9) ---------------------------------------
+
+
+class SpeakerGuideView(LoginRequiredMixin, PresenterRequiredMixin, TemplateView):
+    """The speaker guide; reading it (button or scroll-to-end) records a
+    receipt for the current version."""
+
+    template_name = "speakers/speaker_guide.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        handbook = Handbook.current(self.conference)
+        context.update(
+            {
+                "conference": self.conference,
+                "presenter": self.presenter,
+                "handbook": handbook,
+                "has_read": bool(
+                    handbook
+                    and HandbookReadReceipt.objects.filter(
+                        presenter=self.presenter, handbook=handbook
+                    ).exists()
+                ),
+            }
+        )
+        return context
+
+
+class SpeakerGuideReadView(LoginRequiredMixin, PresenterRequiredMixin, View):
+    def post(self, request):
+        handbook = Handbook.current(self.conference)
+        if handbook is None:
+            return HttpResponseBadRequest("No published guide.")
+        _, created = handbook.record_read(self.presenter)
+        if created:
+            ActivityLog.record(
+                self.conference,
+                "handbook.read",
+                target=self.presenter,
+                actor=request.user,
+                version=handbook.version,
+            )
+        if request.headers.get("X-Requested-With") == "fetch":
+            return JsonResponse({"read": True, "version": handbook.version})
+        messages.success(request, "Thanks, we've noted that you read the guide.")
+        return redirect("speakers:my_guide")
+
+
+class HandbookEditorView(
+    LoginRequiredMixin, SpeakerOrganizerRequiredMixin, TemplateView
+):
+    """Write the next version as a draft, publish it when ready."""
+
+    template_name = "speakers/handbook_editor.html"
+
+    def get_draft(self):
+        return Handbook.draft(self.conference)
+
+    def get_form(self, data=None):
+        draft = self.get_draft()
+        if draft is not None:
+            return HandbookForm(data, instance=draft)
+        current = Handbook.current(self.conference)
+        initial = (
+            {"title": current.title, "body_md": current.body_md} if current else {}
+        )
+        return HandbookForm(data, initial=initial)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context.update(
+            {
+                "conference": self.conference,
+                "rail_active": "handbook",
+                "form": kwargs.get("form") or self.get_form(),
+                "current": Handbook.current(self.conference),
+                "draft": self.get_draft(),
+                "versions": list(
+                    Handbook.objects.filter(conference=self.conference)
+                    .annotate(reader_count=Count("receipts"))
+                    .order_by("-version")
+                ),
+            }
+        )
+        return context
+
+    def post(self, request):
+        form = self.get_form(request.POST)
+        if not form.is_valid():
+            return self.render_to_response(self.get_context_data(form=form))
+        handbook = form.save(commit=False)
+        if handbook.pk is None:
+            handbook.conference = self.conference
+            handbook.version = Handbook.next_version(self.conference)
+        if request.POST.get("action") == "publish":
+            if not handbook.body_md.strip():
+                form.add_error("body_md", "Write the guide before publishing it.")
+                return self.render_to_response(self.get_context_data(form=form))
+            handbook.publish()
+            ActivityLog.record(
+                self.conference,
+                "handbook.published",
+                target=handbook,
+                actor=request.user,
+                version=handbook.version,
+            )
+            messages.success(
+                request,
+                f"Published version {handbook.version}. Presenters who read an "
+                "earlier version have their guide item re-opened.",
+            )
+        else:
+            handbook.save()
+            messages.success(request, f"Saved draft version {handbook.version}.")
+        return redirect("speakers:handbook_editor")
