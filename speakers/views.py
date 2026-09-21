@@ -192,6 +192,43 @@ class SessionListView(
         return context
 
 
+def _identity_changes(form, fields):
+    """Which of ``fields`` really changed, as ``{name: {"from", "to"}}``.
+
+    Compares cleaned against initial rather than trusting ``changed_data``: a
+    blank or omitted slug is cleaned back to the current address and is not
+    a change."""
+    return {
+        name: {"from": form.initial.get(name), "to": form.cleaned_data[name]}
+        for name in fields
+        if name in form.changed_data
+        and form.cleaned_data.get(name) != form.initial.get(name)
+    }
+
+
+def _note_identity_change(request, form, fields, action):
+    """An organizer changed a title, name or address on a row whose identity
+    is locked for the speaker: log old and new values, and warn that links
+    already shared may break. Before the lock nothing is recorded here; the
+    speaker-side views record their own changes."""
+    changes = _identity_changes(form, fields)
+    if not changes or not form.instance.identity_locked:
+        return
+    ActivityLog.record(
+        form.instance.conference,
+        action,
+        target=form.instance,
+        actor=request.user,
+        changes=changes,
+    )
+    messages.warning(
+        request,
+        "Already scheduled: the "
+        + " and ".join(form.fields[name].label.lower() for name in changes)
+        + " changed, so links already shared may break.",
+    )
+
+
 class SessionScopedMixin(LoginRequiredMixin, SpeakerStaffRequiredMixin):
     """Detail/edit views over the sessions this user may see. Sessions are
     addressed by slug (unique per edition), never by number."""
@@ -600,40 +637,6 @@ class InvitationCancelView(InvitationActionMixin, View):
 # ---- Speaker side -----------------------------------------------------------
 
 
-def _note_identity_change(request, form, fields, action):
-    """An organizer changed a title, name or address on a row whose identity
-    is locked for the speaker: log old and new values, and warn that links
-    already shared may break. Before the lock nothing is recorded; the
-    speaker could have made the same change."""
-    # Compare cleaned against initial rather than trusting changed_data: a
-    # blank or omitted slug is cleaned back to the current address and is
-    # not a change.
-    changed = [
-        name
-        for name in fields
-        if name in form.changed_data
-        and form.cleaned_data.get(name) != form.initial.get(name)
-    ]
-    if not changed or not form.instance.identity_locked:
-        return
-    ActivityLog.record(
-        form.instance.conference,
-        action,
-        target=form.instance,
-        actor=request.user,
-        changes={
-            name: {"from": form.initial.get(name), "to": form.cleaned_data[name]}
-            for name in changed
-        },
-    )
-    messages.warning(
-        request,
-        "Already scheduled: the "
-        + " and ".join(form.fields[name].label.lower() for name in changed)
-        + " changed, so links already shared may break.",
-    )
-
-
 class SpeakerDashboardView(LoginRequiredMixin, PresenterRequiredMixin, TemplateView):
     """The presenter's home (design §2.2 and §9.5).
 
@@ -747,12 +750,17 @@ class SpeakerProfileUpdateView(LoginRequiredMixin, PresenterRequiredMixin, Updat
         return reverse("speakers:my_profile")
 
     def form_valid(self, form):
+        changes = _identity_changes(form, ("display_name", "slug"))
         response = super().form_valid(form)
+        # Every name or address change is on record, whoever made it: a
+        # co-presenter's bookmark breaks on a new address and the trail
+        # must say what the old one was.
         ActivityLog.record(
             self.conference,
             "presenter.profile_updated",
             target=self.object,
             actor=self.request.user,
+            **({"changes": changes} if changes else {}),
         )
         messages.success(self.request, "Your profile is saved.")
         return response
@@ -816,12 +824,14 @@ class SpeakerSessionUpdateView(SpeakerSessionMixin, UpdateView):
         return kwargs
 
     def form_valid(self, form):
+        changes = _identity_changes(form, ("title", "slug"))
         response = super().form_valid(form)
         ActivityLog.record(
             self.conference,
             "session.updated_by_presenter",
             target=self.object,
             actor=self.request.user,
+            **({"changes": changes} if changes else {}),
         )
         messages.success(self.request, f"Saved “{self.object.title}”.")
         return response
@@ -1183,7 +1193,12 @@ class ChecklistTemplateSeedView(TemplateEditorMixin, View):
         result = seed_checklists(self.conference)
         messages.success(
             request,
-            f"Loaded {result.templates} template(s) and {result.items} item(s).",
+            f"Loaded {result.templates} template(s) and {result.items} item(s)."
+            + (
+                f" Filled in {result.described} missing description(s)."
+                if result.described
+                else ""
+            ),
         )
         if result.skipped:
             names = "; ".join(f"{name} ({why})" for name, why in result.skipped)

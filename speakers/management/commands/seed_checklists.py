@@ -20,6 +20,8 @@ class Command(BaseCommand):
             f"Seeded {result.templates} template(s) and {result.items} item(s) "
             f"into {conference}."
         )
+        if result.described:
+            self.stdout.write(f"Filled in {result.described} missing description(s).")
         for name, why in result.skipped:
             self.stdout.write(f"Skipped {name}: {why}.")
 

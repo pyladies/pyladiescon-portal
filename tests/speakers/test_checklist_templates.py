@@ -146,6 +146,43 @@ class TestSeed:
         assert {spec[2] for spec in DEFAULT_TEMPLATES} <= types
         assert {spec[3] for spec in DEFAULT_TEMPLATES if spec[3]} <= roles
 
+    def test_seed_fills_empty_descriptions_but_keeps_written_ones(
+        self, conference, client
+    ):
+        """An edition seeded before the defaults carried descriptions gets
+        them on "Load defaults"; an organizer's own text is never touched."""
+        seed_checklists(conference)
+        ChecklistTemplateItem.objects.update(description_md="")
+        keep = ChecklistTemplateItem.objects.filter(title="Do a tech check").first()
+        keep.description_md = "Our own wording."
+        keep.save()
+        result = seed_checklists(conference)
+        assert (result.templates, result.items) == (0, 0)
+        assert result.described > 0
+        assert not ChecklistTemplateItem.objects.filter(
+            owner=ItemOwner.SPEAKER, description_md=""
+        ).exists()
+        keep.refresh_from_db()
+        assert keep.description_md == "Our own wording."
+        assert seed_checklists(conference).described == 0
+        # The command and the button both say so (the title sits on several
+        # templates, so the count is however many lines share it).
+        guide = ChecklistTemplateItem.objects.filter(title="Read the speaker guide")
+        n = guide.count()
+        assert n > 0
+        guide.update(description_md="")
+        out = StringIO()
+        call_command("seed_checklists", conference=str(conference.year), stdout=out)
+        assert f"Filled in {n} missing description(s)." in out.getvalue()
+        guide.update(description_md="")
+        make_settings(conference)
+        organizer = User.objects.create_user(username="seed-org2", is_staff=True)
+        client.force_login(organizer)
+        page = client.post(
+            reverse("speakers:template_seed"), follow=True
+        ).content.decode()
+        assert f"Filled in {n} missing description(s)." in page
+
     def test_seed_adds_missing_items_but_keeps_edits(self, conference):
         seed_checklists(conference)
         template = ChecklistTemplate.for_presenter(

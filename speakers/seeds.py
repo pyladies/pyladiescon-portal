@@ -395,6 +395,7 @@ class SeedResult(NamedTuple):
     templates: int
     items: int
     skipped: list  # of (template name, reason) pairs
+    described: int = 0  # existing lines whose empty description was filled in
 
 
 def seed_checklists(conference):
@@ -410,7 +411,7 @@ def seed_checklists(conference):
         seed_program_types(conference)
     kinds = {t.code: t for t in SessionType.objects.filter(conference=conference)}
     roles = {r.code: r for r in PresenterRole.objects.filter(conference=conference)}
-    templates_created = items_created = 0
+    templates_created = items_created = described = 0
     skipped = []
     for scope, name, kind, role, delivery, items in DEFAULT_TEMPLATES:
         if kind not in kinds:
@@ -428,18 +429,25 @@ def seed_checklists(conference):
             defaults={"name": name},
         )
         templates_created += created
-        existing = set(template.items.values_list("title", flat=True))
-        next_order = template.items.count()
+        existing = {line.title: line for line in template.items.all()}
+        next_order = len(existing)
         for spec in items:
             if spec["title"] in existing:
+                # An edition seeded before the defaults carried descriptions:
+                # fill an empty one in, never overwrite an organizer's text.
+                line = existing[spec["title"]]
+                if line and not line.description_md and spec.get("description_md"):
+                    line.description_md = spec["description_md"]
+                    line.save(update_fields=["description_md", "modified_date"])
+                    described += 1
                 continue
             ChecklistTemplateItem.objects.create(
                 template=template, order=next_order, **spec
             )
-            existing.add(spec["title"])
+            existing[spec["title"]] = None
             next_order += 1
             items_created += 1
-    return SeedResult(templates_created, items_created, skipped)
+    return SeedResult(templates_created, items_created, skipped, described)
 
 
 ITEM_FIELDS = [

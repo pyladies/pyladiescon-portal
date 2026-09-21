@@ -235,6 +235,54 @@ class TestSessions:
         assert "Grace" in content and "Presenter" in content
         assert reverse("speakers:my_session_edit", args=[my_session.slug]) in content
 
+    def test_co_presenter_address_change_is_logged(
+        self, client, speaker, presenter, my_session
+    ):
+        """Ada renames the shared session's address; Bob's bookmark breaks,
+        and the trail must say what the old address was."""
+        client.force_login(speaker)
+        url = reverse("speakers:my_session_edit", args=[my_session.slug])
+        client.post(
+            url,
+            {
+                "title": "Django 101",
+                "slug": "ada-picked-this",
+                "level": "BEGINNER",
+                "language": "en",
+            },
+        )
+        entry = ActivityLog.for_target(my_session).get(
+            action="session.updated_by_presenter"
+        )
+        assert entry.actor == speaker
+        assert entry.data == {
+            "changes": {"slug": {"from": "django-101", "to": "ada-picked-this"}}
+        }
+        # A content-only save records no changes block.
+        client.post(
+            url.replace("django-101", "ada-picked-this"),
+            {
+                "title": "Django 101",
+                "slug": "",
+                "level": "BEGINNER",
+                "language": "en",
+                "summary_md": "x",
+            },
+        )
+        latest = (
+            ActivityLog.for_target(my_session)
+            .filter(action="session.updated_by_presenter")
+            .first()
+        )
+        assert latest.data == {}
+        # Profile renames are recorded the same way.
+        client.post(
+            reverse("speakers:my_profile"),
+            {"display_name": "Ada L.", "timezone": "UTC"},
+        )
+        prof = ActivityLog.for_target(presenter).get(action="presenter.profile_updated")
+        assert prof.data["changes"]["display_name"]["to"] == "Ada L."
+
     def test_identity_locks_once_scheduled(
         self, client, speaker, presenter, my_session
     ):
