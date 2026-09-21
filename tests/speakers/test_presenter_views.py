@@ -720,24 +720,33 @@ class TestInvitationPreview:
 
     URL = reverse("speakers:invitation_preview")
 
-    def test_presenter_page_shows_the_email_for_the_first_choice(
+    def test_pages_offer_the_preview_without_rendering_it(
         self, client, organizer, presenters
     ):
-        ada = presenters["ada"]
-        client.force_login(organizer)
-        content = client.get(ada.get_absolute_url()).content.decode()
-        assert "Email preview" in content and self.URL in content
-        assert "<strong>To:</strong> ada@example.com" in content
-        assert "You&#x27;re invited to" in content and "Django 101" in content
-        assert "/speakers/invitations/personal-link/" in content
-        assert "Hello from" in content  # the wrapper is part of the preview
-
-    def test_session_page_previews_the_saved_note(self, client, organizer, presenters):
+        """The box arrives empty and htmx fills it when the form opens, so a
+        page carries no email nobody asked to see."""
         ada, session = presenters["ada"], presenters["session"]
         make_invitation(ada, session, message_md="Bring *cake*")
         client.force_login(organizer)
-        content = client.get(session.get_absolute_url()).content.decode()
-        assert "Email preview" in content and "<em>cake</em>" in content
+        for url in (ada.get_absolute_url(), session.get_absolute_url()):
+            content = client.get(url).content.decode()
+            assert "Email preview" in content and self.URL in content
+            assert "intersect once" in content
+            assert "You&#x27;re invited to" not in content
+            assert "<em>cake</em>" not in content and "personal-link" not in content
+
+    def test_a_session_page_costs_the_same_however_many_await_an_invitation(
+        self, client, organizer, presenters, conference
+    ):
+        session = presenters["session"]
+        client.force_login(organizer)
+        with CaptureQueriesContext(connection) as before:
+            client.get(session.get_absolute_url())
+        for name in ("Bea", "Cleo", "Dot", "Eve"):
+            add_presenter(session, make_presenter(conference, display_name=name))
+        with CaptureQueriesContext(connection) as after:
+            client.get(session.get_absolute_url())
+        assert len(after) == len(before)
 
     def test_live_preview_for_a_session(self, client, organizer, presenters):
         ada, session = presenters["ada"], presenters["session"]
@@ -750,7 +759,29 @@ class TestInvitationPreview:
         assert response.status_code == 200
         assert "Django 101" in content and "<em>glad</em>" in content
         assert "Subject:" in content and "personal-link" in content
+        assert "Hello from" in content  # the wrapper is part of the preview
+        assert "<strong>To:</strong> ada@example.com" in content
         assert Invitation.objects.count() == 0
+
+    def test_the_placeholder_address_is_not_a_link(
+        self, client, organizer, presenters, send
+    ):
+        """Copying the preview into a mail client must not carry a dead
+        button: until the email goes out the address is shown as code."""
+        ada, session = presenters["ada"], presenters["session"]
+        client.force_login(organizer)
+        content = client.post(
+            self.URL, {"presenter": ada.slug, "session": session.pk}
+        ).content.decode()
+        assert "<code>" in content and "personal-link" in content
+        # An anchor would render as <a href="...invitations/...">, so this
+        # says the address is never the target of one.
+        assert 'invitations/personal-link/">' not in content
+        mail.outbox.clear()
+        send(make_invitation(ada, session))
+        sent = mail.outbox[-1].alternatives[0][0]
+        assert 'href="https://example.com/speakers/invitations/' in sent
+        assert "<code>" not in sent
 
     @pytest.mark.parametrize("session_value", ["", "abc", "999999"])
     def test_anything_but_their_session_previews_the_general_invitation(

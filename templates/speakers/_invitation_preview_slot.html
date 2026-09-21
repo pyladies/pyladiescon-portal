@@ -1,0 +1,24 @@
+{% load i18n %}
+{% comment %}
+The "email preview" box next to an invite form. Params:
+    pk — identifies the invite form this preview belongs to
+         (its id is invite-form-<pk>)
+
+Empty on arrival and filled by htmx: `intersect once` fires when the box
+becomes visible, which for a closed <details> is the moment the organizer
+opens it, so a page listing several presenters renders no preview until one
+is asked for. Later keystrokes re-render it.
+{% endcomment %}
+<div class="mt-2">
+    <div class="small text-uppercase text-secondary">
+        {% trans "Email preview" %}
+    </div>
+    <div hx-post="{% url 'speakers:invitation_preview' %}"
+         hx-include="#invite-form-{{ pk }}"
+         hx-trigger="intersect once, input delay:400ms from:#invite-form-{{ pk }}"
+         hx-swap="innerHTML">
+        <p class="form-text mb-0">
+            {% trans "The preview loads with the form; it needs JavaScript." %}
+        </p>
+    </div>
+</div>

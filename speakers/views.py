@@ -281,16 +281,6 @@ class SessionDetailView(SessionScopedMixin, DetailView):
         ):
             latest[invitation.presenter_id] = invitation
         context["invitations_by_presenter"] = latest
-        context["invite_previews"] = {
-            link.pk: _invite_preview(
-                link.presenter,
-                self.object,
-                getattr(latest.get(link.presenter_id), "message_md", ""),
-                sender=self.request.user,
-            )
-            for link in context["presenter_links"]
-            if not link.is_confirmed
-        }
         return context
 
 
@@ -450,18 +440,6 @@ class PresenterDetailView(PresenterScopedMixin, DetailView):
         context["latest_sent"] = max(sent, key=lambda i: i.sent_at) if sent else None
         context["accepted"] = next((i for i in sent if i.accepted_at), None)
         context["invite_form"] = PresenterInviteForm(presenter=self.object)
-        if context["accepted"] is None:
-            # What the form's first choice would send; htmx keeps it current.
-            first = (
-                self.object.session_presenters.select_related("session")
-                .order_by("session__title")
-                .first()
-            )
-            context["invite_preview"] = _invite_preview(
-                self.object,
-                first.session if first is not None else None,
-                sender=self.request.user,
-            )
         items = list(
             self.object.checklist_items.select_related(
                 "assignee", "session", "completed_by"
@@ -657,22 +635,12 @@ class SessionInviteView(OrganizerSessionActionMixin, View):
         return redirect(session.get_absolute_url())
 
 
-def _invite_preview(presenter, session=None, message_md="", sender=None):
-    """The invitation email a Send button would produce, rendered for the
-    organizer before they commit to it."""
-    return render_invitation_preview(
-        Invitation(
-            presenter=presenter,
-            session=session,
-            message_md=message_md,
-            invited_by=sender,
-        )
-    )
-
-
 class InvitationPreviewView(LoginRequiredMixin, SpeakerOrganizerRequiredMixin, View):
-    """The invitation email as it will be sent, re-rendered while the
-    organizer writes the note (htmx posts the invite form here on input).
+    """The invitation email as it will be sent, rendered when an organizer
+    opens an invite form and again as they write the note (htmx posts the
+    form here). Rendering it on demand keeps a session page listing several
+    unconfirmed presenters from building an email for each of them that
+    nobody asked to see.
 
     ``presenter`` is a slug; ``session`` the pk of one of that presenter's
     sessions, or blank for the conference in general. Anything else falls
@@ -693,11 +661,13 @@ class InvitationPreviewView(LoginRequiredMixin, SpeakerOrganizerRequiredMixin, V
                 .first()
             )
             session = link.session if link is not None else None
-        preview = _invite_preview(
-            presenter,
-            session,
-            request.POST.get("message_md", "")[:2000],
-            sender=request.user,
+        preview = render_invitation_preview(
+            Invitation(
+                presenter=presenter,
+                session=session,
+                message_md=request.POST.get("message_md", "")[:2000],
+                invited_by=request.user,
+            )
         )
         return render(
             request, "speakers/_invitation_preview.html", {"preview": preview}

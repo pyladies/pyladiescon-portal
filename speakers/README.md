@@ -185,6 +185,20 @@ sent as both text and bleach-sanitized HTML. Backend is SMTP when
 `DJANGO_EMAIL_HOST` is set, console otherwise; subjects use
 `settings.ACCOUNT_EMAIL_SUBJECT_PREFIX`. Guide: `docs/developer/markdown-emails.md`.
 
+### Previewing an invitation
+
+Both invite forms show the email the Send button would produce: recipient,
+subject and the whole rendered body, wrapper included, from the same
+`invitation_subject()` and `invitation_context()` the real send uses, so the
+two cannot drift. `emails.render_invitation_preview()` sets `preview` in the
+context, which the template uses for the only two differences: the personal
+message is boxed and highlighted, and the accept address is shown as code
+rather than as a link, since it is a placeholder until a token is minted.
+The organizer-only `speakers:invitation_preview` endpoint renders it, and
+htmx asks for it when a form becomes visible (`intersect once`) and again as
+the note is typed, so a session page listing several unconfirmed presenters
+builds no email until one is asked for.
+
 ### Absolute links in email
 
 `speakers.emails.absolute_url()` builds links from the current

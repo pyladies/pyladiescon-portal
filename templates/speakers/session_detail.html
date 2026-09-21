@@ -140,15 +140,7 @@
                                                 <i class="fa-solid fa-paper-plane"></i> {% trans "Send" %}
                                             </button>
                                         </form>
-                                        <div class="small text-uppercase text-secondary mt-2">
-                                            {% trans "Email preview" %}
-                                        </div>
-                                        <div hx-post="{% url 'speakers:invitation_preview' %}"
-                                             hx-include="#invite-form-{{ link.pk }}"
-                                             hx-trigger="input delay:400ms from:#invite-form-{{ link.pk }}"
-                                             hx-swap="innerHTML">
-                                            {% include "speakers/_invitation_preview.html" with preview=invite_previews|get_item:link.pk %}
-                                        </div>
+                                        {% include "speakers/_invitation_preview_slot.html" with pk=link.pk %}
                                     </details>
                                 {% endif %}
                                 {% if is_organizer %}
