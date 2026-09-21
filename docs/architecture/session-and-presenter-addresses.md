@@ -64,6 +64,24 @@ in a sequence.
 - **Digits are allowed.** A session titled "2027" gets the slug `2027`.
   That is fine: nothing resolves by number any more, so there is no
   ambiguity to protect against.
+- **Any script is allowed.** Slugs are derived with `allow_unicode=True`,
+  so a presenter called 李华 is addressed as `/speakers/presenters/李华/`
+  and Θεοδώρα as `/speakers/presenters/θεοδώρα/`, not as a numbered
+  placeholder. The routes use a unicode-aware converter
+  (`speakers/converters.py`) because Django's built-in `slug` converter
+  matches ASCII only. A title with no letters at all (emoji, punctuation)
+  falls back to `session` or `presenter`, suffixed if taken.
+- **Reserved words are enforced where slugs are made.** The derivation
+  helper treats a reserved path word as taken, so a session titled "New"
+  gets `new-2` and can never shadow the create route; both models also
+  refuse a reserved word or a per-edition clash in `clean()`, so the admin
+  form reports it rather than the database. The reserved set lives in
+  `speakers/constants.py`, and a test walks the URL patterns and fails if a
+  literal segment that sits where a slug would is missing from it.
+- **The help text says what the code does.** Until the edit windows land,
+  the organizer forms say speakers can change a slug until the session is
+  scheduled and organizers can always rename it; the lock on the speaker
+  side is enforced by the edit-windows change, not by these forms.
 
 ## Which addresses keep a number
 

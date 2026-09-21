@@ -5,7 +5,7 @@ from django.contrib.auth.models import User
 from django.db.models import Q
 from django.utils.text import slugify
 
-from .constants import Delivery, ItemOwner
+from .constants import RESERVED_SLUGS, SLUG_MAX_LENGTH, Delivery, ItemOwner
 from .models import (
     ChecklistTemplate,
     ChecklistTemplateItem,
@@ -29,13 +29,13 @@ class SessionForm(forms.ModelForm):
     # applies only to fields Django generates from the model.
     slug = forms.CharField(
         required=False,
-        max_length=100,
+        max_length=SLUG_MAX_LENGTH,
         label="Web address",
         help_text="Seen publicly as this session's web address, e.g. "
         "/speakers/sessions/django-101/. Leave blank to derive it from the "
-        "title. Organizers review slugs and may rename them; once the "
-        "schedule is confirmed the address is locked. Links already shared "
-        "break if it changes.",
+        "title. Speakers can change it until the session is scheduled; "
+        "organizers can always rename it. Links already shared break if it "
+        "changes.",
     )
 
     class Meta:
@@ -150,13 +150,13 @@ class PresenterForm(forms.ModelForm):
     timezone = forms.ChoiceField(choices=timezone_choices, initial="UTC")
     slug = forms.CharField(
         required=False,
-        max_length=100,
+        max_length=SLUG_MAX_LENGTH,
         label="Web address",
         help_text="Seen publicly as this presenter's web address, e.g. "
         "/speakers/presenters/ada-lovelace/. Leave blank to derive it from "
-        "the name. Organizers review slugs and may rename them; once the "
-        "schedule is confirmed the address is locked. Links already shared "
-        "break if it changes.",
+        "the name. Speakers can change it until their session is scheduled; "
+        "organizers can always rename it. Links already shared break if it "
+        "changes.",
     )
 
     class Meta:
@@ -317,34 +317,15 @@ class SuggestCoPresenterForm(forms.Form):
     )
 
 
-# Path words under /speakers/ that a slug must never collide with.
-RESERVED_SLUGS = frozenset(
-    {
-        "new",
-        "new-program-item",
-        "edit",
-        "add",
-        "invite",
-        "remove",
-        "suggest",
-        "me",
-        "sessions",
-        "presenters",
-        "settings",
-        "items",
-        "invitations",
-        "webhooks",
-    }
-)
-
-
 def _clean_slug(form, model, noun):
     """Normalise an optional slug and refuse a clash within the edition.
 
     Blank means "derive from the title or name on save". The unique
     constraint spans ``conference``, which is not a form field, so Django's
     constraint validation skips it here."""
-    slug = slugify(form.cleaned_data.get("slug", "") or "")
+    slug = slugify(form.cleaned_data.get("slug", "") or "", allow_unicode=True)[
+        :SLUG_MAX_LENGTH
+    ]
     if not slug:
         # Blank on create derives from the title or name on save; blank on
         # edit keeps the current address rather than rotating it.

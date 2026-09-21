@@ -1,5 +1,6 @@
 import pytest
 from django.contrib.auth.models import AnonymousUser, User
+from django.core.exceptions import ValidationError
 from django.db import connection
 from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
@@ -7,7 +8,7 @@ from pytest_django.asserts import assertRedirects
 
 from portal.models import Conference
 from speakers.checklists import add_adhoc_item
-from speakers.constants import Delivery, ItemOwner, SessionStatus
+from speakers.constants import RESERVED_SLUGS, Delivery, ItemOwner, SessionStatus
 from speakers.context_processors import speaker_module
 from speakers.forms import ProgramItemForm, SessionForm
 from speakers.models import ActivityLog, ChecklistItem, Session
@@ -213,8 +214,51 @@ class TestSlugUrls:
             reverse("speakers:session_edit", args=[sessions["mine"].slug])
         ).content.decode()
         assert "Web address" in page
-        assert "Organizers review slugs and may rename them" in page
-        assert "once the schedule is confirmed the address is locked" in page
+        assert "Speakers can change it until the session is scheduled" in page
+        assert "organizers can always rename it" in page
+
+    def test_reserved_title_never_shadows_a_route(self, client, organizer, sessions):
+        """A session titled "New" must not take /speakers/sessions/new/, which
+        is the create form; derivation treats reserved words as taken."""
+        session = make_session(sessions["mine"].conference, title="New")
+        assert session.slug == "new-2"
+        client.force_login(organizer)
+        page = client.get(session.get_absolute_url()).content.decode()
+        assert "Presenters" in page and 'name="title"' not in page
+
+    def test_title_without_letters_falls_back_to_the_model_name(self, sessions):
+        session = make_session(sessions["mine"].conference, title="🎉🎉")
+        assert session.slug == "session"
+        assert (
+            make_session(sessions["mine"].conference, title="!!!").slug == "session-2"
+        )
+
+    def test_model_validation_refuses_reserved_and_clashing_slugs(self, sessions):
+        """The admin form goes through full_clean, so it reports these too."""
+        session = sessions["mine"]
+        session.slug = "new"
+        with pytest.raises(ValidationError, match="reserved"):
+            session.full_clean()
+        session.slug = sessions["theirs"].slug
+        with pytest.raises(ValidationError, match="already uses this address"):
+            session.full_clean()
+
+    def test_reserved_words_cover_the_routes(self):
+        """Every literal segment that sits where a slug would under
+        /speakers/ must be reserved, or a title could shadow it."""
+        from speakers import urls as speaker_urls
+
+        prefixes = ("sessions/", "presenters/", "me/sessions/")
+        literal_next = set()
+        for pattern in speaker_urls.urlpatterns:
+            route = str(pattern.pattern)
+            for prefix in prefixes:
+                if route.startswith(prefix):
+                    rest = route.removeprefix(prefix).split("/")[0]
+                    if rest and not rest.startswith("<"):
+                        literal_next.add(rest)
+        assert literal_next, "no literal segments found; the walk is broken"
+        assert literal_next <= RESERVED_SLUGS
 
     def test_same_title_gets_a_suffix_within_the_edition(self, conference, enabled):
         first = make_session(conference, title="Django 101")

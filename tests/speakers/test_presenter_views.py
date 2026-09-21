@@ -1,8 +1,10 @@
 import re
+from urllib.parse import unquote
 
 import pytest
 from django.contrib.auth.models import User
 from django.core import mail
+from django.core.exceptions import ValidationError
 from django.db import connection
 from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
@@ -233,7 +235,35 @@ class TestPresenterSlugUrls:
             reverse("speakers:presenter_edit", args=[presenters["grace"].slug])
         ).content.decode()
         assert "Web address" in page
-        assert "Organizers review slugs and may rename them" in page
+        assert "organizers can always rename it" in page
+
+    def test_reserved_name_and_non_latin_names(self, client, organizer, presenters):
+        conference = presenters["session"].conference
+        me = make_presenter(conference, display_name="Me")
+        assert me.slug == "me-2"
+        li = make_presenter(conference, display_name="李华")
+        theo = make_presenter(conference, display_name="Θεοδώρα")
+        assert li.slug == "李华" and theo.slug == "θεοδώρα"
+        assert unquote(li.get_absolute_url()) == "/speakers/presenters/李华/"
+        client.force_login(organizer)
+        assert client.get(li.get_absolute_url()).status_code == 200
+        assert client.get(theo.get_absolute_url()).status_code == 200
+        # Organizer-typed unicode is kept too.
+        url = reverse("speakers:presenter_edit", args=[li.slug])
+        client.post(
+            url,
+            {
+                "display_name": "李华",
+                "email": li.email,
+                "timezone": "UTC",
+                "slug": "Li 华",
+            },
+        )
+        li.refresh_from_db()
+        assert li.slug == "li-华"
+        li.slug = "me"
+        with pytest.raises(ValidationError, match="reserved"):
+            li.full_clean()
 
     def test_organizer_edits_slug_clash_refused(self, client, organizer, presenters):
         grace = presenters["grace"]
