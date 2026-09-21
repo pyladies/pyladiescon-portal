@@ -21,6 +21,41 @@ from .people import liaison_candidates, user_label
 MARKDOWN_HELP = "Markdown supported: headings, lists, links, **bold**, *italics*."
 
 
+def _slug_field(example, source, who):
+    """The editable web-address field, declared (not generated) so it accepts
+    free text that ``_clean_slug`` normalises; Meta.help_texts would be
+    ignored for a declared field, so the text lives here."""
+    return forms.CharField(
+        required=False,
+        max_length=SLUG_MAX_LENGTH,
+        label="Web address",
+        help_text=f"Seen publicly as {who} web address, e.g. {example}. Leave "
+        f"blank to derive it from the {source}. Speakers can change it until "
+        "the session is scheduled; organizers can always rename it. Links "
+        "already shared break if it changes.",
+    )
+
+
+class IdentityLockMixin:
+    """For the speaker forms: the identity fields (title or name, and the
+    web address) are theirs until the session is scheduled. With
+    ``locked=True`` those fields are dropped, so a stale POST carrying them
+    is ignored rather than rejected, and listed in ``locked_fields`` for the
+    template to show read-only."""
+
+    IDENTITY_FIELDS = ()
+
+    def __init__(self, *args, locked=False, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.conference = self.instance.conference
+        self.locked = locked
+        self.locked_fields = []
+        if locked:
+            for name, label in self.IDENTITY_FIELDS:
+                self.fields.pop(name)
+                self.locked_fields.append((label, getattr(self.instance, name)))
+
+
 class SessionForm(forms.ModelForm):
     """Create or edit a session. Every content field is optional markdown."""
 
@@ -28,16 +63,7 @@ class SessionForm(forms.ModelForm):
     # "Intro To Django" before the cleaner could turn it into intro-to-django.
     # Declared here, so label and help text live here too: Meta.help_texts
     # applies only to fields Django generates from the model.
-    slug = forms.CharField(
-        required=False,
-        max_length=SLUG_MAX_LENGTH,
-        label="Web address",
-        help_text="Seen publicly as this session's web address, e.g. "
-        "/speakers/sessions/django-101/. Leave blank to derive it from the "
-        "title. Speakers can change it until the session is scheduled; "
-        "organizers can always rename it. Links already shared break if it "
-        "changes.",
-    )
+    slug = _slug_field("/speakers/sessions/django-101/", "title", "this session's")
 
     class Meta:
         model = Session
@@ -149,16 +175,7 @@ class PresenterForm(forms.ModelForm):
     """Organizer-side presenter create/edit, including the liaison."""
 
     timezone = forms.ChoiceField(choices=timezone_choices, initial="UTC")
-    slug = forms.CharField(
-        required=False,
-        max_length=SLUG_MAX_LENGTH,
-        label="Web address",
-        help_text="Seen publicly as this presenter's web address, e.g. "
-        "/speakers/presenters/ada-lovelace/. Leave blank to derive it from "
-        "the name. Speakers can change it until their session is scheduled; "
-        "organizers can always rename it. Links already shared break if it "
-        "changes.",
-    )
+    slug = _slug_field("/speakers/presenters/ada-lovelace/", "name", "this presenter's")
 
     class Meta:
         model = Presenter
@@ -245,18 +262,27 @@ class InviteForm(forms.Form):
     )
 
 
-class SpeakerProfileForm(forms.ModelForm):
-    """What a presenter edits about themselves (design §2.3)."""
+class SpeakerProfileForm(IdentityLockMixin, forms.ModelForm):
+    """What a presenter edits about themselves (design §2.3).
+
+    The display name and the web address are theirs until one of their
+    sessions is scheduled (``locked``); then both are dropped from the form
+    and shown read-only via ``locked_fields``.
+    """
 
     timezone = forms.ChoiceField(
         choices=timezone_choices,
         help_text="Reminders and your schedule view use this.",
     )
+    slug = _slug_field("/speakers/presenters/ada-lovelace/", "name", "your")
+
+    IDENTITY_FIELDS = (("display_name", "Name"), ("slug", "Web address"))
 
     class Meta:
         model = Presenter
         fields = [
             "display_name",
+            "slug",
             "pronouns",
             "bio_md",
             "headshot",
@@ -277,14 +303,27 @@ class SpeakerProfileForm(forms.ModelForm):
             "is_public": "Your name still appears on your sessions when this is off.",
         }
 
+    def clean_slug(self):
+        return _clean_slug(self, Presenter, "presenter")
 
-class SpeakerSessionForm(forms.ModelForm):
-    """What a presenter edits about their session. Every field is optional
-    markdown; the duration is set by the organizers."""
+
+class SpeakerSessionForm(IdentityLockMixin, forms.ModelForm):
+    """What a presenter edits about their session. Every content field is
+    optional markdown; the duration is set by the organizers.
+
+    The title and the web address are theirs to edit until an organizer
+    schedules the session (``locked``); then those two fields are dropped
+    from the form, so a stale POST carrying them is ignored rather than
+    rejected, and shown read-only by the template via ``locked_fields``.
+    """
+
+    slug = _slug_field("/speakers/sessions/django-101/", "title", "this session's")
 
     class Meta:
         model = Session
         fields = [
+            "title",
+            "slug",
             "summary_md",
             "outline_md",
             "prerequisites_md",
@@ -304,6 +343,11 @@ class SpeakerSessionForm(forms.ModelForm):
             "prerequisites_md": MARKDOWN_HELP,
             "audience_md": MARKDOWN_HELP,
         }
+
+    IDENTITY_FIELDS = (("title", "Title"), ("slug", "Web address"))
+
+    def clean_slug(self):
+        return _clean_slug(self, Session, "session")
 
 
 class SuggestCoPresenterForm(forms.Form):
@@ -524,6 +568,7 @@ class ChecklistTemplateItemForm(forms.ModelForm):
         ]
         widgets = {"description_md": forms.Textarea(attrs={"rows": 2})}
         help_texts = {
-            "description_md": MARKDOWN_HELP,
+            "description_md": MARKDOWN_HELP
+            + " Speakers see this under the title on their to-do list.",
             "auto_complete_rule": "Pick a rule and the portal ticks the item itself.",
         }
