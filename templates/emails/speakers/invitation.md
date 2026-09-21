@@ -7,7 +7,17 @@ Hi {{ presenter.display_name }},
 {% if session %}We would love for you to be part of **{{ conference.name }}** with **{{ session.title }}** ({{ session.kind.name }}).{% else %}We would love for you to be part of **{{ conference.name }}**.{% endif %}
 
 {% if invitation.message_md %}
+Below is a message from {% firstof sender "the organizing team" %}:
+
+{% if preview %}<div class="invitation-preview-note" markdown="1">
 {{ invitation.message_md }}
+</div>{% else %}{{ invitation.message_md }}{% endif %}
+
+{% elif preview %}
+{% comment %}Preview only (the sent email never takes this branch): where the sender's words would go. In the branch above, md_in_html (part of the "extra" extension) renders the markdown inside the box.{% endcomment %}
+<div class="invitation-preview-note" markdown="1">
+*Your personal message, if you write one, goes here, introduced with "Below is a message from {{ sender }}:".*
+</div>
 
 {% endif %}
 **[Accept or decline the invitation]({{ accept_url }})**

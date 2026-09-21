@@ -15,6 +15,8 @@ from django.utils import timezone
 from common.markdown_emails import MarkdownEmailRenderer
 from common.send_emails import send_email
 
+from .people import user_label
+
 INVITATION_SALT = "speakers.invitation"
 INVITATION_TEMPLATE = "emails/speakers/invitation.md"
 # Stands in for the signed token in a preview of an email not yet sent.
@@ -58,6 +60,12 @@ def invitation_context(invitation, *, conference, accept_url, expires_at):
         "conference": conference,
         "accept_url": accept_url,
         "expires_at": expires_at,
+        # Who signs the personal message; a resend by the system has nobody.
+        "sender": (
+            user_label(invitation.invited_by)
+            if invitation.invited_by is not None
+            else "the organizing team"
+        ),
     }
 
 
@@ -95,6 +103,7 @@ def render_invitation_preview(invitation):
         expires_at=timezone.now() + type(invitation).TOKEN_MAX_AGE,
     )
     context["current_site"] = Site.objects.get_current()
+    context["preview"] = True
     renderer = MarkdownEmailRenderer()
     body = renderer.render_template(INVITATION_TEMPLATE, context)
     return {

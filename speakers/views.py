@@ -285,6 +285,7 @@ class SessionDetailView(SessionScopedMixin, DetailView):
                 link.presenter,
                 self.object,
                 getattr(latest.get(link.presenter_id), "message_md", ""),
+                sender=self.request.user,
             )
             for link in context["presenter_links"]
             if not link.is_confirmed
@@ -456,7 +457,9 @@ class PresenterDetailView(PresenterScopedMixin, DetailView):
                 .first()
             )
             context["invite_preview"] = _invite_preview(
-                self.object, first.session if first is not None else None
+                self.object,
+                first.session if first is not None else None,
+                sender=self.request.user,
             )
         items = list(
             self.object.checklist_items.select_related(
@@ -653,11 +656,16 @@ class SessionInviteView(OrganizerSessionActionMixin, View):
         return redirect(session.get_absolute_url())
 
 
-def _invite_preview(presenter, session=None, message_md=""):
+def _invite_preview(presenter, session=None, message_md="", sender=None):
     """The invitation email a Send button would produce, rendered for the
     organizer before they commit to it."""
     return render_invitation_preview(
-        Invitation(presenter=presenter, session=session, message_md=message_md)
+        Invitation(
+            presenter=presenter,
+            session=session,
+            message_md=message_md,
+            invited_by=sender,
+        )
     )
 
 
@@ -685,7 +693,10 @@ class InvitationPreviewView(LoginRequiredMixin, SpeakerOrganizerRequiredMixin, V
             )
             session = link.session if link is not None else None
         preview = _invite_preview(
-            presenter, session, request.POST.get("message_md", "")[:2000]
+            presenter,
+            session,
+            request.POST.get("message_md", "")[:2000],
+            sender=request.user,
         )
         return render(
             request, "speakers/_invitation_preview.html", {"preview": preview}

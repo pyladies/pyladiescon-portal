@@ -764,6 +764,43 @@ class TestInvitationPreview:
         assert "Django 101" not in content
         assert "part of <strong>" in content
 
+    def test_personal_message_is_introduced_and_set_apart_in_the_preview(
+        self, client, organizer, presenters, send
+    ):
+        ada, session = presenters["ada"], presenters["session"]
+        client.force_login(organizer)
+        with_note = client.post(
+            self.URL,
+            {"presenter": ada.slug, "session": session.pk, "message_md": "*Hi*"},
+        ).content.decode()
+        assert (
+            "<p>Below is a message from organizer:</p>\n"
+            '<div class="invitation-preview-note">\n<p><em>Hi</em></p>\n</div>'
+        ) in with_note
+        assert "goes here" not in with_note
+        without = client.post(
+            self.URL, {"presenter": ada.slug, "session": session.pk}
+        ).content.decode()
+        assert "<p>Below is a message from" not in without
+        assert "invitation-preview-note" in without
+        assert "goes here, introduced with" in without and "organizer:" in without
+        assert "Highlighted" in without  # the legend under the preview
+        # The sent email carries the introduction but none of the preview marks.
+        mail.outbox.clear()
+        send(make_invitation(ada, session, message_md="*Hi*", invited_by=organizer))
+        sent = mail.outbox[-1].alternatives[0][0]
+        assert "<p>Below is a message from organizer:</p>\n<p><em>Hi</em></p>" in sent
+        assert "invitation-preview-note" not in sent and "goes here" not in sent
+        mail.outbox.clear()
+        send(make_invitation(ada, session))
+        body = mail.outbox[-1].body
+        assert "Below is a message" not in body and "goes here" not in body
+
+    def test_resend_without_a_sender_signs_as_the_team(self, client, presenters, send):
+        ada, session = presenters["ada"], presenters["session"]
+        send(make_invitation(ada, session, message_md="Welcome"))
+        assert "Below is a message from the organizing team:" in mail.outbox[-1].body
+
     def test_organizers_only(self, client, liaison, presenters):
         client.force_login(liaison)
         response = client.post(self.URL, {"presenter": presenters["ada"].slug})
