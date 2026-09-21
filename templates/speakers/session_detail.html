@@ -124,8 +124,11 @@
                                         </summary>
                                         <form method="post"
                                               class="mt-2"
+                                              id="invite-form-{{ link.pk }}"
                                               action="{% url 'speakers:session_invite' session.slug link.pk %}">
                                             {% csrf_token %}
+                                            <input type="hidden" name="presenter" value="{{ link.presenter.slug }}">
+                                            <input type="hidden" name="session" value="{{ session.pk }}">
                                             <label class="form-label small" for="message-{{ link.pk }}">
                                                 {% trans "Personal message (markdown, optional)" %}
                                             </label>
@@ -137,6 +140,7 @@
                                                 <i class="fa-solid fa-paper-plane"></i> {% trans "Send" %}
                                             </button>
                                         </form>
+                                        {% include "speakers/_invitation_preview_slot.html" with pk=link.pk %}
                                     </details>
                                 {% endif %}
                                 {% if is_organizer %}

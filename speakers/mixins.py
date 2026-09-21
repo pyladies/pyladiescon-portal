@@ -4,7 +4,7 @@ from django.http import Http404
 from portal.models import Conference
 
 from .models import Presenter, speaker_module_enabled
-from .permissions import can_work_sessions, is_speaker_organizer
+from .permissions import can_work_queue, can_work_sessions, is_speaker_organizer
 
 
 class SpeakerModuleRequiredMixin:
@@ -27,6 +27,17 @@ class SpeakerStaffRequiredMixin(SpeakerModuleRequiredMixin, UserPassesTestMixin)
 
     def test_func(self):
         return can_work_sessions(self.request.user, self.conference)
+
+
+class SpeakerQueueRequiredMixin(SpeakerModuleRequiredMixin, UserPassesTestMixin):
+    """Organizers, liaisons, and volunteers carrying an organizer item.
+
+    The digest mails an assignee a link to their queue, so the gate has to
+    admit them; what they may then touch is narrowed per item.
+    """
+
+    def test_func(self):
+        return can_work_queue(self.request.user, self.conference)
 
 
 class SpeakerOrganizerRequiredMixin(SpeakerModuleRequiredMixin, UserPassesTestMixin):

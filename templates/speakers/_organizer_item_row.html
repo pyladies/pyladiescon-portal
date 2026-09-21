@@ -49,6 +49,15 @@ for htmx is set once on <body> by the organizer shell.
     </td>
     <td>
         {{ item.get_status_display }}
+        {% if item.is_done %}
+            <div class="small text-secondary">
+                {% if item.completed_by %}
+                    {% blocktranslate with name=item.completed_by.get_full_name|default:item.completed_by.username date=item.completed_at|date:"j M" %}by {{ name }}, {{ date }}{% endblocktranslate %}
+                {% else %}
+                    {% blocktranslate with date=item.completed_at|date:"j M" %}automatic, {{ date }}{% endblocktranslate %}
+                {% endif %}
+            </div>
+        {% endif %}
     </td>
     <td>
         {% if item.owner == "ORGANIZER" and can_assign %}

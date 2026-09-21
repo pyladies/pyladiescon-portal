@@ -25,6 +25,7 @@ from portal.constants import BASE_PRETIX_URL
 
 from .clock import today
 from .constants import (
+    DEFAULT_GUIDE_KEY,
     IDENTITY_LOCKED_STATUSES,
     OPEN_ITEM_STATUSES,
     RESERVED_SLUGS,
@@ -1178,6 +1179,11 @@ class ChecklistTemplateItem(TimestampedModel):
         blank=True,
         help_text=f'A language code, or "{SESSION_LANGUAGE}" for the session language.',
     )
+    requires_handbook = models.SlugField(
+        max_length=40,
+        blank=True,
+        help_text=f'Guide key for the "read the guide" rule; blank means "{DEFAULT_GUIDE_KEY}".',
+    )
     per_translation_language = models.BooleanField(
         default=False,
         help_text="Instantiate one item per translation language of the edition.",
@@ -1313,6 +1319,7 @@ class ChecklistItem(TimestampedModel):
         max_length=16, choices=MediaKind.choices, blank=True
     )
     requires_asset_language = models.CharField(max_length=10, blank=True)
+    requires_handbook = models.SlugField(max_length=40, blank=True)
 
     class Meta:
         ordering = ["order", "id"]
@@ -1343,6 +1350,10 @@ class ChecklistItem(TimestampedModel):
     @property
     def is_automatic(self):
         return bool(self.auto_complete_rule)
+
+    @property
+    def guide_key(self):
+        return self.requires_handbook or DEFAULT_GUIDE_KEY
 
     @property
     def is_open(self):
@@ -1415,23 +1426,41 @@ class MediaAsset(TimestampedModel):
 
 
 class Handbook(TimestampedModel):
-    """The speaker guide, versioned (design §8.7). Shell for task 2.9."""
+    """A guide, versioned (design §8.7).
+
+    An edition can have several guides (``key``: speaker, workshop, keynote,
+    performer...); a checklist line names the one it requires. The guide
+    itself normally lives on the conference site (``url``); the portal keeps
+    the version, an optional note, and who acknowledged reading it.
+    """
 
     conference = models.ForeignKey(
         "portal.Conference",
         on_delete=models.PROTECT,
         related_name="handbooks",
     )
+    key = models.SlugField(
+        max_length=40,
+        default=DEFAULT_GUIDE_KEY,
+        help_text="Short identifier checklist lines refer to, e.g. workshop.",
+    )
     version = models.PositiveIntegerField(default=1)
     title = models.CharField(max_length=200, default="Speaker guide")
-    body_md = models.TextField(blank=True, help_text="Markdown.")
+    url = models.URLField(
+        blank=True,
+        help_text="Where the guide lives, e.g. https://conference.pyladies.com/docs/",
+    )
+    body_md = models.TextField(
+        blank=True, help_text="Optional note shown above the link. Markdown."
+    )
     published_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         ordering = ["-version"]
         constraints = [
             models.UniqueConstraint(
-                fields=["conference", "version"], name="speakers_handbook_version"
+                fields=["conference", "key", "version"],
+                name="speakers_handbook_version",
             )
         ]
 
@@ -1439,27 +1468,47 @@ class Handbook(TimestampedModel):
         return f"{self.title} v{self.version}"
 
     @classmethod
-    def current(cls, conference):
-        """The newest published version, or None."""
+    def current(cls, conference, key=DEFAULT_GUIDE_KEY):
+        """The newest published version of one guide, or None."""
         return (
-            cls.objects.filter(conference=conference, published_at__isnull=False)
+            cls.objects.filter(
+                conference=conference, key=key, published_at__isnull=False
+            )
             .order_by("-version")
             .first()
         )
 
     @classmethod
-    def draft(cls, conference):
-        """The unpublished version being written, or None."""
+    def draft(cls, conference, key=DEFAULT_GUIDE_KEY):
+        """The unpublished version of one guide being written, or None."""
         return (
-            cls.objects.filter(conference=conference, published_at__isnull=True)
+            cls.objects.filter(
+                conference=conference, key=key, published_at__isnull=True
+            )
             .order_by("-version")
             .first()
         )
 
     @classmethod
-    def next_version(cls, conference):
-        latest = cls.objects.filter(conference=conference).order_by("-version").first()
+    def next_version(cls, conference, key=DEFAULT_GUIDE_KEY):
+        latest = (
+            cls.objects.filter(conference=conference, key=key)
+            .order_by("-version")
+            .first()
+        )
         return latest.version + 1 if latest else 1
+
+    @classmethod
+    def keys(cls, conference):
+        """The guides an edition has, as ``(key, latest title)`` pairs."""
+        titles = {}
+        for key, title in (
+            cls.objects.filter(conference=conference)
+            .order_by("key", "version")
+            .values_list("key", "title")
+        ):
+            titles[key] = title
+        return sorted(titles.items())
 
     @property
     def is_published(self):

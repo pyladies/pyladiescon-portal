@@ -99,6 +99,11 @@ urlpatterns = [
     path("me/guide/read/", views.SpeakerGuideReadView.as_view(), name="my_guide_read"),
     path(
         "settings/handbook/",
+        views.HandbookListView.as_view(),
+        name="handbook_list",
+    ),
+    path(
+        "settings/handbook/<slug:key>/",
         views.HandbookEditorView.as_view(),
         name="handbook_editor",
     ),
@@ -162,6 +167,16 @@ urlpatterns = [
         "settings/checklists/<int:pk>/items/<int:item_pk>/<slug:action>/",
         views.TemplateItemActionView.as_view(),
         name="template_item_action",
+    ),
+    path(
+        "presenters/<slug:slug>/invite/",
+        views.PresenterInviteView.as_view(),
+        name="presenter_invite",
+    ),
+    path(
+        "invite/preview/",
+        views.InvitationPreviewView.as_view(),
+        name="invitation_preview",
     ),
     path(
         "presenters/<slug:slug>/pretix/lookup/",

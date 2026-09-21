@@ -63,6 +63,10 @@ When you sign up you'll receive an email with a code to verify your account. In 
 
     Check your terminal, the email will be printed out for you.
 
+Links inside those emails use the domain configured in the sites framework
+(see [Configure the site domain](setup.md#configure-the-site-domain)). If
+they point at `example.com`, that step was skipped.
+
 ## Set up your Account as a Staff user
 
 1. Go to <http://localhost:8000/accounts/login/>

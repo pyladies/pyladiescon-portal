@@ -11,7 +11,6 @@ import logging
 from collections import defaultdict
 
 from django.conf import settings
-from django.contrib.sites.models import Site
 from django.db import transaction
 from django.urls import reverse
 from django.utils import timezone
@@ -19,7 +18,7 @@ from django.utils import timezone
 from common.send_emails import send_email
 
 from .constants import OPEN_ITEM_STATUSES, ItemOwner
-from .emails import organizer_recipients
+from .emails import absolute_url, organizer_recipients
 from .models import ChecklistItem, ReminderLog, SpeakerSettings
 
 THRESHOLDS = (7, 3, 1)
@@ -52,13 +51,11 @@ def _sent_map(conference):
 
 
 def _dashboard_url():
-    return (
-        f"https://{Site.objects.get_current().domain}{reverse('speakers:my_dashboard')}"
-    )
+    return absolute_url(reverse("speakers:my_dashboard"))
 
 
 def _queue_url():
-    return f"https://{Site.objects.get_current().domain}{reverse('speakers:checklist_queue')}"
+    return absolute_url(reverse("speakers:checklist_queue"))
 
 
 def send_checklist_digests(conference, now=None):

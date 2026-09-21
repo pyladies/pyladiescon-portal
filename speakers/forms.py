@@ -6,7 +6,13 @@ from django.db.models import Q
 from django.utils.text import slugify
 from text_unidecode import unidecode
 
-from .constants import RESERVED_SLUGS, SLUG_MAX_LENGTH, Delivery, ItemOwner
+from .constants import (
+    DEFAULT_GUIDE_KEY,
+    RESERVED_SLUGS,
+    SLUG_MAX_LENGTH,
+    Delivery,
+    ItemOwner,
+)
 from .models import (
     ChecklistTemplate,
     ChecklistTemplateItem,
@@ -17,7 +23,7 @@ from .models import (
     SessionPresenter,
     SessionType,
 )
-from .people import liaison_candidates, user_label
+from .people import assignee_candidates, liaison_candidates, user_label
 
 MARKDOWN_HELP = "Markdown supported: headings, lists, links, **bold**, *italics*."
 
@@ -495,7 +501,7 @@ class AdhocItemForm(forms.Form):
 
     def __init__(self, *args, conference, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["assignee"].queryset = liaison_candidates(conference)
+        self.fields["assignee"].queryset = assignee_candidates(conference)
         self.fields["assignee"].label_from_instance = user_label
 
 
@@ -504,7 +510,7 @@ class AssignItemForm(forms.Form):
 
     def __init__(self, *args, conference, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["assignee"].queryset = liaison_candidates(conference)
+        self.fields["assignee"].queryset = assignee_candidates(conference)
 
 
 class ChecklistTemplateForm(forms.ModelForm):
@@ -563,6 +569,7 @@ class ChecklistTemplateItemForm(forms.ModelForm):
             "auto_complete_rule",
             "requires_asset_kind",
             "requires_asset_language",
+            "requires_handbook",
             "per_translation_language",
             "is_required",
             "assignee_default",
@@ -574,10 +581,77 @@ class ChecklistTemplateItemForm(forms.ModelForm):
             "auto_complete_rule": "Pick a rule and the portal ticks the item itself.",
         }
 
+    def __init__(self, *args, conference, **kwargs):
+        super().__init__(*args, **kwargs)
+        # The guide is picked from the edition's guides, not typed.
+        choices = [("", f"{DEFAULT_GUIDE_KEY} (default)")] + [
+            (key, f"{title} ({key})")
+            for key, title in Handbook.keys(conference)
+            if key != DEFAULT_GUIDE_KEY
+        ]
+        self.fields["requires_handbook"] = forms.ChoiceField(
+            choices=choices,
+            required=False,
+            label="Guide",
+            help_text='Which guide the "read the guide" rule checks.',
+        )
+
+
+class NewHandbookForm(forms.Form):
+    """Start another guide for the edition (workshop, keynote, performer...)."""
+
+    key = forms.SlugField(max_length=40, help_text="Short identifier, e.g. workshop.")
+    title = forms.CharField(max_length=200)
+
+    def __init__(self, *args, conference, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.conference = conference
+
+    def clean_key(self):
+        key = self.cleaned_data["key"].lower()
+        if Handbook.objects.filter(conference=self.conference, key=key).exists():
+            raise forms.ValidationError("A guide with this key already exists.")
+        return key
+
+
+DEFAULT_GUIDE_URL = "https://conference.pyladies.com/docs/"
+
 
 class HandbookForm(forms.ModelForm):
     class Meta:
         model = Handbook
-        fields = ["title", "body_md"]
-        widgets = {"body_md": forms.Textarea(attrs={"rows": 24})}
-        help_texts = {"body_md": MARKDOWN_HELP}
+        fields = ["title", "url", "body_md"]
+        widgets = {"body_md": forms.Textarea(attrs={"rows": 6})}
+        help_texts = {"body_md": MARKDOWN_HELP + " Optional."}
+
+
+class PresenterInviteForm(InviteForm):
+    """Invite from the presenter page: pick the session (or the conference
+    in general) and write the note."""
+
+    session = forms.ChoiceField(required=False, label="Invite to")
+
+    def __init__(self, *args, presenter, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.presenter = presenter
+        self.links = list(
+            presenter.session_presenters.select_related("session", "role").order_by(
+                "session__title"
+            )
+        )
+        self.fields["session"].choices = [
+            (str(link.session_id), f"{link.session.title} ({link.role.name})")
+            for link in self.links
+        ] + [("", "The conference in general")]
+        self.order_fields(["session", "message_md"])
+
+    def clean_session(self):
+        """The choices were built from ``self.links``, and ChoiceField has
+        already refused anything else, so read the answer off that list
+        instead of querying for it again."""
+        value = self.cleaned_data["session"]
+        if not value:
+            return None
+        return next(
+            link.session for link in self.links if str(link.session_id) == value
+        )

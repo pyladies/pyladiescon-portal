@@ -252,6 +252,7 @@ class ChecklistTemplateItemInline(admin.TabularInline):
         "auto_complete_rule",
         "requires_asset_kind",
         "requires_asset_language",
+        "requires_handbook",
         "per_translation_language",
         "is_required",
         "assignee_default",
@@ -334,8 +335,8 @@ class HandbookReadReceiptInline(admin.TabularInline):
 
 @admin.register(Handbook)
 class HandbookAdmin(admin.ModelAdmin):
-    list_display = ("title", "version", "published_at", "conference")
-    list_filter = (ActiveConferenceFilter,)
+    list_display = ("key", "title", "version", "published_at", "conference")
+    list_filter = (ActiveConferenceFilter, "key")
     list_select_related = ("conference",)
     inlines = [HandbookReadReceiptInline]
 

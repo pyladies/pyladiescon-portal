@@ -141,13 +141,30 @@ edition's `conference_timezone`. `ReminderLog` is unique on
 
 ### Handbook
 
-`Handbook` is versioned per edition (`current()` = newest published,
-`draft()` = the unpublished one being written). Organizers edit and publish
-at `/speakers/settings/handbook/`; presenters read at `/speakers/me/guide/`,
-where the "I've read this" button or scrolling to the end
-(`portal/static/js/speakers-guide.js`) records a `HandbookReadReceipt` for
-that version. Publishing fires the `handbook_read` rule, which re-opens the
-guide item for everyone who read an earlier version.
+An edition can have several guides (`Handbook.key`: `speaker` by default,
+plus `workshop`, `keynote`, `performer`, ...), each versioned
+(`current(conference, key)`, `draft(conference, key)`) and normally just a
+link to the conference site (`url`, default
+https://conference.pyladies.com/docs/) with an optional note. A checklist
+template line with the `handbook_read` rule names the guide it requires
+(`requires_handbook`, blank = `speaker`), so a presenter on a keynote and a
+workshop gets one item per guide. Organizers manage guides at
+`/speakers/settings/handbook/`; presenters open each required guide from
+`/speakers/me/guide/` and tick "I have read the ... guide", which records a
+`HandbookReadReceipt` for that version, the way a terms-of-service
+acknowledgement works. There is no automatic tracking. Publishing a new
+version of one guide re-opens only the items that require it.
+
+A new guide starts unpublished, pointed at the docs index above. That
+placeholder is deliberate: it satisfies the editor's "a link or a note"
+check, so an organizer may publish a guide that only says "see the docs"
+and refine the address later. The guide list also names every key the
+edition's checklists require but nobody has written yet, marked "not
+created yet" with a button that opens the add form ready filled; without
+it a "Read the workshop guide" item would sit open with nothing to read
+and nothing on the organizer side to say so. On the speaker side,
+`required_guide_keys` returns only what their own items name: a presenter
+with no checklist yet is asked to read nothing.
 
 ### Background jobs
 
@@ -167,6 +184,28 @@ Tests run tasks eagerly (`CELERY_TASK_ALWAYS_EAGER` when pytest is loaded).
 sent as both text and bleach-sanitized HTML. Backend is SMTP when
 `DJANGO_EMAIL_HOST` is set, console otherwise; subjects use
 `settings.ACCOUNT_EMAIL_SUBJECT_PREFIX`. Guide: `docs/developer/markdown-emails.md`.
+
+### Previewing an invitation
+
+Both invite forms show the email the Send button would produce: recipient,
+subject and the whole rendered body, wrapper included, from the same
+`invitation_subject()` and `invitation_context()` the real send uses, so the
+two cannot drift. `emails.render_invitation_preview()` sets `preview` in the
+context, which the template uses for the only two differences: the personal
+message is boxed and highlighted, and the accept address is shown as code
+rather than as a link, since it is a placeholder until a token is minted.
+The organizer-only `speakers:invitation_preview` endpoint renders it, and
+htmx asks for it when a form becomes visible (`intersect once`) and again as
+the note is typed, so a session page listing several unconfirmed presenters
+builds no email until one is asked for.
+
+### Absolute links in email
+
+`speakers.emails.absolute_url()` builds links from the current
+`django.contrib.sites` `Site` domain (`http://` under `DEBUG`, `https://`
+otherwise). The domain is data: `manage.py set_site_domain <host>` or the
+admin's **Sites** page, documented in `docs/developer/setup.md` and
+`docs/developer/deployment.md`. A fresh database says `example.com`.
 
 ### Templates and front end
 
@@ -210,7 +249,15 @@ installed; this app keeps small factory functions in `tests/speakers/factories.p
   `Presenter.liaison` users; `SessionQuerySet.visible_to` and
   `PresenterQuerySet.visible_to` scope what they see, and the
   `SpeakerStaffRequiredMixin` / `SpeakerOrganizerRequiredMixin` mixins gate
-  the organizer side.
+  the organizer side. An organizer item can be handed to any approved
+  volunteer (`people.organizer_side_candidates`), so a third predicate,
+  `is_speaker_assignee`, admits whoever carries one: `can_work_queue` (the
+  `SpeakerQueueRequiredMixin`) gates the queue and the per-item actions, and
+  `ItemActionMixin` then lets an actor touch an item only if they organize,
+  liaise its presenter, or are its assignee. Assignees never reassign
+  (`ItemAssignView` stays organizer-only) and never open presenter or
+  session pages; their queue rows name those without linking, and the
+  "My speaker tasks" rail entry keys on the same flag.
 - Speaker side: `/speakers/me/...`, gated by `PresenterRequiredMixin` (the
   user must own a `Presenter` row in the active edition, else 403). The
   personal rail is `templates/speakers/_speaker_rail.html`; the navbar shows

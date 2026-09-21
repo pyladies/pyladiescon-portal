@@ -1,7 +1,7 @@
 from datetime import date, timedelta
 
 import pytest
-from django.contrib.auth.models import User
+from django.contrib.auth.models import AnonymousUser, User
 from django.db import connection
 from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
@@ -9,9 +9,16 @@ from pytest_django.asserts import assertRedirects
 
 from portal.models import Conference
 from speakers.board import build_board, cell_class
-from speakers.checklists import add_adhoc_item, block_item, complete_item, skip_item
+from speakers.checklists import (
+    add_adhoc_item,
+    assign_item,
+    block_item,
+    complete_item,
+    skip_item,
+)
 from speakers.constants import AutoRule, ItemOwner, ItemStatus
 from speakers.models import ActivityLog, ChecklistItem
+from speakers.permissions import is_speaker_assignee
 from volunteer.constants import ApplicationStatus
 from volunteer.models import VolunteerProfile
 
@@ -294,6 +301,15 @@ class TestPresenterPageChecklists:
         page = client.get(people["ada"].get_absolute_url()).content.decode()
         assert "<em>salty</em>" in page
 
+    def test_organizer_rows_credit_the_completer(
+        self, client, organizer, people, liaison
+    ):
+        item = people["items"]["Ada", "promo"]
+        complete_item(item, actor=liaison)
+        client.force_login(organizer)
+        content = client.get(people["ada"].get_absolute_url()).content.decode()
+        assert "by Lena," in content
+
     def test_add_one_off_item(self, client, organizer, people, liaison):
         ada = people["ada"]
         client.force_login(organizer)
@@ -385,8 +401,20 @@ class TestItemActions:
         assert "completes itself" in response.content.decode()
 
     def test_liaison_scope(self, client, liaison, people, conference):
+        """A liaison acts on their own presenters' items, and on anything
+        handed to them; everything else is refused."""
         mine = people["items"]["Ada", "promo"]
-        theirs = people["items"]["Grace", "promo"]
+        # Grace is not Lena's presenter, and this one is nobody's to carry.
+        theirs = add_adhoc_item(
+            conference,
+            "Grace only",
+            ItemOwner.ORGANIZER,
+            presenter=people["grace"],
+        )
+        # Assigned to Lena though the presenter is not hers: hers to tick.
+        assigned = people["items"]["Grace", "promo"]
+        # Ada's own to-do, assigned to nobody: hers because Ada is hers.
+        by_presenter = people["items"]["Ada", "bio"]
         session_item = add_adhoc_item(
             conference, "Session-level", ItemOwner.ORGANIZER, session=people["session"]
         )
@@ -394,6 +422,19 @@ class TestItemActions:
         assert (
             client.post(
                 reverse("speakers:item_status", args=[mine.pk]), {"status": "DONE"}
+            ).status_code
+            == 302
+        )
+        assert (
+            client.post(
+                reverse("speakers:item_status", args=[assigned.pk]), {"status": "DONE"}
+            ).status_code
+            == 302
+        )
+        assert (
+            client.post(
+                reverse("speakers:item_status", args=[by_presenter.pk]),
+                {"status": "DONE"},
             ).status_code
             == 302
         )
@@ -504,3 +545,91 @@ class TestItemActions:
             ).status_code
             == 404
         )
+
+
+@pytest.fixture
+def volunteer(db, conference):
+    """An approved volunteer who neither organizes nor liaises."""
+    user = User.objects.create_user(
+        username="vera", email="vera@example.com", first_name="Vera"
+    )
+    VolunteerProfile.objects.create(
+        user=user, conference=conference, application_status=ApplicationStatus.APPROVED
+    )
+    return user
+
+
+@pytest.mark.django_db
+class TestVolunteerAssignee:
+    """A volunteer handed an organizer item can act on it (review of #424).
+
+    ``organizer_side_candidates`` offers every approved volunteer, so the
+    digest mails them a queue link; the gates have to let them in.
+    """
+
+    def test_queue_and_ticking_work_and_the_row_does_not_link_away(
+        self, client, volunteer, organizer, people, conference
+    ):
+        item = people["items"]["Ada", "promo"]
+        assign_item(item, volunteer, actor=organizer)
+        client.force_login(volunteer)
+        content = client.get(QUEUE).content.decode()
+        assert "Promo materials" in content
+        # Named, not linked: they may not open the presenter page.
+        assert "Ada" in content
+        assert people["ada"].get_absolute_url() not in content
+        response = client.post(
+            reverse("speakers:item_status", args=[item.pk]),
+            {"status": "DONE", "next": QUEUE},
+        )
+        assertRedirects(response, QUEUE)
+        item.refresh_from_db()
+        assert item.status == ItemStatus.DONE and item.completed_by == volunteer
+        # Their last item is done; the queue still opens, so they can reopen it.
+        assert "Nothing assigned to you" in client.get(QUEUE).content.decode()
+
+    def test_nobody_is_an_assignee(self, conference, people):
+        """The predicate answers for a signed-out visitor too."""
+        assert is_speaker_assignee(AnonymousUser(), conference) is False
+
+    def test_the_volunteer_hub_offers_the_queue(self, client, volunteer, people):
+        item = people["items"]["Ada", "promo"]
+        assign_item(item, volunteer)
+        client.force_login(volunteer)
+        content = client.get(reverse("volunteer:index")).content.decode()
+        assert "My speaker tasks" in content and QUEUE in content
+
+    def test_an_item_that_is_not_theirs_is_refused(self, client, volunteer, people):
+        assign_item(people["items"]["Ada", "promo"], volunteer)
+        client.force_login(volunteer)
+        other = people["items"]["Grace", "promo"]
+        response = client.post(
+            reverse("speakers:item_status", args=[other.pk]), {"status": "DONE"}
+        )
+        assert response.status_code == 403
+        other.refresh_from_db()
+        assert other.status == ItemStatus.TODO
+
+    def test_they_neither_reassign_nor_read_the_rest_of_the_module(
+        self, client, volunteer, people
+    ):
+        item = people["items"]["Ada", "promo"]
+        assign_item(item, volunteer)
+        client.force_login(volunteer)
+        assert (
+            client.post(
+                reverse("speakers:item_assign", args=[item.pk]),
+                {"assignee": volunteer.pk},
+            ).status_code
+            == 403
+        )
+        assert client.get(BOARD).status_code == 403
+        assert client.get(people["ada"].get_absolute_url()).status_code == 403
+
+    def test_a_volunteer_with_no_item_still_has_no_queue(
+        self, client, volunteer, people
+    ):
+        client.force_login(volunteer)
+        assert client.get(QUEUE).status_code == 403
+        content = client.get(reverse("volunteer:index")).content.decode()
+        assert "My speaker tasks" not in content

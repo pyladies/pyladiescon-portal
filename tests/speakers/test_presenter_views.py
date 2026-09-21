@@ -172,6 +172,18 @@ class TestPresenterForms:
         # Pending volunteers and plain users are not offered; sorted by name,
         # and a blank first name sorts first.
         assert list(liaison_candidates(conference)) == [organizer, liaison]
+        # Superusers without the staff flag and any approved volunteer count too;
+        # an inactive account never does.
+        root = User.objects.create_user(username="root", is_superuser=True)
+        helper = User.objects.create_user(username="helper", first_name="Zed")
+        VolunteerProfile.objects.create(
+            user=helper,
+            conference=conference,
+            application_status=ApplicationStatus.APPROVED,
+        )
+        gone = User.objects.create_user(username="gone", is_staff=True, is_active=False)
+        candidates = list(liaison_candidates(conference))
+        assert root in candidates and helper in candidates and gone not in candidates
 
     def test_liaison_reads_but_cannot_edit(self, client, liaison, presenters):
         """A liaison sees their presenter but must not change the email an
@@ -617,3 +629,214 @@ class TestEndToEnd:
         content = client.get(presenter.get_absolute_url()).content.decode()
         assert "Accepted" in content and "linked" not in content.split("Account")[0]
         assert "Accepted" in client.get(LIST).content.decode()
+
+
+@pytest.mark.django_db
+class TestInviteFromPresenterPage:
+    def test_not_invited_hides_checklists_and_offers_send(
+        self, client, organizer, presenters, conference
+    ):
+        ada = presenters["ada"]
+        client.force_login(organizer)
+        content = client.get(ada.get_absolute_url()).content.decode()
+        assert "Not invited yet" in content
+        assert "Send invitation" in content and "Their to-dos" not in content
+        assert reverse("speakers:presenter_invite", args=[ada.slug]) in content
+        assert "Django 101 (Presenter)" in content
+        assert "The conference in general" in content
+
+    def test_send_to_session_then_resend(self, client, organizer, presenters):
+        ada, session = presenters["ada"], presenters["session"]
+        client.force_login(organizer)
+        mail.outbox.clear()
+        url = reverse("speakers:presenter_invite", args=[ada.slug])
+        response = client.post(
+            url, {"session": session.pk, "message_md": "Please *come*"}, follow=True
+        )
+        assert f"Invitation sent to {ada.email}" in response.content.decode()
+        invitation = Invitation.objects.get()
+        assert invitation.session == session and invitation.invited_by == organizer
+        assert invitation.message_md == "Please *come*"
+        first_link = _link_from_mail()
+        content = client.get(ada.get_absolute_url()).content.decode()
+        assert "Invited on" in content and "not yet accepted" in content
+        assert "Not opened yet" in content
+        assert "Resend invitation" in content
+        assert "Their to-dos" in content
+        response = client.post(
+            url, {"session": session.pk, "message_md": ""}, follow=True
+        )
+        assert "Invitation resent" in response.content.decode()
+        assert Invitation.objects.count() == 1 and len(mail.outbox) == 2
+        client.logout()
+        assert client.get(first_link).context["reason"] == "superseded"
+
+    def test_general_invitation_and_accepted_state(self, client, organizer, presenters):
+        ada = presenters["ada"]
+        client.force_login(organizer)
+        client.post(
+            reverse("speakers:presenter_invite", args=[ada.slug]), {"session": ""}
+        )
+        invitation = Invitation.objects.get()
+        assert invitation.session is None
+        invitation.opened_at = invitation.accepted_at = invitation.sent_at
+        invitation.save()
+        content = client.get(ada.get_absolute_url()).content.decode()
+        assert "Accepted on" in content and "Last invitation sent" in content
+        assert reverse("speakers:presenter_invite", args=[ada.slug]) not in content
+
+    def test_opened_shown(self, client, organizer, presenters):
+        ada = presenters["ada"]
+        invitation = make_invitation(ada, presenters["session"])
+        send_invitation(invitation)
+        invitation.opened_at = invitation.sent_at
+        invitation.save()
+        client.force_login(organizer)
+        assert "Opened" in client.get(ada.get_absolute_url()).content.decode()
+
+    def test_rejects_session_the_presenter_is_not_on(
+        self, client, organizer, presenters
+    ):
+        ada, other = presenters["ada"], presenters["session"]
+        stranger = make_session(other.conference, title="Not hers")
+        client.force_login(organizer)
+        response = client.post(
+            reverse("speakers:presenter_invite", args=[ada.slug]),
+            {"session": stranger.pk},
+            follow=True,
+        )
+        assert "Pick one of the presenter" in response.content.decode()
+        assert Invitation.objects.count() == 0
+
+    def test_organizer_only(self, client, liaison, presenters):
+        client.force_login(liaison)
+        url = reverse("speakers:presenter_invite", args=[presenters["ada"].slug])
+        assert client.post(url, {"session": ""}).status_code == 403
+
+
+@pytest.mark.django_db
+class TestInvitationPreview:
+    """The sender sees the whole email before it goes out."""
+
+    URL = reverse("speakers:invitation_preview")
+
+    def test_pages_offer_the_preview_without_rendering_it(
+        self, client, organizer, presenters
+    ):
+        """The box arrives empty and htmx fills it when the form opens, so a
+        page carries no email nobody asked to see."""
+        ada, session = presenters["ada"], presenters["session"]
+        make_invitation(ada, session, message_md="Bring *cake*")
+        client.force_login(organizer)
+        for url in (ada.get_absolute_url(), session.get_absolute_url()):
+            content = client.get(url).content.decode()
+            assert "Email preview" in content and self.URL in content
+            assert "intersect once" in content
+            assert "You&#x27;re invited to" not in content
+            assert "<em>cake</em>" not in content and "personal-link" not in content
+
+    def test_a_session_page_costs_the_same_however_many_await_an_invitation(
+        self, client, organizer, presenters, conference
+    ):
+        session = presenters["session"]
+        client.force_login(organizer)
+        with CaptureQueriesContext(connection) as before:
+            client.get(session.get_absolute_url())
+        for name in ("Bea", "Cleo", "Dot", "Eve"):
+            add_presenter(session, make_presenter(conference, display_name=name))
+        with CaptureQueriesContext(connection) as after:
+            client.get(session.get_absolute_url())
+        assert len(after) == len(before)
+
+    def test_live_preview_for_a_session(self, client, organizer, presenters):
+        ada, session = presenters["ada"], presenters["session"]
+        client.force_login(organizer)
+        response = client.post(
+            self.URL,
+            {"presenter": ada.slug, "session": session.pk, "message_md": "So *glad*"},
+        )
+        content = response.content.decode()
+        assert response.status_code == 200
+        assert "Django 101" in content and "<em>glad</em>" in content
+        assert "Subject:" in content and "personal-link" in content
+        assert "Hello from" in content  # the wrapper is part of the preview
+        assert "<strong>To:</strong> ada@example.com" in content
+        assert Invitation.objects.count() == 0
+
+    def test_the_placeholder_address_is_not_a_link(
+        self, client, organizer, presenters, send
+    ):
+        """Copying the preview into a mail client must not carry a dead
+        button: until the email goes out the address is shown as code."""
+        ada, session = presenters["ada"], presenters["session"]
+        client.force_login(organizer)
+        content = client.post(
+            self.URL, {"presenter": ada.slug, "session": session.pk}
+        ).content.decode()
+        assert "<code>" in content and "personal-link" in content
+        # An anchor would render as <a href="...invitations/...">, so this
+        # says the address is never the target of one.
+        assert 'invitations/personal-link/">' not in content
+        mail.outbox.clear()
+        send(make_invitation(ada, session))
+        sent = mail.outbox[-1].alternatives[0][0]
+        assert 'href="https://example.com/speakers/invitations/' in sent
+        assert "<code>" not in sent
+
+    @pytest.mark.parametrize("session_value", ["", "abc", "999999"])
+    def test_anything_but_their_session_previews_the_general_invitation(
+        self, client, organizer, presenters, session_value
+    ):
+        ada = presenters["ada"]
+        client.force_login(organizer)
+        content = client.post(
+            self.URL, {"presenter": ada.slug, "session": session_value}
+        ).content.decode()
+        assert "Django 101" not in content
+        assert "part of <strong>" in content
+
+    def test_personal_message_is_introduced_and_set_apart_in_the_preview(
+        self, client, organizer, presenters, send
+    ):
+        ada, session = presenters["ada"], presenters["session"]
+        client.force_login(organizer)
+        with_note = client.post(
+            self.URL,
+            {"presenter": ada.slug, "session": session.pk, "message_md": "*Hi*"},
+        ).content.decode()
+        assert (
+            "<p>Below is a message from organizer:</p>\n"
+            '<div class="invitation-preview-note">\n<p><em>Hi</em></p>\n</div>'
+        ) in with_note
+        assert "goes here" not in with_note
+        without = client.post(
+            self.URL, {"presenter": ada.slug, "session": session.pk}
+        ).content.decode()
+        assert "<p>Below is a message from" not in without
+        assert "invitation-preview-note" in without
+        assert "goes here, introduced with" in without and "organizer:" in without
+        assert "Highlighted" in without  # the legend under the preview
+        # The sent email carries the introduction but none of the preview marks.
+        mail.outbox.clear()
+        send(make_invitation(ada, session, message_md="*Hi*", invited_by=organizer))
+        sent = mail.outbox[-1].alternatives[0][0]
+        assert "<p>Below is a message from organizer:</p>\n<p><em>Hi</em></p>" in sent
+        assert "invitation-preview-note" not in sent and "goes here" not in sent
+        mail.outbox.clear()
+        send(make_invitation(ada, session))
+        body = mail.outbox[-1].body
+        assert "Below is a message" not in body and "goes here" not in body
+
+    def test_resend_without_a_sender_signs_as_the_team(self, client, presenters, send):
+        ada, session = presenters["ada"], presenters["session"]
+        send(make_invitation(ada, session, message_md="Welcome"))
+        assert "Below is a message from the organizing team:" in mail.outbox[-1].body
+
+    def test_organizers_only(self, client, liaison, presenters):
+        client.force_login(liaison)
+        response = client.post(self.URL, {"presenter": presenters["ada"].slug})
+        assert response.status_code == 403
+
+    def test_unknown_presenter_is_404(self, client, organizer, presenters):
+        client.force_login(organizer)
+        assert client.post(self.URL, {"presenter": "nobody"}).status_code == 404
