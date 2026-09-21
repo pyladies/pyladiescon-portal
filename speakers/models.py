@@ -19,11 +19,19 @@ from django.db import models
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.text import slugify
+from text_unidecode import unidecode
+
+from portal.constants import BASE_PRETIX_URL
 
 from .clock import today
 from .constants import (
+    DEFAULT_GUIDE_KEY,
+    IDENTITY_LOCKED_STATUSES,
     OPEN_ITEM_STATUSES,
+    RESERVED_SLUGS,
     SESSION_LANGUAGE,
+    SLUG_BASE_LENGTH,
+    SLUG_MAX_LENGTH,
     AssigneeDefault,
     AutoRule,
     ChannelKind,
@@ -38,6 +46,7 @@ from .constants import (
     SessionLevel,
     SessionStatus,
 )
+from .encryption import EncryptedTextField, usable
 from .querysets import PresenterQuerySet, SessionQuerySet
 from .signals import session_confirmed
 
@@ -79,17 +88,44 @@ def validate_timezone(value):
 
 
 def _unique_slug(model, conference, base, exclude_pk=None):
-    """Return ``base`` or ``base-2``, ``base-3``... unused within ``conference``."""
-    base = slugify(base)[:80] or "item"
+    """Return ``base`` or ``base-2``, ``base-3``... unused within ``conference``.
+
+    Addresses are ASCII, so a shared link never shows percent-encoding; a
+    non-Latin name is transliterated first ("李华" becomes "li-hua",
+    "Θεοδώρα" becomes "theodora") rather than dropped, so nobody gets a
+    numbered placeholder for a name outside the Latin alphabet. A reserved
+    path word counts as taken, so a session titled "New" derives to
+    ``new-2`` instead of shadowing the create route. A title with no letters
+    at all falls back to the model's name ("session", "presenter").
+    """
+    base = slugify(unidecode(base))[:SLUG_BASE_LENGTH] or model._meta.model_name
     candidate = base
     counter = 2
     queryset = model.objects.filter(conference=conference)
     if exclude_pk is not None:
         queryset = queryset.exclude(pk=exclude_pk)
-    while queryset.filter(slug=candidate).exists():
+    while candidate in RESERVED_SLUGS or queryset.filter(slug=candidate).exists():
         candidate = f"{base}-{counter}"
         counter += 1
     return candidate
+
+
+def _validate_slug(instance, model, noun):
+    """Model-level guard so the admin (and any other ModelForm) reports a
+    reserved word or a per-edition clash instead of the database doing it."""
+    if not instance.slug:
+        return
+    if instance.slug in RESERVED_SLUGS:
+        raise ValidationError(
+            {"slug": f"“{instance.slug}” is reserved; pick another address."}
+        )
+    clash = model.objects.filter(
+        conference_id=instance.conference_id, slug=instance.slug
+    )
+    if instance.pk:
+        clash = clash.exclude(pk=instance.pk)
+    if clash.exists():
+        raise ValidationError({"slug": f"Another {noun} already uses this address."})
 
 
 class SpeakerSettings(TimestampedModel):
@@ -127,6 +163,57 @@ class SpeakerSettings(TimestampedModel):
         blank=True,
         help_text="Length limit for pre-recorded videos unless a session says otherwise.",
     )
+    conference_timezone = models.CharField(
+        max_length=64,
+        default="UTC",
+        validators=[validate_timezone],
+        help_text="The organizers' default display timezone; the conference "
+        "itself has none.",
+    )
+    organizers_email = models.EmailField(
+        blank=True,
+        help_text="Where unassigned organizer reminders go; blank sends them to "
+        "every staff account.",
+    )
+    # Pretix (design §12.1). The event slug falls back to
+    # Conference.pretix_event_slug; token and secret are encrypted at rest.
+    pretix_base_url = models.URLField(
+        default=BASE_PRETIX_URL, help_text="The pretix API root, ending in /api/v1/."
+    )
+    pretix_organizer = models.CharField(max_length=100, blank=True)
+    pretix_event = models.CharField(
+        max_length=100,
+        blank=True,
+        help_text="Event slug; blank uses the conference's pretix event slug.",
+    )
+    pretix_api_token = EncryptedTextField(blank=True)
+    pretix_webhook_secret = EncryptedTextField(
+        blank=True, help_text="Sent by pretix as ?secret= on the webhook URL."
+    )
+    pretix_last_synced_at = models.DateTimeField(null=True, blank=True)
+    pretix_create_vouchers = models.BooleanField(
+        default=False,
+        help_text="Create a pretix voucher per presenter (not implemented yet).",
+    )
+
+    @property
+    def tzinfo(self):
+        return zoneinfo.ZoneInfo(self.conference_timezone)
+
+    @property
+    def pretix_event_slug(self):
+        return self.pretix_event or self.conference.pretix_event_slug
+
+    @property
+    def pretix_configured(self):
+        """Organizer, event and a token this deploy can actually decrypt: a
+        token loaded as ``Undecryptable`` reads as not configured, so a
+        missing key degrades pretix alone rather than every edition page."""
+        return bool(
+            self.pretix_organizer
+            and self.pretix_event_slug
+            and usable(self.pretix_api_token)
+        )
 
     class Meta:
         verbose_name = "speaker settings"
@@ -281,7 +368,7 @@ class Presenter(TimestampedModel):
         help_text="The organizer or volunteer looking after this presenter.",
     )
     display_name = models.CharField(max_length=200)
-    slug = models.SlugField(max_length=100, blank=True)
+    slug = models.SlugField(max_length=SLUG_MAX_LENGTH, blank=True)
     email = models.EmailField(help_text="Invitation and reminder target.")
     pronouns = models.CharField(max_length=50, blank=True)
     bio_md = models.TextField("bio", blank=True, help_text="Markdown.")
@@ -333,6 +420,7 @@ class Presenter(TimestampedModel):
         # with "ada@example.com" in the form instead of on the database.
         self.email = self.email.strip().lower()
         super().clean()
+        _validate_slug(self, Presenter, "presenter")
 
     def save(self, *args, **kwargs):
         self.email = self.email.strip().lower()
@@ -347,7 +435,15 @@ class Presenter(TimestampedModel):
         return zoneinfo.ZoneInfo(self.timezone)
 
     def get_absolute_url(self):
-        return reverse("speakers:presenter_detail", kwargs={"pk": self.pk})
+        return reverse("speakers:presenter_detail", kwargs={"slug": self.slug})
+
+    @property
+    def identity_locked(self):
+        """Display name and address freeze once any of this presenter's
+        sessions is scheduled: the schedule and its links carry both."""
+        return self.session_presenters.filter(
+            session__status__in=IDENTITY_LOCKED_STATUSES
+        ).exists()
 
     @property
     def latest_invitation(self):
@@ -517,7 +613,7 @@ class Session(TimestampedModel):
         help_text="Blank takes the type's default; filled in on save.",
     )
     title = models.CharField(max_length=200)
-    slug = models.SlugField(max_length=100, blank=True)
+    slug = models.SlugField(max_length=SLUG_MAX_LENGTH, blank=True)
     summary_md = models.TextField("summary", blank=True, help_text="Markdown.")
     outline_md = models.TextField("outline", blank=True, help_text="Markdown.")
     prerequisites_md = models.TextField(
@@ -579,6 +675,7 @@ class Session(TimestampedModel):
 
     def clean(self):
         super().clean()
+        _validate_slug(self, Session, "session")
         if self.kind_id and self.kind.conference_id != self.conference_id:
             raise ValidationError({"kind": "Pick a session type of this edition."})
         if self.pk and self.kind_id:
@@ -624,7 +721,7 @@ class Session(TimestampedModel):
         return ScheduleSlot.objects.filter(session=self).exists()
 
     def get_absolute_url(self):
-        return reverse("speakers:session_detail", kwargs={"pk": self.pk})
+        return reverse("speakers:session_detail", kwargs={"slug": self.slug})
 
     @property
     def liaisons(self):
@@ -665,6 +762,12 @@ class Session(TimestampedModel):
         self.status = SessionStatus.INVITED
         if save:
             self.save(update_fields=["status"])
+
+    @property
+    def identity_locked(self):
+        """Title and address are the speaker's to edit until an organizer
+        schedules the session; after that only organizers change them."""
+        return self.status in IDENTITY_LOCKED_STATUSES
 
     @property
     def blocking_required_items(self):
@@ -1076,6 +1179,11 @@ class ChecklistTemplateItem(TimestampedModel):
         blank=True,
         help_text=f'A language code, or "{SESSION_LANGUAGE}" for the session language.',
     )
+    requires_handbook = models.SlugField(
+        max_length=40,
+        blank=True,
+        help_text=f'Guide key for the "read the guide" rule; blank means "{DEFAULT_GUIDE_KEY}".',
+    )
     per_translation_language = models.BooleanField(
         default=False,
         help_text="Instantiate one item per translation language of the edition.",
@@ -1211,6 +1319,7 @@ class ChecklistItem(TimestampedModel):
         max_length=16, choices=MediaKind.choices, blank=True
     )
     requires_asset_language = models.CharField(max_length=10, blank=True)
+    requires_handbook = models.SlugField(max_length=40, blank=True)
 
     class Meta:
         ordering = ["order", "id"]
@@ -1241,6 +1350,10 @@ class ChecklistItem(TimestampedModel):
     @property
     def is_automatic(self):
         return bool(self.auto_complete_rule)
+
+    @property
+    def guide_key(self):
+        return self.requires_handbook or DEFAULT_GUIDE_KEY
 
     @property
     def is_open(self):
@@ -1313,23 +1426,41 @@ class MediaAsset(TimestampedModel):
 
 
 class Handbook(TimestampedModel):
-    """The speaker guide, versioned (design §8.7). Shell for task 2.9."""
+    """A guide, versioned (design §8.7).
+
+    An edition can have several guides (``key``: speaker, workshop, keynote,
+    performer...); a checklist line names the one it requires. The guide
+    itself normally lives on the conference site (``url``); the portal keeps
+    the version, an optional note, and who acknowledged reading it.
+    """
 
     conference = models.ForeignKey(
         "portal.Conference",
         on_delete=models.PROTECT,
         related_name="handbooks",
     )
+    key = models.SlugField(
+        max_length=40,
+        default=DEFAULT_GUIDE_KEY,
+        help_text="Short identifier checklist lines refer to, e.g. workshop.",
+    )
     version = models.PositiveIntegerField(default=1)
     title = models.CharField(max_length=200, default="Speaker guide")
-    body_md = models.TextField(blank=True, help_text="Markdown.")
+    url = models.URLField(
+        blank=True,
+        help_text="Where the guide lives, e.g. https://conference.pyladies.com/docs/",
+    )
+    body_md = models.TextField(
+        blank=True, help_text="Optional note shown above the link. Markdown."
+    )
     published_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         ordering = ["-version"]
         constraints = [
             models.UniqueConstraint(
-                fields=["conference", "version"], name="speakers_handbook_version"
+                fields=["conference", "key", "version"],
+                name="speakers_handbook_version",
             )
         ]
 
@@ -1337,12 +1468,62 @@ class Handbook(TimestampedModel):
         return f"{self.title} v{self.version}"
 
     @classmethod
-    def current(cls, conference):
-        """The newest published version, or None."""
+    def current(cls, conference, key=DEFAULT_GUIDE_KEY):
+        """The newest published version of one guide, or None."""
         return (
-            cls.objects.filter(conference=conference, published_at__isnull=False)
+            cls.objects.filter(
+                conference=conference, key=key, published_at__isnull=False
+            )
             .order_by("-version")
             .first()
+        )
+
+    @classmethod
+    def draft(cls, conference, key=DEFAULT_GUIDE_KEY):
+        """The unpublished version of one guide being written, or None."""
+        return (
+            cls.objects.filter(
+                conference=conference, key=key, published_at__isnull=True
+            )
+            .order_by("-version")
+            .first()
+        )
+
+    @classmethod
+    def next_version(cls, conference, key=DEFAULT_GUIDE_KEY):
+        latest = (
+            cls.objects.filter(conference=conference, key=key)
+            .order_by("-version")
+            .first()
+        )
+        return latest.version + 1 if latest else 1
+
+    @classmethod
+    def keys(cls, conference):
+        """The guides an edition has, as ``(key, latest title)`` pairs."""
+        titles = {}
+        for key, title in (
+            cls.objects.filter(conference=conference)
+            .order_by("key", "version")
+            .values_list("key", "title")
+        ):
+            titles[key] = title
+        return sorted(titles.items())
+
+    @property
+    def is_published(self):
+        return self.published_at is not None
+
+    def publish(self):
+        """Make this version the current guide. Saving fires the
+        ``handbook_read`` rule so prior readers' items re-open."""
+        self.published_at = timezone.now()
+        self.save()
+
+    def record_read(self, presenter):
+        """A presenter finished this version. Returns (receipt, created)."""
+        return HandbookReadReceipt.objects.get_or_create(
+            presenter=presenter, handbook=self
         )
 
 
@@ -1375,4 +1556,38 @@ class HandbookReadReceipt(TimestampedModel):
 
     def save(self, *args, **kwargs):
         self.conference_id = self.handbook.conference_id
+        super().save(*args, **kwargs)
+
+
+class ReminderLog(TimestampedModel):
+    """One reminder sent for one item at one threshold (design §9.4).
+
+    The unique constraint is what stops a digest repeating a reminder.
+    """
+
+    conference = models.ForeignKey(
+        "portal.Conference",
+        on_delete=models.PROTECT,
+        related_name="reminder_logs",
+        editable=False,
+    )
+    item = models.ForeignKey(
+        ChecklistItem, on_delete=models.CASCADE, related_name="reminders"
+    )
+    threshold_days = models.PositiveSmallIntegerField()
+    recipient = models.EmailField()
+    sent_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["item", "threshold_days"], name="speakers_reminder_once"
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.item} ({self.threshold_days}d) to {self.recipient}"
+
+    def save(self, *args, **kwargs):
+        self.conference_id = self.item.conference_id
         super().save(*args, **kwargs)

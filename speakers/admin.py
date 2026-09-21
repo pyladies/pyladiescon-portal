@@ -1,3 +1,4 @@
+from django import forms
 from django.contrib import admin
 
 from portal.admin_filters import ActiveConferenceFilter
@@ -14,6 +15,7 @@ from .models import (
     MediaAsset,
     Presenter,
     PresenterRole,
+    ReminderLog,
     ScheduleSlot,
     Session,
     SessionPresenter,
@@ -22,13 +24,85 @@ from .models import (
 )
 
 
+class SpeakerSettingsAdminForm(forms.ModelForm):
+    """The token and the webhook secret are write-only here: encrypted at
+    rest, never echoed back to the page. Leave a field blank to keep what is
+    stored; a stored value this deploy cannot decrypt is kept as is."""
+
+    pretix_api_token = forms.CharField(
+        required=False,
+        widget=forms.PasswordInput(render_value=False),
+        help_text="Leave blank to keep the current token.",
+    )
+    pretix_webhook_secret = forms.CharField(
+        required=False,
+        widget=forms.PasswordInput(render_value=False),
+        help_text="Leave blank to keep the current secret.",
+    )
+
+    class Meta:
+        model = SpeakerSettings
+        fields = "__all__"
+
+    def _keep_when_blank(self, name):
+        value = self.cleaned_data.get(name)
+        return value if value else getattr(self.instance, name)
+
+    def clean_pretix_api_token(self):
+        return self._keep_when_blank("pretix_api_token")
+
+    def clean_pretix_webhook_secret(self):
+        return self._keep_when_blank("pretix_webhook_secret")
+
+
 @admin.register(SpeakerSettings)
 class SpeakerSettingsAdmin(admin.ModelAdmin):
+    form = SpeakerSettingsAdminForm
     list_display = (
         "conference",
         "speaker_module_enabled",
         "default_premiere_location",
         "translation_languages",
+        "pretix_organizer",
+        "pretix_last_synced_at",
+    )
+    fieldsets = (
+        (
+            None,
+            {
+                "fields": (
+                    "conference",
+                    "speaker_module_enabled",
+                    "conference_timezone",
+                    "organizers_email",
+                )
+            },
+        ),
+        (
+            "Program",
+            {
+                "fields": (
+                    "default_premiere_location",
+                    "translation_languages",
+                    "default_video_length_limit_minutes",
+                )
+            },
+        ),
+        (
+            "Pretix",
+            {
+                "description": "Token and webhook secret are encrypted at rest and "
+                "never shown again; leave blank to keep the stored value.",
+                "fields": (
+                    "pretix_base_url",
+                    "pretix_organizer",
+                    "pretix_event",
+                    "pretix_api_token",
+                    "pretix_webhook_secret",
+                    "pretix_last_synced_at",
+                ),
+            },
+        ),
     )
     list_filter = ("speaker_module_enabled",)
     list_select_related = ("conference",)
@@ -178,6 +252,7 @@ class ChecklistTemplateItemInline(admin.TabularInline):
         "auto_complete_rule",
         "requires_asset_kind",
         "requires_asset_language",
+        "requires_handbook",
         "per_translation_language",
         "is_required",
         "assignee_default",
@@ -260,7 +335,16 @@ class HandbookReadReceiptInline(admin.TabularInline):
 
 @admin.register(Handbook)
 class HandbookAdmin(admin.ModelAdmin):
-    list_display = ("title", "version", "published_at", "conference")
-    list_filter = (ActiveConferenceFilter,)
+    list_display = ("key", "title", "version", "published_at", "conference")
+    list_filter = (ActiveConferenceFilter, "key")
     list_select_related = ("conference",)
     inlines = [HandbookReadReceiptInline]
+
+
+@admin.register(ReminderLog)
+class ReminderLogAdmin(admin.ModelAdmin):
+    list_display = ("item", "threshold_days", "recipient", "sent_at", "conference")
+    list_filter = (ActiveConferenceFilter, "threshold_days")
+    search_fields = ("recipient", "item__title")
+    list_select_related = ("item", "conference")
+    readonly_fields = ("sent_at",)

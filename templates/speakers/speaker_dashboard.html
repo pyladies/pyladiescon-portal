@@ -27,7 +27,7 @@
         <ul class="list-unstyled mb-4">
             {% for summary in session_summaries %}
                 <li class="d-flex flex-wrap align-items-center gap-2 mb-1">
-                    <a href="{% url 'speakers:my_session_edit' summary.session.pk %}">{{ summary.session.title }}</a>
+                    <a href="{% url 'speakers:my_session_edit' summary.session.slug %}">{{ summary.session.title }}</a>
                     <span class="text-secondary small">{{ summary.session.kind.name }} · {{ summary.role }}</span>
                     {% if summary.total %}
                         <span class="badge text-bg-light border">
@@ -36,6 +36,11 @@
                     {% endif %}
                     {% if not summary.session.is_public %}
                         <span class="badge text-bg-secondary">{% trans "Not yet public" %}</span>
+                    {% endif %}
+                    {% if summary.session.identity_locked %}
+                        {% trans "Title and web address are locked now that the session is scheduled" as locked_label %}
+                        <i class="fa-solid fa-lock text-secondary small"
+                           title="{{ locked_label }}"></i>
                     {% endif %}
                 </li>
             {% endfor %}

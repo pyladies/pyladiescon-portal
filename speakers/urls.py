@@ -1,6 +1,7 @@
 from django.urls import path
 
 from . import views
+from .webhooks import pretix_webhook
 
 app_name = "speakers"
 
@@ -19,27 +20,27 @@ urlpatterns = [
         name="program_item_create",
     ),
     path(
-        "sessions/<int:pk>/",
+        "sessions/<slug:slug>/",
         views.SessionDetailView.as_view(),
         name="session_detail",
     ),
     path(
-        "sessions/<int:pk>/edit/",
+        "sessions/<slug:slug>/edit/",
         views.SessionUpdateView.as_view(),
         name="session_edit",
     ),
     path(
-        "sessions/<int:pk>/presenters/add/",
+        "sessions/<slug:slug>/presenters/add/",
         views.SessionAddPresenterView.as_view(),
         name="session_add_presenter",
     ),
     path(
-        "sessions/<int:pk>/presenters/<int:link_pk>/remove/",
+        "sessions/<slug:slug>/presenters/<int:link_pk>/remove/",
         views.SessionRemovePresenterView.as_view(),
         name="session_remove_presenter",
     ),
     path(
-        "sessions/<int:pk>/presenters/<int:link_pk>/invite/",
+        "sessions/<slug:slug>/presenters/<int:link_pk>/invite/",
         views.SessionInviteView.as_view(),
         name="session_invite",
     ),
@@ -50,12 +51,12 @@ urlpatterns = [
         name="presenter_create",
     ),
     path(
-        "presenters/<int:pk>/",
+        "presenters/<slug:slug>/",
         views.PresenterDetailView.as_view(),
         name="presenter_detail",
     ),
     path(
-        "presenters/<int:pk>/edit/",
+        "presenters/<slug:slug>/edit/",
         views.PresenterUpdateView.as_view(),
         name="presenter_edit",
     ),
@@ -84,16 +85,28 @@ urlpatterns = [
     path("me/profile/", views.SpeakerProfileUpdateView.as_view(), name="my_profile"),
     path("me/sessions/", views.SpeakerSessionListView.as_view(), name="my_sessions"),
     path(
-        "me/sessions/<int:pk>/edit/",
+        "me/sessions/<slug:slug>/edit/",
         views.SpeakerSessionUpdateView.as_view(),
         name="my_session_edit",
     ),
     path(
-        "me/sessions/<int:pk>/suggest/",
+        "me/sessions/<slug:slug>/suggest/",
         views.SuggestCoPresenterView.as_view(),
         name="my_session_suggest",
     ),
     path("me/schedule/", views.SpeakerScheduleView.as_view(), name="my_schedule"),
+    path("me/guide/", views.SpeakerGuideView.as_view(), name="my_guide"),
+    path("me/guide/read/", views.SpeakerGuideReadView.as_view(), name="my_guide_read"),
+    path(
+        "settings/handbook/",
+        views.HandbookListView.as_view(),
+        name="handbook_list",
+    ),
+    path(
+        "settings/handbook/<slug:key>/",
+        views.HandbookEditorView.as_view(),
+        name="handbook_editor",
+    ),
     path(
         "me/items/<int:pk>/toggle/",
         views.SpeakerItemToggleView.as_view(),
@@ -111,7 +124,7 @@ urlpatterns = [
     path("items/<int:pk>/status/", views.ItemStatusView.as_view(), name="item_status"),
     path("items/<int:pk>/assign/", views.ItemAssignView.as_view(), name="item_assign"),
     path(
-        "presenters/<int:pk>/items/add/",
+        "presenters/<slug:slug>/items/add/",
         views.PresenterAddItemView.as_view(),
         name="presenter_add_item",
     ),
@@ -154,6 +167,31 @@ urlpatterns = [
         "settings/checklists/<int:pk>/items/<int:item_pk>/<slug:action>/",
         views.TemplateItemActionView.as_view(),
         name="template_item_action",
+    ),
+    path(
+        "presenters/<slug:slug>/invite/",
+        views.PresenterInviteView.as_view(),
+        name="presenter_invite",
+    ),
+    path(
+        "invite/preview/",
+        views.InvitationPreviewView.as_view(),
+        name="invitation_preview",
+    ),
+    path(
+        "presenters/<slug:slug>/pretix/lookup/",
+        views.PresenterPretixLookupView.as_view(),
+        name="presenter_pretix_lookup",
+    ),
+    path(
+        "presenters/<slug:slug>/pretix/link/",
+        views.PresenterPretixLinkView.as_view(),
+        name="presenter_pretix_link",
+    ),
+    path(
+        "webhooks/pretix/<slug:conference_slug>/",
+        pretix_webhook,
+        name="pretix_webhook",
     ),
     path(
         "invitations/<int:pk>/resend/",

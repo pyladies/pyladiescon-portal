@@ -1,5 +1,6 @@
 import pytest
 from django.contrib.auth.models import AnonymousUser, User
+from django.core.exceptions import ValidationError
 from django.db import connection
 from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
@@ -7,7 +8,7 @@ from pytest_django.asserts import assertRedirects
 
 from portal.models import Conference
 from speakers.checklists import add_adhoc_item
-from speakers.constants import Delivery, ItemOwner, SessionStatus
+from speakers.constants import RESERVED_SLUGS, Delivery, ItemOwner, SessionStatus
 from speakers.context_processors import speaker_module
 from speakers.forms import ProgramItemForm, SessionForm
 from speakers.models import ActivityLog, ChecklistItem, Session
@@ -176,6 +177,7 @@ class TestContextProcessor:
         assert speaker_module(request) == {
             "speaker_module_enabled": False,
             "is_speaker_liaison": False,
+            "is_speaker_assignee": False,
             "is_speaker_presenter": False,
         }
 
@@ -188,6 +190,7 @@ class TestContextProcessor:
         assert speaker_module(request) == {
             "speaker_module_enabled": True,
             "is_speaker_liaison": True,
+            "is_speaker_assignee": False,
             "is_speaker_presenter": False,
         }
         request.user = organizer
@@ -195,6 +198,155 @@ class TestContextProcessor:
 
 
 @pytest.mark.django_db
+class TestSlugUrls:
+    """Sessions are addressed by slug: no number a speaker could read as an
+    ordinal. Slugs are unique per edition, editable by organizers, and never
+    rotate when a title changes."""
+
+    def test_absolute_url_has_no_number(self, sessions):
+        session = sessions["mine"]
+        assert session.get_absolute_url() == f"/speakers/sessions/{session.slug}/"
+        assert not any(ch.isdigit() for ch in session.get_absolute_url())
+
+    def test_edit_form_explains_the_address(self, client, organizer, sessions):
+        """The help text is on the declared field; Meta.help_texts would be
+        silently ignored for it."""
+        client.force_login(organizer)
+        page = client.get(
+            reverse("speakers:session_edit", args=[sessions["mine"].slug])
+        ).content.decode()
+        assert "Web address" in page
+        assert "Speakers can change it until the session is scheduled" in page
+        assert "organizers can always rename it" in page
+
+    def test_reserved_title_never_shadows_a_route(self, client, organizer, sessions):
+        """A session titled "New" must not take /speakers/sessions/new/, which
+        is the create form; derivation treats reserved words as taken."""
+        session = make_session(sessions["mine"].conference, title="New")
+        assert session.slug == "new-2"
+        client.force_login(organizer)
+        page = client.get(session.get_absolute_url()).content.decode()
+        assert "Presenters" in page and 'name="title"' not in page
+
+    def test_title_without_letters_falls_back_to_the_model_name(self, sessions):
+        session = make_session(sessions["mine"].conference, title="🎉🎉")
+        assert session.slug == "session"
+        assert (
+            make_session(sessions["mine"].conference, title="!!!").slug == "session-2"
+        )
+
+    def test_model_validation_refuses_reserved_and_clashing_slugs(self, sessions):
+        """The admin form goes through full_clean, so it reports these too."""
+        session = sessions["mine"]
+        session.slug = "new"
+        with pytest.raises(ValidationError, match="reserved"):
+            session.full_clean()
+        session.slug = sessions["theirs"].slug
+        with pytest.raises(ValidationError, match="already uses this address"):
+            session.full_clean()
+
+    def test_reserved_words_cover_the_routes(self):
+        """Every literal segment that sits where a slug would under
+        /speakers/ must be reserved, or a title could shadow it."""
+        from speakers import urls as speaker_urls
+
+        prefixes = ("sessions/", "presenters/", "me/sessions/")
+        literal_next = set()
+        for pattern in speaker_urls.urlpatterns:
+            route = str(pattern.pattern)
+            for prefix in prefixes:
+                if route.startswith(prefix):
+                    rest = route.removeprefix(prefix).split("/")[0]
+                    if rest and not rest.startswith("<"):
+                        literal_next.add(rest)
+        assert literal_next, "no literal segments found; the walk is broken"
+        assert literal_next <= RESERVED_SLUGS
+
+    def test_organizer_identity_change_on_scheduled_session_is_logged(
+        self, client, organizer, sessions
+    ):
+        session = sessions["mine"]
+        client.force_login(organizer)
+        url = reverse("speakers:session_edit", args=[session.slug])
+        base = {
+            "kind": session.kind_id,
+            "delivery": Delivery.LIVE,
+            "duration_minutes": 120,
+            "level": "BEGINNER",
+            "language": "en",
+        }
+        # Before scheduling: a rename is routine, nothing special is logged.
+        client.post(url, {**base, "title": "Early rename", "slug": ""})
+        assert not ActivityLog.objects.filter(
+            action="session.identity_changed"
+        ).exists()
+        session.refresh_from_db()
+        session.status = SessionStatus.SCHEDULED
+        session.save()
+        response = client.post(
+            url, {**base, "title": "Late rename", "slug": "late-rename"}, follow=True
+        )
+        assert "Already scheduled: the title and web address changed" in (
+            response.content.decode()
+        )
+        entry = ActivityLog.objects.get(action="session.identity_changed")
+        assert entry.actor == organizer
+        assert entry.data["changes"]["title"] == {
+            "from": "Early rename",
+            "to": "Late rename",
+        }
+        assert entry.data["changes"]["slug"]["to"] == "late-rename"
+
+    def test_same_title_gets_a_suffix_within_the_edition(self, conference, enabled):
+        first = make_session(conference, title="Django 101")
+        second = make_session(conference, title="Django 101")
+        assert first.slug == "django-101" and second.slug == "django-101-2"
+
+    def test_rename_keeps_the_slug(self, sessions):
+        session = sessions["mine"]
+        slug = session.slug
+        session.title = "Renamed"
+        session.save()
+        assert session.slug == slug
+
+    def test_other_edition_slug_does_not_resolve(self, client, organizer, sessions):
+        other = Conference.objects.create(year=2024, name="Old", slug="2024")
+        foreign = make_session(other, title="Elsewhere")
+        client.force_login(organizer)
+        assert client.get(f"/speakers/sessions/{foreign.slug}/").status_code == 404
+        assert client.get("/speakers/sessions/no-such-session/").status_code == 404
+
+    def test_organizer_edits_slug_with_clash_and_reserved_refused(
+        self, client, organizer, sessions, conference
+    ):
+        session = sessions["mine"]
+        taken = sessions["theirs"].slug
+        client.force_login(organizer)
+        url = reverse("speakers:session_edit", args=[session.slug])
+        base = {
+            "kind": session.kind_id,
+            "delivery": Delivery.LIVE,
+            "title": session.title,
+            "duration_minutes": 120,
+            "level": "BEGINNER",
+            "language": "en",
+        }
+        response = client.post(url, {**base, "slug": taken})
+        assert "already uses this address" in response.content.decode()
+        response = client.post(url, {**base, "slug": "new"})
+        assert "reserved" in response.content.decode()
+        response = client.post(url, {**base, "slug": "Intro To Django!"})
+        assert response.status_code == 302, response.context["form"].errors
+        session.refresh_from_db()
+        assert session.slug == "intro-to-django"
+        assertRedirects(response, "/speakers/sessions/intro-to-django/")
+        response = client.post(
+            url.replace(session.slug, "intro-to-django"), {**base, "slug": ""}
+        )
+        session.refresh_from_db()
+        assert session.slug == "intro-to-django"  # blank keeps the current address
+
+
 class TestSessionDetail:
     def test_renders(self, client, organizer, sessions):
         session = sessions["mine"]
@@ -273,7 +425,7 @@ class TestSessionForms:
     def test_edit(self, client, organizer, sessions):
         session = sessions["mine"]
         client.force_login(organizer)
-        url = reverse("speakers:session_edit", args=[session.pk])
+        url = reverse("speakers:session_edit", args=[session.slug])
         assert "Edit" in client.get(url).content.decode()
         response = client.post(
             url,
@@ -295,8 +447,8 @@ class TestSessionForms:
         session = sessions["mine"]
         client.force_login(liaison)
         content = client.get(session.get_absolute_url()).content.decode()
-        assert reverse("speakers:session_edit", args=[session.pk]) not in content
-        url = reverse("speakers:session_edit", args=[session.pk])
+        assert reverse("speakers:session_edit", args=[session.slug]) not in content
+        url = reverse("speakers:session_edit", args=[session.slug])
         assert client.get(url).status_code == 403
         response = client.post(
             url,
@@ -393,9 +545,9 @@ class TestSessionEditKeepsRetiredType:
         session.kind.is_active = False
         session.kind.save()
         client.force_login(organizer)
-        form = client.get(reverse("speakers:session_edit", args=[session.pk])).context[
-            "form"
-        ]
+        form = client.get(
+            reverse("speakers:session_edit", args=[session.slug])
+        ).context["form"]
         assert session.kind_id in [t.pk for t in form.fields["kind"].queryset]
         # ... but not on a new session.
         form = client.get(reverse("speakers:session_create")).context["form"]

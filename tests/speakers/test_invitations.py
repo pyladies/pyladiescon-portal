@@ -88,6 +88,14 @@ class TestSendInvitation:
         assert entry.action == "invitation.sent"
         assert entry.actor == admin_user
 
+    def test_debug_server_links_are_http(self, send, invitation, settings):
+        settings.DEBUG = True
+        send(invitation)
+        assert "http://example.com/speakers/invitations/" in mail.outbox[-1].body
+        settings.DEBUG = False
+        send(invitation)
+        assert "https://example.com/speakers/invitations/" in mail.outbox[-1].body
+
     def test_url_in_text_part_is_usable(self, send, invitation):
         """The plain-text part loses link targets, so the address is also
         written out as an autolink that survives the text conversion."""

@@ -1,0 +1,79 @@
+{% extends "speakers/_speaker_shell.html" %}
+{% load i18n %}
+{% load speakers_extras %}
+{% block head_title %}
+    {% trans "Speaker guides" %}
+{% endblock head_title %}
+{% block breadcrumb %}
+    {% url 'speakers:my_dashboard' as bc_url %}
+    {% trans "Speaking" as bc_section %}
+    {% trans "Speaker guides" as bc_page %}
+    {% include "portal/_breadcrumbs.html" with section=bc_section section_url=bc_url page=bc_page %}
+{% endblock breadcrumb %}
+{% block sidebar %}
+    {% include "speakers/_speaker_rail.html" with active="guide" %}
+{% endblock sidebar %}
+{% block content %}
+    <h1 class="h3 mb-1">
+        {% trans "Speaker guides" %}
+    </h1>
+    <p class="text-secondary">
+        {% trans "Please read each guide that applies to you and confirm below. We ask again only when a guide changes." %}
+    </p>
+    {% for guide in guides %}
+        <div class="card mb-3" data-guide="{{ guide.key }}">
+            <div class="card-body">
+                <div class="text-secondary small">
+                    {% blocktranslate with version=guide.handbook.version date=guide.handbook.published_at|date:"j F Y" %}Version {{ version }}, published {{ date }}{% endblocktranslate %}
+                </div>
+                <h2 class="h5 mb-2">
+                    {{ guide.handbook.title }}
+                </h2>
+                {% if guide.handbook.body_md %}
+                    <div class="mb-2">
+                        {{ guide.handbook.body_md|speaker_md }}
+                    </div>
+                {% endif %}
+                {% if guide.handbook.url %}
+                    <p>
+                        <a class="btn btn-outline-primary btn-sm"
+                           href="{{ guide.handbook.url }}"
+                           target="_blank"
+                           rel="noopener noreferrer">
+                            <i class="fa-solid fa-arrow-up-right-from-square"></i>
+                            {% blocktranslate with title=guide.handbook.title %}Open the {{ title }}{% endblocktranslate %}
+                        </a>
+                    </p>
+                {% endif %}
+                {% if guide.receipt %}
+                    <div class="alert alert-success mb-0">
+                        <i class="fa-solid fa-check"></i>
+                        {% blocktranslate with date=guide.receipt.read_at|date:"j F Y" version=guide.handbook.version %}You confirmed on {{ date }} that you read version {{ version }}. Thank you!{% endblocktranslate %}
+                    </div>
+                {% else %}
+                    <form method="post" action="{% url 'speakers:my_guide_read' %}">
+                        {% csrf_token %}
+                        <input type="hidden" name="key" value="{{ guide.key }}">
+                        <div class="form-check mb-2">
+                            <input class="form-check-input"
+                                   type="checkbox"
+                                   name="acknowledge"
+                                   id="acknowledge-{{ guide.key }}"
+                                   required>
+                            <label class="form-check-label" for="acknowledge-{{ guide.key }}">
+                                {% blocktranslate with title=guide.handbook.title version=guide.handbook.version %}I have read the {{ title }} (version {{ version }}).{% endblocktranslate %}
+                            </label>
+                        </div>
+                        <button class="btn btn-primary btn-sm" type="submit">
+                            <i class="fa-solid fa-check"></i> {% trans "Confirm" %}
+                        </button>
+                    </form>
+                {% endif %}
+            </div>
+        </div>
+    {% empty %}
+        <p class="text-secondary">
+            {% trans "Nothing to read just yet. Each guide your checklist asks for appears here once it is published." %}
+        </p>
+    {% endfor %}
+{% endblock content %}

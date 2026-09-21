@@ -5,7 +5,7 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import PermissionDenied
 from django.db import transaction
 from django.db.models import Count, F, Q
-from django.http import HttpResponse, HttpResponseBadRequest
+from django.http import Http404, HttpResponse, HttpResponseBadRequest
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -16,6 +16,7 @@ from django.views.generic.edit import CreateView, UpdateView
 from django_filters.views import FilterView
 from django_tables2.views import SingleTableMixin
 
+from attendee.models import PretixOrder
 from common.tasks import enqueue
 
 from .board import build_board, write_board_csv
@@ -30,20 +31,27 @@ from .checklists import (
 )
 from .clock import today
 from .constants import (
+    DEFAULT_GUIDE_KEY,
     OPEN_ITEM_STATUSES,
+    AutoRule,
     ChecklistScope,
     ItemOwner,
     ItemStatus,
     SessionStatus,
 )
+from .emails import render_invitation_preview
 from .filters import PresenterFilter, SessionFilter
 from .forms import (
+    DEFAULT_GUIDE_URL,
     AdhocItemForm,
     AssignItemForm,
     ChecklistTemplateForm,
     ChecklistTemplateItemForm,
+    HandbookForm,
     InviteForm,
+    NewHandbookForm,
     PresenterForm,
+    PresenterInviteForm,
     PresenterRoleForm,
     ProgramItemForm,
     SessionForm,
@@ -58,6 +66,7 @@ from .mixins import (
     PresenterRequiredMixin,
     SpeakerModuleRequiredMixin,
     SpeakerOrganizerRequiredMixin,
+    SpeakerQueueRequiredMixin,
     SpeakerStaffRequiredMixin,
 )
 from .models import (
@@ -65,14 +74,23 @@ from .models import (
     ChecklistItem,
     ChecklistTemplate,
     ChecklistTemplateItem,
+    Handbook,
+    HandbookReadReceipt,
     Invitation,
     Presenter,
     PresenterRole,
     Session,
     SessionType,
+    SpeakerSettings,
 )
-from .people import liaison_candidates
+from .people import assignee_candidates
 from .permissions import can_work_sessions, is_speaker_organizer
+from .pretix import (
+    PretixError,
+    link_presenter_order,
+    lookup_presenter_orders,
+    unlink_presenter_order,
+)
 from .rules import evaluate_items
 from .seeds import seed_checklists
 from .services import (
@@ -192,10 +210,50 @@ class SessionListView(
         return context
 
 
+def _identity_changes(form, fields):
+    """Which of ``fields`` really changed, as ``{name: {"from", "to"}}``.
+
+    Compares cleaned against initial rather than trusting ``changed_data``: a
+    blank or omitted slug is cleaned back to the current address and is not
+    a change."""
+    return {
+        name: {"from": form.initial.get(name), "to": form.cleaned_data[name]}
+        for name in fields
+        if name in form.changed_data
+        and form.cleaned_data.get(name) != form.initial.get(name)
+    }
+
+
+def _note_identity_change(request, form, fields, action):
+    """An organizer changed a title, name or address on a row whose identity
+    is locked for the speaker: log old and new values, and warn that links
+    already shared may break. Before the lock nothing is recorded here; the
+    speaker-side views record their own changes."""
+    changes = _identity_changes(form, fields)
+    if not changes or not form.instance.identity_locked:
+        return
+    ActivityLog.record(
+        form.instance.conference,
+        action,
+        target=form.instance,
+        actor=request.user,
+        changes=changes,
+    )
+    messages.warning(
+        request,
+        "Already scheduled: the "
+        + " and ".join(form.fields[name].label.lower() for name in changes)
+        + " changed, so links already shared may break.",
+    )
+
+
 class SessionScopedMixin(LoginRequiredMixin, SpeakerStaffRequiredMixin):
-    """Detail/edit views over the sessions this user may see."""
+    """Detail/edit views over the sessions this user may see. Sessions are
+    addressed by slug (unique per edition), never by number."""
 
     model = Session
+    slug_field = "slug"
+    slug_url_kwarg = "slug"
 
     def get_queryset(self):
         return (
@@ -242,6 +300,9 @@ class SessionUpdateView(LoginRequiredMixin, SpeakerOrganizerRequiredMixin, Updat
         return kwargs
 
     def form_valid(self, form):
+        _note_identity_change(
+            self.request, form, ("title", "slug"), "session.identity_changed"
+        )
         messages.success(self.request, f"Saved “{form.instance.title}”.")
         return super().form_valid(form)
 
@@ -349,6 +410,8 @@ class PresenterListView(
 
 class PresenterScopedMixin(LoginRequiredMixin, SpeakerStaffRequiredMixin):
     model = Presenter
+    slug_field = "slug"
+    slug_url_kwarg = "slug"
 
     def get_queryset(self):
         return (
@@ -373,10 +436,14 @@ class PresenterDetailView(PresenterScopedMixin, DetailView):
         context["session_links"] = self.object.session_links
         context["invitations"] = self.object.invitation_history
         context["activity"] = ActivityLog.for_target(self.object)[:20]
+        sent = [i for i in self.object.invitation_history if i.sent_at]
+        context["latest_sent"] = max(sent, key=lambda i: i.sent_at) if sent else None
+        context["accepted"] = next((i for i in sent if i.accepted_at), None)
+        context["invite_form"] = PresenterInviteForm(presenter=self.object)
         items = list(
-            self.object.checklist_items.select_related("assignee", "session").order_by(
-                "session__title", "order", "id"
-            )
+            self.object.checklist_items.select_related(
+                "assignee", "session", "completed_by"
+            ).order_by("session__title", "order", "id")
         )
         for item in items:
             item.overdue = item.is_overdue
@@ -385,9 +452,23 @@ class PresenterDetailView(PresenterScopedMixin, DetailView):
             i for i in items if i.owner == ItemOwner.ORGANIZER
         ]
         # One query for the assignee choices, shared by every row.
-        context["assignee_choices"] = list(liaison_candidates(self.conference))
+        context["assignee_choices"] = list(assignee_candidates(self.conference))
         context["adhoc_form"] = AdhocItemForm(conference=self.conference)
         context["can_assign"] = is_speaker_organizer(self.request.user)
+        # Checklists only make sense once the presenter has been invited; ad-hoc
+        # items added earlier still show.
+        context["show_checklists"] = bool(context["latest_sent"] or items)
+        settings_row = SpeakerSettings.objects.filter(
+            conference=self.conference
+        ).first()
+        context["pretix_configured"] = bool(
+            settings_row and settings_row.pretix_configured
+        )
+        context["matched_orders"] = list(
+            PretixOrder.objects.filter(
+                conference=self.conference, email__iexact=self.object.email
+            ).order_by("-datetime")[:5]
+        )
         return context
 
 
@@ -416,6 +497,12 @@ class PresenterUpdateView(
         return kwargs
 
     def form_valid(self, form):
+        _note_identity_change(
+            self.request,
+            form,
+            ("display_name", "slug"),
+            "presenter.identity_changed",
+        )
         messages.success(self.request, f"Saved {form.instance.display_name}.")
         return super().form_valid(form)
 
@@ -456,12 +543,12 @@ class OrganizerSessionActionMixin(LoginRequiredMixin, SpeakerOrganizerRequiredMi
 
     def get_session(self):
         return get_object_or_404(
-            Session.objects.for_conference(self.conference), pk=self.kwargs["pk"]
+            Session.objects.for_conference(self.conference), slug=self.kwargs["slug"]
         )
 
 
 class SessionAddPresenterView(OrganizerSessionActionMixin, View):
-    def post(self, request, pk):
+    def post(self, request, slug):
         session = self.get_session()
         form = SessionPresenterForm(request.POST, session=session)
         if form.is_valid():
@@ -491,7 +578,7 @@ class SessionAddPresenterView(OrganizerSessionActionMixin, View):
 
 
 class SessionRemovePresenterView(OrganizerSessionActionMixin, View):
-    def post(self, request, pk, link_pk):
+    def post(self, request, slug, link_pk):
         session = self.get_session()
         link = get_object_or_404(session.session_presenters, pk=link_pk)
         name, presenter_id = link.presenter.display_name, link.presenter_id
@@ -522,7 +609,7 @@ class SessionRemovePresenterView(OrganizerSessionActionMixin, View):
 class SessionInviteView(OrganizerSessionActionMixin, View):
     """Send (or resend) the invitation for one presenter on this session."""
 
-    def post(self, request, pk, link_pk):
+    def post(self, request, slug, link_pk):
         session = self.get_session()
         link = get_object_or_404(
             session.session_presenters.select_related("presenter"), pk=link_pk
@@ -546,6 +633,77 @@ class SessionInviteView(OrganizerSessionActionMixin, View):
         send_invitation(invitation, actor=request.user)
         messages.success(request, f"Invitation sent to {link.presenter.email}.")
         return redirect(session.get_absolute_url())
+
+
+class InvitationPreviewView(LoginRequiredMixin, SpeakerOrganizerRequiredMixin, View):
+    """The invitation email as it will be sent, rendered when an organizer
+    opens an invite form and again as they write the note (htmx posts the
+    form here). Rendering it on demand keeps a session page listing several
+    unconfirmed presenters from building an email for each of them that
+    nobody asked to see.
+
+    ``presenter`` is a slug; ``session`` the pk of one of that presenter's
+    sessions, or blank for the conference in general. Anything else falls
+    back to the general invitation rather than failing: this is a preview.
+    """
+
+    def post(self, request):
+        presenter = get_object_or_404(
+            Presenter.objects.for_conference(self.conference),
+            slug=request.POST.get("presenter", ""),
+        )
+        session = None
+        value = request.POST.get("session", "")
+        if value.isdigit():
+            link = (
+                presenter.session_presenters.filter(session_id=int(value))
+                .select_related("session")
+                .first()
+            )
+            session = link.session if link is not None else None
+        preview = render_invitation_preview(
+            Invitation(
+                presenter=presenter,
+                session=session,
+                message_md=request.POST.get("message_md", "")[:2000],
+                invited_by=request.user,
+            )
+        )
+        return render(
+            request, "speakers/_invitation_preview.html", {"preview": preview}
+        )
+
+
+class PresenterInviteView(LoginRequiredMixin, SpeakerOrganizerRequiredMixin, View):
+    """Send (or resend) an invitation from the presenter page, to a chosen
+    session or to the conference in general."""
+
+    def post(self, request, slug):
+        presenter = get_object_or_404(
+            Presenter.objects.for_conference(self.conference), slug=slug
+        )
+        form = PresenterInviteForm(request.POST, presenter=presenter)
+        if not form.is_valid():
+            messages.error(request, "Pick one of the presenter's sessions.")
+            return redirect(presenter.get_absolute_url())
+        session = form.cleaned_data["session"]
+        invitation = (
+            Invitation.objects.filter(presenter=presenter, session=session)
+            .exclude(accepted_at__isnull=False)
+            .order_by("-creation_date", "-id")
+            .first()
+        )
+        resend = invitation is not None and invitation.sent_at is not None
+        if invitation is None:
+            invitation = Invitation(presenter=presenter, session=session)
+        invitation.invited_by = request.user
+        invitation.message_md = form.cleaned_data["message_md"]
+        send_invitation(invitation, actor=request.user)
+        messages.success(
+            request,
+            f"Invitation {'resent' if resend else 'sent'} to {presenter.email}.",
+        )
+        return redirect(presenter.get_absolute_url())
 
 
 class InvitationActionMixin(LoginRequiredMixin, SpeakerOrganizerRequiredMixin):
@@ -690,16 +848,26 @@ class SpeakerProfileUpdateView(LoginRequiredMixin, PresenterRequiredMixin, Updat
     def get_object(self, queryset=None):
         return self.presenter
 
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["locked"] = self.presenter.identity_locked
+        return kwargs
+
     def get_success_url(self):
         return reverse("speakers:my_profile")
 
     def form_valid(self, form):
+        changes = _identity_changes(form, ("display_name", "slug"))
         response = super().form_valid(form)
+        # Every name or address change is on record, whoever made it: a
+        # co-presenter's bookmark breaks on a new address and the trail
+        # must say what the old one was.
         ActivityLog.record(
             self.conference,
             "presenter.profile_updated",
             target=self.object,
             actor=self.request.user,
+            **({"changes": changes} if changes else {}),
         )
         messages.success(self.request, "Your profile is saved.")
         return response
@@ -716,7 +884,7 @@ class SpeakerSessionMixin(LoginRequiredMixin, PresenterRequiredMixin):
 
     def get_session(self):
         session = get_object_or_404(
-            Session.objects.for_conference(self.conference), pk=self.kwargs["pk"]
+            Session.objects.for_conference(self.conference), slug=self.kwargs["slug"]
         )
         if not session.session_presenters.filter(presenter=self.presenter).exists():
             raise PermissionDenied("You are not a presenter on this session.")
@@ -757,13 +925,20 @@ class SpeakerSessionUpdateView(SpeakerSessionMixin, UpdateView):
     def get_success_url(self):
         return reverse("speakers:my_sessions")
 
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["locked"] = self.object.identity_locked
+        return kwargs
+
     def form_valid(self, form):
+        changes = _identity_changes(form, ("title", "slug"))
         response = super().form_valid(form)
         ActivityLog.record(
             self.conference,
             "session.updated_by_presenter",
             target=self.object,
             actor=self.request.user,
+            **({"changes": changes} if changes else {}),
         )
         messages.success(self.request, f"Saved “{self.object.title}”.")
         return response
@@ -780,12 +955,12 @@ class SpeakerSessionUpdateView(SpeakerSessionMixin, UpdateView):
 
 
 class SuggestCoPresenterView(SpeakerSessionMixin, View):
-    def post(self, request, pk):
+    def post(self, request, slug):
         session = self.get_session()
         form = SuggestCoPresenterForm(request.POST)
         if not form.is_valid():
             messages.error(request, "Please give a name and a valid email address.")
-            return redirect("speakers:my_session_edit", pk=session.pk)
+            return redirect("speakers:my_session_edit", slug=session.slug)
         data = form.cleaned_data
         ActivityLog.record(
             self.conference,
@@ -806,7 +981,7 @@ class SuggestCoPresenterView(SpeakerSessionMixin, View):
         messages.success(
             request, f"Thanks, we've passed {data['name']} on to the organizers."
         )
-        return redirect("speakers:my_session_edit", pk=session.pk)
+        return redirect("speakers:my_session_edit", slug=session.slug)
 
 
 class SpeakerScheduleView(LoginRequiredMixin, PresenterRequiredMixin, TemplateView):
@@ -937,8 +1112,11 @@ class ChecklistBoardExportView(ChecklistBoardView):
         return response
 
 
-class ChecklistQueueView(LoginRequiredMixin, SpeakerStaffRequiredMixin, TemplateView):
-    """Organizer items assigned to me, soonest first (design §9.6)."""
+class ChecklistQueueView(LoginRequiredMixin, SpeakerQueueRequiredMixin, TemplateView):
+    """Organizer items assigned to me, soonest first (design §9.6).
+
+    Open to whoever carries one: a volunteer who is neither organizer nor
+    liaison reaches it from the daily digest."""
 
     template_name = "speakers/checklist_queue.html"
 
@@ -963,13 +1141,16 @@ class ChecklistQueueView(LoginRequiredMixin, SpeakerStaffRequiredMixin, Template
                 "rail_active": "queue",
                 "items": items,
                 "today": today(),
+                # A volunteer assignee may not open presenter or session
+                # pages, so their rows name them without linking.
+                "can_open_pages": can_work_sessions(self.request.user, self.conference),
             }
         )
         return context
 
 
-class ItemActionMixin(LoginRequiredMixin, SpeakerStaffRequiredMixin):
-    """An item this organizer or liaison may act on."""
+class ItemActionMixin(LoginRequiredMixin, SpeakerQueueRequiredMixin):
+    """An item this organizer, liaison or assignee may act on."""
 
     def get_item(self):
         item = get_object_or_404(
@@ -979,10 +1160,14 @@ class ItemActionMixin(LoginRequiredMixin, SpeakerStaffRequiredMixin):
             pk=self.kwargs["pk"],
             conference=self.conference,
         )
-        if not is_speaker_organizer(self.request.user) and (
-            item.presenter is None or item.presenter.liaison_id != self.request.user.pk
-        ):
-            raise PermissionDenied("This item belongs to a presenter you don't liaise.")
+        user = self.request.user
+        if is_speaker_organizer(user) or item.assignee_id == user.pk:
+            return item
+        if item.presenter is None or item.presenter.liaison_id != user.pk:
+            raise PermissionDenied(
+                "This item is not yours: you neither liaise its presenter nor "
+                "carry it."
+            )
         return item
 
     def respond(self, request, item, error=""):
@@ -997,18 +1182,23 @@ class ItemActionMixin(LoginRequiredMixin, SpeakerStaffRequiredMixin):
                 "speakers/_organizer_item_row.html",
                 {
                     "item": item,
-                    "assignee_choices": list(liaison_candidates(self.conference)),
+                    "assignee_choices": list(assignee_candidates(self.conference)),
                     "can_assign": is_speaker_organizer(request.user),
                     "error": error,
                 },
             )
         if error:
             messages.error(request, error)
-        fallback = (
-            item.presenter.get_absolute_url()
-            if item.presenter
-            else item.session.get_absolute_url()
-        )
+        # An assignee who is neither organizer nor liaison cannot open the
+        # presenter or session page, so their fallback is the queue.
+        if can_work_sessions(request.user, self.conference):
+            fallback = (
+                item.presenter.get_absolute_url()
+                if item.presenter
+                else item.session.get_absolute_url()
+            )
+        else:
+            fallback = reverse("speakers:checklist_queue")
         target = request.POST.get("next", "")
         if not url_has_allowed_host_and_scheme(
             target,
@@ -1058,8 +1248,8 @@ class ItemAssignView(ItemActionMixin, View):
 
 
 class PresenterAddItemView(PresenterScopedMixin, View):
-    def post(self, request, pk):
-        presenter = get_object_or_404(self.get_queryset(), pk=pk)
+    def post(self, request, slug):
+        presenter = get_object_or_404(self.get_queryset(), slug=slug)
         form = AdhocItemForm(request.POST, conference=self.conference)
         if form.is_valid():
             add_adhoc_item(
@@ -1125,7 +1315,12 @@ class ChecklistTemplateSeedView(TemplateEditorMixin, View):
         result = seed_checklists(self.conference)
         messages.success(
             request,
-            f"Loaded {result.templates} template(s) and {result.items} item(s).",
+            f"Loaded {result.templates} template(s) and {result.items} item(s)."
+            + (
+                f" Filled in {result.described} missing description(s)."
+                if result.described
+                else ""
+            ),
         )
         if result.skipped:
             names = "; ".join(f"{name} ({why})" for name, why in result.skipped)
@@ -1197,6 +1392,11 @@ class ChecklistTemplateDetailView(TemplateEditorMixin, TemplateView):
 class TemplateItemFormMixin(TemplateEditorMixin):
     form_class = ChecklistTemplateItemForm
     template_name = "speakers/template_item_form.html"
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["conference"] = self.conference
+        return kwargs
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -1278,3 +1478,297 @@ class TemplateItemActionView(TemplateEditorMixin, View):
         for position, each in enumerate(items):
             if each.order != position:
                 ChecklistTemplateItem.objects.filter(pk=each.pk).update(order=position)
+
+
+# ---- Pretix on the presenter page (design §12.1) -----------------------------
+
+
+class PresenterPretixLookupView(
+    LoginRequiredMixin, SpeakerOrganizerRequiredMixin, View
+):
+    def post(self, request, slug):
+        presenter = get_object_or_404(
+            Presenter.objects.for_conference(self.conference), slug=slug
+        )
+        try:
+            orders = lookup_presenter_orders(presenter, actor=request.user)
+        except PretixError as exc:
+            messages.error(request, f"Pretix lookup failed: {exc}")
+        else:
+            if orders is None:
+                messages.error(request, "Pretix is not configured for this edition.")
+            elif orders:
+                codes = ", ".join(o.order_code for o in orders)
+                messages.success(request, f"Found {len(orders)} order(s): {codes}.")
+            else:
+                messages.info(request, f"No pretix order under {presenter.email}.")
+        return redirect(presenter.get_absolute_url())
+
+
+class PresenterPretixLinkView(LoginRequiredMixin, SpeakerOrganizerRequiredMixin, View):
+    def post(self, request, slug):
+        presenter = get_object_or_404(
+            Presenter.objects.for_conference(self.conference), slug=slug
+        )
+        code = request.POST.get("order_code", "").strip().upper()
+        if request.POST.get("action") == "unlink":
+            unlink_presenter_order(presenter, actor=request.user)
+            messages.success(request, "Unlinked the pretix order.")
+        elif not code:
+            messages.error(request, "Give the pretix order code.")
+        else:
+            try:
+                order = link_presenter_order(presenter, code, actor=request.user)
+            except PretixError as exc:
+                messages.error(request, f"Could not link order {code}: {exc}")
+            else:
+                messages.success(request, f"Linked order {order.order_code}.")
+        return redirect(presenter.get_absolute_url())
+
+
+# ---- Handbook (design §8.7, task 2.9) ---------------------------------------
+
+
+class SpeakerGuideView(LoginRequiredMixin, PresenterRequiredMixin, TemplateView):
+    """The guides this presenter has to read: one per guide their checklists
+    require (the general speaker guide when none does), each with its own
+    acknowledgement, like accepting terms of service."""
+
+    template_name = "speakers/speaker_guide.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        guides = []
+        for key in required_guide_keys(self.presenter):
+            handbook = Handbook.current(self.conference, key)
+            if handbook is None:
+                continue
+            guides.append(
+                {
+                    "key": key,
+                    "handbook": handbook,
+                    "receipt": HandbookReadReceipt.objects.filter(
+                        presenter=self.presenter, handbook=handbook
+                    ).first(),
+                }
+            )
+        context.update(
+            {
+                "conference": self.conference,
+                "presenter": self.presenter,
+                "guides": guides,
+            }
+        )
+        return context
+
+
+def required_guide_keys(presenter):
+    """Guide keys named by the presenter's "read the guide" items, sorted.
+
+    Empty until they have such an item: a presenter whose checklist does not
+    exist yet is asked to read nothing, rather than acknowledging a guide
+    their eventual checklist may never name.
+    """
+    keys = {
+        key or DEFAULT_GUIDE_KEY
+        for key in ChecklistItem.objects.filter(
+            presenter=presenter, auto_complete_rule=AutoRule.HANDBOOK_READ
+        ).values_list("requires_handbook", flat=True)
+    }
+    return sorted(keys)
+
+
+def required_handbook_keys(conference):
+    """Every guide key this edition's checklists ask for, from the templates
+    and from items already handed out. A blank key means the default guide."""
+    template_keys = ChecklistTemplateItem.objects.filter(
+        template__conference=conference, auto_complete_rule=AutoRule.HANDBOOK_READ
+    ).values_list("requires_handbook", flat=True)
+    item_keys = ChecklistItem.objects.filter(
+        conference=conference,
+        auto_complete_rule=AutoRule.HANDBOOK_READ,
+        status__in=list(OPEN_ITEM_STATUSES),
+    ).values_list("requires_handbook", flat=True)
+    return {key or DEFAULT_GUIDE_KEY for key in [*template_keys, *item_keys]}
+
+
+class SpeakerGuideReadView(LoginRequiredMixin, PresenterRequiredMixin, View):
+    """The explicit acknowledgement for one guide: the presenter ticks the
+    box and confirms they read its current version."""
+
+    def post(self, request):
+        key = request.POST.get("key", DEFAULT_GUIDE_KEY)
+        handbook = (
+            Handbook.current(self.conference, key)
+            if key in required_guide_keys(self.presenter)
+            else None
+        )
+        if handbook is None:
+            return HttpResponseBadRequest("No such published guide for you.")
+        if not request.POST.get("acknowledge"):
+            messages.error(request, "Tick the box to confirm you have read the guide.")
+            return redirect("speakers:my_guide")
+        _, created = handbook.record_read(self.presenter)
+        if created:
+            ActivityLog.record(
+                self.conference,
+                "handbook.read",
+                target=self.presenter,
+                actor=request.user,
+                key=handbook.key,
+                version=handbook.version,
+            )
+        messages.success(
+            request, f"Thanks, we've noted that you read {handbook.title}."
+        )
+        return redirect("speakers:my_guide")
+
+
+class HandbookListView(LoginRequiredMixin, SpeakerOrganizerRequiredMixin, TemplateView):
+    """All guides of the edition, and a form to start another one."""
+
+    template_name = "speakers/handbook_list.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        existing = Handbook.keys(self.conference)
+        rows = []
+        for key, title in existing:
+            current = Handbook.current(self.conference, key)
+            rows.append(
+                {
+                    "key": key,
+                    "title": title,
+                    "current": current,
+                    "draft": Handbook.draft(self.conference, key),
+                    "readers": current.receipts.count() if current else 0,
+                }
+            )
+        referenced = required_handbook_keys(self.conference)
+        if not referenced and not existing:
+            # Nothing written and no checklist asking yet: still offer the
+            # default guide, so a fresh edition has somewhere to start.
+            referenced = {DEFAULT_GUIDE_KEY}
+        missing = sorted(referenced - {key for key, _ in existing})
+        rows += [{"key": key, "missing": True} for key in missing]
+        context.update(
+            {
+                "conference": self.conference,
+                "rail_active": "handbook",
+                "rows": rows,
+                "missing_count": len(missing),
+                "new_form": kwargs.get("new_form") or self.prefilled_form(),
+            }
+        )
+        return context
+
+    def prefilled_form(self):
+        """The add form, filled in when an organizer clicks "start this
+        guide" on a key the checklists ask for but nobody has written."""
+        key = self.request.GET.get("key", "")
+        initial = (
+            {"key": key, "title": f"{key.replace('-', ' ').capitalize()} guide"}
+            if key
+            else None
+        )
+        return NewHandbookForm(conference=self.conference, initial=initial)
+
+    def post(self, request):
+        form = NewHandbookForm(request.POST, conference=self.conference)
+        if not form.is_valid():
+            return self.render_to_response(self.get_context_data(new_form=form))
+        # A new guide starts unpublished and pointed at the conference's
+        # docs index. That placeholder satisfies the editor's "a link or a
+        # note" check, which is deliberate: an organizer may publish a guide
+        # that only says "see the docs" and refine the address later.
+        Handbook.objects.create(
+            conference=self.conference,
+            key=form.cleaned_data["key"],
+            title=form.cleaned_data["title"],
+            url=DEFAULT_GUIDE_URL,
+        )
+        messages.success(request, f"Started the {form.cleaned_data['title']} guide.")
+        return redirect("speakers:handbook_editor", key=form.cleaned_data["key"])
+
+
+class HandbookEditorView(
+    LoginRequiredMixin, SpeakerOrganizerRequiredMixin, TemplateView
+):
+    """Write the next version of one guide as a draft, publish it when ready."""
+
+    template_name = "speakers/handbook_editor.html"
+
+    @property
+    def key(self):
+        return self.kwargs["key"]
+
+    def get_draft(self):
+        return Handbook.draft(self.conference, self.key)
+
+    def get_form(self, data=None):
+        draft = self.get_draft()
+        if draft is not None:
+            return HandbookForm(data, instance=draft)
+        current = Handbook.current(self.conference, self.key)
+        initial = (
+            {"title": current.title, "url": current.url, "body_md": current.body_md}
+            if current
+            else {"url": DEFAULT_GUIDE_URL}
+        )
+        return HandbookForm(data, initial=initial)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        versions = list(
+            Handbook.objects.filter(conference=self.conference, key=self.key)
+            .annotate(reader_count=Count("receipts"))
+            .order_by("-version")
+        )
+        if not versions and self.key != DEFAULT_GUIDE_KEY:
+            raise Http404("No such guide.")
+        context.update(
+            {
+                "conference": self.conference,
+                "rail_active": "handbook",
+                "key": self.key,
+                "form": kwargs.get("form") or self.get_form(),
+                "current": Handbook.current(self.conference, self.key),
+                "draft": self.get_draft(),
+                "versions": versions,
+            }
+        )
+        return context
+
+    def post(self, request, key):
+        form = self.get_form(request.POST)
+        if not form.is_valid():
+            return self.render_to_response(self.get_context_data(form=form))
+        handbook = form.save(commit=False)
+        if handbook.pk is None:
+            handbook.conference = self.conference
+            handbook.key = key
+            handbook.version = Handbook.next_version(self.conference, key)
+        if request.POST.get("action") == "publish":
+            if not handbook.url and not handbook.body_md.strip():
+                form.add_error(
+                    "url", "Give a link or write the guide before publishing."
+                )
+                return self.render_to_response(self.get_context_data(form=form))
+            handbook.publish()
+            ActivityLog.record(
+                self.conference,
+                "handbook.published",
+                target=handbook,
+                actor=request.user,
+                key=key,
+                version=handbook.version,
+            )
+            messages.success(
+                request,
+                f"Published {handbook.title} version {handbook.version}. Presenters "
+                "who read an earlier version have their guide item re-opened.",
+            )
+        else:
+            handbook.save()
+            messages.success(request, f"Saved draft version {handbook.version}.")
+        return redirect("speakers:handbook_editor", key=key)

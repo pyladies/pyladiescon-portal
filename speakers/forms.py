@@ -3,24 +3,74 @@ import zoneinfo
 from django import forms
 from django.contrib.auth.models import User
 from django.db.models import Q
+from django.utils.text import slugify
+from text_unidecode import unidecode
 
-from .constants import Delivery, ItemOwner
+from .constants import (
+    DEFAULT_GUIDE_KEY,
+    RESERVED_SLUGS,
+    SLUG_MAX_LENGTH,
+    Delivery,
+    ItemOwner,
+)
 from .models import (
     ChecklistTemplate,
     ChecklistTemplateItem,
+    Handbook,
     Presenter,
     PresenterRole,
     Session,
     SessionPresenter,
     SessionType,
 )
-from .people import liaison_candidates, user_label
+from .people import assignee_candidates, liaison_candidates, user_label
 
 MARKDOWN_HELP = "Markdown supported: headings, lists, links, **bold**, *italics*."
 
 
+def _slug_field(example, source, who):
+    """The editable web-address field, declared (not generated) so it accepts
+    free text that ``_clean_slug`` normalises; Meta.help_texts would be
+    ignored for a declared field, so the text lives here."""
+    return forms.CharField(
+        required=False,
+        max_length=SLUG_MAX_LENGTH,
+        label="Web address",
+        help_text=f"Seen publicly as {who} web address, e.g. {example}. Leave "
+        f"blank to derive it from the {source}. Speakers can change it until "
+        "the session is scheduled; organizers can always rename it. Links "
+        "already shared break if it changes.",
+    )
+
+
+class IdentityLockMixin:
+    """For the speaker forms: the identity fields (title or name, and the
+    web address) are theirs until the session is scheduled. With
+    ``locked=True`` those fields are dropped, so a stale POST carrying them
+    is ignored rather than rejected, and listed in ``locked_fields`` for the
+    template to show read-only."""
+
+    IDENTITY_FIELDS = ()
+
+    def __init__(self, *args, locked=False, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.conference = self.instance.conference
+        self.locked = locked
+        self.locked_fields = []
+        if locked:
+            for name, label in self.IDENTITY_FIELDS:
+                self.fields.pop(name)
+                self.locked_fields.append((label, getattr(self.instance, name)))
+
+
 class SessionForm(forms.ModelForm):
     """Create or edit a session. Every content field is optional markdown."""
+
+    # Free text, normalised to a slug in clean_slug; a SlugField would refuse
+    # "Intro To Django" before the cleaner could turn it into intro-to-django.
+    # Declared here, so label and help text live here too: Meta.help_texts
+    # applies only to fields Django generates from the model.
+    slug = _slug_field("/speakers/sessions/django-101/", "title", "this session's")
 
     class Meta:
         model = Session
@@ -28,6 +78,7 @@ class SessionForm(forms.ModelForm):
             "kind",
             "delivery",
             "title",
+            "slug",
             "summary_md",
             "outline_md",
             "prerequisites_md",
@@ -80,6 +131,9 @@ class SessionForm(forms.ModelForm):
             + "."
         )
 
+    def clean_slug(self):
+        return _clean_slug(self, Session, "session")
+
     def clean(self):
         cleaned = super().clean()
         delivery = cleaned.get("delivery")
@@ -128,11 +182,13 @@ class PresenterForm(forms.ModelForm):
     """Organizer-side presenter create/edit, including the liaison."""
 
     timezone = forms.ChoiceField(choices=timezone_choices, initial="UTC")
+    slug = _slug_field("/speakers/presenters/ada-lovelace/", "name", "this presenter's")
 
     class Meta:
         model = Presenter
         fields = [
             "display_name",
+            "slug",
             "email",
             "pronouns",
             "liaison",
@@ -155,6 +211,9 @@ class PresenterForm(forms.ModelForm):
         self.conference = conference
         self.fields["liaison"].queryset = liaison_candidates(conference)
         self.fields["liaison"].label_from_instance = user_label
+
+    def clean_slug(self):
+        return _clean_slug(self, Presenter, "presenter")
 
     def clean_email(self):
         email = self.cleaned_data["email"].strip().lower()
@@ -210,18 +269,27 @@ class InviteForm(forms.Form):
     )
 
 
-class SpeakerProfileForm(forms.ModelForm):
-    """What a presenter edits about themselves (design §2.3)."""
+class SpeakerProfileForm(IdentityLockMixin, forms.ModelForm):
+    """What a presenter edits about themselves (design §2.3).
+
+    The display name and the web address are theirs until one of their
+    sessions is scheduled (``locked``); then both are dropped from the form
+    and shown read-only via ``locked_fields``.
+    """
 
     timezone = forms.ChoiceField(
         choices=timezone_choices,
         help_text="Reminders and your schedule view use this.",
     )
+    slug = _slug_field("/speakers/presenters/ada-lovelace/", "name", "your")
+
+    IDENTITY_FIELDS = (("display_name", "Name"), ("slug", "Web address"))
 
     class Meta:
         model = Presenter
         fields = [
             "display_name",
+            "slug",
             "pronouns",
             "bio_md",
             "headshot",
@@ -242,14 +310,27 @@ class SpeakerProfileForm(forms.ModelForm):
             "is_public": "Your name still appears on your sessions when this is off.",
         }
 
+    def clean_slug(self):
+        return _clean_slug(self, Presenter, "presenter")
 
-class SpeakerSessionForm(forms.ModelForm):
-    """What a presenter edits about their session. Every field is optional
-    markdown; the duration is set by the organizers."""
+
+class SpeakerSessionForm(IdentityLockMixin, forms.ModelForm):
+    """What a presenter edits about their session. Every content field is
+    optional markdown; the duration is set by the organizers.
+
+    The title and the web address are theirs to edit until an organizer
+    schedules the session (``locked``); then those two fields are dropped
+    from the form, so a stale POST carrying them is ignored rather than
+    rejected, and shown read-only by the template via ``locked_fields``.
+    """
+
+    slug = _slug_field("/speakers/sessions/django-101/", "title", "this session's")
 
     class Meta:
         model = Session
         fields = [
+            "title",
+            "slug",
             "summary_md",
             "outline_md",
             "prerequisites_md",
@@ -270,6 +351,11 @@ class SpeakerSessionForm(forms.ModelForm):
             "audience_md": MARKDOWN_HELP,
         }
 
+    IDENTITY_FIELDS = (("title", "Title"), ("slug", "Web address"))
+
+    def clean_slug(self):
+        return _clean_slug(self, Session, "session")
+
 
 class SuggestCoPresenterForm(forms.Form):
     """ "Suggest a co-presenter": the organizers get an email and decide."""
@@ -281,6 +367,27 @@ class SuggestCoPresenterForm(forms.Form):
         widget=forms.Textarea(attrs={"rows": 3}),
         help_text="Why they would be a great addition (optional).",
     )
+
+
+def _clean_slug(form, model, noun):
+    """Normalise an optional slug and refuse a clash within the edition.
+
+    Blank means "derive from the title or name on save". The unique
+    constraint spans ``conference``, which is not a form field, so Django's
+    constraint validation skips it here."""
+    slug = slugify(unidecode(form.cleaned_data.get("slug", "") or ""))[:SLUG_MAX_LENGTH]
+    if not slug:
+        # Blank on create derives from the title or name on save; blank on
+        # edit keeps the current address rather than rotating it.
+        return form.instance.slug or ""
+    if slug in RESERVED_SLUGS:
+        raise forms.ValidationError(f"“{slug}” is reserved; pick another address.")
+    clash = model.objects.filter(conference=form.conference, slug=slug).exclude(
+        pk=form.instance.pk
+    )
+    if clash.exists():
+        raise forms.ValidationError(f"Another {noun} already uses this address.")
+    return slug
 
 
 def _unique_code(form, model, noun):
@@ -394,7 +501,7 @@ class AdhocItemForm(forms.Form):
 
     def __init__(self, *args, conference, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["assignee"].queryset = liaison_candidates(conference)
+        self.fields["assignee"].queryset = assignee_candidates(conference)
         self.fields["assignee"].label_from_instance = user_label
 
 
@@ -403,7 +510,7 @@ class AssignItemForm(forms.Form):
 
     def __init__(self, *args, conference, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["assignee"].queryset = liaison_candidates(conference)
+        self.fields["assignee"].queryset = assignee_candidates(conference)
 
 
 class ChecklistTemplateForm(forms.ModelForm):
@@ -462,12 +569,89 @@ class ChecklistTemplateItemForm(forms.ModelForm):
             "auto_complete_rule",
             "requires_asset_kind",
             "requires_asset_language",
+            "requires_handbook",
             "per_translation_language",
             "is_required",
             "assignee_default",
         ]
         widgets = {"description_md": forms.Textarea(attrs={"rows": 2})}
         help_texts = {
-            "description_md": MARKDOWN_HELP,
+            "description_md": MARKDOWN_HELP
+            + " Speakers see this under the title on their to-do list.",
             "auto_complete_rule": "Pick a rule and the portal ticks the item itself.",
         }
+
+    def __init__(self, *args, conference, **kwargs):
+        super().__init__(*args, **kwargs)
+        # The guide is picked from the edition's guides, not typed.
+        choices = [("", f"{DEFAULT_GUIDE_KEY} (default)")] + [
+            (key, f"{title} ({key})")
+            for key, title in Handbook.keys(conference)
+            if key != DEFAULT_GUIDE_KEY
+        ]
+        self.fields["requires_handbook"] = forms.ChoiceField(
+            choices=choices,
+            required=False,
+            label="Guide",
+            help_text='Which guide the "read the guide" rule checks.',
+        )
+
+
+class NewHandbookForm(forms.Form):
+    """Start another guide for the edition (workshop, keynote, performer...)."""
+
+    key = forms.SlugField(max_length=40, help_text="Short identifier, e.g. workshop.")
+    title = forms.CharField(max_length=200)
+
+    def __init__(self, *args, conference, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.conference = conference
+
+    def clean_key(self):
+        key = self.cleaned_data["key"].lower()
+        if Handbook.objects.filter(conference=self.conference, key=key).exists():
+            raise forms.ValidationError("A guide with this key already exists.")
+        return key
+
+
+DEFAULT_GUIDE_URL = "https://conference.pyladies.com/docs/"
+
+
+class HandbookForm(forms.ModelForm):
+    class Meta:
+        model = Handbook
+        fields = ["title", "url", "body_md"]
+        widgets = {"body_md": forms.Textarea(attrs={"rows": 6})}
+        help_texts = {"body_md": MARKDOWN_HELP + " Optional."}
+
+
+class PresenterInviteForm(InviteForm):
+    """Invite from the presenter page: pick the session (or the conference
+    in general) and write the note."""
+
+    session = forms.ChoiceField(required=False, label="Invite to")
+
+    def __init__(self, *args, presenter, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.presenter = presenter
+        self.links = list(
+            presenter.session_presenters.select_related("session", "role").order_by(
+                "session__title"
+            )
+        )
+        self.fields["session"].choices = [
+            (str(link.session_id), f"{link.session.title} ({link.role.name})")
+            for link in self.links
+        ] + [("", "The conference in general")]
+        self.order_fields(["session", "message_md"])
+
+    def clean_session(self):
+        """The choices were built from ``self.links``, and ChoiceField has
+        already refused anything else, so read the answer off that list
+        instead of querying for it again."""
+        value = self.cleaned_data["session"]
+        if not value:
+            return None
+        return next(
+            link.session for link in self.links if str(link.session_id) == value
+        )

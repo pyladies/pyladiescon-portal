@@ -1,4 +1,5 @@
 {% load i18n %}
+{% load portal_extras speakers_extras %}
 {% trans "Mark as not done" as undo_label %}
 {% trans "Mark as done" as do_label %}
 {% trans "Ticks itself" as auto_label %}
@@ -41,6 +42,11 @@ One checklist line. Params:
                    title="{{ auto_label }}"></i>
             {% endif %}
         </div>
+        {% if item.description_md %}
+            <div class="small text-body-secondary item-description">
+                {{ item.description_md|speaker_md }}
+            </div>
+        {% endif %}
         <div class="small text-secondary">
             {% if item.session %}
                 {{ item.session.title }} ·
@@ -55,13 +61,24 @@ One checklist line. Params:
             {% endif %}
             {% if show_assignee %}
                 ·
-                {% if item.assignee %}
-                    {{ item.assignee.get_full_name|default:item.assignee.username }}
+                {% if item.is_done %}
+                    {% if item.completed_by %}
+                        {% blocktranslate with name=item.completed_by.get_full_name|default:item.completed_by.username date=item.completed_at|date:"j M" %}done by {{ name }} on {{ date }}{% endblocktranslate %}
+                    {% else %}
+                        {% blocktranslate with date=item.completed_at|date:"j M" %}done automatically on {{ date }}{% endblocktranslate %}
+                    {% endif %}
+                {% elif item.assignee %}
+                    {% blocktranslate with name=item.assignee.get_full_name|default:item.assignee.username %}{{ name }} is on it{% endblocktranslate %}
                 {% else %}
-                    {% trans "unassigned" %}
+                    {% trans "not yet assigned" %}
                 {% endif %}
             {% endif %}
         </div>
+        {% if show_assignee and not item.is_done %}
+            <div class="small text-secondary fst-italic">
+                {% trans "A team task: nothing for you to do here." %}
+            </div>
+        {% endif %}
         {% if item.status == "BLOCKED" and item.note %}
             <div class="small text-danger">
                 {{ item.note }}

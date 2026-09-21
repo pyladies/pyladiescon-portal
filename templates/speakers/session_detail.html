@@ -31,7 +31,7 @@
         </div>
         {% if is_organizer %}
             <a class="btn btn-outline-primary"
-               href="{% url 'speakers:session_edit' session.pk %}">
+               href="{% url 'speakers:session_edit' session.slug %}">
                 <i class="fa-solid fa-pen"></i> {% trans "Edit" %}
             </a>
         {% endif %}
@@ -124,8 +124,11 @@
                                         </summary>
                                         <form method="post"
                                               class="mt-2"
-                                              action="{% url 'speakers:session_invite' session.pk link.pk %}">
+                                              id="invite-form-{{ link.pk }}"
+                                              action="{% url 'speakers:session_invite' session.slug link.pk %}">
                                             {% csrf_token %}
+                                            <input type="hidden" name="presenter" value="{{ link.presenter.slug }}">
+                                            <input type="hidden" name="session" value="{{ session.pk }}">
                                             <label class="form-label small" for="message-{{ link.pk }}">
                                                 {% trans "Personal message (markdown, optional)" %}
                                             </label>
@@ -137,12 +140,13 @@
                                                 <i class="fa-solid fa-paper-plane"></i> {% trans "Send" %}
                                             </button>
                                         </form>
+                                        {% include "speakers/_invitation_preview_slot.html" with pk=link.pk %}
                                     </details>
                                 {% endif %}
                                 {% if is_organizer %}
                                     <form method="post"
                                           class="mt-1"
-                                          action="{% url 'speakers:session_remove_presenter' session.pk link.pk %}">
+                                          action="{% url 'speakers:session_remove_presenter' session.slug link.pk %}">
                                         {% csrf_token %}
                                         <button class="btn btn-link btn-sm text-danger p-0" type="submit">
                                             {% trans "Remove from session" %}
@@ -160,7 +164,7 @@
                 {% if is_organizer %}
                     <div class="card-body border-top">
                         <form method="post"
-                              action="{% url 'speakers:session_add_presenter' session.pk %}">
+                              action="{% url 'speakers:session_add_presenter' session.slug %}">
                             {% csrf_token %}
                             <div class="small fw-semibold mb-2">
                                 {% trans "Add presenter" %}

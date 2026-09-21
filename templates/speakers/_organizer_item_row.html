@@ -1,4 +1,5 @@
 {% load i18n %}
+{% load portal_extras speakers_extras %}
 {% trans "Assignee" as assignee_label %}
 {% comment %}
 One checklist item as a table row on organizer pages. Params:
@@ -23,6 +24,11 @@ for htmx is set once on <body> by the organizer shell.
         {% if item.is_automatic %}
             <i class="fa-solid fa-wand-magic-sparkles text-secondary small"></i>
         {% endif %}
+        {% if item.description_md %}
+            <div class="small text-body-secondary item-description">
+                {{ item.description_md|speaker_md }}
+            </div>
+        {% endif %}
         {% if item.session %}
             <div class="small text-secondary">
                 {{ item.session.title }}
@@ -43,6 +49,15 @@ for htmx is set once on <body> by the organizer shell.
     </td>
     <td>
         {{ item.get_status_display }}
+        {% if item.is_done %}
+            <div class="small text-secondary">
+                {% if item.completed_by %}
+                    {% blocktranslate with name=item.completed_by.get_full_name|default:item.completed_by.username date=item.completed_at|date:"j M" %}by {{ name }}, {{ date }}{% endblocktranslate %}
+                {% else %}
+                    {% blocktranslate with date=item.completed_at|date:"j M" %}automatic, {{ date }}{% endblocktranslate %}
+                {% endif %}
+            </div>
+        {% endif %}
     </td>
     <td>
         {% if item.owner == "ORGANIZER" and can_assign %}

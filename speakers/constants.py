@@ -104,6 +104,13 @@ class ItemStatus(models.TextChoices):
 
 OPEN_ITEM_STATUSES = frozenset({ItemStatus.TODO, ItemStatus.BLOCKED})
 
+# Once an organizer has scheduled a session, its identity (title, address)
+# and its presenters' identity (name, address) are no longer the speaker's to
+# change: links and listings may already carry them.
+IDENTITY_LOCKED_STATUSES = frozenset(
+    {SessionStatus.SCHEDULED, SessionStatus.PUBLISHED, SessionStatus.CANCELLED}
+)
+
 
 class MediaStatus(models.TextChoices):
     UPLOADING = "UPLOADING", "Uploading"
@@ -115,3 +122,38 @@ class MediaStatus(models.TextChoices):
 VIDEO_KINDS = frozenset(
     {MediaKind.RAW_VIDEO, MediaKind.PROCESSED_VIDEO, MediaKind.INTRO, MediaKind.OUTRO}
 )
+
+# Slugs: sessions and presenters are addressed by slug (docs/architecture/
+# session-and-presenter-addresses.md). The derived base leaves room for a
+# "-2" style suffix under the field's max length.
+SLUG_MAX_LENGTH = 100
+SLUG_BASE_LENGTH = 80
+
+# Literal path segments that sit where a slug would under /speakers/, plus the
+# first-level words, so a session titled "New" or a presenter called "Me" can
+# never shadow a route. tests/speakers/test_session_views.py walks the URL
+# patterns and fails if this set falls behind them.
+RESERVED_SLUGS = frozenset(
+    {
+        "new",
+        "new-program-item",
+        "edit",
+        "add",
+        "invite",
+        "remove",
+        "suggest",
+        "items",
+        "me",
+        "sessions",
+        "presenters",
+        "settings",
+        "invitations",
+        "webhooks",
+        "profile",
+        "guide",
+        "schedule",
+    }
+)
+
+# The guide a "read the guide" checklist line means when it names none.
+DEFAULT_GUIDE_KEY = "speaker"

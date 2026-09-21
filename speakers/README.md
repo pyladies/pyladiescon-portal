@@ -101,6 +101,71 @@ Digital Ocean Spaces through the `AWS_*` env vars, with `AWS_DEFAULT_ACL =
 (`PortalProfile.profile_picture`, `PyladiesChapter.logo`). There is no private
 bucket or presigned-URL code yet; Stage 1.5 and 4.1 add it.
 
+### Secrets at rest
+
+`speakers/encryption.py` provides `EncryptedTextField` (Fernet), used for the
+pretix API token and webhook secret on `SpeakerSettings`. Keys come from the
+`FERNET_KEYS` environment variable (comma-separated: the first encrypts,
+every key decrypts, so rotate by putting the new key first, deploying,
+re-saving the secrets, then dropping the old key) or the single `FERNET_KEY`;
+local development and the test suite derive one from `SECRET_KEY`. Production
+must set one (generate with `Fernet.generate_key()`), or saving those fields
+raises. Reading is forgiving: a row this deploy cannot decrypt loads as
+`encryption.Undecryptable` (falsy, logged once) instead of raising, so a
+missing key degrades pretix to "not configured" rather than taking every page
+that loads `SpeakerSettings` down with it; `pretix_configured` and the webhook
+treat it as absent, and saving it back is refused. The admin never renders the
+secrets; leave the field blank to keep the stored value.
+
+### Pretix
+
+Orders live in `attendee.PretixOrder` (per edition, resolved from the pretix
+event slug). The attendee app has its own global webhook
+(`webhooks/views.py`, hardcoded organizer and event); the speaker portal
+adds a per-edition receiver at `/speakers/webhooks/pretix/<slug>/?secret=`
+(`speakers/webhooks.py`) that re-fetches the order through
+`speakers/pretix.py` (`PretixClient` with pagination and retry) and upserts
+it with the attendee app's own field mapping, so both paths agree. Nightly
+`pretix_reconcile_task` pages through `modified_since` the last run.
+`Presenter.pretix_order` is the manual link that wins over email matching.
+
+### Reminders
+
+`speakers/reminders.py` sends one digest per presenter (open speaker items
+due within 7, 3 or 1 days, computed against today in the presenter's
+timezone) and one per assignee, or to `SpeakerSettings.organizers_email`
+(falling back to staff accounts) for unassigned organizer items, using the
+edition's `conference_timezone`. `ReminderLog` is unique on
+(item, threshold), so a reminder is never repeated. Daily Celery task
+`send_checklist_digests_task`, seeded by migration 0004 (07:00 UTC for every edition: the "today" logic is per presenter timezone, the send time is not, so a presenter in Vancouver gets theirs late in their evening; per-timezone send times are a later refinement).
+
+### Handbook
+
+An edition can have several guides (`Handbook.key`: `speaker` by default,
+plus `workshop`, `keynote`, `performer`, ...), each versioned
+(`current(conference, key)`, `draft(conference, key)`) and normally just a
+link to the conference site (`url`, default
+https://conference.pyladies.com/docs/) with an optional note. A checklist
+template line with the `handbook_read` rule names the guide it requires
+(`requires_handbook`, blank = `speaker`), so a presenter on a keynote and a
+workshop gets one item per guide. Organizers manage guides at
+`/speakers/settings/handbook/`; presenters open each required guide from
+`/speakers/me/guide/` and tick "I have read the ... guide", which records a
+`HandbookReadReceipt` for that version, the way a terms-of-service
+acknowledgement works. There is no automatic tracking. Publishing a new
+version of one guide re-opens only the items that require it.
+
+A new guide starts unpublished, pointed at the docs index above. That
+placeholder is deliberate: it satisfies the editor's "a link or a note"
+check, so an organizer may publish a guide that only says "see the docs"
+and refine the address later. The guide list also names every key the
+edition's checklists require but nobody has written yet, marked "not
+created yet" with a button that opens the add form ready filled; without
+it a "Read the workshop guide" item would sit open with nothing to read
+and nothing on the organizer side to say so. On the speaker side,
+`required_guide_keys` returns only what their own items name: a presenter
+with no checklist yet is asked to read nothing.
+
 ### Background jobs
 
 Celery (`portal/celery.py`, broker from `CELERY_BROKER_URL` or `REDIS_URL`),
@@ -119,6 +184,28 @@ Tests run tasks eagerly (`CELERY_TASK_ALWAYS_EAGER` when pytest is loaded).
 sent as both text and bleach-sanitized HTML. Backend is SMTP when
 `DJANGO_EMAIL_HOST` is set, console otherwise; subjects use
 `settings.ACCOUNT_EMAIL_SUBJECT_PREFIX`. Guide: `docs/developer/markdown-emails.md`.
+
+### Previewing an invitation
+
+Both invite forms show the email the Send button would produce: recipient,
+subject and the whole rendered body, wrapper included, from the same
+`invitation_subject()` and `invitation_context()` the real send uses, so the
+two cannot drift. `emails.render_invitation_preview()` sets `preview` in the
+context, which the template uses for the only two differences: the personal
+message is boxed and highlighted, and the accept address is shown as code
+rather than as a link, since it is a placeholder until a token is minted.
+The organizer-only `speakers:invitation_preview` endpoint renders it, and
+htmx asks for it when a form becomes visible (`intersect once`) and again as
+the note is typed, so a session page listing several unconfirmed presenters
+builds no email until one is asked for.
+
+### Absolute links in email
+
+`speakers.emails.absolute_url()` builds links from the current
+`django.contrib.sites` `Site` domain (`http://` under `DEBUG`, `https://`
+otherwise). The domain is data: `manage.py set_site_domain <host>` or the
+admin's **Sites** page, documented in `docs/developer/setup.md` and
+`docs/developer/deployment.md`. A fresh database says `example.com`.
 
 ### Templates and front end
 
@@ -162,7 +249,15 @@ installed; this app keeps small factory functions in `tests/speakers/factories.p
   `Presenter.liaison` users; `SessionQuerySet.visible_to` and
   `PresenterQuerySet.visible_to` scope what they see, and the
   `SpeakerStaffRequiredMixin` / `SpeakerOrganizerRequiredMixin` mixins gate
-  the organizer side.
+  the organizer side. An organizer item can be handed to any approved
+  volunteer (`people.organizer_side_candidates`), so a third predicate,
+  `is_speaker_assignee`, admits whoever carries one: `can_work_queue` (the
+  `SpeakerQueueRequiredMixin`) gates the queue and the per-item actions, and
+  `ItemActionMixin` then lets an actor touch an item only if they organize,
+  liaise its presenter, or are its assignee. Assignees never reassign
+  (`ItemAssignView` stays organizer-only) and never open presenter or
+  session pages; their queue rows name those without linking, and the
+  "My speaker tasks" rail entry keys on the same flag.
 - Speaker side: `/speakers/me/...`, gated by `PresenterRequiredMixin` (the
   user must own a `Presenter` row in the active edition, else 403). The
   personal rail is `templates/speakers/_speaker_rail.html`; the navbar shows
@@ -178,6 +273,35 @@ installed; this app keeps small factory functions in `tests/speakers/factories.p
   cancel), `speakers/emails.py` (rendering, signed token, URL),
   `speakers/tasks.py` (Celery). The `invitation_accepted` signal in
   `speakers/signals.py` is where Stage 2 instantiates checklists.
+- Sessions and presenters are addressed by slug in every portal URL
+  (`/speakers/sessions/django-101/`, `/speakers/presenters/ada-lovelace/`,
+  `/speakers/me/sessions/django-101/edit/`), never by number: the portal
+  replaces a spreadsheet with gibberish links, and a speaker should not
+  read an ordinal out of their address. Slugs are unique per edition by
+  database constraint (`-2`, `-3` on collision), derived from the title or
+  display name on first save, and never rotated by a rename. Organizers may
+  edit a slug on the session and presenter forms (free text, normalised;
+  reserved path words in `speakers/forms.py`; per-edition clash refused;
+  blank keeps the current address). Scoped views resolve through
+  `slug_field`/`slug_url_kwarg` on the session and presenter mixins, and
+  lookups stay scoped to the active edition, so the same slug in another
+  year does not resolve. Settings pages (types, roles, checklist templates)
+  and item actions keep integer ids: they are not identities anyone shares.
+- Edit windows. A speaker edits their session's title and web address,
+  and their own display name and web address, only until an organizer
+  schedules the session (`Session.identity_locked`,
+  `Presenter.identity_locked`, from `IDENTITY_LOCKED_STATUSES`: scheduled,
+  published, cancelled). The speaker forms take `locked=` and drop those
+  fields, so a stale POST carrying them is ignored, and show them read-only
+  via `form.locked_fields`. Content fields (summary, outline, bio, photo,
+  links) stay editable until the session is published, as before, and
+  everything is locked for the speaker after that. Organizers edit every
+  field at every status; changing an identity field on a locked row logs
+  `session.identity_changed` / `presenter.identity_changed` with old and
+  new values and warns that shared links may break.
+- Checklist item descriptions (`description_md`, Markdown) render under the
+  title on the speaker's to-do list, the organizer's item rows and the
+  template detail page; every seeded speaker-owned line has one.
 - Checklist engine layering, lowest first: `lifecycle` (session status
   helpers, models only) < `checklists` (instances and status changes) <
   `rules` (auto-completion registry) < `receivers` (signals, registered in
@@ -188,7 +312,10 @@ installed; this app keeps small factory functions in `tests/speakers/factories.p
   due date is not overdue at breakfast in Lima because it is already
   tomorrow in Berlin. Anything that judges "overdue" on a presenter's
   behalf (reminder emails, task 2.8) must pass `presenter.tzinfo` too.
-- Celery tasks are plain `@shared_task` unless the body calls
+- Celery tasks are plain `@shared_task` unless they retry for real:
+  `sync_order_task` and `pretix_reconcile_task` declare `autoretry_for=(PretixError,)`
+  with back-off, because pretix being briefly unavailable is exactly the
+  case a retry fixes. Otherwise no `bind=True` / `max_retries` unless the body calls
   `self.retry`; `bind=True` and `max_retries` on a task that never retries
   are noise.
 - Checklist item status changes go through `speakers.checklists`

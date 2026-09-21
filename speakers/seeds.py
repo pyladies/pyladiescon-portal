@@ -56,17 +56,90 @@ def _item(owner, title, anchor="", offset=0, rule="", **extra):
     return item
 
 
-BIO = _item(SPK, "Update your bio and headshot", ACCEPTED, 7, AutoRule.BIO_AND_HEADSHOT)
-CONFIRM_TITLE = _item(SPK, "Confirm your session title and summary", ACCEPTED, 7)
-GUIDE = _item(SPK, "Read the speaker guide", ACCEPTED, 14, AutoRule.HANDBOOK_READ)
-REGISTER = _item(
-    SPK, "Register for the conference", CONF, 14, AutoRule.PRETIX_REGISTERED
+BIO = _item(
+    SPK,
+    "Update your bio and headshot",
+    ACCEPTED,
+    7,
+    AutoRule.BIO_AND_HEADSHOT,
+    description_md="Fill in a short bio and upload a square photo on your profile; attendees see both next to your session. Ticks itself once both are there.",
 )
-DISCORD = _item(SPK, "Join the PyLadiesCon Discord", ACCEPTED, 14)
-CONFIRM_SLOT = _item(SPK, "Confirm your scheduled slot", SESSION, 14)
-MATERIALS = _item(SPK, "Share a link to your workshop materials", SESSION, 7)
-SLIDES = _item(SPK, "Share a link to your slides", SESSION, 3)
-TECH_CHECK = _item(SPK, "Do a tech check", SESSION, 3)
+CONFIRM_TITLE = _item(
+    SPK,
+    "Confirm your session title and summary",
+    ACCEPTED,
+    7,
+    description_md="Check that the title and summary on your session page read the way you want them on the schedule, and edit them if not.",
+)
+GUIDE = _item(
+    SPK,
+    "Read the speaker guide",
+    ACCEPTED,
+    14,
+    AutoRule.HANDBOOK_READ,
+    description_md="Everything about the format, timing and what we need from you. Ticks itself when you reach the end of the guide.",
+)
+WORKSHOP_GUIDE = _item(
+    SPK,
+    "Read the workshop guide",
+    ACCEPTED,
+    14,
+    AutoRule.HANDBOOK_READ,
+    requires_handbook="workshop",
+    description_md="How a workshop runs at the conference, the setup we need from you and the deadlines. Ticks itself when you reach the end of the guide.",
+)
+KEYNOTE_GUIDE = _item(
+    SPK,
+    "Read the keynote guide",
+    ACCEPTED,
+    14,
+    AutoRule.HANDBOOK_READ,
+    requires_handbook="keynote",
+    description_md="What we need from a keynote: timing, format and the deadlines. Ticks itself when you reach the end of the guide.",
+)
+REGISTER = _item(
+    SPK,
+    "Register for the conference",
+    CONF,
+    14,
+    AutoRule.PRETIX_REGISTERED,
+    description_md="Get your (free) ticket so you can join the conference platform. Ticks itself once your registration matches your email.",
+)
+DISCORD = _item(
+    SPK,
+    "Join the PyLadiesCon Discord",
+    ACCEPTED,
+    14,
+    description_md="Where the team, the other speakers and the attendees are during the conference; the link is in the speaker guide.",
+)
+CONFIRM_SLOT = _item(
+    SPK,
+    "Confirm your scheduled slot",
+    SESSION,
+    14,
+    description_md="Once your slot is set you will see it on your schedule page; tick this to confirm the time works for you, or tell your liaison if it does not.",
+)
+MATERIALS = _item(
+    SPK,
+    "Share a link to your workshop materials",
+    SESSION,
+    7,
+    description_md="A repository, notebook or setup guide attendees should have before the workshop starts.",
+)
+SLIDES = _item(
+    SPK,
+    "Share a link to your slides",
+    SESSION,
+    3,
+    description_md="A link to your slides so we can post them with the recording; a PDF or a public deck both work.",
+)
+TECH_CHECK = _item(
+    SPK,
+    "Do a tech check",
+    SESSION,
+    3,
+    description_md="A short call with the team to test your camera, microphone and screen sharing before the day.",
+)
 
 ORGANIZER_ITEMS = [
     _item(ORG, "Invitation sent", ACCEPTED, 0, AutoRule.INVITATION_SENT),
@@ -114,7 +187,7 @@ ORGANIZER_ITEMS = [
 WORKSHOP_SPEAKER = [
     BIO,
     CONFIRM_TITLE,
-    GUIDE,
+    WORKSHOP_GUIDE,
     REGISTER,
     DISCORD,
     CONFIRM_SLOT,
@@ -131,25 +204,53 @@ TALK_SPEAKER = [
     SLIDES,
     TECH_CHECK,
 ]
+KEYNOTE_SPEAKER = [KEYNOTE_GUIDE if item is GUIDE else item for item in TALK_SPEAKER]
 PANEL_LIGHT = [BIO, GUIDE, REGISTER, DISCORD, CONFIRM_SLOT, TECH_CHECK]
 PERFORMER = [
     BIO,
-    _item(SPK, "Confirm your title and description", ACCEPTED, 7),
-    _item(SPK, "Read the performer guide", ACCEPTED, 14, AutoRule.HANDBOOK_READ),
+    _item(
+        SPK,
+        "Confirm your title and description",
+        ACCEPTED,
+        7,
+        description_md="Check that the title and description of your performance read the way you want them on the schedule.",
+    ),
+    _item(
+        SPK,
+        "Read the performer guide",
+        ACCEPTED,
+        14,
+        AutoRule.HANDBOOK_READ,
+        description_md="How PyJam works, the video format we need and the deadlines. Ticks itself when you reach the end.",
+        requires_handbook="performer",
+    ),
     _item(
         SPK,
         "Upload your performance video",
         CONF,
         28,
         AutoRule.ASSET_EXISTS,
+        description_md="Upload the recording from your dashboard; the page shows its length against the limit. Ticks itself once a video is in.",
         requires_asset_kind=MediaKind.RAW_VIDEO,
     ),
-    _item(SPK, "Approve the final cut", CONF, 7),
+    _item(
+        SPK,
+        "Approve the final cut",
+        CONF,
+        7,
+        description_md="We will send you the edited video; watch it and tick this when you are happy for it to go out.",
+    ),
     REGISTER,
     DISCORD,
 ]
 HOST = [
-    _item(SPK, "Confirm you can host this slot", ACCEPTED, 7),
+    _item(
+        SPK,
+        "Confirm you can host this slot",
+        ACCEPTED,
+        7,
+        description_md="Tick this once you have checked the time and can be there to host.",
+    ),
     DISCORD,
 ]
 HOST_ORGANIZER = [
@@ -246,7 +347,7 @@ DEFAULT_TEMPLATES = [
         "KEYNOTE",
         "PRESENTER",
         "",
-        TALK_SPEAKER + ORGANIZER_ITEMS,
+        KEYNOTE_SPEAKER + ORGANIZER_ITEMS,
     ),
     (
         ChecklistScope.PRESENTER,
@@ -314,6 +415,7 @@ class SeedResult(NamedTuple):
     templates: int
     items: int
     skipped: list  # of (template name, reason) pairs
+    described: int = 0  # existing lines whose empty description was filled in
 
 
 def seed_checklists(conference):
@@ -329,7 +431,7 @@ def seed_checklists(conference):
         seed_program_types(conference)
     kinds = {t.code: t for t in SessionType.objects.filter(conference=conference)}
     roles = {r.code: r for r in PresenterRole.objects.filter(conference=conference)}
-    templates_created = items_created = 0
+    templates_created = items_created = described = 0
     skipped = []
     for scope, name, kind, role, delivery, items in DEFAULT_TEMPLATES:
         if kind not in kinds:
@@ -347,18 +449,25 @@ def seed_checklists(conference):
             defaults={"name": name},
         )
         templates_created += created
-        existing = set(template.items.values_list("title", flat=True))
-        next_order = template.items.count()
+        existing = {line.title: line for line in template.items.all()}
+        next_order = len(existing)
         for spec in items:
             if spec["title"] in existing:
+                # An edition seeded before the defaults carried descriptions:
+                # fill an empty one in, never overwrite an organizer's text.
+                line = existing[spec["title"]]
+                if line and not line.description_md and spec.get("description_md"):
+                    line.description_md = spec["description_md"]
+                    line.save(update_fields=["description_md", "modified_date"])
+                    described += 1
                 continue
             ChecklistTemplateItem.objects.create(
                 template=template, order=next_order, **spec
             )
-            existing.add(spec["title"])
+            existing[spec["title"]] = None
             next_order += 1
             items_created += 1
-    return SeedResult(templates_created, items_created, skipped)
+    return SeedResult(templates_created, items_created, skipped, described)
 
 
 ITEM_FIELDS = [
@@ -371,6 +480,7 @@ ITEM_FIELDS = [
     "auto_complete_rule",
     "requires_asset_kind",
     "requires_asset_language",
+    "requires_handbook",
     "per_translation_language",
     "is_required",
     "assignee_default",

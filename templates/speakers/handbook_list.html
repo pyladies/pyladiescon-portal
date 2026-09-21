@@ -1,0 +1,94 @@
+{% extends "speakers/_organize_shell.html" %}
+{% load i18n %}
+{% load django_bootstrap5 %}
+{% block head_title %}
+    {% trans "Speaker guides" %}
+{% endblock head_title %}
+{% block breadcrumb %}
+    {% trans "Speaker guides" as bc_section %}
+    {% include "portal/_breadcrumbs.html" with section=bc_section %}
+{% endblock breadcrumb %}
+{% block content %}
+    <h1 class="h3 mb-1">
+        {% trans "Speaker guides" %}
+    </h1>
+    <p class="text-secondary">
+        {% trans "One guide per audience (speakers, workshops, keynotes, performers). A checklist template line names the guide it requires; presenters confirm each one they have to read." %}
+    </p>
+    <div class="table-responsive mb-4">
+        <table class="table table-sm table-bordered align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>
+                        {% trans "Guide" %}
+                    </th>
+                    <th>
+                        {% trans "Key" %}
+                    </th>
+                    <th>
+                        {% trans "Published" %}
+                    </th>
+                    <th>
+                        {% trans "Readers" %}
+                    </th>
+                    <th>
+                    </th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in rows %}
+                    <tr {% if row.missing %}class="table-warning"{% endif %}>
+                        <td>
+                            {% if row.missing %}
+                                <span class="text-secondary">{% trans "Not created yet" %}</span>
+                            {% else %}
+                                <a href="{% url 'speakers:handbook_editor' row.key %}">{{ row.title }}</a>
+                                {% if row.draft %}
+                                    <span class="badge text-bg-secondary">{% trans "draft" %}</span>
+                                {% endif %}
+                            {% endif %}
+                        </td>
+                        <td>
+                            <code>{{ row.key }}</code>
+                        </td>
+                        <td>
+                            {% if row.current %}
+                                v{{ row.current.version }} · {{ row.current.published_at|date:"j M" }}
+                            {% elif row.missing %}
+                                <span class="text-secondary">{% trans "asked for by a checklist line" %}</span>
+                            {% else %}
+                                <span class="text-secondary">{% trans "not yet" %}</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if not row.missing %}
+                                {{ row.readers }}
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if row.missing %}
+                                <a class="btn btn-sm btn-warning" href="?key={{ row.key }}#add-guide">{% trans "Start this guide" %}</a>
+                            {% else %}
+                                <a class="btn btn-sm btn-outline-primary"
+                                   href="{% url 'speakers:handbook_editor' row.key %}">{% trans "Edit" %}</a>
+                            {% endif %}
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% if missing_count %}
+        <p class="text-secondary">
+            {% blocktranslate count counter=missing_count %}A checklist line asks presenters to read one guide that nobody has written yet; until it exists, that item stays open with nothing to read.{% plural %}Checklist lines ask presenters to read {{ counter }} guides that nobody has written yet; until they exist, those items stay open with nothing to read.{% endblocktranslate %}
+        </p>
+    {% endif %}
+    <h2 class="h5" id="add-guide">
+        {% trans "Add a guide" %}
+    </h2>
+    <form method="post" class="col-lg-6">
+        {% csrf_token %}
+        {% bootstrap_form new_form %}
+        {% bootstrap_button "Add guide" button_type="submit" button_class="btn-outline-primary" %}
+    </form>
+{% endblock content %}

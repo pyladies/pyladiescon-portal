@@ -131,3 +131,13 @@ body {
 .col-order {
     width: 5rem;
 }
+
+/* Invitation email preview: the sender's own words, set apart from the template. */
+.invitation-preview-note {
+    background: #fff3cd;
+    border-left: 3px solid #ffc107;
+    padding: 0.25rem 0.75rem;
+}
+.invitation-preview-note > :last-child {
+    margin-bottom: 0;
+}

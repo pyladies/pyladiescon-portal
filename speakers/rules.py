@@ -52,7 +52,7 @@ def bio_and_headshot(item):
 
 @rule(AutoRule.HANDBOOK_READ)
 def handbook_read(item):
-    current = Handbook.current(item.conference)
+    current = Handbook.current(item.conference, item.guide_key)
     if current is None or item.presenter_id is None:
         return False
     return HandbookReadReceipt.objects.filter(

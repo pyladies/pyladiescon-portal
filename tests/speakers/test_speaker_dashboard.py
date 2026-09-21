@@ -12,6 +12,7 @@ from speakers.constants import (
     Delivery,
     ItemOwner,
     ItemStatus,
+    SessionStatus,
 )
 from speakers.models import ChecklistItem
 
@@ -50,6 +51,30 @@ def session(conference, presenter):
 
 @pytest.mark.django_db
 class TestDashboardLists:
+    def test_lock_icon_once_scheduled_and_item_descriptions(
+        self, client, speaker, presenter, session, conference
+    ):
+        described = add_adhoc_item(
+            conference,
+            "Bring snacks",
+            ItemOwner.SPEAKER,
+            presenter=presenter,
+            description_md="Something **salty** for the tech check.",
+        )
+        bare = add_adhoc_item(
+            conference, "Wave hello", ItemOwner.SPEAKER, presenter=presenter
+        )
+        client.force_login(speaker)
+        page = client.get(DASHBOARD).content.decode()
+        assert "locked now that the session is scheduled" not in page
+        assert "<strong>salty</strong>" in page
+        assert page.count('class="small text-body-secondary item-description"') == 1
+        session.status = SessionStatus.SCHEDULED
+        session.save()
+        page = client.get(DASHBOARD).content.decode()
+        assert "locked now that the session is scheduled" in page
+        assert described.pk and bare.pk  # both still listed
+
     def test_renders_with_zero_items(self, client, speaker, presenter, session):
         client.force_login(speaker)
         content = client.get(DASHBOARD).content.decode()
@@ -98,8 +123,34 @@ class TestDashboardLists:
         assert "1 of 2 to-dos done" in content
         assert toggle(mine) in content and toggle(done) in content
         assert toggle(theirs) not in content and toggle(unassigned) not in content
-        assert "Lena K" in content and "unassigned" in content
+        assert "Lena K is on it" in content and "not yet assigned" in content
+        assert "A team task: nothing for you to do here." in content
         assert re.search(r'data-item-id="%d"\s+data-status="DONE"' % done.pk, content)
+
+    def test_speaker_sees_who_completed_a_team_task(
+        self, client, speaker, presenter, session, conference
+    ):
+        volunteer = User.objects.create_user(
+            username="vol", first_name="Volunteer", last_name="A"
+        )
+        uploaded = add_adhoc_item(
+            conference,
+            "Upload the transcript",
+            ItemOwner.ORGANIZER,
+            presenter=presenter,
+            session=session,
+            assignee=volunteer,
+        )
+        complete_item(uploaded, actor=volunteer)
+        automatic = add_adhoc_item(
+            conference, "Session scheduled", ItemOwner.ORGANIZER, presenter=presenter
+        )
+        complete_item(automatic, manual=False)
+        client.force_login(speaker)
+        content = client.get(DASHBOARD).content.decode()
+        assert "done by Volunteer A on" in content
+        assert "done automatically on" in content
+        assert "nothing for you to do here" not in content.split("Session scheduled")[1]
 
     def test_automatic_item_is_dashed_and_not_tickable(
         self, client, speaker, presenter, session, conference
