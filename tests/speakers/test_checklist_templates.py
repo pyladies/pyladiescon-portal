@@ -127,6 +127,17 @@ class TestSeed:
         assert f"Skipped {len(keynote) + len(moderator)}" in page
         assert "Keynote presenter" in page and "MODERATOR presenter role" in page
 
+    def test_every_speaker_line_has_a_description(self):
+        """A speaker's to-do says what to do and where it shows up, not just
+        a title."""
+        missing = [
+            spec["title"]
+            for _, _, _, _, _, items in DEFAULT_TEMPLATES
+            for spec in items
+            if spec["owner"] == ItemOwner.SPEAKER and not spec.get("description_md")
+        ]
+        assert missing == []
+
     def test_default_templates_name_only_default_codes(self):
         """A template naming a type or role that the defaults do not seed
         would raise DoesNotExist on every fresh edition; catch it here."""

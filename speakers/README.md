@@ -192,6 +192,21 @@ installed; this app keeps small factory functions in `tests/speakers/factories.p
   lookups stay scoped to the active edition, so the same slug in another
   year does not resolve. Settings pages (types, roles, checklist templates)
   and item actions keep integer ids: they are not identities anyone shares.
+- Edit windows. A speaker edits their session's title and web address,
+  and their own display name and web address, only until an organizer
+  schedules the session (`Session.identity_locked`,
+  `Presenter.identity_locked`, from `IDENTITY_LOCKED_STATUSES`: scheduled,
+  published, cancelled). The speaker forms take `locked=` and drop those
+  fields, so a stale POST carrying them is ignored, and show them read-only
+  via `form.locked_fields`. Content fields (summary, outline, bio, photo,
+  links) stay editable until the session is published, as before, and
+  everything is locked for the speaker after that. Organizers edit every
+  field at every status; changing an identity field on a locked row logs
+  `session.identity_changed` / `presenter.identity_changed` with old and
+  new values and warns that shared links may break.
+- Checklist item descriptions (`description_md`, Markdown) render under the
+  title on the speaker's to-do list, the organizer's item rows and the
+  template detail page; every seeded speaker-owned line has one.
 - Checklist engine layering, lowest first: `lifecycle` (session status
   helpers, models only) < `checklists` (instances and status changes) <
   `rules` (auto-completion registry) < `receivers` (signals, registered in

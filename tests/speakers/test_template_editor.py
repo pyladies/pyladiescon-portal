@@ -310,6 +310,26 @@ class TestItems:
         ]
         assert [i.order for i in template.items.order_by("order", "id")] == [0, 1, 2]
 
+    def test_detail_shows_descriptions(self, client, organizer, template):
+        ChecklistTemplateItem.objects.create(
+            template=template,
+            owner=ItemOwner.SPEAKER,
+            title="Bring snacks",
+            description_md="Something *salty*.",
+            order=9,
+        )
+        client.force_login(organizer)
+        page = client.get(
+            reverse("speakers:template_detail", args=[template.pk])
+        ).content.decode()
+        assert "<em>salty</em>" in page
+        assert (
+            "Speakers see this under the title"
+            in client.get(
+                reverse("speakers:template_item_add", args=[template.pk])
+            ).content.decode()
+        )
+
     def test_delete(self, client, organizer, template):
         item = template.items.get(title="Guide")
         client.force_login(organizer)

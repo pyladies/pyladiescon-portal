@@ -56,17 +56,72 @@ def _item(owner, title, anchor="", offset=0, rule="", **extra):
     return item
 
 
-BIO = _item(SPK, "Update your bio and headshot", ACCEPTED, 7, AutoRule.BIO_AND_HEADSHOT)
-CONFIRM_TITLE = _item(SPK, "Confirm your session title and summary", ACCEPTED, 7)
-GUIDE = _item(SPK, "Read the speaker guide", ACCEPTED, 14, AutoRule.HANDBOOK_READ)
-REGISTER = _item(
-    SPK, "Register for the conference", CONF, 14, AutoRule.PRETIX_REGISTERED
+BIO = _item(
+    SPK,
+    "Update your bio and headshot",
+    ACCEPTED,
+    7,
+    AutoRule.BIO_AND_HEADSHOT,
+    description_md="Fill in a short bio and upload a square photo on your profile; attendees see both next to your session. Ticks itself once both are there.",
 )
-DISCORD = _item(SPK, "Join the PyLadiesCon Discord", ACCEPTED, 14)
-CONFIRM_SLOT = _item(SPK, "Confirm your scheduled slot", SESSION, 14)
-MATERIALS = _item(SPK, "Share a link to your workshop materials", SESSION, 7)
-SLIDES = _item(SPK, "Share a link to your slides", SESSION, 3)
-TECH_CHECK = _item(SPK, "Do a tech check", SESSION, 3)
+CONFIRM_TITLE = _item(
+    SPK,
+    "Confirm your session title and summary",
+    ACCEPTED,
+    7,
+    description_md="Check that the title and summary on your session page read the way you want them on the schedule, and edit them if not.",
+)
+GUIDE = _item(
+    SPK,
+    "Read the speaker guide",
+    ACCEPTED,
+    14,
+    AutoRule.HANDBOOK_READ,
+    description_md="Everything about the format, timing and what we need from you. Ticks itself when you reach the end of the guide.",
+)
+REGISTER = _item(
+    SPK,
+    "Register for the conference",
+    CONF,
+    14,
+    AutoRule.PRETIX_REGISTERED,
+    description_md="Get your (free) ticket so you can join the conference platform. Ticks itself once your registration matches your email.",
+)
+DISCORD = _item(
+    SPK,
+    "Join the PyLadiesCon Discord",
+    ACCEPTED,
+    14,
+    description_md="Where the team, the other speakers and the attendees are during the conference; the link is in the speaker guide.",
+)
+CONFIRM_SLOT = _item(
+    SPK,
+    "Confirm your scheduled slot",
+    SESSION,
+    14,
+    description_md="Once your slot is set you will see it on your schedule page; tick this to confirm the time works for you, or tell your liaison if it does not.",
+)
+MATERIALS = _item(
+    SPK,
+    "Share a link to your workshop materials",
+    SESSION,
+    7,
+    description_md="A repository, notebook or setup guide attendees should have before the workshop starts.",
+)
+SLIDES = _item(
+    SPK,
+    "Share a link to your slides",
+    SESSION,
+    3,
+    description_md="A link to your slides so we can post them with the recording; a PDF or a public deck both work.",
+)
+TECH_CHECK = _item(
+    SPK,
+    "Do a tech check",
+    SESSION,
+    3,
+    description_md="A short call with the team to test your camera, microphone and screen sharing before the day.",
+)
 
 ORGANIZER_ITEMS = [
     _item(ORG, "Invitation sent", ACCEPTED, 0, AutoRule.INVITATION_SENT),
@@ -134,22 +189,48 @@ TALK_SPEAKER = [
 PANEL_LIGHT = [BIO, GUIDE, REGISTER, DISCORD, CONFIRM_SLOT, TECH_CHECK]
 PERFORMER = [
     BIO,
-    _item(SPK, "Confirm your title and description", ACCEPTED, 7),
-    _item(SPK, "Read the performer guide", ACCEPTED, 14, AutoRule.HANDBOOK_READ),
+    _item(
+        SPK,
+        "Confirm your title and description",
+        ACCEPTED,
+        7,
+        description_md="Check that the title and description of your performance read the way you want them on the schedule.",
+    ),
+    _item(
+        SPK,
+        "Read the performer guide",
+        ACCEPTED,
+        14,
+        AutoRule.HANDBOOK_READ,
+        description_md="How PyJam works, the video format we need and the deadlines. Ticks itself when you reach the end.",
+    ),
     _item(
         SPK,
         "Upload your performance video",
         CONF,
         28,
         AutoRule.ASSET_EXISTS,
+        description_md="Upload the recording from your dashboard; the page shows its length against the limit. Ticks itself once a video is in.",
         requires_asset_kind=MediaKind.RAW_VIDEO,
     ),
-    _item(SPK, "Approve the final cut", CONF, 7),
+    _item(
+        SPK,
+        "Approve the final cut",
+        CONF,
+        7,
+        description_md="We will send you the edited video; watch it and tick this when you are happy for it to go out.",
+    ),
     REGISTER,
     DISCORD,
 ]
 HOST = [
-    _item(SPK, "Confirm you can host this slot", ACCEPTED, 7),
+    _item(
+        SPK,
+        "Confirm you can host this slot",
+        ACCEPTED,
+        7,
+        description_md="Tick this once you have checked the time and can be there to host.",
+    ),
     DISCORD,
 ]
 HOST_ORGANIZER = [

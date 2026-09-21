@@ -268,6 +268,37 @@ class TestPresenterSlugUrls:
         with pytest.raises(ValidationError, match="reserved"):
             li.full_clean()
 
+    def test_organizer_identity_change_logged_only_when_locked(
+        self, client, organizer, presenters
+    ):
+        ada, grace = presenters["ada"], presenters["grace"]
+        client.force_login(organizer)
+        base = {"timezone": "UTC"}
+        # Grace is on no scheduled session: a rename is routine.
+        client.post(
+            reverse("speakers:presenter_edit", args=[grace.slug]),
+            {**base, "display_name": "Grace H.", "email": grace.email},
+        )
+        assert not ActivityLog.objects.filter(
+            action="presenter.identity_changed"
+        ).exists()
+        session = presenters["session"]
+        session.status = SessionStatus.SCHEDULED
+        session.save()
+        assert ada.identity_locked and not grace.identity_locked
+        response = client.post(
+            reverse("speakers:presenter_edit", args=[ada.slug]),
+            {**base, "display_name": "Ada L.", "email": ada.email},
+            follow=True,
+        )
+        entry = ActivityLog.objects.get(action="presenter.identity_changed")
+        assert "Already scheduled: the display name changed" in (
+            response.content.decode()
+        )
+        assert entry.data["changes"] == {
+            "display_name": {"from": "Ada", "to": "Ada L."}
+        }
+
     def test_organizer_edits_slug_clash_refused(self, client, organizer, presenters):
         grace = presenters["grace"]
         other = make_presenter(presenters["session"].conference, display_name="Mary")

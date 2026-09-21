@@ -12,6 +12,7 @@ from speakers.constants import (
     Delivery,
     ItemOwner,
     ItemStatus,
+    SessionStatus,
 )
 from speakers.models import ChecklistItem
 
@@ -50,6 +51,30 @@ def session(conference, presenter):
 
 @pytest.mark.django_db
 class TestDashboardLists:
+    def test_lock_icon_once_scheduled_and_item_descriptions(
+        self, client, speaker, presenter, session, conference
+    ):
+        described = add_adhoc_item(
+            conference,
+            "Bring snacks",
+            ItemOwner.SPEAKER,
+            presenter=presenter,
+            description_md="Something **salty** for the tech check.",
+        )
+        bare = add_adhoc_item(
+            conference, "Wave hello", ItemOwner.SPEAKER, presenter=presenter
+        )
+        client.force_login(speaker)
+        page = client.get(DASHBOARD).content.decode()
+        assert "locked now that the session is scheduled" not in page
+        assert "<strong>salty</strong>" in page
+        assert page.count('class="small text-body-secondary item-description"') == 1
+        session.status = SessionStatus.SCHEDULED
+        session.save()
+        page = client.get(DASHBOARD).content.decode()
+        assert "locked now that the session is scheduled" in page
+        assert described.pk and bare.pk  # both still listed
+
     def test_renders_with_zero_items(self, client, speaker, presenter, session):
         client.force_login(speaker)
         content = client.get(DASHBOARD).content.decode()

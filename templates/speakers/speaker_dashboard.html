@@ -37,6 +37,11 @@
                     {% if not summary.session.is_public %}
                         <span class="badge text-bg-secondary">{% trans "Not yet public" %}</span>
                     {% endif %}
+                    {% if summary.session.identity_locked %}
+                        {% trans "Title and web address are locked now that the session is scheduled" as locked_label %}
+                        <i class="fa-solid fa-lock text-secondary small"
+                           title="{{ locked_label }}"></i>
+                    {% endif %}
                 </li>
             {% endfor %}
         </ul>

@@ -282,6 +282,18 @@ class TestPresenterPageChecklists:
         assert 'name="assignee"' in content and "Lena" in content
         assert "htmx.min.js" in content
 
+    def test_presenter_page_shows_item_descriptions(self, client, organizer, people):
+        add_adhoc_item(
+            people["ada"].conference,
+            "Bring snacks",
+            ItemOwner.SPEAKER,
+            presenter=people["ada"],
+            description_md="Something *salty*.",
+        )
+        client.force_login(organizer)
+        page = client.get(people["ada"].get_absolute_url()).content.decode()
+        assert "<em>salty</em>" in page
+
     def test_add_one_off_item(self, client, organizer, people, liaison):
         ada = people["ada"]
         client.force_login(organizer)

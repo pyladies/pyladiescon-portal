@@ -245,6 +245,9 @@ class SessionUpdateView(LoginRequiredMixin, SpeakerOrganizerRequiredMixin, Updat
         return kwargs
 
     def form_valid(self, form):
+        _note_identity_change(
+            self.request, form, ("title", "slug"), "session.identity_changed"
+        )
         messages.success(self.request, f"Saved “{form.instance.title}”.")
         return super().form_valid(form)
 
@@ -421,6 +424,12 @@ class PresenterUpdateView(
         return kwargs
 
     def form_valid(self, form):
+        _note_identity_change(
+            self.request,
+            form,
+            ("display_name", "slug"),
+            "presenter.identity_changed",
+        )
         messages.success(self.request, f"Saved {form.instance.display_name}.")
         return super().form_valid(form)
 
@@ -591,6 +600,40 @@ class InvitationCancelView(InvitationActionMixin, View):
 # ---- Speaker side -----------------------------------------------------------
 
 
+def _note_identity_change(request, form, fields, action):
+    """An organizer changed a title, name or address on a row whose identity
+    is locked for the speaker: log old and new values, and warn that links
+    already shared may break. Before the lock nothing is recorded; the
+    speaker could have made the same change."""
+    # Compare cleaned against initial rather than trusting changed_data: a
+    # blank or omitted slug is cleaned back to the current address and is
+    # not a change.
+    changed = [
+        name
+        for name in fields
+        if name in form.changed_data
+        and form.cleaned_data.get(name) != form.initial.get(name)
+    ]
+    if not changed or not form.instance.identity_locked:
+        return
+    ActivityLog.record(
+        form.instance.conference,
+        action,
+        target=form.instance,
+        actor=request.user,
+        changes={
+            name: {"from": form.initial.get(name), "to": form.cleaned_data[name]}
+            for name in changed
+        },
+    )
+    messages.warning(
+        request,
+        "Already scheduled: the "
+        + " and ".join(form.fields[name].label.lower() for name in changed)
+        + " changed, so links already shared may break.",
+    )
+
+
 class SpeakerDashboardView(LoginRequiredMixin, PresenterRequiredMixin, TemplateView):
     """The presenter's home (design §2.2 and §9.5).
 
@@ -695,6 +738,11 @@ class SpeakerProfileUpdateView(LoginRequiredMixin, PresenterRequiredMixin, Updat
     def get_object(self, queryset=None):
         return self.presenter
 
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["locked"] = self.presenter.identity_locked
+        return kwargs
+
     def get_success_url(self):
         return reverse("speakers:my_profile")
 
@@ -761,6 +809,11 @@ class SpeakerSessionUpdateView(SpeakerSessionMixin, UpdateView):
 
     def get_success_url(self):
         return reverse("speakers:my_sessions")
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["locked"] = self.object.identity_locked
+        return kwargs
 
     def form_valid(self, form):
         response = super().form_valid(form)

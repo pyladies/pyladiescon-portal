@@ -235,6 +235,56 @@ class TestSessions:
         assert "Grace" in content and "Presenter" in content
         assert reverse("speakers:my_session_edit", args=[my_session.slug]) in content
 
+    def test_identity_locks_once_scheduled(
+        self, client, speaker, presenter, my_session
+    ):
+        """After an organizer schedules the session, the title and address
+        leave the form: shown read-only, and a stale POST carrying them is
+        ignored rather than rejected. Content still saves."""
+        my_session.status = SessionStatus.SCHEDULED
+        my_session.save()
+        client.force_login(speaker)
+        url = reverse("speakers:my_session_edit", args=[my_session.slug])
+        page = client.get(url).content.decode()
+        assert "Locked now that the session is scheduled" in page
+        assert 'name="title"' not in page and 'name="slug"' not in page
+        response = client.post(
+            url,
+            {
+                "summary_md": "Still editable",
+                "level": "BEGINNER",
+                "language": "en",
+                "title": "Hacked title",
+                "slug": "hacked",
+            },
+        )
+        assertRedirects(response, SESSIONS)
+        my_session.refresh_from_db()
+        assert my_session.summary_md == "Still editable"
+        assert my_session.title == "Django 101" and my_session.slug == "django-101"
+
+    def test_profile_identity_locks_once_scheduled(
+        self, client, speaker, presenter, my_session
+    ):
+        client.force_login(speaker)
+        url = reverse("speakers:my_profile")
+        response = client.post(
+            url, {"display_name": "Ada L.", "slug": "ada-l", "timezone": "UTC"}
+        )
+        assertRedirects(response, url)
+        presenter.refresh_from_db()
+        assert presenter.display_name == "Ada L." and presenter.slug == "ada-l"
+        my_session.status = SessionStatus.SCHEDULED
+        my_session.save()
+        page = client.get(url).content.decode()
+        assert "Locked now that the session is scheduled" in page
+        assert 'name="display_name"' not in page and 'name="slug"' not in page
+        client.post(
+            url, {"display_name": "Someone Else", "slug": "x", "timezone": "UTC"}
+        )
+        presenter.refresh_from_db()
+        assert presenter.display_name == "Ada L." and presenter.slug == "ada-l"
+
     def test_edit_own_session(self, client, speaker, presenter, my_session):
         client.force_login(speaker)
         url = reverse("speakers:my_session_edit", args=[my_session.slug])
@@ -248,7 +298,8 @@ class TestSessions:
                 "outline_md": "1. Models",
                 "level": "BEGINNER",
                 "language": "en",
-                "title": "Hacked title",
+                "title": "Django 101, revised",
+                "slug": "Django 101 Revised",
                 "duration_minutes": 5,
             },
         )
@@ -256,7 +307,10 @@ class TestSessions:
         my_session.refresh_from_db()
         assert my_session.summary_md == "Learn *Django*"
         assert my_session.level == "BEGINNER"
-        assert my_session.title == "Django 101"
+        # Title and address are the speaker's until the session is scheduled;
+        # the duration never is.
+        assert my_session.title == "Django 101, revised"
+        assert my_session.slug == "django-101-revised"
         assert my_session.duration_minutes == 90
         assert (
             ActivityLog.for_target(my_session).get().action

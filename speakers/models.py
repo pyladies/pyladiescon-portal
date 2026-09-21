@@ -23,6 +23,7 @@ from text_unidecode import unidecode
 
 from .clock import today
 from .constants import (
+    IDENTITY_LOCKED_STATUSES,
     OPEN_ITEM_STATUSES,
     RESERVED_SLUGS,
     SESSION_LANGUAGE,
@@ -382,6 +383,14 @@ class Presenter(TimestampedModel):
         return reverse("speakers:presenter_detail", kwargs={"slug": self.slug})
 
     @property
+    def identity_locked(self):
+        """Display name and address freeze once any of this presenter's
+        sessions is scheduled: the schedule and its links carry both."""
+        return self.session_presenters.filter(
+            session__status__in=IDENTITY_LOCKED_STATUSES
+        ).exists()
+
+    @property
     def latest_invitation(self):
         """Newest invitation, from the listing prefetch when available."""
         history = getattr(self, "invitation_history", None)
@@ -698,6 +707,12 @@ class Session(TimestampedModel):
         self.status = SessionStatus.INVITED
         if save:
             self.save(update_fields=["status"])
+
+    @property
+    def identity_locked(self):
+        """Title and address are the speaker's to edit until an organizer
+        schedules the session; after that only organizers change them."""
+        return self.status in IDENTITY_LOCKED_STATUSES
 
     @property
     def blocking_required_items(self):
