@@ -68,6 +68,10 @@ ALLOWED_HOSTS = ALLOWED_HOSTS.split(",") if ALLOWED_HOSTS else []
 # SECRET_KEY only for local development and the test suite so nothing is ever
 # stored in plain text.
 FERNET_KEY = os.environ.get("FERNET_KEY")
+# Optional comma-separated list for rotation: the first key encrypts, every
+# key decrypts. Put the new key first, deploy, re-save the secrets, then drop
+# the old key.
+FERNET_KEYS = os.environ.get("FERNET_KEYS", "")
 if not FERNET_KEY and SECRET_KEY and (DEBUG or "pytest" in sys.modules):
     FERNET_KEY = base64.urlsafe_b64encode(
         hashlib.sha256(SECRET_KEY.encode()).digest()

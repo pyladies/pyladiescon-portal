@@ -1,4 +1,5 @@
 from datetime import date, datetime, timedelta, timezone
+from unittest import mock
 
 import pytest
 from django.contrib.auth.models import User
@@ -235,6 +236,56 @@ class TestOrganizerDigest:
 
 
 @pytest.mark.django_db
+class TestFailureIsolation:
+    def test_one_failed_send_does_not_abort_the_day(self, conference, enabled):
+        ada = make_presenter(conference, email="ada@example.com")
+        bea = make_presenter(conference, email="bea@example.com")
+        for p in (ada, bea):
+            add_adhoc_item(
+                conference,
+                "Read",
+                ItemOwner.SPEAKER,
+                presenter=p,
+                due_date=date.today() + timedelta(days=1),
+            )
+        calls = []
+
+        def flaky(subject, recipients, **kwargs):
+            calls.append(recipients)
+            if len(calls) == 1:
+                raise RuntimeError("smtp down")
+
+        with mock.patch("speakers.reminders.send_email", side_effect=flaky):
+            sent = send_checklist_digests(conference, now=NOW)
+        assert sent == 1 and sent.failed == 1 and len(calls) == 2
+        # The failed digest is not marked as sent (its rows rolled back with
+        # the send), so it goes out next time; the delivered one is recorded.
+        assert not ReminderLog.objects.filter(item__presenter=ada).exists()
+        assert ReminderLog.objects.filter(item__presenter=bea).exists()
+        with mock.patch("speakers.reminders.send_email", side_effect=flaky):
+            calls.clear()
+            result = send_checklist_digests_task()
+        assert "(1 failed)" in result
+
+    def test_organizer_digest_failure_is_isolated_too(self, conference, enabled):
+        ada = make_presenter(conference)
+        lena = User.objects.create_user(username="lena", email="lena@example.com")
+        add_adhoc_item(
+            conference,
+            "Promo",
+            ItemOwner.ORGANIZER,
+            presenter=ada,
+            assignee=lena,
+            due_date=date.today() + timedelta(days=1),
+        )
+        with mock.patch(
+            "speakers.reminders.send_email", side_effect=RuntimeError("smtp down")
+        ):
+            sent = send_checklist_digests(conference, now=NOW)
+        assert sent == 0 and sent.failed == 1
+        assert not ReminderLog.objects.exists()
+
+
 class TestTask:
     def test_task_runs_per_enabled_edition(self, conference, enabled):
         ada = make_presenter(conference)

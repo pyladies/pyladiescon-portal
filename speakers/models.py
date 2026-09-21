@@ -45,7 +45,7 @@ from .constants import (
     SessionLevel,
     SessionStatus,
 )
-from .encryption import EncryptedTextField
+from .encryption import EncryptedTextField, usable
 from .querysets import PresenterQuerySet, SessionQuerySet
 from .signals import session_confirmed
 
@@ -205,8 +205,13 @@ class SpeakerSettings(TimestampedModel):
 
     @property
     def pretix_configured(self):
+        """Organizer, event and a token this deploy can actually decrypt: a
+        token loaded as ``Undecryptable`` reads as not configured, so a
+        missing key degrades pretix alone rather than every edition page."""
         return bool(
-            self.pretix_organizer and self.pretix_event_slug and self.pretix_api_token
+            self.pretix_organizer
+            and self.pretix_event_slug
+            and usable(self.pretix_api_token)
         )
 
     class Meta:

@@ -1,3 +1,4 @@
+from django import forms
 from django.contrib import admin
 
 from portal.admin_filters import ActiveConferenceFilter
@@ -23,8 +24,40 @@ from .models import (
 )
 
 
+class SpeakerSettingsAdminForm(forms.ModelForm):
+    """The token and the webhook secret are write-only here: encrypted at
+    rest, never echoed back to the page. Leave a field blank to keep what is
+    stored; a stored value this deploy cannot decrypt is kept as is."""
+
+    pretix_api_token = forms.CharField(
+        required=False,
+        widget=forms.PasswordInput(render_value=False),
+        help_text="Leave blank to keep the current token.",
+    )
+    pretix_webhook_secret = forms.CharField(
+        required=False,
+        widget=forms.PasswordInput(render_value=False),
+        help_text="Leave blank to keep the current secret.",
+    )
+
+    class Meta:
+        model = SpeakerSettings
+        fields = "__all__"
+
+    def _keep_when_blank(self, name):
+        value = self.cleaned_data.get(name)
+        return value if value else getattr(self.instance, name)
+
+    def clean_pretix_api_token(self):
+        return self._keep_when_blank("pretix_api_token")
+
+    def clean_pretix_webhook_secret(self):
+        return self._keep_when_blank("pretix_webhook_secret")
+
+
 @admin.register(SpeakerSettings)
 class SpeakerSettingsAdmin(admin.ModelAdmin):
+    form = SpeakerSettingsAdminForm
     list_display = (
         "conference",
         "speaker_module_enabled",
@@ -58,7 +91,8 @@ class SpeakerSettingsAdmin(admin.ModelAdmin):
         (
             "Pretix",
             {
-                "description": "Token and webhook secret are encrypted at rest.",
+                "description": "Token and webhook secret are encrypted at rest and "
+                "never shown again; leave blank to keep the stored value.",
                 "fields": (
                     "pretix_base_url",
                     "pretix_organizer",
@@ -66,7 +100,6 @@ class SpeakerSettingsAdmin(admin.ModelAdmin):
                     "pretix_api_token",
                     "pretix_webhook_secret",
                     "pretix_last_synced_at",
-                    "pretix_create_vouchers",
                 ),
             },
         ),

@@ -5,16 +5,21 @@ from unittest import mock
 import pytest
 import requests
 from cryptography.fernet import Fernet
+from django.conf import settings
 from django.contrib.auth.models import User
 from django.core.exceptions import ImproperlyConfigured
 from django.db import connection
+from django.forms.models import model_to_dict
 from django.test import override_settings
 from django.urls import reverse
 from pytest_django.asserts import assertRedirects
 
 from attendee.models import AttendeeProfile, PretixOrder
 from portal.models import Conference
+from speakers import encryption
+from speakers.admin import SpeakerSettingsAdminForm
 from speakers.constants import AutoRule, ItemOwner, ItemStatus
+from speakers.encryption import Undecryptable
 from speakers.models import ActivityLog, ChecklistItem, SpeakerSettings
 from speakers.pretix import (
     PretixClient,
@@ -95,13 +100,63 @@ class TestEncryptedField:
 
     def test_missing_key_refuses_to_save(self, conference):
         with override_settings(FERNET_KEY=None):
-            with pytest.raises(ImproperlyConfigured, match="FERNET_KEY is not set"):
+            with pytest.raises(ImproperlyConfigured, match="is not set"):
                 make_settings(conference, pretix_api_token="x")
 
-    def test_wrong_key_refuses_to_read(self, conference, pretix_settings):
+    def test_wrong_key_degrades_to_not_configured(
+        self, conference, pretix_settings, caplog
+    ):
+        """A missing or rotated key must not take every settings-reading
+        page down: the token loads as Undecryptable, pretix reads as not
+        configured, the problem is logged once, and saving it back is
+        refused."""
         with override_settings(FERNET_KEY=Fernet.generate_key().decode()):
-            with pytest.raises(ImproperlyConfigured, match="cannot be decrypted"):
-                SpeakerSettings.objects.get(pk=pretix_settings.pk)
+            encryption._warned = False
+            with caplog.at_level("ERROR"):
+                row = SpeakerSettings.objects.get(pk=pretix_settings.pk)
+                again = SpeakerSettings.objects.get(pk=pretix_settings.pk)
+            assert isinstance(row.pretix_api_token, Undecryptable)
+            assert not row.pretix_api_token and str(row.pretix_api_token) == ""
+            assert row.pretix_configured is False
+            assert again.pretix_configured is False
+            assert caplog.text.count("Encrypted field cannot be read") == 1
+            with pytest.raises(ImproperlyConfigured, match="Refusing to save"):
+                row.save()
+        encryption._warned = False
+
+    def test_no_key_at_all_degrades_the_same_way(
+        self, conference, pretix_settings, caplog
+    ):
+        """The env var missing on a deploy (the cabotage config-copy case):
+        the read must not raise either."""
+        with override_settings(FERNET_KEY=None, FERNET_KEYS=""):
+            encryption._warned = False
+            with caplog.at_level("ERROR"):
+                row = SpeakerSettings.objects.get(pk=pretix_settings.pk)
+            assert isinstance(row.pretix_api_token, Undecryptable)
+            assert repr(row.pretix_api_token) == "Undecryptable(<token>)"
+            assert row.pretix_configured is False
+            assert "is not set" in caplog.text
+        encryption._warned = False
+
+    def test_key_rotation_with_fernet_keys(self, conference, pretix_settings):
+        old_key = settings.FERNET_KEY
+        new_key = Fernet.generate_key().decode()
+        with override_settings(FERNET_KEYS=f"{new_key},{old_key}", FERNET_KEY=None):
+            row = SpeakerSettings.objects.get(pk=pretix_settings.pk)
+            assert row.pretix_api_token == "tok-secret"  # old key still decrypts
+            row.save()  # re-encrypts with the first (new) key
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    "SELECT pretix_api_token FROM speakers_speakersettings WHERE id = %s",
+                    [row.pk],
+                )
+                raw = cursor.fetchone()[0]
+            assert Fernet(new_key).decrypt(raw.encode()).decode() == "tok-secret"
+        with override_settings(FERNET_KEYS=new_key, FERNET_KEY=None):
+            assert (
+                SpeakerSettings.objects.get(pk=row.pk).pretix_api_token == "tok-secret"
+            )
 
     def test_settings_helpers(self, conference, pretix_settings):
         assert pretix_settings.pretix_event_slug == "2025"
@@ -212,7 +267,7 @@ class TestWebhook:
         data.update(overrides)
         return json.dumps(data)
 
-    @mock.patch("speakers.webhooks.PretixClient.get_order")
+    @mock.patch("speakers.pretix.PretixClient.get_order")
     def test_recorded_payload_upserts_and_ticks_item(
         self, get_order, client, conference, pretix_settings, pretix_order_data
     ):
@@ -228,8 +283,9 @@ class TestWebhook:
         response = client.post(
             self.url(conference), self.payload(), content_type="application/json"
         )
-        assert response.status_code == 200
-        assert response.json() == {"order": "ORDER123", "status": "p"}
+        # Validated and queued; under the test settings the task runs inline.
+        assert response.status_code == 202
+        assert response.json() == {"queued": "ORDER123"}
         get_order.assert_called_once_with("ORDER123")
         order = PretixOrder.objects.get(order_code="ORDER123")
         assert order.conference == conference and order.email == "attendee@example.com"
@@ -278,6 +334,14 @@ class TestWebhook:
         )
         assert (
             client.post(
+                self.url(conference),
+                self.payload(organizer="someone-else"),
+                content_type="application/json",
+            ).status_code
+            == 400
+        )
+        assert (
+            client.post(
                 reverse("speakers:pretix_webhook", args=["nope"]) + "?secret=x",
                 self.payload(),
                 content_type="application/json",
@@ -301,7 +365,7 @@ class TestWebhook:
         )
 
     @mock.patch(
-        "speakers.webhooks.PretixClient.get_order", side_effect=PretixError("down")
+        "speakers.pretix.PretixClient.get_order", side_effect=PretixError("down")
     )
     def test_pretix_unavailable(self, get_order, client, conference, pretix_settings):
         response = client.post(
@@ -352,13 +416,55 @@ class TestReconcile:
             return 3
 
         reconcile_mock.side_effect = fake
+        # Every configured edition is attempted; the failure is re-raised at
+        # the end so Celery's autoretry (with back-off) runs the task again.
+        with pytest.raises(PretixError, match="down"):
+            pretix_reconcile_task()
+        assert reconcile_mock.call_count == 2
+        assert pretix_reconcile_task.autoretry_for == (PretixError,)
+        reconcile_mock.side_effect = lambda conf: 3
         result = pretix_reconcile_task()
-        assert "PyLadiesCon 2025: 3 order(s)" in result
-        assert "Older: failed (down)" in result
-        assert "Skipped" not in result
+        assert "PyLadiesCon 2025: 3 order(s)" in result and "Skipped" not in result
 
     def test_task_with_nothing_configured(self, conference):
         assert pretix_reconcile_task() == "No edition has pretix configured"
+
+    def test_upsert_keeps_the_conference_it_was_given(
+        self, conference, pretix_settings, pretix_order_data
+    ):
+        """The attendee mapping re-resolves the edition from the event slug
+        and falls back to the active one; an edition whose pretix_event
+        differs from its Conference.pretix_event_slug must still file its
+        orders under itself."""
+        older = Conference.objects.create(year=2023, name="Older", slug="2023")
+        make_settings(
+            older, pretix_organizer="o", pretix_api_token="t", pretix_event="special"
+        )
+        data = dict(
+            pretix_order_data, code="OLD1", event="2025"
+        )  # active edition's slug
+        order, created = upsert_order(older, data)
+        assert created and order.conference == older
+        order2, created2 = upsert_order(older, data)
+        assert not created2 and order2.conference == older
+
+    def test_admin_form_never_renders_secrets_and_keeps_them_when_blank(
+        self, conference, pretix_settings
+    ):
+        form = SpeakerSettingsAdminForm(instance=pretix_settings)
+        html = form.as_p()
+        assert "tok-secret" not in html and "hook-secret" not in html
+        assert 'type="password"' in html
+        data = model_to_dict(pretix_settings)
+        data.update({"pretix_api_token": "", "pretix_webhook_secret": "  "})
+        bound = SpeakerSettingsAdminForm(data=data, instance=pretix_settings)
+        assert bound.is_valid(), bound.errors
+        assert bound.cleaned_data["pretix_api_token"] == "tok-secret"
+        assert bound.cleaned_data["pretix_webhook_secret"] == "hook-secret"
+        data["pretix_api_token"] = "new-token"
+        bound = SpeakerSettingsAdminForm(data=data, instance=pretix_settings)
+        assert bound.is_valid(), bound.errors
+        assert bound.cleaned_data["pretix_api_token"] == "new-token"
 
 
 @pytest.mark.django_db
@@ -430,7 +536,9 @@ class TestPresenterPageActions:
         content = client.get(presenter.get_absolute_url()).content.decode()
         assert "Orders under this email" in content and "SEEN1" in content
         assert "Look up in pretix" in content
-        assert reverse("speakers:presenter_pretix_link", args=[presenter.pk]) in content
+        assert (
+            reverse("speakers:presenter_pretix_link", args=[presenter.slug]) in content
+        )
 
     @mock.patch("speakers.pretix.client_for")
     def test_lookup_view_messages(
@@ -440,7 +548,7 @@ class TestPresenterPageActions:
         fake = mock.Mock()
         client_for.return_value = fake
         client.force_login(organizer)
-        url = reverse("speakers:presenter_pretix_lookup", args=[presenter.pk])
+        url = reverse("speakers:presenter_pretix_lookup", args=[presenter.slug])
         fake.iter_orders.return_value = iter([order_payload("F1", "ada@example.com")])
         response = client.post(url, follow=True)
         assert "Found 1 order(s): F1" in response.content.decode()
@@ -457,7 +565,7 @@ class TestPresenterPageActions:
         presenter = make_presenter(conference, email="ada@example.com")
         upsert_order(conference, order_payload("LOCAL1", "other@example.com"))
         client.force_login(organizer)
-        url = reverse("speakers:presenter_pretix_link", args=[presenter.pk])
+        url = reverse("speakers:presenter_pretix_link", args=[presenter.slug])
         response = client.post(url, {"order_code": " local1 "})
         assertRedirects(response, presenter.get_absolute_url())
         presenter.refresh_from_db()
@@ -481,13 +589,13 @@ class TestPresenterPageActions:
         client.force_login(liaison)
         assert (
             client.post(
-                reverse("speakers:presenter_pretix_lookup", args=[presenter.pk])
+                reverse("speakers:presenter_pretix_lookup", args=[presenter.slug])
             ).status_code
             == 403
         )
         assert (
             client.post(
-                reverse("speakers:presenter_pretix_link", args=[presenter.pk])
+                reverse("speakers:presenter_pretix_link", args=[presenter.slug])
             ).status_code
             == 403
         )

@@ -7,6 +7,7 @@ assignee (or the organizers list) with open organizer items. Every
 twice, however often the job runs.
 """
 
+import logging
 from collections import defaultdict
 
 from django.conf import settings
@@ -22,6 +23,8 @@ from .emails import organizer_recipients
 from .models import ChecklistItem, ReminderLog, SpeakerSettings
 
 THRESHOLDS = (7, 3, 1)
+
+logger = logging.getLogger(__name__)
 
 
 def _pending_thresholds(item, today, sent):
@@ -70,7 +73,7 @@ def send_checklist_digests(conference, now=None):
             due_date__isnull=False,
         ).select_related("presenter", "session", "assignee")
     )
-    emails = 0
+    emails = DigestCount(0)
     emails += _speaker_digests(conference, items, now, sent)
     emails += _organizer_digests(conference, items, now, sent, settings_row)
     return emails
@@ -81,7 +84,7 @@ def _speaker_digests(conference, items, now, sent):
     for item in items:
         if item.owner == ItemOwner.SPEAKER and item.presenter_id is not None:
             by_presenter[item.presenter].append(item)
-    emails = 0
+    emails = DigestCount(0)
     for presenter, presenter_items in by_presenter.items():
         today = now.astimezone(presenter.tzinfo).date()
         due = [
@@ -90,7 +93,7 @@ def _speaker_digests(conference, items, now, sent):
         due = [(item, thresholds) for item, thresholds in due if thresholds]
         if not due:
             continue
-        _deliver(
+        if not _try_deliver(
             conference,
             [presenter.email],
             "emails/speakers/checklist_digest.md",
@@ -105,8 +108,10 @@ def _speaker_digests(conference, items, now, sent):
             due,
             subject=f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} {conference.name}: "
             f"{len(due)} thing(s) coming up",
-        )
-        emails += 1
+        ):
+            emails.failed += 1
+            continue
+        emails = emails + 1
     return emails
 
 
@@ -132,9 +137,9 @@ def _organizer_digests(conference, items, now, sent, settings_row):
                 )
             if fallback:
                 by_recipient[tuple(fallback)].append((item, thresholds))
-    emails = 0
+    emails = DigestCount(0)
     for recipients, due in by_recipient.items():
-        _deliver(
+        if not _try_deliver(
             conference,
             list(recipients),
             "emails/speakers/checklist_digest.md",
@@ -149,9 +154,34 @@ def _organizer_digests(conference, items, now, sent, settings_row):
             due,
             subject=f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} {conference.name}: "
             f"{len(due)} organizer item(s) coming up",
-        )
-        emails += 1
+        ):
+            emails.failed += 1
+            continue
+        emails = emails + 1
     return emails
+
+
+class DigestCount(int):
+    """How many digests went out; ``failed`` counts the ones that did not.
+    An int, so callers comparing against a number keep working."""
+
+    failed = 0
+
+    def __add__(self, other):
+        result = DigestCount(int(self) + int(other))
+        result.failed = self.failed + getattr(other, "failed", 0)
+        return result
+
+
+def _try_deliver(conference, recipients, template, context, due, subject):
+    """Deliver one digest; a failure is logged and reported, never raised,
+    so one bad mailbox does not stop everyone after it in the loop."""
+    try:
+        _deliver(conference, recipients, template, context, due, subject)
+    except Exception:  # noqa: BLE001 - anything the mail backend raises
+        logger.exception("Digest to %s failed", recipients)
+        return False
+    return True
 
 
 def _deliver(conference, recipients, template, context, due, subject):

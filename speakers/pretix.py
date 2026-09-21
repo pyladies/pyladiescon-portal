@@ -93,6 +93,11 @@ def upsert_order(conference, data):
         order_code=data["code"], defaults={"conference": conference}
     )
     order.from_pretix_data(data)
+    # The attendee mapping re-resolves the edition from the event slug and
+    # falls back to the active edition when nothing matches. This path knows
+    # the edition (SpeakerSettings.pretix_event may differ from
+    # Conference.pretix_event_slug on purpose), so it wins.
+    order.conference = conference
     order.save()
     if order.status == PretixOrderstatus.PAID:
         profile, _ = AttendeeProfile.objects.get_or_create(order=order)

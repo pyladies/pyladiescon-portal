@@ -243,7 +243,7 @@
                         <div class="d-flex flex-wrap gap-2 mt-2">
                             {% if pretix_configured %}
                                 <form method="post"
-                                      action="{% url 'speakers:presenter_pretix_lookup' presenter.pk %}">
+                                      action="{% url 'speakers:presenter_pretix_lookup' presenter.slug %}">
                                     {% csrf_token %}
                                     <button class="btn btn-sm btn-outline-secondary" type="submit">
                                         <i class="fa-solid fa-magnifying-glass"></i> {% trans "Look up in pretix" %}
@@ -252,7 +252,7 @@
                             {% endif %}
                             <form method="post"
                                   class="d-flex gap-1"
-                                  action="{% url 'speakers:presenter_pretix_link' presenter.pk %}">
+                                  action="{% url 'speakers:presenter_pretix_link' presenter.slug %}">
                                 {% csrf_token %}
                                 {% if presenter.pretix_order %}
                                     <button class="btn btn-sm btn-outline-secondary"

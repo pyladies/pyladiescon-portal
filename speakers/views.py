@@ -1381,9 +1381,9 @@ class TemplateItemActionView(TemplateEditorMixin, View):
 class PresenterPretixLookupView(
     LoginRequiredMixin, SpeakerOrganizerRequiredMixin, View
 ):
-    def post(self, request, pk):
+    def post(self, request, slug):
         presenter = get_object_or_404(
-            Presenter.objects.for_conference(self.conference), pk=pk
+            Presenter.objects.for_conference(self.conference), slug=slug
         )
         try:
             orders = lookup_presenter_orders(presenter, actor=request.user)
@@ -1401,9 +1401,9 @@ class PresenterPretixLookupView(
 
 
 class PresenterPretixLinkView(LoginRequiredMixin, SpeakerOrganizerRequiredMixin, View):
-    def post(self, request, pk):
+    def post(self, request, slug):
         presenter = get_object_or_404(
-            Presenter.objects.for_conference(self.conference), pk=pk
+            Presenter.objects.for_conference(self.conference), slug=slug
         )
         code = request.POST.get("order_code", "").strip().upper()
         if request.POST.get("action") == "unlink":

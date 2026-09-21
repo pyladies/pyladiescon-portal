@@ -103,15 +103,19 @@ bucket or presigned-URL code yet; Stage 1.5 and 4.1 add it.
 
 ### Secrets at rest
 
-`speakers/encryption.py` provides `EncryptedTextField` (Fernet, from the
-`cryptography` package), used for the per-edition pretix API token and
-webhook secret on `SpeakerSettings`. The key is `settings.FERNET_KEY`, read
-from the `FERNET_KEY` environment variable; local development and the test
-suite derive one from `SECRET_KEY` (`portal/settings.py`). Production must
-set `FERNET_KEY` (generate with `Fernet.generate_key()`), or saving those
-fields fails rather than storing plain text. Keep the key wherever the team
-keeps the other deployment secrets. The portal had no encrypted field before
-this app; nothing else in the repo stores API credentials in the database.
+`speakers/encryption.py` provides `EncryptedTextField` (Fernet), used for the
+pretix API token and webhook secret on `SpeakerSettings`. Keys come from the
+`FERNET_KEYS` environment variable (comma-separated: the first encrypts,
+every key decrypts, so rotate by putting the new key first, deploying,
+re-saving the secrets, then dropping the old key) or the single `FERNET_KEY`;
+local development and the test suite derive one from `SECRET_KEY`. Production
+must set one (generate with `Fernet.generate_key()`), or saving those fields
+raises. Reading is forgiving: a row this deploy cannot decrypt loads as
+`encryption.Undecryptable` (falsy, logged once) instead of raising, so a
+missing key degrades pretix to "not configured" rather than taking every page
+that loads `SpeakerSettings` down with it; `pretix_configured` and the webhook
+treat it as absent, and saving it back is refused. The admin never renders the
+secrets; leave the field blank to keep the stored value.
 
 ### Pretix
 
@@ -133,7 +137,7 @@ timezone) and one per assignee, or to `SpeakerSettings.organizers_email`
 (falling back to staff accounts) for unassigned organizer items, using the
 edition's `conference_timezone`. `ReminderLog` is unique on
 (item, threshold), so a reminder is never repeated. Daily Celery task
-`send_checklist_digests_task`, seeded by migration 0011.
+`send_checklist_digests_task`, seeded by migration 0004 (07:00 UTC for every edition: the "today" logic is per presenter timezone, the send time is not, so a presenter in Vancouver gets theirs late in their evening; per-timezone send times are a later refinement).
 
 ### Handbook
 
@@ -261,7 +265,10 @@ installed; this app keeps small factory functions in `tests/speakers/factories.p
   due date is not overdue at breakfast in Lima because it is already
   tomorrow in Berlin. Anything that judges "overdue" on a presenter's
   behalf (reminder emails, task 2.8) must pass `presenter.tzinfo` too.
-- Celery tasks are plain `@shared_task` unless the body calls
+- Celery tasks are plain `@shared_task` unless they retry for real:
+  `sync_order_task` and `pretix_reconcile_task` declare `autoretry_for=(PretixError,)`
+  with back-off, because pretix being briefly unavailable is exactly the
+  case a retry fixes. Otherwise no `bind=True` / `max_retries` unless the body calls
   `self.retry`; `bind=True` and `max_retries` on a task that never retries
   are noise.
 - Checklist item status changes go through `speakers.checklists`
