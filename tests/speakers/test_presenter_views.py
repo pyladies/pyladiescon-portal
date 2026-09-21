@@ -629,7 +629,7 @@ class TestInviteFromPresenterPage:
         content = client.get(ada.get_absolute_url()).content.decode()
         assert "Not invited yet" in content
         assert "Send invitation" in content and "Their to-dos" not in content
-        assert reverse("speakers:presenter_invite", args=[ada.pk]) in content
+        assert reverse("speakers:presenter_invite", args=[ada.slug]) in content
         assert "Django 101 (Presenter)" in content
         assert "The conference in general" in content
 
@@ -637,7 +637,7 @@ class TestInviteFromPresenterPage:
         ada, session = presenters["ada"], presenters["session"]
         client.force_login(organizer)
         mail.outbox.clear()
-        url = reverse("speakers:presenter_invite", args=[ada.pk])
+        url = reverse("speakers:presenter_invite", args=[ada.slug])
         response = client.post(
             url, {"session": session.pk, "message_md": "Please *come*"}, follow=True
         )
@@ -663,7 +663,7 @@ class TestInviteFromPresenterPage:
         ada = presenters["ada"]
         client.force_login(organizer)
         client.post(
-            reverse("speakers:presenter_invite", args=[ada.pk]), {"session": ""}
+            reverse("speakers:presenter_invite", args=[ada.slug]), {"session": ""}
         )
         invitation = Invitation.objects.get()
         assert invitation.session is None
@@ -671,7 +671,7 @@ class TestInviteFromPresenterPage:
         invitation.save()
         content = client.get(ada.get_absolute_url()).content.decode()
         assert "Accepted on" in content and "Last invitation sent" in content
-        assert reverse("speakers:presenter_invite", args=[ada.pk]) not in content
+        assert reverse("speakers:presenter_invite", args=[ada.slug]) not in content
 
     def test_opened_shown(self, client, organizer, presenters):
         ada = presenters["ada"]
@@ -689,7 +689,7 @@ class TestInviteFromPresenterPage:
         stranger = make_session(other.conference, title="Not hers")
         client.force_login(organizer)
         response = client.post(
-            reverse("speakers:presenter_invite", args=[ada.pk]),
+            reverse("speakers:presenter_invite", args=[ada.slug]),
             {"session": stranger.pk},
             follow=True,
         )
@@ -698,5 +698,5 @@ class TestInviteFromPresenterPage:
 
     def test_organizer_only(self, client, liaison, presenters):
         client.force_login(liaison)
-        url = reverse("speakers:presenter_invite", args=[presenters["ada"].pk])
+        url = reverse("speakers:presenter_invite", args=[presenters["ada"].slug])
         assert client.post(url, {"session": ""}).status_code == 403
