@@ -29,6 +29,22 @@
     {% endif %}
     <form method="post" enctype="multipart/form-data" class="col-lg-8">
         {% csrf_token %}
+        {% if form.locked_fields %}
+            <div class="alert alert-secondary small" role="note">
+                <i class="fa-solid fa-lock"></i>
+                {% trans "Locked now that the session is scheduled; ask an organizer to change these." %}
+                <dl class="row mb-0 mt-2">
+                    {% for label, value in form.locked_fields %}
+                        <dt class="col-sm-3">
+                            {{ label }}
+                        </dt>
+                        <dd class="col-sm-9 mb-0">
+                            {{ value }}
+                        </dd>
+                    {% endfor %}
+                </dl>
+            </div>
+        {% endif %}
         {% bootstrap_form form %}
         {% bootstrap_button "Save profile" button_type="submit" %}
     </form>

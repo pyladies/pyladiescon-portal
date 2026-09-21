@@ -104,6 +104,13 @@ class ItemStatus(models.TextChoices):
 
 OPEN_ITEM_STATUSES = frozenset({ItemStatus.TODO, ItemStatus.BLOCKED})
 
+# Once an organizer has scheduled a session, its identity (title, address)
+# and its presenters' identity (name, address) are no longer the speaker's to
+# change: links and listings may already carry them.
+IDENTITY_LOCKED_STATUSES = frozenset(
+    {SessionStatus.SCHEDULED, SessionStatus.PUBLISHED, SessionStatus.CANCELLED}
+)
+
 
 class MediaStatus(models.TextChoices):
     UPLOADING = "UPLOADING", "Uploading"

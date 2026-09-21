@@ -1,4 +1,5 @@
 {% load i18n %}
+{% load portal_extras speakers_extras %}
 {% trans "Mark as not done" as undo_label %}
 {% trans "Mark as done" as do_label %}
 {% trans "Ticks itself" as auto_label %}
@@ -41,6 +42,11 @@ One checklist line. Params:
                    title="{{ auto_label }}"></i>
             {% endif %}
         </div>
+        {% if item.description_md %}
+            <div class="small text-body-secondary item-description">
+                {{ item.description_md|speaker_md }}
+            </div>
+        {% endif %}
         <div class="small text-secondary">
             {% if item.session %}
                 {{ item.session.title }} ·

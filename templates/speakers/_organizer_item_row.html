@@ -1,4 +1,5 @@
 {% load i18n %}
+{% load portal_extras speakers_extras %}
 {% trans "Assignee" as assignee_label %}
 {% comment %}
 One checklist item as a table row on organizer pages. Params:
@@ -22,6 +23,11 @@ for htmx is set once on <body> by the organizer shell.
         {{ item.title }}
         {% if item.is_automatic %}
             <i class="fa-solid fa-wand-magic-sparkles text-secondary small"></i>
+        {% endif %}
+        {% if item.description_md %}
+            <div class="small text-body-secondary item-description">
+                {{ item.description_md|speaker_md }}
+            </div>
         {% endif %}
         {% if item.session %}
             <div class="small text-secondary">

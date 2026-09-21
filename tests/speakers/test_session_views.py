@@ -260,6 +260,41 @@ class TestSlugUrls:
         assert literal_next, "no literal segments found; the walk is broken"
         assert literal_next <= RESERVED_SLUGS
 
+    def test_organizer_identity_change_on_scheduled_session_is_logged(
+        self, client, organizer, sessions
+    ):
+        session = sessions["mine"]
+        client.force_login(organizer)
+        url = reverse("speakers:session_edit", args=[session.slug])
+        base = {
+            "kind": session.kind_id,
+            "delivery": Delivery.LIVE,
+            "duration_minutes": 120,
+            "level": "BEGINNER",
+            "language": "en",
+        }
+        # Before scheduling: a rename is routine, nothing special is logged.
+        client.post(url, {**base, "title": "Early rename", "slug": ""})
+        assert not ActivityLog.objects.filter(
+            action="session.identity_changed"
+        ).exists()
+        session.refresh_from_db()
+        session.status = SessionStatus.SCHEDULED
+        session.save()
+        response = client.post(
+            url, {**base, "title": "Late rename", "slug": "late-rename"}, follow=True
+        )
+        assert "Already scheduled: the title and web address changed" in (
+            response.content.decode()
+        )
+        entry = ActivityLog.objects.get(action="session.identity_changed")
+        assert entry.actor == organizer
+        assert entry.data["changes"]["title"] == {
+            "from": "Early rename",
+            "to": "Late rename",
+        }
+        assert entry.data["changes"]["slug"]["to"] == "late-rename"
+
     def test_same_title_gets_a_suffix_within_the_edition(self, conference, enabled):
         first = make_session(conference, title="Django 101")
         second = make_session(conference, title="Django 101")
