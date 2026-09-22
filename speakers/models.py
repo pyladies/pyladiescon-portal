@@ -42,6 +42,7 @@ from .constants import (
     ItemStatus,
     MediaKind,
     MediaStatus,
+    NoticeKind,
     PremiereLocation,
     SessionLevel,
     SessionStatus,
@@ -387,6 +388,10 @@ class Presenter(TimestampedModel):
         default=True,
         help_text="Off hides the bio, headshot and links on the public site; "
         "the name still appears on their sessions.",
+    )
+    password_reminder_dismissed = models.BooleanField(
+        default=False,
+        help_text="The presenter chose to keep signing in with emailed codes.",
     )
     pretix_order = models.ForeignKey(
         "attendee.PretixOrder",
@@ -1337,6 +1342,12 @@ class ChecklistItem(TimestampedModel):
     )
     requires_asset_language = models.CharField(max_length=10, blank=True)
     requires_handbook = models.SlugField(max_length=40, blank=True)
+    # Set when a line is added to or changed on an existing checklist; the
+    # daily update email clears it (speakers/notices.py).
+    pending_notice = models.CharField(
+        max_length=8, choices=NoticeKind.choices, blank=True, editable=False
+    )
+    pending_since = models.DateTimeField(null=True, blank=True, editable=False)
 
     class Meta:
         ordering = ["order", "id"]
@@ -1371,6 +1382,13 @@ class ChecklistItem(TimestampedModel):
     @property
     def guide_key(self):
         return self.requires_handbook or DEFAULT_GUIDE_KEY
+
+    def flag_notice(self, kind):
+        """Queue the item for the daily update email; NEW outranks CHANGED."""
+        if self.pending_notice == NoticeKind.NEW:
+            return
+        self.pending_notice = kind
+        self.pending_since = timezone.now()
 
     @property
     def owner_value(self):

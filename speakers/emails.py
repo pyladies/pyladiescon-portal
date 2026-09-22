@@ -159,3 +159,27 @@ def send_copresenter_suggestion_email(presenter, session, name, email, note):
             context=context,
         )
     return len(recipients)
+
+
+def send_acceptance_email(invitation):
+    """After accepting: account details, how to sign in, sessions, next steps."""
+    presenter = invitation.presenter
+    send_email(
+        f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} Welcome aboard, "
+        f"{presenter.display_name}!",
+        [presenter.email],
+        markdown_template="emails/speakers/accepted.md",
+        context={
+            "presenter": presenter,
+            "user": presenter.user,
+            "conference": invitation.conference,
+            "sessions": list(
+                presenter.session_presenters.select_related("session").order_by(
+                    "session__title"
+                )
+            ),
+            "login_url": absolute_url(reverse("account_login")),
+            "password_url": absolute_url(reverse("account_set_password")),
+            "dashboard_url": absolute_url(reverse("speakers:my_dashboard")),
+        },
+    )

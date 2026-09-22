@@ -116,7 +116,7 @@ class TestAccess:
 @pytest.mark.django_db
 class TestPortalIndexRouting:
     def test_presenter_lands_on_speaker_dashboard(self, client, speaker, presenter):
-        PortalProfile.objects.create(user=speaker)
+        PortalProfile.objects.get_or_create(user=speaker)
         client.force_login(speaker)
         assertRedirects(
             client.get(reverse("index")), DASHBOARD, fetch_redirect_response=False
@@ -125,7 +125,7 @@ class TestPortalIndexRouting:
     def test_presenter_who_volunteers_keeps_volunteer_hub(
         self, client, speaker, presenter, conference
     ):
-        PortalProfile.objects.create(user=speaker)
+        PortalProfile.objects.get_or_create(user=speaker)
         VolunteerProfile.objects.create(user=speaker, conference=conference)
         client.force_login(speaker)
         assertRedirects(
@@ -156,6 +156,7 @@ class TestDashboard:
         content = client.get(DASHBOARD).content.decode()
         assert "still missing" not in content
         assert "Nothing on your list yet" in content
+        assert "You are not on any session yet" in content
 
     def test_schedule_placeholder(self, client, speaker, presenter):
         presenter.timezone = "Africa/Lagos"
@@ -490,3 +491,13 @@ class TestLockedSessions:
         assert client.get(url).status_code == 403
         Session.objects.filter(pk=my_session.pk).update(status=SessionStatus.SCHEDULED)
         assert client.get(url).status_code == 200
+
+
+@pytest.mark.django_db
+class TestSpeakerProfileWording:
+    def test_menu_and_headers_say_speaker_profile(self, client, speaker, presenter):
+        client.force_login(speaker)
+        content = client.get(PROFILE).content.decode()
+        assert "My speaker profile" in content
+        assert ">My profile<" not in content
+        assert "Update speaker profile" in client.get(DASHBOARD).content.decode()

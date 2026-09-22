@@ -14,9 +14,9 @@ Expects:
 {% endif %}
 {% url 'speakers:my_profile' as profile_url %}
 {% if active == "profile" %}
-    {% include "portal/_sidebar_item.html" with url=profile_url label=_("My profile") icon="fa-id-card" active=True only %}
+    {% include "portal/_sidebar_item.html" with url=profile_url label=_("My speaker profile") icon="fa-id-card" active=True only %}
 {% else %}
-    {% include "portal/_sidebar_item.html" with url=profile_url label=_("My profile") icon="fa-id-card" only %}
+    {% include "portal/_sidebar_item.html" with url=profile_url label=_("My speaker profile") icon="fa-id-card" only %}
 {% endif %}
 {% url 'speakers:my_sessions' as sessions_url %}
 {% if active == "sessions" %}

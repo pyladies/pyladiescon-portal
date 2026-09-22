@@ -1,10 +1,15 @@
 import zoneinfo
 
 from django import forms
+from django.contrib.auth.models import User
+from django.contrib.auth.password_validation import validate_password
+from django.contrib.auth.validators import UnicodeUsernameValidator
+from django.core.exceptions import ValidationError
 from django.db.models import Q
 from django.utils.text import slugify
 from text_unidecode import unidecode
 
+from portal_account.models import PortalProfile
 from volunteer.models import Team
 
 from .constants import (
@@ -732,3 +737,86 @@ class PresenterInviteForm(InviteForm):
         return next(
             link.session for link in self.links if str(link.session_id) == value
         )
+
+
+class SpeakerOnboardingForm(forms.Form):
+    """First visit after accepting: account details, the agreements every
+    portal account carries, and an optional password.
+
+    Leaving both password fields blank keeps sign-in by emailed code.
+    """
+
+    username = forms.CharField(
+        max_length=150,
+        validators=[UnicodeUsernameValidator()],
+        help_text="Letters, digits and @/./+/-/_ only.",
+    )
+    first_name = forms.CharField(max_length=150)
+    last_name = forms.CharField(max_length=150, required=False)
+    pronouns = forms.CharField(max_length=100, required=False)
+    coc_agreement = forms.BooleanField(
+        label="I agree to the Code of Conduct",
+        help_text="You must agree to our Code of Conduct to use this site.",
+    )
+    tos_agreement = forms.BooleanField(
+        label="I agree to the Terms of Service",
+        help_text="You must agree to our Terms of Service to use this site.",
+    )
+    password1 = forms.CharField(
+        label="Password (optional)",
+        required=False,
+        widget=forms.PasswordInput(attrs={"autocomplete": "new-password"}),
+        help_text="Leave blank to keep signing in with a code sent to your email.",
+    )
+    password2 = forms.CharField(
+        label="Password again",
+        required=False,
+        widget=forms.PasswordInput(attrs={"autocomplete": "new-password"}),
+    )
+
+    def __init__(self, *args, user, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.user = user
+
+    def clean_username(self):
+        username = self.cleaned_data["username"]
+        if (
+            User.objects.filter(username__iexact=username)
+            .exclude(pk=self.user.pk)
+            .exists()
+        ):
+            raise forms.ValidationError("That username is taken.")
+        return username
+
+    def clean(self):
+        cleaned = super().clean()
+        password = cleaned.get("password1")
+        if password or cleaned.get("password2"):
+            if password != cleaned.get("password2"):
+                self.add_error("password2", "The two passwords do not match.")
+            else:
+                try:
+                    validate_password(password, self.user)
+                except ValidationError as exc:
+                    self.add_error("password1", exc)
+        return cleaned
+
+    @property
+    def sets_password(self):
+        return bool(self.cleaned_data.get("password1"))
+
+    def save(self):
+        """Update the account, create the portal profile, set the password."""
+        user = self.user
+        user.username = self.cleaned_data["username"]
+        user.first_name = self.cleaned_data["first_name"]
+        user.last_name = self.cleaned_data["last_name"]
+        if self.sets_password:
+            user.set_password(self.cleaned_data["password1"])
+        user.save()
+        profile, _ = PortalProfile.objects.get_or_create(user=user)
+        profile.pronouns = self.cleaned_data["pronouns"]
+        profile.coc_agreement = True
+        profile.tos_agreement = True
+        profile.save()
+        return profile

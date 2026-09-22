@@ -139,6 +139,19 @@ team (`default_team_name`, matched by name per edition so templates clone
 forward). "My queue" shows items assigned to me or to a team I am an
 approved member of; team reminders go to every approved member.
 
+### Template changes reach existing checklists
+
+There is no back-fill step. Adding a template line creates the item on
+every checklist already made from that template (`apply_new_template_item`),
+editing a line updates its instances (`apply_template_item_changes`: title,
+description, recomputed due date, flags and rule; order silently), deleting
+one removes the open copies and keeps done or skipped ones
+(`retire_template_item`). Items added or visibly changed carry
+`pending_notice`; the daily `send_checklist_change_notices_task`
+(`speakers/notices.py`) emails each affected presenter, assignee or team
+once with the new and changed items, then clears the flags, so a quiet day
+sends nothing.
+
 ### Reminders
 
 `speakers/reminders.py` sends one digest per presenter (open speaker items
@@ -175,6 +188,42 @@ it a "Read the workshop guide" item would sit open with nothing to read
 and nothing on the organizer side to say so. On the speaker side,
 `required_guide_keys` returns only what their own items name: a presenter
 with no checklist yet is asked to read nothing.
+
+### Checklist change notices
+
+A template line that is added, edited or deleted reaches the checklists
+already made from it at once; there is no back-fill step. Items added or
+visibly changed (title, description, due date) are flagged on the row
+itself, and a daily job emails each affected presenter, assignee or team
+once, then clears the flags, so a quiet day sends nothing. A row can only
+carry one flag: `flag_notice` lets NEW outrank CHANGED, because an item
+someone has never seen is new to them whatever happened to it afterwards.
+One failed mailbox is logged and counted, never raised, as in the reminder
+digests.
+
+### Agreeing to the Code of Conduct and the Terms of Service
+
+Accepting an invitation creates the account and signs the presenter in, so
+they never meet the signup form that collects the two agreements, and the
+profile form cannot record them (its boxes are a disabled display of what
+signup captured). The portal-wide gate,
+`portal_account.agreements.AgreementRequiredMiddleware`, closes that: any
+signed-in account without both agreements is redirected to a page that asks,
+whatever route it arrived by.
+
+A presenter gets the speaker welcome page instead of the plain one, because
+it asks for a username and an optional password as well. That is wired
+through `settings.ONBOARDING_URL_RESOLVERS`, which names
+`speakers.onboarding.welcome_url_for`; `portal_account` knows nothing about
+this app. The welcome page skips itself on `has_agreed`, the same question the gate
+asks: when it asked a different one ("does a profile exist"), a presenter
+whose profile predated the agreements bounced between the two forever.
+Nothing on the speaker side routes onboarding any more, since the gate
+runs before every view. Any page named by
+a resolver is used once; if the next gated request arrives from somewhere
+else and the agreements are still missing, the gate falls back to its own
+page, which always collects them. A settled agreement is remembered in the
+session, so the check costs nothing after the first page.
 
 ### The one dependency that points outward
 
@@ -219,6 +268,15 @@ The organizer-only `speakers:invitation_preview` endpoint renders it, and
 htmx asks for it when a form becomes visible (`intersect once`) and again as
 the note is typed, so a session page listing several unconfirmed presenters
 builds no email until one is asked for.
+
+### Next year
+
+"Start next year" (`portal/views.py`, `StartNewYearView`) offers "Copy the
+speaker portal setup" and "Enable the speaker portal". The copy is
+`speakers.seeds.clone_speaker_setup`: checklist templates and items, the
+latest published version of each guide as an unpublished draft, and the
+settings except the pretix event, token and secret. The conference edit
+form can flip the flag later.
 
 ### Absolute links in email
 
@@ -289,6 +347,15 @@ installed; this app keeps small factory functions in `tests/speakers/factories.p
   "Speaking" through the `is_speaker_presenter` context flag, and the portal
   index routes presenters who are not volunteering this year to their
   dashboard.
+- Onboarding: a presenter whose account has no `PortalProfile` yet is sent
+  to `/speakers/me/welcome/` (`PresenterRequiredMixin.requires_portal_profile`)
+  before any speaker page: editable username, names, pronouns, CoC and ToS
+  agreements, optional password. The portal index routes such presenters
+  there instead of the volunteer profile form, whose username and agreement
+  boxes are disabled because signup collects them. Accepting an invitation
+  also sends `emails/speakers/accepted.md` (account, sign-in options,
+  sessions, next steps). The dashboard nags about setting a password until
+  one exists or `Presenter.password_reminder_dismissed` is set.
 - Headshots go through the default storage (`ImageField`, same as
   `PortalProfile.profile_picture`), so they land on Spaces when
   `USE_SPACES=true` and on disk otherwise. Direct-to-Spaces presigned upload
@@ -373,7 +440,11 @@ installed; this app keeps small factory functions in `tests/speakers/factories.p
   carry a non-editable `conference` copied from their session on save.
 - Status changes are model methods on `Session` (`mark_invited`, `confirm`,
   `schedule`, `publish`, `cancel`) that raise `speakers.models.TransitionError`
-  when a precondition fails; views turn that into a message.
+  when a precondition fails; views turn that into a message. Accepting an
+  invitation is the presenter's confirmation: no seeded checklist item is
+  required, so a content session becomes CONFIRMED as soon as every required
+  presenter has accepted. Organizers can still mark a template line required
+  to gate that.
 - Enumerations live in `speakers/constants.py` as `TextChoices`, except
   session types and presenter roles, which are rows: `SessionType` (code,
   name, `is_content`, default duration and delivery, `spans_all_channels`,

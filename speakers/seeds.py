@@ -28,7 +28,14 @@ from .constants import (
     ItemOwner,
     MediaKind,
 )
-from .models import ChecklistTemplate, ChecklistTemplateItem, PresenterRole, SessionType
+from .models import (
+    ChecklistTemplate,
+    ChecklistTemplateItem,
+    Handbook,
+    PresenterRole,
+    SessionType,
+    SpeakerSettings,
+)
 from .program_types import (
     clone_program_types,
     presenter_role,
@@ -66,7 +73,7 @@ BIO = _item(
 )
 CONFIRM_TITLE = _item(
     SPK,
-    "Confirm your session title and summary",
+    "Check your session title and summary",
     ACCEPTED,
     7,
     description_md="Check that the title and summary on your session page read the way you want them on the schedule, and edit them if not.",
@@ -210,7 +217,7 @@ PERFORMER = [
     BIO,
     _item(
         SPK,
-        "Confirm your title and description",
+        "Check your title and description",
         ACCEPTED,
         7,
         description_md="Check that the title and description of your performance read the way you want them on the schedule.",
@@ -517,3 +524,53 @@ def clone_checklists(target, source):
             )
             items_created += 1
     return templates_created, items_created
+
+
+# The pretix event, token and secret are deliberately absent: they are
+# per edition, and copying an encrypted value this deploy cannot read
+# (see speakers/encryption.py) would raise on save.
+SETTINGS_TO_COPY = [
+    "default_premiere_location",
+    "translation_languages",
+    "default_video_length_limit_minutes",
+    "conference_timezone",
+    "organizers_email",
+    "pretix_base_url",
+    "pretix_organizer",
+]
+
+
+def clone_speaker_setup(target, source, enable=False):
+    """Carry the speaker-portal setup into a new edition (Start next year).
+
+    Copies checklist templates, the latest published version of every guide
+    (as an unpublished draft), and the per-edition settings except the
+    pretix event, token and secret, which are per edition. ``enable``
+    switches the module on. Returns a dict of counts.
+    """
+    templates, items = clone_checklists(target, source)
+    guides = 0
+    for key, _ in Handbook.keys(source):
+        current = Handbook.current(source, key)
+        if (
+            current is None
+            or Handbook.objects.filter(conference=target, key=key).exists()
+        ):
+            continue
+        Handbook.objects.create(
+            conference=target,
+            key=key,
+            version=1,
+            title=current.title,
+            url=current.url,
+            body_md=current.body_md,
+        )
+        guides += 1
+    settings_row, _ = SpeakerSettings.objects.get_or_create(conference=target)
+    source_settings = SpeakerSettings.objects.filter(conference=source).first()
+    if source_settings is not None:
+        for field in SETTINGS_TO_COPY:
+            setattr(settings_row, field, getattr(source_settings, field))
+    settings_row.speaker_module_enabled = enable
+    settings_row.save()
+    return {"templates": templates, "items": items, "guides": guides}

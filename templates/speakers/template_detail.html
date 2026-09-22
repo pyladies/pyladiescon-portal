@@ -39,7 +39,7 @@
         </div>
     </div>
     <p class="text-secondary small">
-        {% trans "Changes here apply to checklists created from now on. Use back-fill to add an item to presenters who already have this checklist." %}
+        {% trans "Changes here reach everyone who already has this checklist straight away; a daily email tells them what is new or changed. Reordering is silent." %}
     </p>
     {% trans "Move up" as up_label %}
     {% trans "Move down" as down_label %}
@@ -140,14 +140,6 @@
                             {{ item.instance_count }}
                         </td>
                         <td class="text-nowrap">
-                            <form method="post"
-                                  class="d-inline"
-                                  action="{% url 'speakers:template_item_action' template.pk item.pk 'backfill' %}">
-                                {% csrf_token %}
-                                <button class="btn btn-sm btn-outline-primary" type="submit">
-                                    {% trans "Back-fill" %}
-                                </button>
-                            </form>
                             <form method="post"
                                   class="d-inline"
                                   action="{% url 'speakers:template_item_action' template.pk item.pk 'delete' %}">

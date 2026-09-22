@@ -18,6 +18,11 @@ urlpatterns = [
         name="portal_profile_new",
     ),
     path(
+        "agreements/",
+        login_required(views.AgreementsView.as_view()),
+        name="agreements",
+    ),
+    path(
         "profile/edit/<int:pk>",
         login_required(views.PortalProfileUpdate.as_view()),
         name="portal_profile_edit",

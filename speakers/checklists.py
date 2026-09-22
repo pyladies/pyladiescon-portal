@@ -11,11 +11,13 @@ from django.utils import timezone
 from volunteer.models import Team
 
 from .constants import (
+    OPEN_ITEM_STATUSES,
     SESSION_LANGUAGE,
     AssigneeDefault,
     ChecklistScope,
     ItemOwner,
     ItemStatus,
+    NoticeKind,
 )
 from .lifecycle import confirm_session_if_ready
 from .models import (
@@ -144,11 +146,10 @@ def instantiate_session_checklist(session):
     return created
 
 
-def backfill_template_item(template_item):
-    """Add a template line to every checklist already created from its
-    template, without duplicating. Returns the number of items created."""
+def _matching_targets(template_item):
+    """``(session, presenter, anchors)`` for every checklist already created
+    from the line's template."""
     template = template_item.template
-    created = 0
     if template.scope == ChecklistScope.PRESENTER:
         links = SessionPresenter.objects.filter(
             conference=template.conference,
@@ -156,33 +157,130 @@ def backfill_template_item(template_item):
             role=template.role,
             confirmed_at__isnull=False,
         ).select_related("session", "presenter", "presenter__liaison")
-        for link in links:
-            anchors = _anchors(link.session, link.confirmed_at)
-            if _create_instance(
-                template_item,
-                session=link.session,
-                presenter=link.presenter,
-                anchors=anchors,
-            ):
-                created += 1
-        return created
+        return [
+            (
+                link.session,
+                link.presenter,
+                _anchors(link.session, link.confirmed_at),
+            )
+            for link in links
+        ]
     sessions = (
         ChecklistItem.objects.filter(template_item__template=template)
         .values_list("session", flat=True)
         .distinct()
     )
-    for session in template.conference.sessions.filter(pk__in=sessions):
-        anchors = _anchors(session)
-        for language in _languages_for(template_item, session):
-            if _create_instance(
+    return [
+        (session, None, _anchors(session))
+        for session in template.conference.sessions.filter(pk__in=sessions)
+    ]
+
+
+def apply_new_template_item(template_item):
+    """Add a new template line to every checklist already created from its
+    template (design §9.2, as revised: no back-fill step). The new items
+    are flagged for the daily update email. Returns the items created."""
+    created = []
+    for session, presenter, anchors in _matching_targets(template_item):
+        for language in (
+            _languages_for(template_item, session) if presenter is None else [""]
+        ):
+            item = _create_instance(
                 template_item,
                 session=session,
-                presenter=None,
+                presenter=presenter,
                 anchors=anchors,
                 language=language,
-            ):
-                created += 1
+            )
+            if item is not None:
+                item.flag_notice(NoticeKind.NEW)
+                item.save(
+                    update_fields=["pending_notice", "pending_since", "modified_date"]
+                )
+                created.append(item)
     return created
+
+
+NOTIFY_ON_CHANGE = ("title", "description_md", "due_date")
+
+#: What an instance takes from its template line when the line is edited.
+FOLLOWS_THE_TEMPLATE = (
+    "title",
+    "description_md",
+    "due_date",
+    "order",
+    "owner",
+    "is_required",
+    "auto_complete_rule",
+    "requires_asset_kind",
+    "requires_handbook",
+    "pending_notice",
+    "pending_since",
+    "modified_date",
+)
+
+
+def apply_template_item_changes(template_item):
+    """Push an edited line to its existing instances.
+
+    Title, description, due date (recomputed), owner, required flag and the
+    rule fields follow the template; the order does too but silently. Items
+    whose title, description or due date changed are flagged for the daily
+    update email. Returns the number of items changed."""
+    changed = 0
+    touched = []
+    anchors_for = {
+        (session.pk, presenter.pk if presenter else None): anchors
+        for session, presenter, anchors in _matching_targets(template_item)
+    }
+    for item in ChecklistItem.objects.filter(
+        template_item=template_item
+    ).select_related("session"):
+        anchors = anchors_for.get((item.session_id, item.presenter_id), {})
+        title = template_item.title
+        if template_item.per_translation_language and item.requires_asset_language:
+            title = f"{title} ({item.requires_asset_language})"
+        before = {field: getattr(item, field) for field in NOTIFY_ON_CHANGE}
+        item.title = title
+        item.description_md = template_item.description_md
+        item.due_date = template_item.due_date(**anchors) if anchors else item.due_date
+        item.order = template_item.order
+        item.owner = template_item.owner
+        item.is_required = template_item.is_required
+        item.auto_complete_rule = template_item.auto_complete_rule
+        item.requires_asset_kind = template_item.requires_asset_kind
+        item.requires_handbook = template_item.requires_handbook
+        if any(getattr(item, field) != before[field] for field in NOTIFY_ON_CHANGE):
+            item.flag_notice(NoticeKind.CHANGED)
+            changed += 1
+        item.modified_date = timezone.now()
+        touched.append(item)
+    # One statement rather than a save per instance: a popular line can sit
+    # on hundreds of checklists, and nothing listens for ChecklistItem saves.
+    ChecklistItem.objects.bulk_update(touched, FOLLOWS_THE_TEMPLATE, batch_size=500)
+    return changed
+
+
+def retire_template_item(template_item):
+    """Before a line is deleted: drop the open copies, keep done and skipped
+    ones for the record. Returns the number removed.
+
+    "Open" includes blocked, as it does when a presenter's role changes: a
+    note about why an item is stuck is worth nothing once the line it came
+    from is gone.
+    """
+    removed, _ = ChecklistItem.objects.filter(
+        template_item=template_item, status__in=list(OPEN_ITEM_STATUSES)
+    ).delete()
+    return removed
+
+
+def sync_template_order(template):
+    """Reordering lines reorders their instances, silently."""
+    for line in template.items.all():
+        ChecklistItem.objects.filter(template_item=line).exclude(
+            order=line.order
+        ).update(order=line.order)
 
 
 def add_adhoc_item(
@@ -210,6 +308,8 @@ def add_adhoc_item(
         team=team if assignee is None else None,
         description_md=description_md,
         order=1000,
+        pending_notice=NoticeKind.NEW,
+        pending_since=timezone.now(),
     )
     ActivityLog.record(
         conference,

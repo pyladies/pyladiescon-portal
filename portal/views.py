@@ -31,8 +31,8 @@ from portal.services import (
     clone_sponsorship_tiers,
     clone_teams,
 )
-from portal_account.models import PortalProfile
-from speakers.models import Presenter, speaker_module_enabled
+from speakers.models import Presenter, SpeakerSettings, speaker_module_enabled
+from speakers.seeds import clone_speaker_setup
 from sponsorship.models import SponsorshipProfile
 from volunteer.constants import ApplicationStatus
 from volunteer.models import Team, VolunteerProfile
@@ -43,7 +43,6 @@ def index(request):
     Send authenticated users to their personalized hub, anonymous visitors to
     the public landing page.
 
-    - No portal profile yet: create one first.
     - Organizers (staff/superuser): the organizer dashboard.
     - Presenters who are not also volunteering this year: their speaker
       dashboard.
@@ -52,14 +51,18 @@ def index(request):
     """
     user = get_user(request)
     if user.is_authenticated:
-        if not PortalProfile.objects.filter(user=user).exists():
-            return redirect("portal_account:portal_profile_new")
-        if user.is_superuser or user.is_staff:
-            return redirect("organizer_dashboard")
         active = Conference.get_active()
-        if (
+        is_presenter = (
             speaker_module_enabled(active)
             and Presenter.objects.filter(conference=active, user=user).exists()
+        )
+        # An account with no profile never reaches this view: the agreement
+        # gate (portal_account.agreements) sends it to the page that asks,
+        # and creates the profile when it answers.
+        if user.is_superuser or user.is_staff:
+            return redirect("organizer_dashboard")
+        if (
+            is_presenter
             and not VolunteerProfile.objects.filter(
                 user=user, conference=active
             ).exists()
@@ -252,12 +255,26 @@ class StartNewYearView(SuperuserRequiredMixin, FormView):
                 carried.append(
                     f"{bring_forward_volunteers(conference, source)} volunteer(s)"
                 )
+        if source and data["copy_speaker_setup"]:
+            counts = clone_speaker_setup(
+                conference, source, enable=data["speaker_portal"]
+            )
+            carried.append(
+                f"{counts['templates']} checklist template(s), "
+                f"{counts['guides']} speaker guide(s)"
+            )
+        elif data["speaker_portal"]:
+            SpeakerSettings.objects.update_or_create(
+                conference=conference, defaults={"speaker_module_enabled": True}
+            )
 
         message = f"Created {conference}."
         if carried:
             message += f" Carried over: {', '.join(carried)}."
         if data["activate"]:
             message += " It is now the active edition."
+        if data["speaker_portal"]:
+            message += " The speaker portal is on."
         messages.success(self.request, message)
         return super().form_valid(form)
 

@@ -4,8 +4,13 @@ from celery import shared_task
 
 from portal.models import Conference
 
-from .emails import send_copresenter_suggestion_email, send_invitation_email
+from .emails import (
+    send_acceptance_email,
+    send_copresenter_suggestion_email,
+    send_invitation_email,
+)
 from .models import Invitation, Presenter, Session, SpeakerSettings
+from .notices import send_checklist_change_notices
 from .pretix import PretixError, reconcile, sync_order_by_code
 from .reminders import send_checklist_digests
 from .rules import reevaluate_all
@@ -25,6 +30,20 @@ def send_invitation_email_task(invitation_id):
         return f"Invitation with id {invitation_id} not found"
     send_invitation_email(invitation)
     return f"Sent invitation email for {invitation_id}"
+
+
+@shared_task
+def send_acceptance_email_task(invitation_id):
+    """Send the welcome email once an invitation has been accepted."""
+    invitation = (
+        Invitation.objects.filter(pk=invitation_id, accepted_at__isnull=False)
+        .select_related("presenter", "presenter__user", "conference")
+        .first()
+    )
+    if invitation is None or invitation.presenter.user is None:
+        return f"Invitation {invitation_id} is not accepted"
+    send_acceptance_email(invitation)
+    return f"Sent acceptance email for {invitation_id}"
 
 
 @shared_task
@@ -99,4 +118,20 @@ def send_checklist_digests_task():
         sent = send_checklist_digests(settings_row.conference)
         note = f" ({sent.failed} failed)" if sent.failed else ""
         results.append(f"{settings_row.conference}: {sent} email(s){note}")
+    return "; ".join(results) or "No edition has the speaker module enabled"
+
+
+@shared_task
+def send_checklist_change_notices_task():
+    """Daily: tell people about checklist items added or changed since the
+    last notice, per edition with the module on."""
+    results = []
+    for settings_row in SpeakerSettings.objects.filter(
+        speaker_module_enabled=True
+    ).select_related("conference"):
+        sent = send_checklist_change_notices(settings_row.conference)
+        note = f"{settings_row.conference}: {sent} email(s)"
+        if sent.failed:
+            note += f" ({sent.failed} failed)"
+        results.append(note)
     return "; ".join(results) or "No edition has the speaker module enabled"

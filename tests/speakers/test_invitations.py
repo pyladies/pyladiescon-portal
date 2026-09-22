@@ -459,6 +459,7 @@ class TestInvitationView:
         assert response.context["reason"] == "invalid"
         assert "not valid" in response.content.decode()
 
+    @pytest.mark.no_agreements
     def test_accept_logs_in_and_redirects(self, client, invitation):
         send_invitation(invitation)
         response = client.post(_url(invitation), {"action": "accept"})
@@ -467,7 +468,8 @@ class TestInvitationView:
         user = User.objects.get(username="ada")
         assert int(client.session["_auth_user_id"]) == user.pk
         follow = client.get(response.url, follow=True)
-        assert follow.redirect_chain[-1][0] == reverse("speakers:my_dashboard")
+        # A brand-new account finishes onboarding before the dashboard.
+        assert follow.redirect_chain[-1][0] == reverse("speakers:my_welcome")
         assert "Thanks for accepting, Ada Lovelace" in follow.content.decode()
 
     def test_accept_switches_logged_in_user(self, client, invitation, portal_user):

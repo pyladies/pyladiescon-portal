@@ -74,14 +74,16 @@ class TestPortalIndex:
         assert "Active conference edition" in content  # the navbar badge
         assert str(conference.year) in content
 
+    @pytest.mark.no_agreements
     def test_index_authenticated_no_profile_created(self, client, portal_user):
-
+        """An account with no profile has not agreed either, so the gate
+        (portal_account.agreements) takes it before the index does."""
         client.force_login(portal_user)
         response = client.get(reverse("index"), follow=True)
 
         assert "Sign out" not in response.content.decode()
         assert "Login" not in response.content.decode()
-        assertRedirects(response, reverse("portal_account:portal_profile_new"))
+        assertRedirects(response, reverse("portal_account:agreements"))
 
     def test_index_authenticated_profile_already_created(self, client, portal_user):
         # Volunteers land on their hub, not a second portal landing page.

@@ -118,7 +118,14 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "allauth.account.middleware.AccountMiddleware",
     "django.middleware.locale.LocaleMiddleware",
+    # Last: it needs request.user, and it redirects rather than renders.
+    "portal_account.agreements.AgreementRequiredMiddleware",
 ]
+
+# Apps that own a richer first-visit page for their own people name a
+# callable here; it takes the user and returns a URL or None. The
+# agreement gate asks each in turn before falling back to its own page.
+ONBOARDING_URL_RESOLVERS = ["speakers.onboarding.welcome_url_for"]
 
 ROOT_URLCONF = "portal.urls"
 BASE_DIR = Path(__file__).resolve().parent.parent

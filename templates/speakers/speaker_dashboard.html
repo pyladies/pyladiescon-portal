@@ -14,38 +14,70 @@
     <p class="text-secondary mb-4">
         {% blocktranslate with conference=conference.name tz=presenter.timezone %}Everything you need for {{ conference }}, in one place. Dates are in {{ tz }}.{% endblocktranslate %}
     </p>
+    {% if show_password_reminder %}
+        <div class="alert alert-secondary d-flex flex-wrap align-items-center gap-3"
+             id="password-reminder">
+            <i class="fa-solid fa-key fs-4"></i>
+            <div class="flex-grow-1">
+                {% trans "Finalize your account: you sign in with emailed codes right now. Set a password if you'd rather, or keep the codes." %}
+            </div>
+            <a class="btn btn-sm btn-outline-primary"
+               href="{% url 'account_set_password' %}">{% trans "Set a password" %}</a>
+            <form method="post"
+                  action="{% url 'speakers:my_dismiss_password_reminder' %}">
+                {% csrf_token %}
+                <button class="btn btn-sm btn-link" type="submit">
+                    {% trans "Keep using codes" %}
+                </button>
+            </form>
+        </div>
+    {% endif %}
     {% if not profile_complete %}
         <div class="alert alert-info d-flex align-items-center gap-3">
             <i class="fa-solid fa-id-card fs-4"></i>
             <div class="flex-grow-1">
                 {% trans "Your bio or photo is still missing. It's what attendees will see next to your session." %}
             </div>
-            <a class="btn btn-sm btn-primary" href="{% url 'speakers:my_profile' %}">{% trans "Update profile" %}</a>
+            <a class="btn btn-sm btn-primary" href="{% url 'speakers:my_profile' %}">{% trans "Update speaker profile" %}</a>
         </div>
     {% endif %}
-    {% if session_summaries %}
-        <ul class="list-unstyled mb-4">
+    <div class="card mb-4" id="my-sessions">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <span>
+                <i class="fa-solid fa-chalkboard-user"></i> {% trans "Your sessions" %}
+            </span>
+            <a class="small" href="{% url 'speakers:my_sessions' %}">{% trans "Edit details" %}</a>
+        </div>
+        <ul class="list-group list-group-flush">
             {% for summary in session_summaries %}
-                <li class="d-flex flex-wrap align-items-center gap-2 mb-1">
-                    <a href="{% url 'speakers:my_session_edit' summary.session.slug %}">{{ summary.session.title }}</a>
-                    <span class="text-secondary small">{{ summary.session.kind.name }} · {{ summary.role }}</span>
-                    {% if summary.total %}
-                        <span class="badge text-bg-light border">
-                            {% blocktranslate with done=summary.done total=summary.total %}{{ done }} of {{ total }} to-dos done{% endblocktranslate %}
-                        </span>
-                    {% endif %}
-                    {% if not summary.session.is_public %}
-                        <span class="badge text-bg-secondary">{% trans "Not yet public" %}</span>
-                    {% endif %}
-                    {% if summary.session.identity_locked %}
-                        {% trans "Title and web address are locked now that the session is scheduled" as locked_label %}
-                        <i class="fa-solid fa-lock text-secondary small"
-                           title="{{ locked_label }}"></i>
-                    {% endif %}
+                <li class="list-group-item d-flex flex-wrap align-items-center gap-2">
+                    <span class="badge text-bg-light border">{{ summary.session.kind.name }}</span>
+                    <a class="fw-semibold"
+                       href="{% url 'speakers:my_session_edit' summary.session.slug %}">{{ summary.session.title }}</a>
+                    <span class="text-secondary small">{{ summary.role }}</span>
+                    <span class="ms-auto d-flex align-items-center gap-2">
+                        {% if summary.total %}
+                            <span class="badge text-bg-light border">
+                                {% blocktranslate with done=summary.done total=summary.total %}{{ done }} of {{ total }} to-dos done{% endblocktranslate %}
+                            </span>
+                        {% endif %}
+                        {% if not summary.session.is_public %}
+                            <span class="badge text-bg-secondary">{% trans "Not yet public" %}</span>
+                        {% endif %}
+                        {% if summary.session.identity_locked %}
+                            {% trans "Title and web address are locked now that the session is scheduled" as locked_label %}
+                            <i class="fa-solid fa-lock text-secondary small"
+                               title="{{ locked_label }}"></i>
+                        {% endif %}
+                    </span>
+                </li>
+            {% empty %}
+                <li class="list-group-item text-secondary">
+                    {% trans "You are not on any session yet." %}
                 </li>
             {% endfor %}
         </ul>
-    {% endif %}
+    </div>
     <div class="row g-4">
         <div class="col-lg-6">
             <div class="card h-100">

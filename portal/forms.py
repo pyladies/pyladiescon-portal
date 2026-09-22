@@ -102,6 +102,16 @@ class StartNewYearForm(forms.Form):
     bring_volunteers = forms.BooleanField(
         required=False, label="Bring forward approved volunteers (as pending)"
     )
+    copy_speaker_setup = forms.BooleanField(
+        required=False,
+        initial=True,
+        label="Copy the speaker portal setup (checklist templates, guides, settings)",
+    )
+    speaker_portal = forms.BooleanField(
+        required=False,
+        label="Enable the speaker portal for this edition",
+        help_text="Can be switched later on the conference edit form.",
+    )
     activate = forms.BooleanField(required=False, label="Activate this edition now")
 
     def clean_year(self):
