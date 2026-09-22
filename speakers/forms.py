@@ -1,10 +1,11 @@
 import zoneinfo
 
 from django import forms
-from django.contrib.auth.models import User
 from django.db.models import Q
 from django.utils.text import slugify
 from text_unidecode import unidecode
+
+from volunteer.models import Team
 
 from .constants import (
     DEFAULT_GUIDE_KEY,
@@ -12,6 +13,8 @@ from .constants import (
     SLUG_MAX_LENGTH,
     Delivery,
     ItemOwner,
+    format_owner,
+    parse_owner,
 )
 from .models import (
     ChecklistTemplate,
@@ -232,13 +235,11 @@ class SessionPresenterForm(forms.ModelForm):
 
     class Meta:
         model = SessionPresenter
-        fields = ["presenter", "role", "order", "is_required"]
+        # Display order stays at its default for now; it is not offered in the UI.
+        fields = ["presenter", "role", "is_required"]
         widgets = {
             "presenter": forms.Select(attrs={"class": "form-select form-select-sm"}),
             "role": forms.Select(attrs={"class": "form-select form-select-sm"}),
-            "order": forms.NumberInput(
-                attrs={"class": "form-control form-control-sm", "placeholder": "Order"}
-            ),
             "is_required": forms.CheckboxInput(attrs={"class": "form-check-input"}),
         }
 
@@ -255,6 +256,33 @@ class SessionPresenterForm(forms.ModelForm):
         self.fields["role"].empty_label = None
         self.fields["role"].initial = session.kind.default_role_id
         self.instance.session = session
+
+
+class SessionPresenterRoleForm(forms.ModelForm):
+    """Change a presenter's role, or whether they are required, on a session.
+
+    The roles offered are the ones the session's type allows, so a panel
+    cannot end up with a Performer.
+    """
+
+    def __init__(self, *args, session, roles=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["role"].queryset = session.kind.roles.filter(
+            is_active=True
+        ).order_by("sort_order", "name")
+        if roles is not None:
+            # A session page builds one of these per presenter. Handing them
+            # the roles it already read keeps the page at one query for the
+            # lot instead of one each; validation still uses the queryset.
+            self.fields["role"].choices = [(role.pk, role.name) for role in roles]
+
+    class Meta:
+        model = SessionPresenter
+        fields = ["role", "is_required"]
+        widgets = {
+            "role": forms.Select(attrs={"class": "form-select form-select-sm"}),
+            "is_required": forms.CheckboxInput(attrs={"class": "form-check-input"}),
+        }
 
 
 class InviteForm(forms.Form):
@@ -488,11 +516,13 @@ class AdhocItemForm(forms.Form):
     """A one-off checklist item for one presenter (design §9.2)."""
 
     title = forms.CharField(max_length=200)
-    owner = forms.ChoiceField(choices=ItemOwner.choices, initial=ItemOwner.ORGANIZER)
+    owner_kind = forms.ChoiceField(
+        choices=ItemOwner.choices, initial=ItemOwner.ORGANIZER, label="Owner"
+    )
     due_date = forms.DateField(
         required=False, widget=forms.DateInput(attrs={"type": "date"})
     )
-    assignee = forms.ModelChoiceField(queryset=User.objects.none(), required=False)
+    owner = forms.ChoiceField(required=False, label="Assignee")
     description_md = forms.CharField(
         required=False,
         widget=forms.Textarea(attrs={"rows": 2}),
@@ -501,16 +531,55 @@ class AdhocItemForm(forms.Form):
 
     def __init__(self, *args, conference, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["assignee"].queryset = assignee_candidates(conference)
-        self.fields["assignee"].label_from_instance = user_label
+        self.conference = conference
+        self.fields["owner"].choices = owner_choices(conference)
+
+    def clean_owner(self):
+        """Returns ``(assignee, team)``."""
+        return clean_owner_value(self)
+
+
+def team_candidates(conference):
+    return Team.objects.filter(conference=conference).order_by("short_name")
+
+
+def owner_choices(conference):
+    """Select options for handing an item to a person or a team."""
+    people = [
+        (format_owner(user=u.pk), user_label(u))
+        for u in assignee_candidates(conference)
+    ]
+    teams = [
+        (format_owner(team=t.pk), f"{t.short_name} team")
+        for t in team_candidates(conference)
+    ]
+    return [("", "Unassigned"), ("People", people), ("Teams", teams)]
+
+
+def clean_owner_value(form):
+    """The shared ``clean_owner`` for the forms carrying that select:
+    turns its value into ``(assignee, team)``, neither or exactly one."""
+    kind, pk = parse_owner(form.cleaned_data["owner"])
+    if kind is None:
+        return None, None
+    if kind == "user":
+        return assignee_candidates(form.conference).get(pk=pk), None
+    return None, team_candidates(form.conference).get(pk=pk)
 
 
 class AssignItemForm(forms.Form):
-    assignee = forms.ModelChoiceField(queryset=User.objects.none(), required=False)
+    """One select: a person or a team (an item is never owned by both)."""
+
+    owner = forms.ChoiceField(required=False, label="Assignee")
 
     def __init__(self, *args, conference, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["assignee"].queryset = assignee_candidates(conference)
+        self.conference = conference
+        self.fields["owner"].choices = owner_choices(conference)
+
+    def clean_owner(self):
+        """Returns ``(assignee, team)``."""
+        return clean_owner_value(self)
 
 
 class ChecklistTemplateForm(forms.ModelForm):
@@ -573,6 +642,7 @@ class ChecklistTemplateItemForm(forms.ModelForm):
             "per_translation_language",
             "is_required",
             "assignee_default",
+            "default_team_name",
         ]
         widgets = {"description_md": forms.Textarea(attrs={"rows": 2})}
         help_texts = {
@@ -594,6 +664,13 @@ class ChecklistTemplateItemForm(forms.ModelForm):
             required=False,
             label="Guide",
             help_text='Which guide the "read the guide" rule checks.',
+        )
+        self.fields["default_team_name"] = forms.ChoiceField(
+            choices=[("", "—")]
+            + [(t.short_name, t.short_name) for t in team_candidates(conference)],
+            required=False,
+            label="Default team",
+            help_text='With "A named team": which team starts with the item.',
         )
 
 

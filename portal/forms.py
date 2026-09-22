@@ -2,6 +2,7 @@ from allauth.account.forms import SignupForm
 from captcha.conf import settings as captcha_settings
 from captcha.fields import CaptchaField, CaptchaTextInput
 from django import forms
+from django.apps import apps
 
 from portal.models import Conference
 
@@ -116,8 +117,35 @@ class StartNewYearForm(forms.Form):
         return slug
 
 
+def _speaker_settings_model():
+    """The speakers app's settings model, or None when it is not installed.
+
+    Every other dependency in the portal runs speakers -> portal. This form
+    is the one place that needs to read the other way, so it looks the model
+    up through the app registry rather than importing it: the core app keeps
+    working without the feature module, and there is no import to untangle
+    if the two ever have to load in the other order.
+    """
+    if not apps.is_installed("speakers"):
+        return None
+    return apps.get_model("speakers", "SpeakerSettings")
+
+
 class ConferenceForm(forms.ModelForm):
-    """Edit an existing conference edition through the portal."""
+    """Edit an existing conference edition through the portal.
+
+    ``speaker_module_enabled`` is not a Conference field: it lives on the
+    edition's ``speakers.SpeakerSettings`` row, which this form reads and
+    writes so the switch sits with the other per-edition flags. The field
+    disappears when the speakers app is not installed.
+    """
+
+    speaker_module_enabled = forms.BooleanField(
+        required=False,
+        label="Speaker portal enabled",
+        help_text="Turn on sessions, presenters, invitations and checklists "
+        "for this edition.",
+    )
 
     class Meta:
         model = Conference
@@ -149,3 +177,30 @@ class ConferenceForm(forms.ModelForm):
                 attrs={"type": "date"}, format="%Y-%m-%d"
             ),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        model = _speaker_settings_model()
+        if model is None:
+            del self.fields["speaker_module_enabled"]
+            return
+        if self.instance.pk:
+            settings_row = model.objects.filter(conference=self.instance).first()
+            self.fields["speaker_module_enabled"].initial = bool(
+                settings_row and settings_row.speaker_module_enabled
+            )
+
+    def save(self, commit=True):
+        conference = super().save(commit=commit)
+        model = _speaker_settings_model()
+        if model is None:
+            return conference
+        enabled = self.cleaned_data.get("speaker_module_enabled", False)
+        settings_row = model.objects.filter(conference=conference).first()
+        if settings_row is None:
+            if enabled:
+                model.objects.create(conference=conference, speaker_module_enabled=True)
+        elif settings_row.speaker_module_enabled != enabled:
+            settings_row.speaker_module_enabled = enabled
+            settings_row.save(update_fields=["speaker_module_enabled", "modified_date"])
+        return conference

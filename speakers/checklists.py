@@ -8,6 +8,8 @@ every completion lands in the ActivityLog with its actor.
 
 from django.utils import timezone
 
+from volunteer.models import Team
+
 from .constants import (
     SESSION_LANGUAGE,
     AssigneeDefault,
@@ -39,14 +41,19 @@ def _anchors(session, accepted_at=None):
     }
 
 
-def _default_assignee(template_item, presenter):
-    if (
-        template_item.owner == ItemOwner.ORGANIZER
-        and template_item.assignee_default == AssigneeDefault.LIAISON
-        and presenter is not None
-    ):
-        return presenter.liaison
-    return None
+def _default_owner(template_item, session, presenter):
+    """``(assignee, team)`` an organizer item starts with."""
+    if template_item.owner != ItemOwner.ORGANIZER:
+        return None, None
+    if template_item.assignee_default == AssigneeDefault.LIAISON and presenter:
+        return presenter.liaison, None
+    if template_item.assignee_default == AssigneeDefault.TEAM:
+        team = Team.objects.filter(
+            conference_id=session.conference_id,
+            short_name=template_item.default_team_name,
+        ).first()
+        return None, team
+    return None, None
 
 
 def _create_instance(template_item, *, session, presenter, anchors, language=""):
@@ -63,6 +70,7 @@ def _create_instance(template_item, *, session, presenter, anchors, language="")
     title = template_item.title
     if template_item.per_translation_language and language:
         title = f"{title} ({language})"
+    assignee, team = _default_owner(template_item, session, presenter)
     return ChecklistItem.objects.create(
         conference_id=session.conference_id,
         order=template_item.order,
@@ -70,7 +78,8 @@ def _create_instance(template_item, *, session, presenter, anchors, language="")
         title=title,
         description_md=template_item.description_md,
         due_date=template_item.due_date(**anchors),
-        assignee=_default_assignee(template_item, presenter),
+        assignee=assignee,
+        team=team,
         is_required=template_item.is_required,
         auto_complete_rule=template_item.auto_complete_rule,
         requires_asset_kind=template_item.requires_asset_kind,
@@ -185,6 +194,7 @@ def add_adhoc_item(
     session=None,
     due_date=None,
     assignee=None,
+    team=None,
     description_md="",
     actor=None,
 ):
@@ -197,6 +207,7 @@ def add_adhoc_item(
         session=session,
         due_date=due_date,
         assignee=assignee,
+        team=team if assignee is None else None,
         description_md=description_md,
         order=1000,
     )
@@ -269,12 +280,18 @@ def block_item(item, note, actor=None):
     )
 
 
-def assign_item(item, assignee, actor=None):
-    """Change who is on an organizer item; logged so the presenter page shows it."""
-    previous = item.assignee
+def assign_item(item, assignee=None, team=None, actor=None):
+    """Hand an organizer item to a person or a team (never both); logged so
+    the presenter page shows it."""
+    previous = (item.assignee_id, item.team_id)
     item.assignee = assignee
-    item.save(update_fields=["assignee", "modified_date"])
-    if previous != assignee:
-        who = assignee.get_full_name() or assignee.username if assignee else "nobody"
-        _log(item, "checklist.assigned", actor, f"{item.title} → {who}")
+    item.team = team if assignee is None else None
+    item.save(update_fields=["assignee", "team", "modified_date"])
+    if previous != (item.assignee_id, item.team_id):
+        _log(
+            item,
+            "checklist.assigned",
+            actor,
+            f"{item.title} → {item.owner_label or 'nobody'}",
+        )
     return item

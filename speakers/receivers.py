@@ -33,11 +33,15 @@ from .signals import invitation_accepted, session_confirmed
 @receiver(invitation_accepted, dispatch_uid="speakers.checklists.on_accept")
 def create_presenter_checklists(sender, invitation, session_presenters, **kwargs):
     """Instantiate, then run the rules once so "invitation sent" and friends
-    are already ticked the moment the checklist exists."""
+    are already ticked the moment the checklist exists.
+
+    Due dates anchored on the acceptance use the invitation's own timestamp,
+    unless the sender passes ``accepted_at``: a session added long after a
+    general acceptance starts its clock when the link is confirmed.
+    """
+    accepted_at = kwargs.get("accepted_at") or invitation.accepted_at
     for link in session_presenters:
-        created = instantiate_presenter_checklist(
-            link, accepted_at=invitation.accepted_at
-        )
+        created = instantiate_presenter_checklist(link, accepted_at=accepted_at)
         evaluate_items(created)
 
 

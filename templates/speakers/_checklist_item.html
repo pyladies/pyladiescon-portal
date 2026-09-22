@@ -67,8 +67,8 @@ One checklist line. Params:
                     {% else %}
                         {% blocktranslate with date=item.completed_at|date:"j M" %}done automatically on {{ date }}{% endblocktranslate %}
                     {% endif %}
-                {% elif item.assignee %}
-                    {% blocktranslate with name=item.assignee.get_full_name|default:item.assignee.username %}{{ name }} is on it{% endblocktranslate %}
+                {% elif item.owner_label %}
+                    {% blocktranslate with name=item.owner_label %}{{ name }} is on it{% endblocktranslate %}
                 {% else %}
                     {% trans "not yet assigned" %}
                 {% endif %}

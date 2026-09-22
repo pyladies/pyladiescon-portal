@@ -44,7 +44,7 @@ def build_board(conference, user, owner, sort="overdue"):
         ChecklistItem.objects.filter(
             conference=conference, owner=owner, presenter__in=[p.pk for p in presenters]
         )
-        .select_related("assignee")
+        .select_related("assignee", "team")
         .order_by("order", "id")
     )
     by_presenter = defaultdict(dict)

@@ -15,6 +15,7 @@ from speakers.constants import (
     SessionStatus,
 )
 from speakers.models import ChecklistItem
+from volunteer.models import Team
 
 from .factories import add_presenter, make_presenter, make_session, make_settings
 
@@ -126,6 +127,16 @@ class TestDashboardLists:
         assert "Lena K is on it" in content and "not yet assigned" in content
         assert "A team task: nothing for you to do here." in content
         assert re.search(r'data-item-id="%d"\s+data-status="DONE"' % done.pk, content)
+
+    def test_team_owned_item_named(self, client, speaker, presenter, conference):
+        team = Team.objects.create(
+            conference=conference, short_name="Design", description="d"
+        )
+        add_adhoc_item(
+            conference, "Poster", ItemOwner.ORGANIZER, presenter=presenter, team=team
+        )
+        client.force_login(speaker)
+        assert "Design team is on it" in client.get(DASHBOARD).content.decode()
 
     def test_speaker_sees_who_completed_a_team_task(
         self, client, speaker, presenter, session, conference

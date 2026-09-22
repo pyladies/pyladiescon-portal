@@ -129,6 +129,16 @@ it with the attendee app's own field mapping, so both paths agree. Nightly
 `pretix_reconcile_task` pages through `modified_since` the last run.
 `Presenter.pretix_order` is the manual link that wins over email matching.
 
+### Item ownership
+
+An organizer checklist item is owned by a person (`assignee`) or by a
+`volunteer.Team` (`team`), never both; `assign_item()` enforces it and
+`ChecklistItem.owner_label` renders whichever is set. Template lines can
+start an item unassigned, with the presenter's liaison, or with a named
+team (`default_team_name`, matched by name per edition so templates clone
+forward). "My queue" shows items assigned to me or to a team I am an
+approved member of; team reminders go to every approved member.
+
 ### Reminders
 
 `speakers/reminders.py` sends one digest per presenter (open speaker items
@@ -165,6 +175,17 @@ it a "Read the workshop guide" item would sit open with nothing to read
 and nothing on the organizer side to say so. On the speaker side,
 `required_guide_keys` returns only what their own items name: a presenter
 with no checklist yet is asked to read nothing.
+
+### The one dependency that points outward
+
+Everything here depends on `portal`, never the reverse, with a single
+exception: the conference edit form carries the speaker-portal switch,
+which lives on `SpeakerSettings`. `portal/forms.py` reaches it through
+`apps.get_model` behind an `apps.is_installed("speakers")` guard rather
+than importing this app, so the core form still loads without the feature
+module and there is no import cycle waiting to happen. If a second such
+edge ever appears, give it a thin accessor module here rather than
+repeating the registry lookup.
 
 ### Background jobs
 
@@ -257,7 +278,11 @@ installed; this app keeps small factory functions in `tests/speakers/factories.p
   liaise its presenter, or are its assignee. Assignees never reassign
   (`ItemAssignView` stays organizer-only) and never open presenter or
   session pages; their queue rows name those without linking, and the
-  "My speaker tasks" rail entry keys on the same flag.
+  "My speaker tasks" rail entry keys on the same flag. An item owned by a
+  team counts for every approved member of it: `permissions.approved_teams`
+  and `permissions.owned_by` are the single definition the queue, the
+  predicate and the per-item check all use, because those three drifted
+  apart twice.
 - Speaker side: `/speakers/me/...`, gated by `PresenterRequiredMixin` (the
   user must own a `Presenter` row in the active edition, else 403). The
   personal rail is `templates/speakers/_speaker_rail.html`; the navbar shows

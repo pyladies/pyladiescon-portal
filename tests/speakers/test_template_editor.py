@@ -6,6 +6,7 @@ from pytest_django.asserts import assertRedirects
 from portal.models import Conference
 from speakers.checklists import instantiate_presenter_checklist
 from speakers.constants import (
+    AssigneeDefault,
     AutoRule,
     ChecklistScope,
     DueAnchor,
@@ -15,6 +16,7 @@ from speakers.constants import (
 from speakers.models import ChecklistItem, ChecklistTemplate, ChecklistTemplateItem
 from speakers.program_types import presenter_role, seed_program_types, session_type
 from speakers.seeds import DEFAULT_TEMPLATES, seed_checklists
+from volunteer.models import Team
 
 from .factories import add_presenter, make_presenter, make_session, make_settings
 
@@ -228,6 +230,26 @@ class TestItems:
         assert item.order == 3 and item.is_required is True
         assert link.presenter.checklist_items.count() == 3  # unchanged
 
+    def test_default_team_dropdown(self, client, organizer, template, conference):
+        Team.objects.create(conference=conference, short_name="Design", description="d")
+        client.force_login(organizer)
+        url = reverse("speakers:template_item_add", args=[template.pk])
+        assert 'value="Design"' in client.get(url).content.decode()
+        response = client.post(
+            url,
+            {
+                "title": "Poster",
+                "owner": ItemOwner.ORGANIZER,
+                "assignee_default": "TEAM",
+                "default_team_name": "Design",
+                "due_offset_days": 0,
+            },
+        )
+        assertRedirects(
+            response, reverse("speakers:template_detail", args=[template.pk])
+        )
+        assert template.items.get(title="Poster").default_team_name == "Design"
+
     def test_rule_dropdown_rejects_unknown(self, client, organizer, template):
         client.force_login(organizer)
         response = client.post(
@@ -369,3 +391,36 @@ class TestItems:
         response = client.post(action(template, new_item, "backfill"), follow=True)
         assert "to 0 existing checklist(s)" in response.content.decode()
         assert ChecklistItem.objects.filter(template_item=new_item).count() == 1
+
+
+@pytest.mark.django_db
+class TestMissingTeams:
+    """A line handing its item to a team the edition does not have starts
+    the item unowned; the editor says so (review of #425)."""
+
+    def test_named_team_that_does_not_exist_is_flagged(
+        self, client, organizer, conference, enabled
+    ):
+        template = ChecklistTemplate.objects.create(
+            conference=conference,
+            scope=ChecklistScope.PRESENTER,
+            name="Panel presenter",
+            kind=session_type(conference, "PANEL"),
+            role=presenter_role(conference, "PANELIST"),
+        )
+        ChecklistTemplateItem.objects.create(
+            template=template,
+            owner=ItemOwner.ORGANIZER,
+            title="Cut the trailer",
+            assignee_default=AssigneeDefault.TEAM,
+            default_team_name="Media",
+        )
+        client.force_login(organizer)
+        url = reverse("speakers:template_detail", args=[template.pk])
+        response = client.get(url)
+        assert response.context["missing_teams"] == ["Media"]
+        assert "does not have" in response.content.decode()
+        Team.objects.create(conference=conference, short_name="Media", description="m")
+        response = client.get(url)
+        assert response.context["missing_teams"] == []
+        assert "does not have" not in response.content.decode()

@@ -35,6 +35,11 @@ urlpatterns = [
         name="session_add_presenter",
     ),
     path(
+        "sessions/<slug:slug>/presenters/<int:link_pk>/edit/",
+        views.SessionEditPresenterView.as_view(),
+        name="session_edit_presenter",
+    ),
+    path(
         "sessions/<slug:slug>/presenters/<int:link_pk>/remove/",
         views.SessionRemovePresenterView.as_view(),
         name="session_remove_presenter",

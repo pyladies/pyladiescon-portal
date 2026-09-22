@@ -3,7 +3,9 @@ from datetime import timedelta
 
 import pytest
 from allauth.account.models import EmailAddress
+from django.conf import settings
 from django.contrib.auth.models import User
+from django.contrib.sites.models import Site
 from django.core import mail
 from django.core.exceptions import ValidationError
 from django.template.loader import render_to_string
@@ -95,6 +97,13 @@ class TestSendInvitation:
         settings.DEBUG = False
         send(invitation)
         assert "https://example.com/speakers/invitations/" in mail.outbox[-1].body
+
+    def test_domain_change_is_picked_up_without_a_restart(self, send, invitation):
+        send(invitation)
+        assert "://example.com/" in mail.outbox[-1].body
+        Site.objects.filter(pk=settings.SITE_ID).update(domain="localhost:8000")
+        send(invitation)
+        assert "://localhost:8000/speakers/invitations/" in mail.outbox[-1].body
 
     def test_url_in_text_part_is_usable(self, send, invitation):
         """The plain-text part loses link targets, so the address is also

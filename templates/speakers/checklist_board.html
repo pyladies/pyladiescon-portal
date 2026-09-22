@@ -54,7 +54,7 @@
                             <i class="fa-solid fa-triangle-exclamation"></i>
                         </th>
                         {% for column in board.columns %}
-                            <th class="rotate small fw-normal">
+                            <th class="board-col small fw-normal">
                                 {{ column }}
                             </th>
                         {% endfor %}
@@ -78,7 +78,7 @@
                             </td>
                             {% for cell, css in row.cells %}
                                 <td class="{{ css }} text-center"
-                                    title="{% if cell %}{{ cell.title }}: {{ cell.get_status_display }}{% if cell.due_date %}, due {{ cell.due_date|date:'j M' }}{% endif %}{% if cell.assignee %}, {{ cell.assignee.get_full_name|default:cell.assignee.username }}{% endif %}{% endif %}">
+                                    title="{% if cell %}{{ cell.title }}: {{ cell.get_status_display }}{% if cell.due_date %}, due {{ cell.due_date|date:'j M' }}{% endif %}{% if cell.owner_label %}, {{ cell.owner_label }}{% endif %}{% endif %}">
                                     {% if not cell %}
                                         —
                                     {% elif cell.is_done %}

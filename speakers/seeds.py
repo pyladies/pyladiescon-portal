@@ -484,6 +484,7 @@ ITEM_FIELDS = [
     "per_translation_language",
     "is_required",
     "assignee_default",
+    "default_team_name",
 ]
 
 

@@ -4,7 +4,7 @@
 {% comment %}
 One checklist item as a table row on organizer pages. Params:
     item             — ChecklistItem with .overdue set
-    assignee_choices — users the assignee select offers (built once per page)
+    owner_choices    — the person-and-team options, built once per page
     can_assign       — truthy to render the assignee select (organizers)
     error            — text to show inline; an htmx swap never shows messages
 The row is the htmx target for status and assignee changes. The CSRF header
@@ -68,19 +68,28 @@ for htmx is set once on <body> by the organizer shell.
                   hx-swap="outerHTML"
                   hx-trigger="change">
                 {% csrf_token %}
-                <select name="assignee"
-                        class="form-select form-select-sm"
-                        aria-label="{{ assignee_label }}">
-                    <option value="">
-                        {% trans "Unassigned" %}
-                    </option>
-                    {% for user in assignee_choices %}
-                        <option value="{{ user.pk }}"
-                                {% if user.pk == item.assignee_id %}selected{% endif %}>
-                            {{ user.get_full_name|default:user.username }}
-                        </option>
-                    {% endfor %}
-                </select>
+                {% with current=item.owner_value %}
+                    <select name="owner"
+                            class="form-select form-select-sm"
+                            aria-label="{{ assignee_label }}">
+                        {% for value, label in owner_choices %}
+                            {% if value == "" %}
+                                <option value="" {% if not current %}selected{% endif %}>
+                                    {{ label }}
+                                </option>
+                            {% else %}
+                                <optgroup label="{{ value }}">
+                                    {% for sub_value, sub_label in label %}
+                                        <option value="{{ sub_value }}"
+                                                {% if sub_value == current %}selected{% endif %}>
+                                            {{ sub_label }}
+                                        </option>
+                                    {% endfor %}
+                                </optgroup>
+                            {% endif %}
+                        {% endfor %}
+                    </select>
+                {% endwith %}
                 <noscript>
                     <button class="btn btn-sm btn-outline-secondary mt-1" type="submit">
                         {% trans "Assign" %}
@@ -88,7 +97,7 @@ for htmx is set once on <body> by the organizer shell.
                 </noscript>
             </form>
         {% elif item.owner == "ORGANIZER" %}
-            {{ item.assignee.get_full_name|default:item.assignee.username|default:"—" }}
+            {{ item.owner_label|default:"—" }}
         {% else %}
             <span class="text-secondary">{% trans "speaker" %}</span>
         {% endif %}

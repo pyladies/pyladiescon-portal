@@ -18,6 +18,7 @@ from django_tables2.views import SingleTableMixin
 
 from attendee.models import PretixOrder
 from common.tasks import enqueue
+from volunteer.models import Team
 
 from .board import build_board, write_board_csv
 from .checklists import (
@@ -33,6 +34,7 @@ from .clock import today
 from .constants import (
     DEFAULT_GUIDE_KEY,
     OPEN_ITEM_STATUSES,
+    AssigneeDefault,
     AutoRule,
     ChecklistScope,
     ItemOwner,
@@ -56,10 +58,12 @@ from .forms import (
     ProgramItemForm,
     SessionForm,
     SessionPresenterForm,
+    SessionPresenterRoleForm,
     SessionTypeForm,
     SpeakerProfileForm,
     SpeakerSessionForm,
     SuggestCoPresenterForm,
+    owner_choices,
 )
 from .lifecycle import waiting_on_labels
 from .mixins import (
@@ -83,8 +87,12 @@ from .models import (
     SessionType,
     SpeakerSettings,
 )
-from .people import assignee_candidates
-from .permissions import can_work_sessions, is_speaker_organizer
+from .permissions import (
+    approved_teams,
+    can_work_sessions,
+    is_speaker_organizer,
+    owned_by,
+)
 from .pretix import (
     PretixError,
     link_presenter_order,
@@ -97,7 +105,9 @@ from .services import (
     InvitationError,
     accept_invitation,
     cancel_invitation,
+    change_presenter_role,
     decline_invitation,
+    presenter_added_to_session,
     resolve_invitation,
     send_invitation,
 )
@@ -274,6 +284,18 @@ class SessionDetailView(SessionScopedMixin, DetailView):
         context["activity"] = ActivityLog.for_target(self.object)[:20]
         context["waiting_on"] = waiting_on_labels(self.object)
         context["add_presenter_form"] = SessionPresenterForm(session=self.object)
+        roles = list(
+            self.object.kind.roles.filter(is_active=True).order_by("sort_order", "name")
+        )
+        context["role_forms"] = {
+            link.pk: SessionPresenterRoleForm(
+                instance=link,
+                prefix=f"link{link.pk}",
+                session=self.object,
+                roles=roles,
+            )
+            for link in self.object.presenter_links
+        }
         context["invite_form"] = InviteForm()
         latest = {}
         for invitation in Invitation.objects.filter(session=self.object).order_by(
@@ -442,7 +464,7 @@ class PresenterDetailView(PresenterScopedMixin, DetailView):
         context["invite_form"] = PresenterInviteForm(presenter=self.object)
         items = list(
             self.object.checklist_items.select_related(
-                "assignee", "session", "completed_by"
+                "assignee", "team", "session", "completed_by"
             ).order_by("session__title", "order", "id")
         )
         for item in items:
@@ -451,8 +473,9 @@ class PresenterDetailView(PresenterScopedMixin, DetailView):
         context["organizer_items"] = [
             i for i in items if i.owner == ItemOwner.ORGANIZER
         ]
-        # One query for the assignee choices, shared by every row.
-        context["assignee_choices"] = list(assignee_candidates(self.conference))
+        # One query for the person-and-team options, shared by every row;
+        # each row reads its own current value off the item.
+        context["owner_choices"] = owner_choices(self.conference)
         context["adhoc_form"] = AdhocItemForm(conference=self.conference)
         context["can_assign"] = is_speaker_organizer(self.request.user)
         # Checklists only make sense once the presenter has been invited; ad-hoc
@@ -561,9 +584,12 @@ class SessionAddPresenterView(OrganizerSessionActionMixin, View):
                 presenter_id=link.presenter_id,
                 role=link.role.code,
             )
+            note = ""
+            if presenter_added_to_session(link, actor=request.user):
+                note = " They had already accepted, so they are confirmed on it."
             messages.success(
                 request,
-                f"Added {link.presenter.display_name} as {link.role.name}.",
+                f"Added {link.presenter.display_name} as {link.role.name}." + note,
             )
         else:
             messages.error(
@@ -574,6 +600,35 @@ class SessionAddPresenterView(OrganizerSessionActionMixin, View):
                     for field, errors in form.errors.items()
                 ),
             )
+        return redirect(session.get_absolute_url())
+
+
+class SessionEditPresenterView(OrganizerSessionActionMixin, View):
+    """Change the role or the required flag; the checklist follows the role."""
+
+    def post(self, request, slug, link_pk):
+        session = self.get_session()
+        link = get_object_or_404(
+            session.session_presenters.select_related("presenter"), pk=link_pk
+        )
+        form = SessionPresenterRoleForm(
+            request.POST, instance=link, prefix=f"link{link.pk}", session=session
+        )
+        if not form.is_valid():
+            messages.error(request, "Could not change the role: pick a valid role.")
+            return redirect(session.get_absolute_url())
+        removed, created = change_presenter_role(
+            link,
+            form.cleaned_data["role"],
+            is_required=form.cleaned_data["is_required"],
+            actor=request.user,
+        )
+        note = f"{link.presenter.display_name} is now {link.role.name}."
+        if removed or created:
+            note += (
+                f" Checklist updated: {removed} open item(s) dropped, {created} added."
+            )
+        messages.success(request, note)
         return redirect(session.get_absolute_url())
 
 
@@ -1113,7 +1168,8 @@ class ChecklistBoardExportView(ChecklistBoardView):
 
 
 class ChecklistQueueView(LoginRequiredMixin, SpeakerQueueRequiredMixin, TemplateView):
-    """Organizer items assigned to me, soonest first (design §9.6).
+    """Organizer items assigned to me or to a team I am on, soonest first
+    (design §9.6).
 
     Open to whoever carries one: a volunteer who is neither organizer nor
     liaison reaches it from the daily digest."""
@@ -1124,12 +1180,12 @@ class ChecklistQueueView(LoginRequiredMixin, SpeakerQueueRequiredMixin, Template
         context = super().get_context_data(**kwargs)
         items = (
             ChecklistItem.objects.filter(
+                owned_by(self.request.user, self.conference),
                 conference=self.conference,
                 owner=ItemOwner.ORGANIZER,
-                assignee=self.request.user,
                 status__in=list(OPEN_ITEM_STATUSES),
             )
-            .select_related("presenter", "session")
+            .select_related("presenter", "session", "team")
             .order_by(F("due_date").asc(nulls_last=True), "order", "id")
         )
         items = list(items)
@@ -1161,7 +1217,7 @@ class ItemActionMixin(LoginRequiredMixin, SpeakerQueueRequiredMixin):
             conference=self.conference,
         )
         user = self.request.user
-        if is_speaker_organizer(user) or item.assignee_id == user.pk:
+        if is_speaker_organizer(user) or self.carries(item):
             return item
         if item.presenter is None or item.presenter.liaison_id != user.pk:
             raise PermissionDenied(
@@ -1169,6 +1225,17 @@ class ItemActionMixin(LoginRequiredMixin, SpeakerQueueRequiredMixin):
                 "carry it."
             )
         return item
+
+    def carries(self, item):
+        """Whether this item was handed to the actor, in person or through
+        a team they are an approved member of."""
+        user = self.request.user
+        if item.assignee_id == user.pk:
+            return True
+        return (
+            item.team_id is not None
+            and approved_teams(user, self.conference).filter(pk=item.team_id).exists()
+        )
 
     def respond(self, request, item, error=""):
         """An htmx request gets the refreshed row (with ``error`` shown inline,
@@ -1182,7 +1249,7 @@ class ItemActionMixin(LoginRequiredMixin, SpeakerQueueRequiredMixin):
                 "speakers/_organizer_item_row.html",
                 {
                     "item": item,
-                    "assignee_choices": list(assignee_candidates(self.conference)),
+                    "owner_choices": owner_choices(self.conference),
                     "can_assign": is_speaker_organizer(request.user),
                     "error": error,
                 },
@@ -1243,7 +1310,8 @@ class ItemAssignView(ItemActionMixin, View):
         form = AssignItemForm(request.POST, conference=self.conference)
         if not form.is_valid():
             return HttpResponseBadRequest("Unknown assignee.")
-        assign_item(item, form.cleaned_data["assignee"], actor=request.user)
+        assignee, team = form.cleaned_data["owner"]
+        assign_item(item, assignee=assignee, team=team, actor=request.user)
         return self.respond(request, item)
 
 
@@ -1252,13 +1320,15 @@ class PresenterAddItemView(PresenterScopedMixin, View):
         presenter = get_object_or_404(self.get_queryset(), slug=slug)
         form = AdhocItemForm(request.POST, conference=self.conference)
         if form.is_valid():
+            assignee, team = form.cleaned_data["owner"]
             add_adhoc_item(
                 self.conference,
                 form.cleaned_data["title"],
-                form.cleaned_data["owner"],
+                form.cleaned_data["owner_kind"],
                 presenter=presenter,
                 due_date=form.cleaned_data["due_date"],
-                assignee=form.cleaned_data["assignee"],
+                assignee=assignee,
+                team=team,
                 description_md=form.cleaned_data["description_md"],
                 actor=request.user,
             )
@@ -1381,11 +1451,25 @@ class ChecklistTemplateDetailView(TemplateEditorMixin, TemplateView):
         context = super().get_context_data(**kwargs)
         template = self.get_template(self.kwargs["pk"])
         context["template"] = template
-        context["items"] = list(
+        items = list(
             template.items.annotate(instance_count=Count("instances")).order_by(
                 "order", "id"
             )
         )
+        wanted = {
+            item.default_team_name
+            for item in items
+            if item.assignee_default == AssigneeDefault.TEAM and item.default_team_name
+        }
+        have = set(
+            Team.objects.filter(
+                conference=self.conference, short_name__in=wanted
+            ).values_list("short_name", flat=True)
+        )
+        # A line naming a team this edition does not have starts its items
+        # unowned and says nothing, exactly as a missing guide used to.
+        context["missing_teams"] = sorted(wanted - have)
+        context["items"] = items
         return context
 
 

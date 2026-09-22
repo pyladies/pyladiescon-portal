@@ -18,9 +18,9 @@ from speakers.checklists import (
 )
 from speakers.constants import AutoRule, ItemOwner, ItemStatus
 from speakers.models import ActivityLog, ChecklistItem
-from speakers.permissions import is_speaker_assignee
+from speakers.permissions import approved_teams, is_speaker_assignee
 from volunteer.constants import ApplicationStatus
-from volunteer.models import VolunteerProfile
+from volunteer.models import Team, VolunteerProfile
 
 from .factories import add_presenter, make_presenter, make_session, make_settings
 
@@ -51,6 +51,18 @@ def liaison(db, conference):
         user=user, conference=conference, application_status=ApplicationStatus.APPROVED
     )
     return user
+
+
+@pytest.fixture
+def design_team(conference, liaison):
+    """A team with Lena (approved) and Mia (pending, so not a recipient)."""
+    team = Team.objects.create(
+        conference=conference, short_name="Design", description="d"
+    )
+    VolunteerProfile.objects.get(user=liaison).teams.add(team)
+    mia = User.objects.create_user(username="mia", email="mia@example.com")
+    VolunteerProfile.objects.create(user=mia, conference=conference).teams.add(team)
+    return team
 
 
 @pytest.fixture
@@ -286,7 +298,8 @@ class TestPresenterPageChecklists:
             in content
         )
         assert reverse("speakers:presenter_add_item", args=[ada.slug]) in content
-        assert 'name="assignee"' in content and "Lena" in content
+        assert 'name="owner"' in content and "Lena" in content
+        assert '<optgroup label="Teams">' in content
         assert "htmx.min.js" in content
 
     def test_presenter_page_shows_item_descriptions(self, client, organizer, people):
@@ -318,9 +331,9 @@ class TestPresenterPageChecklists:
             url,
             {
                 "title": "Send swag",
-                "owner": ItemOwner.ORGANIZER,
+                "owner_kind": ItemOwner.ORGANIZER,
                 "due_date": "2026-11-01",
-                "assignee": liaison.pk,
+                "owner": f"user:{liaison.pk}",
                 "description_md": "T-shirt size M",
             },
         )
@@ -353,7 +366,7 @@ class TestItemActions:
         item = people["items"]["Grace", "promo"]
         client.force_login(organizer)
         url = reverse("speakers:item_assign", args=[item.pk])
-        response = client.post(url, {"assignee": ""}, HTTP_HX_REQUEST="true")
+        response = client.post(url, {"owner": ""}, HTTP_HX_REQUEST="true")
         assert response.status_code == 200
         html = response.content.decode()
         assert html.lstrip().startswith("<tr") and f'id="item-{item.pk}"' in html
@@ -361,11 +374,12 @@ class TestItemActions:
         assert item.assignee is None
         entry = ActivityLog.objects.get(action="checklist.assigned")
         assert entry.actor == organizer and "→ nobody" in entry.message
-        response = client.post(url, {"assignee": liaison.pk})
+        response = client.post(url, {"owner": f"user:{liaison.pk}"})
         assertRedirects(response, people["grace"].get_absolute_url())
         item.refresh_from_db()
         assert item.assignee == liaison
-        assert client.post(url, {"assignee": 999999}).status_code == 400
+        assert client.post(url, {"owner": "user:999999"}).status_code == 400
+        assert client.post(url, {"owner": "team:999999"}).status_code == 400
 
     def test_status_changes(self, client, organizer, people):
         item = people["items"]["Ada", "register"]
@@ -465,7 +479,7 @@ class TestItemActions:
         assertRedirects(response, people["session"].get_absolute_url())
         response = client.post(
             reverse("speakers:item_assign", args=[item.pk]),
-            {"assignee": ""},
+            {"owner": ""},
             HTTP_HX_REQUEST="true",
         )
         assert response.status_code == 200
@@ -588,9 +602,69 @@ class TestVolunteerAssignee:
         # Their last item is done; the queue still opens, so they can reopen it.
         assert "Nothing assigned to you" in client.get(QUEUE).content.decode()
 
-    def test_nobody_is_an_assignee(self, conference, people):
-        """The predicate answers for a signed-out visitor too."""
-        assert is_speaker_assignee(AnonymousUser(), conference) is False
+    def test_an_approved_team_member_sees_and_ticks_a_team_item(
+        self, client, volunteer, people, conference, design_team
+    ):
+        """The digest mails a team item to every approved member, so the
+        gate and the item check have to admit them too (review of #425)."""
+        VolunteerProfile.objects.get(user=volunteer, conference=conference).teams.add(
+            design_team
+        )
+        item = people["items"]["Ada", "promo"]
+        assign_item(item, team=design_team)
+        client.force_login(volunteer)
+        content = client.get(QUEUE).content.decode()
+        assert "Promo materials" in content and "via the Design team" in content
+        response = client.post(
+            reverse("speakers:item_status", args=[item.pk]),
+            {"status": "DONE", "next": QUEUE},
+        )
+        assertRedirects(response, QUEUE)
+        item.refresh_from_db()
+        assert item.status == ItemStatus.DONE and item.completed_by == volunteer
+        # Reassigning is still organizer-only.
+        assert (
+            client.post(
+                reverse("speakers:item_assign", args=[item.pk]),
+                {"owner": f"user:{volunteer.pk}"},
+            ).status_code
+            == 403
+        )
+
+    def test_a_pending_team_member_is_not_on_the_team_yet(
+        self, client, people, conference, design_team
+    ):
+        """Mia is on the team but her application is pending: no queue, no
+        tick, and the digest does not reach her either."""
+        mia = User.objects.get(username="mia")
+        item = people["items"]["Ada", "promo"]
+        assign_item(item, team=design_team)
+        client.force_login(mia)
+        assert client.get(QUEUE).status_code == 403
+        assert (
+            client.post(
+                reverse("speakers:item_status", args=[item.pk]), {"status": "DONE"}
+            ).status_code
+            == 403
+        )
+        item.refresh_from_db()
+        assert item.status == ItemStatus.TODO
+
+    def test_a_team_i_am_not_on_is_not_mine(
+        self, client, volunteer, people, conference, design_team
+    ):
+        item = people["items"]["Ada", "promo"]
+        assign_item(item, team=design_team)
+        client.force_login(volunteer)  # approved, but not on the Design team
+        assert client.get(QUEUE).status_code == 403
+
+    def test_nobody_is_an_assignee(self, conference, people, design_team):
+        """Both predicates answer for a signed-out visitor, and for a page
+        rendered when no edition is active."""
+        anonymous = AnonymousUser()
+        assert is_speaker_assignee(anonymous, conference) is False
+        assert list(approved_teams(anonymous, conference)) == []
+        assert list(approved_teams(AnonymousUser(), None)) == []
 
     def test_the_volunteer_hub_offers_the_queue(self, client, volunteer, people):
         item = people["items"]["Ada", "promo"]
@@ -633,3 +707,68 @@ class TestVolunteerAssignee:
         assert client.get(QUEUE).status_code == 403
         content = client.get(reverse("volunteer:index")).content.decode()
         assert "My speaker tasks" not in content
+
+
+@pytest.mark.django_db
+class TestTeamOwnership:
+    def test_assign_to_team_clears_person_and_back(
+        self, client, organizer, people, liaison, design_team
+    ):
+        item = people["items"]["Ada", "promo"]
+        client.force_login(organizer)
+        url = reverse("speakers:item_assign", args=[item.pk])
+        response = client.post(
+            url, {"owner": f"team:{design_team.pk}"}, HTTP_HX_REQUEST="true"
+        )
+        assert response.status_code == 200
+        item.refresh_from_db()
+        assert item.team == design_team and item.assignee is None
+        assert item.owner_label == "Design team"
+        assert (
+            "→ Design team"
+            in ActivityLog.objects.filter(action="checklist.assigned")
+            .latest("id")
+            .message
+        )
+        html = response.content.decode()
+        assert f'value="team:{design_team.pk}"' in html and "selected" in html
+        client.post(url, {"owner": f"user:{liaison.pk}"})
+        item.refresh_from_db()
+        assert item.assignee == liaison and item.team is None
+
+    def test_queue_includes_my_teams_items(
+        self, client, liaison, people, conference, design_team
+    ):
+        ada = people["ada"]
+        team_item = add_adhoc_item(
+            conference, "Team job", ItemOwner.ORGANIZER, presenter=ada, team=design_team
+        )
+        other_team = Team.objects.create(
+            conference=conference, short_name="Media", description="m"
+        )
+        add_adhoc_item(
+            conference, "Not mine", ItemOwner.ORGANIZER, presenter=ada, team=other_team
+        )
+        client.force_login(liaison)
+        response = client.get(QUEUE)
+        titles = [i.title for i in response.context["items"]]
+        assert "Team job" in titles and "Not mine" not in titles
+        assert "via the Design team" in response.content.decode()
+        assert team_item in response.context["items"]
+
+    def test_one_off_item_for_a_team(self, client, organizer, people, design_team):
+        ada = people["ada"]
+        client.force_login(organizer)
+        client.post(
+            reverse("speakers:presenter_add_item", args=[ada.slug]),
+            {
+                "title": "Poster",
+                "owner_kind": ItemOwner.ORGANIZER,
+                "owner": f"team:{design_team.pk}",
+            },
+        )
+        item = ada.checklist_items.get(title="Poster")
+        assert item.team == design_team and item.assignee is None
+        content = client.get(ada.get_absolute_url()).content.decode()
+        assert "Design team" in content
+        assert "Design team" in client.get(BOARD, {"tab": "organizer"}).content.decode()
