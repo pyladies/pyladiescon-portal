@@ -43,6 +43,7 @@ nav:
   - Architecture:
     - Multi-Year Conferences: architecture/multi-year-conferences.md
     - Signup Abuse Protection: architecture/signup-abuse-protection.md
+    - Pretix Per Conference: architecture/pretix-per-conference.md
     - Session and Presenter Addresses: architecture/session-and-presenter-addresses.md
   - User Guide:
     - Get started: user/get_started.md
