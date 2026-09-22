@@ -32,6 +32,32 @@ def can_work_sessions(user, conference):
     return is_speaker_organizer(user) or is_speaker_liaison(user, conference)
 
 
+def approved_teams(user, conference):
+    """The edition's teams this user is an approved member of.
+
+    Pending and waitlisted members are not on the team for this purpose:
+    being added to a team is not the same as having been onboarded onto it.
+    """
+    if not user.is_authenticated or conference is None:
+        return Team.objects.none()
+    return Team.objects.filter(
+        conference=conference,
+        members__user=user,
+        members__application_status=ApplicationStatus.APPROVED,
+    )
+
+
+def owned_by(user, conference):
+    """Filter for the organizer items this user carries: assigned to them,
+    or to a team they are an approved member of.
+
+    One definition for the three places that must agree: the queue that
+    lists the items, the predicate that opens the queue, and the check that
+    lets someone act on one. They drifted apart twice; keep them here.
+    """
+    return Q(assignee=user) | Q(team__in=approved_teams(user, conference))
+
+
 def is_speaker_assignee(user, conference):
     """Whether ``user`` carries an open organizer item in this edition.
 
@@ -50,13 +76,8 @@ def is_speaker_assignee(user, conference):
     """
     if not user.is_authenticated or conference is None:
         return False
-    my_teams = Team.objects.filter(
-        conference=conference,
-        members__user=user,
-        members__application_status=ApplicationStatus.APPROVED,
-    )
     return ChecklistItem.objects.filter(
-        Q(assignee=user) | Q(team__in=my_teams),
+        owned_by(user, conference),
         conference=conference,
         owner=ItemOwner.ORGANIZER,
     ).exists()

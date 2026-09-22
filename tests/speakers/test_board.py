@@ -18,7 +18,7 @@ from speakers.checklists import (
 )
 from speakers.constants import AutoRule, ItemOwner, ItemStatus
 from speakers.models import ActivityLog, ChecklistItem
-from speakers.permissions import is_speaker_assignee
+from speakers.permissions import approved_teams, is_speaker_assignee
 from volunteer.constants import ApplicationStatus
 from volunteer.models import Team, VolunteerProfile
 
@@ -602,9 +602,69 @@ class TestVolunteerAssignee:
         # Their last item is done; the queue still opens, so they can reopen it.
         assert "Nothing assigned to you" in client.get(QUEUE).content.decode()
 
-    def test_nobody_is_an_assignee(self, conference, people):
-        """The predicate answers for a signed-out visitor too."""
-        assert is_speaker_assignee(AnonymousUser(), conference) is False
+    def test_an_approved_team_member_sees_and_ticks_a_team_item(
+        self, client, volunteer, people, conference, design_team
+    ):
+        """The digest mails a team item to every approved member, so the
+        gate and the item check have to admit them too (review of #425)."""
+        VolunteerProfile.objects.get(user=volunteer, conference=conference).teams.add(
+            design_team
+        )
+        item = people["items"]["Ada", "promo"]
+        assign_item(item, team=design_team)
+        client.force_login(volunteer)
+        content = client.get(QUEUE).content.decode()
+        assert "Promo materials" in content and "via the Design team" in content
+        response = client.post(
+            reverse("speakers:item_status", args=[item.pk]),
+            {"status": "DONE", "next": QUEUE},
+        )
+        assertRedirects(response, QUEUE)
+        item.refresh_from_db()
+        assert item.status == ItemStatus.DONE and item.completed_by == volunteer
+        # Reassigning is still organizer-only.
+        assert (
+            client.post(
+                reverse("speakers:item_assign", args=[item.pk]),
+                {"owner": f"user:{volunteer.pk}"},
+            ).status_code
+            == 403
+        )
+
+    def test_a_pending_team_member_is_not_on_the_team_yet(
+        self, client, people, conference, design_team
+    ):
+        """Mia is on the team but her application is pending: no queue, no
+        tick, and the digest does not reach her either."""
+        mia = User.objects.get(username="mia")
+        item = people["items"]["Ada", "promo"]
+        assign_item(item, team=design_team)
+        client.force_login(mia)
+        assert client.get(QUEUE).status_code == 403
+        assert (
+            client.post(
+                reverse("speakers:item_status", args=[item.pk]), {"status": "DONE"}
+            ).status_code
+            == 403
+        )
+        item.refresh_from_db()
+        assert item.status == ItemStatus.TODO
+
+    def test_a_team_i_am_not_on_is_not_mine(
+        self, client, volunteer, people, conference, design_team
+    ):
+        item = people["items"]["Ada", "promo"]
+        assign_item(item, team=design_team)
+        client.force_login(volunteer)  # approved, but not on the Design team
+        assert client.get(QUEUE).status_code == 403
+
+    def test_nobody_is_an_assignee(self, conference, people, design_team):
+        """Both predicates answer for a signed-out visitor, and for a page
+        rendered when no edition is active."""
+        anonymous = AnonymousUser()
+        assert is_speaker_assignee(anonymous, conference) is False
+        assert list(approved_teams(anonymous, conference)) == []
+        assert list(approved_teams(AnonymousUser(), None)) == []
 
     def test_the_volunteer_hub_offers_the_queue(self, client, volunteer, people):
         item = people["items"]["Ada", "promo"]

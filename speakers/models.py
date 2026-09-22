@@ -45,6 +45,7 @@ from .constants import (
     PremiereLocation,
     SessionLevel,
     SessionStatus,
+    format_owner,
 )
 from .encryption import EncryptedTextField, usable
 from .querysets import PresenterQuerySet, SessionQuerySet
@@ -1374,11 +1375,7 @@ class ChecklistItem(TimestampedModel):
     @property
     def owner_value(self):
         """What the person-or-team select posts for this item."""
-        if self.assignee_id is not None:
-            return f"user:{self.assignee_id}"
-        if self.team_id is not None:
-            return f"team:{self.team_id}"
-        return ""
+        return format_owner(user=self.assignee_id, team=self.team_id)
 
     @property
     def owner_label(self):

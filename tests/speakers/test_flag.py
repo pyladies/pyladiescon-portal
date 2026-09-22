@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import pytest
 from django.contrib.auth.models import AnonymousUser
 from django.urls import reverse
@@ -158,3 +160,40 @@ class TestFlagOnConferenceForm:
             self.payload(conference),
         )
         assert not SpeakerSettings.objects.filter(conference=conference).exists()
+
+
+@pytest.mark.django_db
+class TestFormWithoutTheSpeakersApp:
+    """The core form reads the settings model through the app registry, so
+    portal does not import speakers (review of #425)."""
+
+    def test_the_field_disappears_when_the_app_is_absent(self, conference, monkeypatch):
+        from django.apps import apps as django_apps
+
+        from portal.forms import ConferenceForm
+
+        monkeypatch.setattr(
+            django_apps, "is_installed", lambda label: label != "speakers"
+        )
+        form = ConferenceForm(instance=conference)
+        assert "speaker_module_enabled" not in form.fields
+        saved = ConferenceForm(
+            {
+                "year": conference.year,
+                "name": conference.name,
+                "slug": conference.slug,
+                "sponsorship_goal": "0",
+                "donation_goal": "0",
+                "proposals_count": "0",
+            },
+            instance=conference,
+        )
+        assert saved.is_valid(), saved.errors
+        saved.save()
+        assert SpeakerSettings.objects.filter(conference=conference).exists() is False
+
+    def test_portal_forms_does_not_import_speakers(self):
+        import portal.forms
+
+        source = Path(portal.forms.__file__).read_text()
+        assert "from speakers" not in source and "import speakers" not in source

@@ -6,6 +6,7 @@ from pytest_django.asserts import assertRedirects
 from portal.models import Conference
 from speakers.checklists import instantiate_presenter_checklist
 from speakers.constants import (
+    AssigneeDefault,
     AutoRule,
     ChecklistScope,
     DueAnchor,
@@ -390,3 +391,36 @@ class TestItems:
         response = client.post(action(template, new_item, "backfill"), follow=True)
         assert "to 0 existing checklist(s)" in response.content.decode()
         assert ChecklistItem.objects.filter(template_item=new_item).count() == 1
+
+
+@pytest.mark.django_db
+class TestMissingTeams:
+    """A line handing its item to a team the edition does not have starts
+    the item unowned; the editor says so (review of #425)."""
+
+    def test_named_team_that_does_not_exist_is_flagged(
+        self, client, organizer, conference, enabled
+    ):
+        template = ChecklistTemplate.objects.create(
+            conference=conference,
+            scope=ChecklistScope.PRESENTER,
+            name="Panel presenter",
+            kind=session_type(conference, "PANEL"),
+            role=presenter_role(conference, "PANELIST"),
+        )
+        ChecklistTemplateItem.objects.create(
+            template=template,
+            owner=ItemOwner.ORGANIZER,
+            title="Cut the trailer",
+            assignee_default=AssigneeDefault.TEAM,
+            default_team_name="Media",
+        )
+        client.force_login(organizer)
+        url = reverse("speakers:template_detail", args=[template.pk])
+        response = client.get(url)
+        assert response.context["missing_teams"] == ["Media"]
+        assert "does not have" in response.content.decode()
+        Team.objects.create(conference=conference, short_name="Media", description="m")
+        response = client.get(url)
+        assert response.context["missing_teams"] == []
+        assert "does not have" not in response.content.decode()

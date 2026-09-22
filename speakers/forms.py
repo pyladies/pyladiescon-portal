@@ -13,6 +13,8 @@ from .constants import (
     SLUG_MAX_LENGTH,
     Delivery,
     ItemOwner,
+    format_owner,
+    parse_owner,
 )
 from .models import (
     ChecklistTemplate,
@@ -257,7 +259,7 @@ class SessionPresenterForm(forms.ModelForm):
 
 
 class SessionPresenterRoleForm(forms.ModelForm):
-    """Change a presenter's role, order or required flag on a session.
+    """Change a presenter's role, or whether they are required, on a session.
 
     The roles offered are the ones the session's type allows, so a panel
     cannot end up with a Performer.
@@ -533,7 +535,8 @@ class AdhocItemForm(forms.Form):
         self.fields["owner"].choices = owner_choices(conference)
 
     def clean_owner(self):
-        return AssignItemForm.clean_owner(self)
+        """Returns ``(assignee, team)``."""
+        return clean_owner_value(self)
 
 
 def team_candidates(conference):
@@ -542,11 +545,26 @@ def team_candidates(conference):
 
 def owner_choices(conference):
     """Select options for handing an item to a person or a team."""
-    people = [(f"user:{u.pk}", user_label(u)) for u in assignee_candidates(conference)]
+    people = [
+        (format_owner(user=u.pk), user_label(u))
+        for u in assignee_candidates(conference)
+    ]
     teams = [
-        (f"team:{t.pk}", f"{t.short_name} team") for t in team_candidates(conference)
+        (format_owner(team=t.pk), f"{t.short_name} team")
+        for t in team_candidates(conference)
     ]
     return [("", "Unassigned"), ("People", people), ("Teams", teams)]
+
+
+def clean_owner_value(form):
+    """The shared ``clean_owner`` for the forms carrying that select:
+    turns its value into ``(assignee, team)``, neither or exactly one."""
+    kind, pk = parse_owner(form.cleaned_data["owner"])
+    if kind is None:
+        return None, None
+    if kind == "user":
+        return assignee_candidates(form.conference).get(pk=pk), None
+    return None, team_candidates(form.conference).get(pk=pk)
 
 
 class AssignItemForm(forms.Form):
@@ -561,13 +579,7 @@ class AssignItemForm(forms.Form):
 
     def clean_owner(self):
         """Returns ``(assignee, team)``."""
-        value = self.cleaned_data["owner"]
-        if not value:
-            return None, None
-        kind, _, pk = value.partition(":")
-        if kind == "user":
-            return assignee_candidates(self.conference).get(pk=pk), None
-        return None, team_candidates(self.conference).get(pk=pk)
+        return clean_owner_value(self)
 
 
 class ChecklistTemplateForm(forms.ModelForm):

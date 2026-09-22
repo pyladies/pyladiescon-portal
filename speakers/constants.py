@@ -158,3 +158,20 @@ RESERVED_SLUGS = frozenset(
 
 # The guide a "read the guide" checklist line means when it names none.
 DEFAULT_GUIDE_KEY = "speaker"
+
+
+def format_owner(*, user=None, team=None):
+    """The value the person-or-team select posts. Empty means unassigned."""
+    if user is not None:
+        return f"user:{user}"
+    if team is not None:
+        return f"team:{team}"
+    return ""
+
+
+def parse_owner(value):
+    """``("user"|"team", pk)`` for a select value, or ``(None, None)``."""
+    kind, _, pk = (value or "").partition(":")
+    if kind in ("user", "team") and pk:
+        return kind, pk
+    return None, None

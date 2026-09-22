@@ -16,7 +16,7 @@ from django.utils import timezone
 from common.tasks import enqueue
 
 from .checklists import instantiate_presenter_checklist
-from .constants import ChecklistScope, ItemStatus, SessionStatus
+from .constants import OPEN_ITEM_STATUSES, ChecklistScope, SessionStatus
 from .emails import INVITATION_SALT
 from .lifecycle import confirm_session_if_ready
 from .models import (
@@ -247,6 +247,15 @@ def presenter_added_to_session(link, actor=None):
     """
     if link.is_confirmed or not has_accepted_generally(link.presenter):
         return False
+    # All or nothing, as accept_invitation is: a receiver that fails must not
+    # leave the link confirmed with half a checklist behind it.
+    with transaction.atomic():
+        _confirm_from_general_acceptance(link, actor)
+    confirm_session_if_ready(link.session)
+    return True
+
+
+def _confirm_from_general_acceptance(link, actor):
     link.confirm()
     ActivityLog.record(
         link.conference,
@@ -264,16 +273,21 @@ def presenter_added_to_session(link, actor=None):
         presenter=link.presenter,
         user=link.presenter.user,
         session_presenters=[link],
+        # The clock for this session starts now, not when they accepted the
+        # general invitation: anchoring to an acceptance months ago would
+        # hand them a checklist born overdue and fire every reminder
+        # threshold on the first digest.
+        accepted_at=link.confirmed_at,
     )
-    confirm_session_if_ready(link.session)
-    return True
 
 
 def change_presenter_role(link, role, *, is_required=None, actor=None):
     """Change a presenter's role on a session and move their checklist with it.
 
-    Open items that came from the old role's template are dropped, anything
-    already done or skipped stays, and the new role's template is
+    Open items that came from the old role's template are dropped, blocked
+    ones included: the note on a blocked item is about work this presenter
+    is no longer down for. Anything done or skipped stays, so the record of
+    what they did survives the change, and the new role's template is
     instantiated (for a confirmed presenter) with its rules run once.
     Returns ``(removed, created)`` counts.
     """
@@ -285,6 +299,11 @@ def change_presenter_role(link, role, *, is_required=None, actor=None):
         .first()
     )
     old_role_id, old_role_name = stored or (None, "")
+    with transaction.atomic():
+        return _swap_role(link, role, old_role_id, old_role_name, is_required, actor)
+
+
+def _swap_role(link, role, old_role_id, old_role_name, is_required, actor):
     link.role = role
     if is_required is not None:
         link.is_required = is_required
@@ -294,7 +313,7 @@ def change_presenter_role(link, role, *, is_required=None, actor=None):
         removed, _ = ChecklistItem.objects.filter(
             presenter=link.presenter,
             session=link.session,
-            status=ItemStatus.TODO,
+            status__in=list(OPEN_ITEM_STATUSES),
             template_item__template__scope=ChecklistScope.PRESENTER,
             template_item__template__role_id=old_role_id,
         ).delete()

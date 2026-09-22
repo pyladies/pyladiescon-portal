@@ -18,7 +18,6 @@ from django_tables2.views import SingleTableMixin
 
 from attendee.models import PretixOrder
 from common.tasks import enqueue
-from volunteer.constants import ApplicationStatus
 from volunteer.models import Team
 
 from .board import build_board, write_board_csv
@@ -35,6 +34,7 @@ from .clock import today
 from .constants import (
     DEFAULT_GUIDE_KEY,
     OPEN_ITEM_STATUSES,
+    AssigneeDefault,
     AutoRule,
     ChecklistScope,
     ItemOwner,
@@ -87,7 +87,12 @@ from .models import (
     SessionType,
     SpeakerSettings,
 )
-from .permissions import can_work_sessions, is_speaker_organizer
+from .permissions import (
+    approved_teams,
+    can_work_sessions,
+    is_speaker_organizer,
+    owned_by,
+)
 from .pretix import (
     PretixError,
     link_presenter_order,
@@ -599,7 +604,7 @@ class SessionAddPresenterView(OrganizerSessionActionMixin, View):
 
 
 class SessionEditPresenterView(OrganizerSessionActionMixin, View):
-    """Change role, order or required flag; the checklist follows the role."""
+    """Change the role or the required flag; the checklist follows the role."""
 
     def post(self, request, slug, link_pk):
         session = self.get_session()
@@ -1173,14 +1178,9 @@ class ChecklistQueueView(LoginRequiredMixin, SpeakerQueueRequiredMixin, Template
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        my_teams = Team.objects.filter(
-            conference=self.conference,
-            members__user=self.request.user,
-            members__application_status=ApplicationStatus.APPROVED,
-        )
         items = (
             ChecklistItem.objects.filter(
-                Q(assignee=self.request.user) | Q(team__in=my_teams),
+                owned_by(self.request.user, self.conference),
                 conference=self.conference,
                 owner=ItemOwner.ORGANIZER,
                 status__in=list(OPEN_ITEM_STATUSES),
@@ -1217,7 +1217,7 @@ class ItemActionMixin(LoginRequiredMixin, SpeakerQueueRequiredMixin):
             conference=self.conference,
         )
         user = self.request.user
-        if is_speaker_organizer(user) or item.assignee_id == user.pk:
+        if is_speaker_organizer(user) or self.carries(item):
             return item
         if item.presenter is None or item.presenter.liaison_id != user.pk:
             raise PermissionDenied(
@@ -1225,6 +1225,17 @@ class ItemActionMixin(LoginRequiredMixin, SpeakerQueueRequiredMixin):
                 "carry it."
             )
         return item
+
+    def carries(self, item):
+        """Whether this item was handed to the actor, in person or through
+        a team they are an approved member of."""
+        user = self.request.user
+        if item.assignee_id == user.pk:
+            return True
+        return (
+            item.team_id is not None
+            and approved_teams(user, self.conference).filter(pk=item.team_id).exists()
+        )
 
     def respond(self, request, item, error=""):
         """An htmx request gets the refreshed row (with ``error`` shown inline,
@@ -1440,11 +1451,25 @@ class ChecklistTemplateDetailView(TemplateEditorMixin, TemplateView):
         context = super().get_context_data(**kwargs)
         template = self.get_template(self.kwargs["pk"])
         context["template"] = template
-        context["items"] = list(
+        items = list(
             template.items.annotate(instance_count=Count("instances")).order_by(
                 "order", "id"
             )
         )
+        wanted = {
+            item.default_team_name
+            for item in items
+            if item.assignee_default == AssigneeDefault.TEAM and item.default_team_name
+        }
+        have = set(
+            Team.objects.filter(
+                conference=self.conference, short_name__in=wanted
+            ).values_list("short_name", flat=True)
+        )
+        # A line naming a team this edition does not have starts its items
+        # unowned and says nothing, exactly as a missing guide used to.
+        context["missing_teams"] = sorted(wanted - have)
+        context["items"] = items
         return context
 
 

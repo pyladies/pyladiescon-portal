@@ -1,4 +1,5 @@
 import re
+from datetime import date, timedelta
 
 import pytest
 from django.contrib.auth.models import User
@@ -7,11 +8,16 @@ from django.core.exceptions import ValidationError
 from django.db import connection
 from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
+from django.utils import timezone
 from pytest_django.asserts import assertRedirects
 
 from portal.models import Conference
-from speakers.checklists import complete_item
-from speakers.constants import ItemStatus, SessionStatus
+from speakers.checklists import (
+    block_item,
+    complete_item,
+    instantiate_presenter_checklist,
+)
+from speakers.constants import DueAnchor, ItemStatus, SessionStatus
 from speakers.forms import PresenterForm, liaison_candidates
 from speakers.models import ActivityLog, Invitation, InvitationStatus, Presenter
 from speakers.program_types import presenter_role, session_type
@@ -572,6 +578,82 @@ class TestSessionPresenterActions:
             action="session.presenter_role_changed"
         ).last()
         assert entry.data["presenter_id"] == presenter.pk and entry.actor == organizer
+
+    def test_a_blocked_item_of_the_old_role_goes_with_it(
+        self, client, organizer, conference
+    ):
+        """ "Open" means blocked as well as to do: a note about work this
+        presenter is no longer down for should not follow them."""
+        make_settings(conference)
+        seed_checklists(conference)
+        panel = make_session(conference, kind="PANEL", title="Panel two")
+        panelist = presenter_role(conference, "PANELIST")
+        moderator = presenter_role(conference, "MODERATOR")
+        presenter = make_presenter(conference, display_name="Robin")
+        link = add_presenter(panel, presenter, role=panelist, confirmed=True)
+        instantiate_presenter_checklist(link)
+        blocked = presenter.checklist_items.filter(
+            status=ItemStatus.TODO, auto_complete_rule=""
+        ).first()
+        block_item(blocked, "Waiting on the venue", actor=organizer)
+        change_presenter_role(link, moderator, actor=organizer)
+        assert not presenter.checklist_items.filter(pk=blocked.pk).exists()
+
+    def test_a_late_session_is_not_born_overdue(self, client, organizer, conference):
+        """Someone who accepted months ago and is added to a session now
+        starts that session's clock now, not back then."""
+        make_settings(conference)
+        seed_checklists(conference)
+        grace = make_presenter(conference, display_name="Grace late")
+        general = make_invitation(grace)
+        send_invitation(general)
+        accept_invitation(general)
+        Invitation.objects.filter(pk=general.pk).update(
+            accepted_at=timezone.now() - timedelta(days=90)
+        )
+        talk = make_session(conference, kind="TALK", title="Much later talk")
+        client.force_login(organizer)
+        client.post(
+            reverse("speakers:session_add_presenter", args=[talk.slug]),
+            {"presenter": grace.pk, "role": presenter_role(conference, "PRESENTER").pk},
+        )
+        # Dates counted from the acceptance start at the confirmation, not
+        # at an acceptance three months old. (Dates counted from the
+        # conference start are the edition's business, not this path's.)
+        from_acceptance = grace.checklist_items.filter(
+            session=talk,
+            template_item__due_anchor=DueAnchor.INVITATION_ACCEPTED,
+            due_date__isnull=False,
+        )
+        assert from_acceptance.exists()
+        assert not from_acceptance.filter(due_date__lt=date.today()).exists()
+
+    def test_a_failed_role_change_leaves_the_old_checklist_alone(
+        self, organizer, conference, monkeypatch
+    ):
+        """The swap deletes, saves and instantiates; a failure part way
+        through must not leave the presenter with neither checklist."""
+        make_settings(conference)
+        seed_checklists(conference)
+        panel = make_session(conference, kind="PANEL", title="Panel three")
+        panelist = presenter_role(conference, "PANELIST")
+        presenter = make_presenter(conference, display_name="Sam")
+        link = add_presenter(panel, presenter, role=panelist, confirmed=True)
+        instantiate_presenter_checklist(link)
+        before = set(presenter.checklist_items.values_list("pk", flat=True))
+        assert before
+
+        def boom(*args, **kwargs):
+            raise RuntimeError("the rules engine fell over")
+
+        monkeypatch.setattr("speakers.services.evaluate_items", boom)
+        with pytest.raises(RuntimeError):
+            change_presenter_role(
+                link, presenter_role(conference, "MODERATOR"), actor=organizer
+            )
+        link.refresh_from_db()
+        assert link.role == panelist
+        assert set(presenter.checklist_items.values_list("pk", flat=True)) == before
 
     def test_change_role_without_role_change_only_updates_the_flag(
         self, client, organizer, presenters, conference
