@@ -225,6 +225,15 @@ else and the agreements are still missing, the gate falls back to its own
 page, which always collects them. A settled agreement is remembered in the
 session, so the check costs nothing after the first page.
 
+### Columns and the deploy window
+
+Every column added since the module went live carries a `db_default` as well
+as its Python `default`, because the release migrates before it rolls out
+and the previous release keeps serving for a few seconds. Without a database
+default those inserts fail (production, 2026-09-22). Anything added from
+here on should do the same; `tests/speakers/test_deploy_window.py` checks
+the schema and says so when it does not.
+
 ### The one dependency that points outward
 
 Everything here depends on `portal`, never the reverse, with a single

@@ -18,6 +18,8 @@ once the speaker checklist pages exist for the presenter to tick it.
 
 from typing import NamedTuple
 
+from django.db import transaction
+
 from .constants import (
     SESSION_LANGUAGE,
     AssigneeDefault,
@@ -433,7 +435,16 @@ def seed_checklists(conference):
     first. An edition that has types keeps exactly the ones it has: a
     default template whose type or role the edition lacks (a retired
     keynote, say) is skipped and named in ``skipped``, never conjured up.
-    Add the type on the "Types and roles" page and load again if wanted."""
+    Add the type on the "Types and roles" page and load again if wanted.
+
+    All or nothing: the failure that prompted this (production, 2026-09-22)
+    left an edition with some templates seeded and others missing, which
+    re-running repairs but nothing announces."""
+    with transaction.atomic():
+        return _seed_checklists(conference)
+
+
+def _seed_checklists(conference):
     if not SessionType.objects.filter(conference=conference).exists():
         seed_program_types(conference)
     kinds = {t.code: t for t in SessionType.objects.filter(conference=conference)}

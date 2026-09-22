@@ -391,6 +391,7 @@ class Presenter(TimestampedModel):
     )
     password_reminder_dismissed = models.BooleanField(
         default=False,
+        db_default=False,
         help_text="The presenter chose to keep signing in with emailed codes.",
     )
     pretix_order = models.ForeignKey(
@@ -1188,6 +1189,8 @@ class ChecklistTemplateItem(TimestampedModel):
     requires_handbook = models.SlugField(
         max_length=40,
         blank=True,
+        default="",
+        db_default="",
         help_text=f'Guide key for the "read the guide" rule; blank means "{DEFAULT_GUIDE_KEY}".',
     )
     per_translation_language = models.BooleanField(
@@ -1206,6 +1209,8 @@ class ChecklistTemplateItem(TimestampedModel):
     default_team_name = models.CharField(
         max_length=40,
         blank=True,
+        default="",
+        db_default="",
         help_text='With "A named team": the team\'s name, matched per edition '
         "so templates clone forward.",
     )
@@ -1341,11 +1346,18 @@ class ChecklistItem(TimestampedModel):
         max_length=16, choices=MediaKind.choices, blank=True
     )
     requires_asset_language = models.CharField(max_length=10, blank=True)
-    requires_handbook = models.SlugField(max_length=40, blank=True)
+    requires_handbook = models.SlugField(
+        max_length=40, blank=True, default="", db_default=""
+    )
     # Set when a line is added to or changed on an existing checklist; the
     # daily update email clears it (speakers/notices.py).
     pending_notice = models.CharField(
-        max_length=8, choices=NoticeKind.choices, blank=True, editable=False
+        max_length=8,
+        choices=NoticeKind.choices,
+        blank=True,
+        default="",
+        db_default="",
+        editable=False,
     )
     pending_since = models.DateTimeField(null=True, blank=True, editable=False)
 
@@ -1491,6 +1503,7 @@ class Handbook(TimestampedModel):
     key = models.SlugField(
         max_length=40,
         default=DEFAULT_GUIDE_KEY,
+        db_default=DEFAULT_GUIDE_KEY,
         help_text="Short identifier checklist lines refer to, e.g. workshop.",
     )
     version = models.PositiveIntegerField(default=1)
