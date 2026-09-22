@@ -2,39 +2,107 @@
 
 The release step runs ``migrate`` and only then serves the new code, so for
 a few seconds requests are handled by a process that does not know the
-columns the migration just added. Django drops the default it used to
-backfill an ``AddField``, which turns that window into 500s (seen on
+columns the migration just added. Django backfills a column it adds and then
+**drops** the default, which turns that window into 500s (production,
 2026-09-22: "null value in column default_team_name").
 
-Every column added since the speaker module went live therefore carries a
-``db_default``. These tests read the schema, so they hold however the test
-database was built.
+So every column added to a table that already existed must be reachable
+without naming it: nullable, or carrying a database default. Nullable counts
+on purpose, and a later column that happens to be nullable passes for a
+reason of its own; the rule is about what the old code can write, not about
+how the new column is declared.
+
+The list is read from the migrations rather than written here, so a column
+added tomorrow is audited tomorrow. A column added by the same migration
+that creates its table is not in scope: no earlier release ever wrote to
+that table.
 """
 
+import ast
+from pathlib import Path
+
 import pytest
+from django.apps import apps
 from django.db import connection
 
-from speakers.models import ChecklistTemplate, ChecklistTemplateItem
-from speakers.program_types import presenter_role, session_type
+APP = "speakers"
+MIGRATIONS = Path(apps.get_app_config(APP).path) / "migrations"
 
-from .factories import make_settings
 
-#: Columns added by migrations 0005 to 0007, with the value an older
-#: process leaves the database to fill in.
-BACKFILLED = [
-    ("speakers_checklisttemplateitem", "requires_handbook", ""),
-    ("speakers_checklisttemplateitem", "default_team_name", ""),
-    ("speakers_checklistitem", "requires_handbook", ""),
-    ("speakers_checklistitem", "pending_notice", ""),
-    ("speakers_handbook", "key", "speaker"),
-    ("speakers_presenter", "password_reminder_dismissed", False),
-]
+def _operations(tree):
+    """Every ``migrations.X(...)`` call in a migration's operations list."""
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
+            yield node.func.attr, {
+                keyword.arg: keyword.value
+                for keyword in node.keywords
+                if isinstance(keyword.value, ast.Constant)
+            }
+
+
+def _added_after_creation():
+    """``(table, column)`` for every column an ``AddField`` put on a model an
+    earlier migration had already created.
+
+    Read from the migration files rather than through Django's loader, which
+    imports them: importing a migration makes coverage measure a module the
+    suite never runs, since the tests run with ``--no-migrations``.
+    """
+    created = {}
+    added = []
+    for path in sorted(MIGRATIONS.glob("[0-9]*.py")):
+        tree = ast.parse(path.read_text())
+        for name, kwargs in _operations(tree):
+            if name == "CreateModel" and "name" in kwargs:
+                created.setdefault(kwargs["name"].value.lower(), path.name)
+            elif name == "AddField" and {"model_name", "name"} <= kwargs.keys():
+                model = kwargs["model_name"].value.lower()
+                if created.get(model) in (None, path.name):
+                    continue  # the table arrived in this same migration
+                added.append((model, kwargs["name"].value))
+    return added
+
+
+def _columns(pairs=None):
+    """The audited columns, as ``(table, column)``, skipping fields since
+    removed and relations that live in a table of their own."""
+    rows = []
+    for model_name, field_name in _added_after_creation() if pairs is None else pairs:
+        model = apps.get_model(APP, model_name)
+        field = next(
+            (f for f in model._meta.get_fields() if f.name == field_name), None
+        )
+        if field is None or field.many_to_many:
+            continue
+        row = (model._meta.db_table, field.column)
+        if row not in rows:
+            rows.append(row)
+    return rows
+
+
+ADDED_LATER = _columns()
 
 
 @pytest.mark.django_db
-class TestColumnsAddedSince0005:
-    @pytest.mark.parametrize("table, column, _expected", BACKFILLED)
-    def test_the_database_can_fill_it_in(self, table, column, _expected):
+class TestEveryColumnAddedLater:
+    def test_a_field_with_no_column_here_is_not_audited(self):
+        """Two ways an ``AddField`` has nothing to check: the field was
+        removed again later, or it is a many-to-many, whose rows live in a
+        table of their own that no older release wrote to."""
+        assert _columns([("session", "presenters"), ("session", "long_gone")]) == []
+
+    def test_the_audit_finds_the_columns_it_should(self):
+        """A guard on the guard: if this ever comes back empty, the walk
+        above has stopped working and everything below passes vacuously."""
+        columns = set(ADDED_LATER)
+        assert ("speakers_checklisttemplateitem", "default_team_name") in columns
+        assert ("speakers_speakersettings", "conference_timezone") in columns
+        assert len(columns) > 10
+
+    @pytest.mark.parametrize(
+        "table, column", ADDED_LATER, ids=[f"{t}.{c}" for t, c in ADDED_LATER]
+    )
+    def test_the_previous_release_can_still_insert(self, table, column):
         with connection.cursor() as cursor:
             cursor.execute(
                 """
@@ -48,47 +116,10 @@ class TestColumnsAddedSince0005:
         assert row is not None, f"{table}.{column} is gone"
         nullable, default = row
         assert nullable == "YES" or default is not None, (
-            f"{table}.{column} is NOT NULL with no database default: a process "
-            "from the previous release cannot insert a row during a deploy"
+            f"{table}.{column} is NOT NULL with no database default, so a "
+            "process from the previous release cannot insert a row while a "
+            "deploy rolls out. Give the field a db_default and keep its "
+            "Python default; a foreign key, which has no default to give, "
+            "goes in nullable and is tightened a release later. See "
+            "docs/developer/deployment.md."
         )
-
-    def test_an_insert_without_the_new_columns_still_works(self, conference):
-        """Exactly what the previous release's code does: name the columns it
-        knew about and leave the rest to the database."""
-        make_settings(conference)
-        template = ChecklistTemplate.objects.create(
-            conference=conference,
-            scope="PRESENTER",
-            name="Old release",
-            kind=session_type(conference, "TALK"),
-            role=presenter_role(conference, "PRESENTER"),
-        )
-        with connection.cursor() as cursor:
-            cursor.execute(
-                """
-                insert into speakers_checklisttemplateitem
-                    (creation_date, modified_date, template_id, "order", owner,
-                     title, description_md, due_anchor, due_offset_days,
-                     auto_complete_rule, requires_asset_kind,
-                     requires_asset_language, per_translation_language,
-                     is_required, assignee_default)
-                values (now(), now(), %s, 0, 'SPEAKER', 'Update your bio', '',
-                        'INVITATION_ACCEPTED', 7, 'bio_and_headshot', '', '',
-                        false, false, 'UNASSIGNED')
-                """,
-                [template.pk],
-            )
-        line = ChecklistTemplateItem.objects.get(title="Update your bio")
-        assert line.default_team_name == "" and line.requires_handbook == ""
-
-    def test_an_unsaved_row_still_reads_the_python_default(self, conference):
-        """``db_default`` alone leaves a sentinel on the attribute until the
-        row is saved, and ``clean()`` runs before that. Each field keeps its
-        Python ``default`` so the two agree."""
-        line = ChecklistTemplateItem(
-            template=ChecklistTemplate(conference=conference),
-            owner="ORGANIZER",
-            title="Cut the trailer",
-        )
-        assert line.default_team_name == ""
-        assert line.requires_handbook == ""

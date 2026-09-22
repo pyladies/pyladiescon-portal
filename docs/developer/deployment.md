@@ -136,8 +136,13 @@ default_team_name = models.CharField(max_length=40, blank=True, db_default="")
 keep inserting until it is replaced. Keep the ordinary `default` as well:
 with only a `db_default`, an unsaved instance holds a sentinel rather than
 the value, and anything reading the attribute before the row is saved, a
-`clean()` for instance, sees the sentinel. `tests/speakers/test_deploy_window.py`
-reads the schema and fails if a NOT NULL column has nothing behind it.
+`clean()` for instance, sees the sentinel.
+
+`tests/speakers/test_deploy_window.py` walks the migration graph for every
+column added to a table that already existed and fails if one is NOT NULL
+with nothing behind it, so the rule cannot drift as columns are added. A
+foreign key is the case where no default exists: add it nullable, backfill
+it, and tighten it in a later release.
 
 The same window applies to a column that is later removed: drop it from the
 model first, deploy, then delete the column in a follow-up migration.
