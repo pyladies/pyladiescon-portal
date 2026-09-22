@@ -56,7 +56,11 @@ def valid_data(**overrides):
 
 
 @pytest.mark.django_db
+@pytest.mark.no_agreements
 class TestWelcomeFlow:
+    """The welcome page is where a presenter agrees, so these run against
+    the real ``has_agreed`` rather than the suite-wide stand-in."""
+
     def test_dashboard_redirects_to_welcome_until_onboarded(self, client, newcomer):
         client.force_login(newcomer.user)
         assertRedirects(client.get(DASHBOARD), WELCOME)
@@ -129,12 +133,20 @@ class TestWelcomeFlow:
         assert not PortalProfile.objects.filter(user=newcomer.user).exists()
 
     def test_already_onboarded_skips_welcome(self, client, newcomer):
-        PortalProfile.objects.create(user=newcomer.user)
+        """Onboarded means they agreed, not merely that a row exists: a
+        profile without the agreements sends them back here."""
+        PortalProfile.objects.create(
+            user=newcomer.user, coc_agreement=True, tos_agreement=True
+        )
         client.force_login(newcomer.user)
         assertRedirects(client.get(WELCOME), DASHBOARD)
         assert client.get(DASHBOARD).status_code == 200
 
     def test_non_presenter_forbidden(self, client, portal_user, enabled):
+        """Past the gate (they have agreed), the page is still not theirs."""
+        PortalProfile.objects.create(
+            user=portal_user, coc_agreement=True, tos_agreement=True
+        )
         client.force_login(portal_user)
         assert client.get(WELCOME).status_code == 403
 

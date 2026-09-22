@@ -459,6 +459,7 @@ class TestInvitationView:
         assert response.context["reason"] == "invalid"
         assert "not valid" in response.content.decode()
 
+    @pytest.mark.no_agreements
     def test_accept_logs_in_and_redirects(self, client, invitation):
         send_invitation(invitation)
         response = client.post(_url(invitation), {"action": "accept"})

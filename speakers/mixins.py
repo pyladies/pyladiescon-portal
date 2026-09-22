@@ -1,9 +1,7 @@
 from django.contrib.auth.mixins import UserPassesTestMixin
 from django.http import Http404
-from django.shortcuts import redirect
 
 from portal.models import Conference
-from portal_account.models import PortalProfile
 
 from .models import Presenter, speaker_module_enabled
 from .permissions import can_work_queue, can_work_sessions, is_speaker_organizer
@@ -56,10 +54,6 @@ class PresenterRequiredMixin(SpeakerModuleRequiredMixin, UserPassesTestMixin):
     gets 403 (the module is on, they are just not a speaker).
     """
 
-    # Every speaker page needs the onboarding (portal profile, agreements)
-    # done first; the onboarding page itself switches this off.
-    requires_portal_profile = True
-
     def test_func(self):
         user = self.request.user
         if not user.is_authenticated:
@@ -69,15 +63,4 @@ class PresenterRequiredMixin(SpeakerModuleRequiredMixin, UserPassesTestMixin):
             .select_related("liaison")
             .first()
         )
-        if self.presenter is None:
-            return False
-        self.needs_onboarding = (
-            self.requires_portal_profile
-            and not PortalProfile.objects.filter(user=user).exists()
-        )
-        return not self.needs_onboarding
-
-    def handle_no_permission(self):
-        if getattr(self, "needs_onboarding", False):
-            return redirect("speakers:my_welcome")
-        return super().handle_no_permission()
+        return self.presenter is not None

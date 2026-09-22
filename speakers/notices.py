@@ -6,6 +6,7 @@ flagged items gets one email listing what is new and what changed, and the
 flags are cleared, so nothing is sent when nothing happened.
 """
 
+import logging
 from collections import defaultdict
 
 from django.conf import settings
@@ -18,7 +19,9 @@ from common.send_emails import send_email
 from .constants import ItemOwner, NoticeKind
 from .emails import absolute_url
 from .models import ChecklistItem
-from .reminders import _team_emails
+from .reminders import DigestCount, _team_emails
+
+logger = logging.getLogger(__name__)
 
 
 def _recipients(item):
@@ -32,7 +35,10 @@ def _recipients(item):
 
 
 def send_checklist_change_notices(conference, now=None):
-    """Send today's update emails for one edition. Returns the email count."""
+    """Send today's update emails for one edition.
+
+    Returns the count sent, whose ``failed`` attribute carries how many
+    recipients could not be reached."""
     now = now or timezone.now()
     items = list(
         ChecklistItem.objects.filter(conference=conference)
@@ -48,9 +54,23 @@ def send_checklist_change_notices(conference, now=None):
             by_recipient[recipients].append(item)
         else:
             orphaned.append(item)
-    emails = 0
+    emails = DigestCount(0)
     for recipients, group in by_recipient.items():
         speaker_side = group[0].owner == ItemOwner.SPEAKER
+        if not _try_send(conference, recipients, group, speaker_side):
+            emails.failed += 1
+            continue
+        emails = emails + 1
+    _clear(orphaned)
+    return emails
+
+
+def _try_send(conference, recipients, group, speaker_side):
+    """Send one notice; a failure is logged and reported, never raised, so
+    one bad mailbox does not silence everyone after it in the loop (the same
+    rule the reminder digests follow). The flags are cleared in the same
+    transaction as the send, so a failure leaves them for tomorrow."""
+    try:
         with transaction.atomic():
             send_email(
                 f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} {conference.name}: your "
@@ -75,9 +95,10 @@ def send_checklist_change_notices(conference, now=None):
                 },
             )
             _clear(group)
-        emails += 1
-    _clear(orphaned)
-    return emails
+    except Exception:  # noqa: BLE001 - anything the mail backend raises
+        logger.exception("Checklist change notice to %s failed", recipients)
+        return False
+    return True
 
 
 def _clear(items):

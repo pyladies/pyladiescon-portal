@@ -203,6 +203,22 @@ def apply_new_template_item(template_item):
 
 NOTIFY_ON_CHANGE = ("title", "description_md", "due_date")
 
+#: What an instance takes from its template line when the line is edited.
+FOLLOWS_THE_TEMPLATE = (
+    "title",
+    "description_md",
+    "due_date",
+    "order",
+    "owner",
+    "is_required",
+    "auto_complete_rule",
+    "requires_asset_kind",
+    "requires_handbook",
+    "pending_notice",
+    "pending_since",
+    "modified_date",
+)
+
 
 def apply_template_item_changes(template_item):
     """Push an edited line to its existing instances.
@@ -212,6 +228,7 @@ def apply_template_item_changes(template_item):
     whose title, description or due date changed are flagged for the daily
     update email. Returns the number of items changed."""
     changed = 0
+    touched = []
     anchors_for = {
         (session.pk, presenter.pk if presenter else None): anchors
         for session, presenter, anchors in _matching_targets(template_item)
@@ -236,7 +253,11 @@ def apply_template_item_changes(template_item):
         if any(getattr(item, field) != before[field] for field in NOTIFY_ON_CHANGE):
             item.flag_notice(NoticeKind.CHANGED)
             changed += 1
-        item.save()
+        item.modified_date = timezone.now()
+        touched.append(item)
+    # One statement rather than a save per instance: a popular line can sit
+    # on hundreds of checklists, and nothing listens for ChecklistItem saves.
+    ChecklistItem.objects.bulk_update(touched, FOLLOWS_THE_TEMPLATE, batch_size=500)
     return changed
 
 

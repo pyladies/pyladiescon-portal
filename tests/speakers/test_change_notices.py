@@ -100,3 +100,54 @@ class TestChangeNotices:
             send_checklist_change_notices_task()
             == "No edition has the speaker module enabled"
         )
+
+    def test_one_bad_mailbox_does_not_silence_the_rest(
+        self, conference, enabled, monkeypatch
+    ):
+        """The rule the reminder digests already follow: log it, count it,
+        carry on, and leave the failed recipient's flags for tomorrow."""
+        first = make_presenter(conference, display_name="Ada", email="ada@example.com")
+        second = make_presenter(conference, display_name="Bea", email="bea@example.com")
+        for presenter in (first, second):
+            add_adhoc_item(
+                conference, "Send your slides", ItemOwner.SPEAKER, presenter=presenter
+            )
+        sent = []
+        real = mail.get_connection
+
+        def explode_for_ada(subject, recipients, **kwargs):
+            if "ada@example.com" in recipients:
+                raise OSError("mailbox full")
+            sent.append(recipients)
+
+        monkeypatch.setattr("speakers.notices.send_email", explode_for_ada)
+        result = send_checklist_change_notices(conference)
+        assert result == 1 and result.failed == 1
+        assert sent == [["bea@example.com"]]
+        # Ada keeps her flag, so tomorrow tries again; Bea's is cleared.
+        assert (
+            ChecklistItem.objects.filter(presenter=first)
+            .exclude(pending_notice="")
+            .exists()
+        )
+        assert (
+            not ChecklistItem.objects.filter(presenter=second)
+            .exclude(pending_notice="")
+            .exists()
+        )
+        assert real is mail.get_connection
+
+    def test_the_task_reports_failures(self, conference, enabled, monkeypatch):
+        make_presenter(conference, display_name="Ada", email="ada@example.com")
+        add_adhoc_item(
+            conference,
+            "Send your slides",
+            ItemOwner.SPEAKER,
+            presenter=make_presenter(conference, email="cleo@example.com"),
+        )
+
+        def explode(*args, **kwargs):
+            raise OSError("the mail server is down")
+
+        monkeypatch.setattr("speakers.notices.send_email", explode)
+        assert "(1 failed)" in send_checklist_change_notices_task()

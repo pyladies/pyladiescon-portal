@@ -147,6 +147,15 @@ class AgreementsView(LoginRequiredMixin, FormView):
         return kwargs
 
     def form_valid(self, form):
-        form.save()
+        profile = form.save()
+        user = self.request.user
+        if not user.get_full_name().strip():
+            # Creating the profile here means the portal index no longer
+            # sends them to fill it in, so ask for the name now. An account
+            # made outside signup has none.
+            messages.info(
+                self.request, "Thank you. One more thing: your name, for your badge."
+            )
+            return redirect("portal_account:portal_profile_edit", pk=profile.pk)
         messages.success(self.request, "Thank you. You are all set.")
         return redirect(self.request.POST.get("next") or "index")

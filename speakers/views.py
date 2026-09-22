@@ -18,7 +18,7 @@ from django_tables2.views import SingleTableMixin
 
 from attendee.models import PretixOrder
 from common.tasks import enqueue
-from portal_account.models import PortalProfile
+from portal_account import agreements
 from volunteer.models import Team
 
 from .board import build_board, write_board_csv
@@ -1875,14 +1875,19 @@ class HandbookEditorView(
 
 class SpeakerWelcomeView(LoginRequiredMixin, PresenterRequiredMixin, FormView):
     """Account details, agreements and an optional password, before the
-    dashboard. A presenter who already has a portal profile skips it."""
+    dashboard.
+
+    The skip asks the same question the gate does. Keying it on "has a
+    portal profile" instead used to bounce a presenter whose profile
+    predates the agreements between this page and the dashboard forever:
+    the gate sent them here, here sent them back.
+    """
 
     template_name = "speakers/speaker_welcome.html"
     form_class = SpeakerOnboardingForm
-    requires_portal_profile = False
 
     def get(self, request, *args, **kwargs):
-        if PortalProfile.objects.filter(user=request.user).exists():
+        if agreements.has_agreed(request.user):
             return redirect("speakers:my_dashboard")
         return super().get(request, *args, **kwargs)
 

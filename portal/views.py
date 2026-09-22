@@ -31,7 +31,6 @@ from portal.services import (
     clone_sponsorship_tiers,
     clone_teams,
 )
-from portal_account.models import PortalProfile
 from speakers.models import Presenter, SpeakerSettings, speaker_module_enabled
 from speakers.seeds import clone_speaker_setup
 from sponsorship.models import SponsorshipProfile
@@ -44,7 +43,6 @@ def index(request):
     Send authenticated users to their personalized hub, anonymous visitors to
     the public landing page.
 
-    - No portal profile yet: create one first.
     - Organizers (staff/superuser): the organizer dashboard.
     - Presenters who are not also volunteering this year: their speaker
       dashboard.
@@ -58,12 +56,9 @@ def index(request):
             speaker_module_enabled(active)
             and Presenter.objects.filter(conference=active, user=user).exists()
         )
-        if not PortalProfile.objects.filter(user=user).exists():
-            # Presenters finish their account on the speaker welcome page
-            # (agreements, optional password); everyone else on the plain form.
-            if is_presenter:
-                return redirect("speakers:my_welcome")
-            return redirect("portal_account:portal_profile_new")
+        # An account with no profile never reaches this view: the agreement
+        # gate (portal_account.agreements) sends it to the page that asks,
+        # and creates the profile when it answers.
         if user.is_superuser or user.is_staff:
             return redirect("organizer_dashboard")
         if (

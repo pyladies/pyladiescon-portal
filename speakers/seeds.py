@@ -526,6 +526,9 @@ def clone_checklists(target, source):
     return templates_created, items_created
 
 
+# The pretix event, token and secret are deliberately absent: they are
+# per edition, and copying an encrypted value this deploy cannot read
+# (see speakers/encryption.py) would raise on save.
 SETTINGS_TO_COPY = [
     "default_premiere_location",
     "translation_languages",

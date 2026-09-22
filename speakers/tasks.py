@@ -121,8 +121,8 @@ def send_checklist_digests_task():
     return "; ".join(results) or "No edition has the speaker module enabled"
 
 
-@shared_task(bind=True, max_retries=3, default_retry_delay=60)
-def send_checklist_change_notices_task(self):
+@shared_task
+def send_checklist_change_notices_task():
     """Daily: tell people about checklist items added or changed since the
     last notice, per edition with the module on."""
     results = []
@@ -130,5 +130,8 @@ def send_checklist_change_notices_task(self):
         speaker_module_enabled=True
     ).select_related("conference"):
         sent = send_checklist_change_notices(settings_row.conference)
-        results.append(f"{settings_row.conference}: {sent} email(s)")
+        note = f"{settings_row.conference}: {sent} email(s)"
+        if sent.failed:
+            note += f" ({sent.failed} failed)"
+        results.append(note)
     return "; ".join(results) or "No edition has the speaker module enabled"

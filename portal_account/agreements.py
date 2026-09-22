@@ -17,8 +17,21 @@ from django.utils.module_loading import import_string
 
 from .models import PortalProfile
 
+#: Session keys: one remembers a settled agreement, the other counts how
+#: many times the gate has turned this account away without one.
+AGREED_KEY = "portal_account.agreed"
+TRIES_KEY = "portal_account.agreement_tries"
+
+#: How often an app's own page may be offered before the gate stops trusting
+#: it and uses its own, which always collects the agreement. Low enough to
+#: end a redirect loop in a blink, high enough that someone wandering the
+#: site before agreeing never notices.
+MAX_TRIES = 3
+
 #: Prefixes the gate never redirects away from: signing in and out, email
 #: confirmation, the Django admin, and the assets a page needs to render.
+#: Every entry keeps its trailing slash, so a future app mounted at
+#: /accounts-of-something/ is not exempt by accident.
 EXEMPT_PREFIXES = ("/accounts/", "/admin/", "/captcha/")
 
 
@@ -65,11 +78,35 @@ class AgreementRequiredMiddleware:
     def __call__(self, request):
         user = getattr(request, "user", None)
         if user is not None and user.is_authenticated and not self._exempt(request):
-            if not has_agreed(user):
-                target = agreement_url_for(user)
+            if request.session.get(AGREED_KEY) or has_agreed(user):
+                # Agreement is permanent, so remember it and stop asking the
+                # database on every page for the rest of the session.
+                request.session[AGREED_KEY] = True
+                request.session.pop(TRIES_KEY, None)
+            else:
+                target = self._target_for(request, user)
                 if request.path != target:
                     return redirect(target)
         return self.get_response(request)
+
+    def _target_for(self, request, user):
+        """Where to send this request, without trapping anyone.
+
+        An app can own a richer page (``ONBOARDING_URL_RESOLVERS``), but a
+        page that does not actually collect the agreement would bounce the
+        visitor straight back here, forever. So the gate counts how often it
+        has turned this account away, and after a few goes uses its own page
+        instead. The count is cleared the moment they agree.
+        """
+        target = agreement_url_for(user)
+        if request.path == target:
+            # Arriving at the page that asks is not being turned away.
+            return target
+        tries = request.session.get(TRIES_KEY, 0) + 1
+        request.session[TRIES_KEY] = tries
+        if tries > MAX_TRIES:
+            return reverse("portal_account:agreements")
+        return target
 
     def _exempt(self, request):
         path = request.path

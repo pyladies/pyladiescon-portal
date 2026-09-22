@@ -189,6 +189,18 @@ and nothing on the organizer side to say so. On the speaker side,
 `required_guide_keys` returns only what their own items name: a presenter
 with no checklist yet is asked to read nothing.
 
+### Checklist change notices
+
+A template line that is added, edited or deleted reaches the checklists
+already made from it at once; there is no back-fill step. Items added or
+visibly changed (title, description, due date) are flagged on the row
+itself, and a daily job emails each affected presenter, assignee or team
+once, then clears the flags, so a quiet day sends nothing. A row can only
+carry one flag: `flag_notice` lets NEW outrank CHANGED, because an item
+someone has never seen is new to them whatever happened to it afterwards.
+One failed mailbox is logged and counted, never raised, as in the reminder
+digests.
+
 ### Agreeing to the Code of Conduct and the Terms of Service
 
 Accepting an invitation creates the account and signs the presenter in, so
@@ -203,8 +215,15 @@ A presenter gets the speaker welcome page instead of the plain one, because
 it asks for a username and an optional password as well. That is wired
 through `settings.ONBOARDING_URL_RESOLVERS`, which names
 `speakers.onboarding.welcome_url_for`; `portal_account` knows nothing about
-this app. `PresenterRequiredMixin` keeps its own redirect for a presenter
-with no profile, which is the same page.
+this app. The welcome page skips itself on `has_agreed`, the same question the gate
+asks: when it asked a different one ("does a profile exist"), a presenter
+whose profile predated the agreements bounced between the two forever.
+Nothing on the speaker side routes onboarding any more, since the gate
+runs before every view. Any page named by
+a resolver is used once; if the next gated request arrives from somewhere
+else and the agreements are still missing, the gate falls back to its own
+page, which always collects them. A settled agreement is remembered in the
+session, so the check costs nothing after the first page.
 
 ### The one dependency that points outward
 
