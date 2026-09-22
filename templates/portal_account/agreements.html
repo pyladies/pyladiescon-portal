@@ -1,0 +1,43 @@
+{% extends "portal/base.html" %}
+{% load i18n %}
+{% load django_bootstrap5 %}
+{% block head_title %}
+    {% trans "Before you continue" %}
+{% endblock head_title %}
+{% comment %}
+No rail and no navigation: this page is a gate, and every other page
+redirects back to it until both boxes are ticked.
+{% endcomment %}
+{% block content %}
+    <div class="row justify-content-center">
+        <div class="col-lg-7">
+            <h1 class="h3 mb-3">
+                {% trans "Before you continue" %}
+            </h1>
+            <p class="text-secondary">
+                {% trans "Everyone with a portal account agrees to these two. Your account was created for you, so we have not asked until now." %}
+            </p>
+            <form method="post">
+                {% csrf_token %}
+                {% bootstrap_form form %}
+                {% comment %}
+                The same two addresses the signup page links to; the Code of
+                Conduct one comes from the active edition when it has one.
+                {% endcomment %}
+                <ul class="list-unstyled small mb-3">
+                    <li>
+                        <a href="{{ active_conference.coc_url|default:'https://2025.conference.pyladies.com/en/coc/' }}"
+                           target="_blank"
+                           rel="noopener noreferrer">{% trans "Read the Code of Conduct" %}</a>
+                    </li>
+                    <li>
+                        <a href="https://pyladiescon-portal-docs.netlify.app/policies/terms_of_use/"
+                           target="_blank"
+                           rel="noopener noreferrer">{% trans "Read the Terms of Service" %}</a>
+                    </li>
+                </ul>
+                {% bootstrap_button "Agree and continue" button_type="submit" button_class="btn-primary" %}
+            </form>
+        </div>
+    </div>
+{% endblock content %}

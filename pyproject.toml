@@ -20,6 +20,9 @@ use_gitignore = true
 DJANGO_SETTINGS_MODULE = "portal.settings"
 testpaths = [ "tests" ]
 pythonpath = [ "." ]
+markers = [
+  "no_agreements: create accounts without the Code of Conduct and Terms of Service agreement, for tests of the gate that asks for them",
+]
 
 [tool.coverage.run]
 omit = ["portal/settings.py"]

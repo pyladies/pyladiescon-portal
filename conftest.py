@@ -12,6 +12,22 @@ from portal.models import Conference
 from volunteer.models import Language
 
 
+@pytest.fixture(autouse=True)
+def agreed_accounts(request, monkeypatch):
+    """Treat every account in the suite as having agreed to the Code of
+    Conduct and Terms of Service.
+
+    ``portal_account.agreements.AgreementRequiredMiddleware`` redirects a
+    signed-in account that has not, which is the whole point of the gate and
+    would otherwise turn nearly every page test into a 302 about something
+    the test is not asking about. Patching the predicate leaves the database
+    alone, so tests that manage profiles themselves are unaffected. A test of
+    the gate carries the ``no_agreements`` marker and gets the real one.
+    """
+    if "no_agreements" not in request.keywords:
+        monkeypatch.setattr("portal_account.agreements.has_agreed", lambda user: True)
+
+
 @pytest.fixture
 def portal_user(db, django_user_model):
     username = "testuser"

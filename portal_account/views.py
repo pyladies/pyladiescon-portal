@@ -1,13 +1,16 @@
 from allauth.account.views import EmailView, PasswordChangeView
+from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth.mixins import LoginRequiredMixin
 from django.shortcuts import redirect, render
 from django.urls import reverse_lazy
 from django.views.generic import DetailView, TemplateView
-from django.views.generic.edit import CreateView, UpdateView
+from django.views.generic.edit import CreateView, FormView, UpdateView
 
 from common.mixins import MaintainerRequiredMixin
 
 from .forms import PortalProfileForm
+from .forms_agreements import AgreementsForm
 from .models import PortalProfile
 from .stats import DAILY_RANGES, DEFAULT_DAILY_RANGE, account_signup_stats
 
@@ -125,3 +128,25 @@ class MaintenanceAccountsView(MaintainerRequiredMixin, TemplateView):
         # One axis label a week on the 30-day view, one a fortnight on 90.
         context["label_every"] = 7 if days <= 31 else 15
         return context
+
+
+class AgreementsView(LoginRequiredMixin, FormView):
+    """Ask for the Code of Conduct and Terms of Service.
+
+    The gate (``portal_account.agreements``) sends any signed-in account here
+    that has not accepted both, whatever route it arrived by: signup collects
+    them, a speaker invitation and a sign-in code do not.
+    """
+
+    template_name = "portal_account/agreements.html"
+    form_class = AgreementsForm
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["user"] = self.request.user
+        return kwargs
+
+    def form_valid(self, form):
+        form.save()
+        messages.success(self.request, "Thank you. You are all set.")
+        return redirect(self.request.POST.get("next") or "index")

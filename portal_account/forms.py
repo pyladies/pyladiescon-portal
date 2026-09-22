@@ -5,6 +5,9 @@ from .models import PortalProfile
 
 
 class PortalProfileForm(ModelForm):
+    """Edit a profile. The two agreement boxes are disabled on purpose: they
+    show what was accepted, and accepting happens once, at the gate
+    (``portal_account.agreements``), not here."""
 
     username = forms.CharField(disabled=True)
     first_name = forms.CharField()

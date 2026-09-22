@@ -189,6 +189,23 @@ and nothing on the organizer side to say so. On the speaker side,
 `required_guide_keys` returns only what their own items name: a presenter
 with no checklist yet is asked to read nothing.
 
+### Agreeing to the Code of Conduct and the Terms of Service
+
+Accepting an invitation creates the account and signs the presenter in, so
+they never meet the signup form that collects the two agreements, and the
+profile form cannot record them (its boxes are a disabled display of what
+signup captured). The portal-wide gate,
+`portal_account.agreements.AgreementRequiredMiddleware`, closes that: any
+signed-in account without both agreements is redirected to a page that asks,
+whatever route it arrived by.
+
+A presenter gets the speaker welcome page instead of the plain one, because
+it asks for a username and an optional password as well. That is wired
+through `settings.ONBOARDING_URL_RESOLVERS`, which names
+`speakers.onboarding.welcome_url_for`; `portal_account` knows nothing about
+this app. `PresenterRequiredMixin` keeps its own redirect for a presenter
+with no profile, which is the same page.
+
 ### The one dependency that points outward
 
 Everything here depends on `portal`, never the reverse, with a single
