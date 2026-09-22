@@ -225,6 +225,25 @@ else and the agreements are still missing, the gate falls back to its own
 page, which always collects them. A settled agreement is remembered in the
 session, so the check costs nothing after the first page.
 
+### Columns and the deploy window
+
+The release migrates before it rolls out, so the previous release keeps
+serving for a few seconds against the new schema. A column added to an
+existing table therefore has to be writable without being named: nullable,
+or carrying a `db_default` as well as its Python `default`. Without that
+those inserts fail (production, 2026-09-22).
+
+`tests/speakers/test_deploy_window.py` reads the migration graph, finds
+every column added to a table that already existed, and checks each one, so
+this holds for columns added later rather than for a list someone kept up
+to date. A foreign key cannot have a default, and the test names that case
+with its reason; the way to add one without a window is to add it nullable,
+backfill it, then tighten it in a later release.
+
+Removing a column is the same window in reverse: take it out of the model
+and deploy, then drop it from the table in a follow-up migration, so no
+running process selects a column that is already gone.
+
 ### The one dependency that points outward
 
 Everything here depends on `portal`, never the reverse, with a single

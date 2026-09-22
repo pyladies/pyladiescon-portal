@@ -110,6 +110,43 @@ python manage.py shell -c "from django.db import connection; print(connection.pg
 
 The number reads as major and minor: `170002` is 17.2.
 
+### Adding a column during a rolling deploy
+
+The release step runs `migrate` and only then serves the new release, so
+there is a window, usually seconds, where the schema is new and the code is
+old. A column added as NOT NULL breaks that window: Django backfills the
+existing rows with a default and then **drops** it, so the column has no
+database default, and a process from the previous release inserts a row
+without it. Postgres refuses:
+
+```
+null value in column "default_team_name" of relation
+"speakers_checklisttemplateitem" violates not-null constraint
+```
+
+It clears up on its own once the new release is serving, but it is 500s for
+real people in the meantime, and it is avoidable. When adding a NOT NULL
+column, give it a **database** default as well as a Python one:
+
+```python
+default_team_name = models.CharField(max_length=40, blank=True, db_default="")
+```
+
+`db_default` (Django 5) keeps the default in the schema, so the old code can
+keep inserting until it is replaced. Keep the ordinary `default` as well:
+with only a `db_default`, an unsaved instance holds a sentinel rather than
+the value, and anything reading the attribute before the row is saved, a
+`clean()` for instance, sees the sentinel.
+
+`tests/speakers/test_deploy_window.py` walks the migration graph for every
+column added to a table that already existed and fails if one is NOT NULL
+with nothing behind it, so the rule cannot drift as columns are added. A
+foreign key is the case where no default exists: add it nullable, backfill
+it, and tighten it in a later release.
+
+The same window applies to a column that is later removed: drop it from the
+model first, deploy, then delete the column in a follow-up migration.
+
 ### One-time configuration
 
 Two things live outside the code and have to be set on a new environment:

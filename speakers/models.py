@@ -16,6 +16,7 @@ from django.contrib.contenttypes.models import ContentType
 from django.contrib.postgres.fields import ArrayField
 from django.core.exceptions import ValidationError
 from django.db import models
+from django.db.models import Value
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.text import slugify
@@ -156,6 +157,8 @@ class SpeakerSettings(TimestampedModel):
     translation_languages = ArrayField(
         models.CharField(max_length=10),
         default=list,
+        # An empty array literal; see the deploy-window note in the README.
+        db_default=Value("{}"),
         blank=True,
         help_text="Language codes the team translates transcripts into; one "
         "post-production item is created per language.",
@@ -168,33 +171,46 @@ class SpeakerSettings(TimestampedModel):
     conference_timezone = models.CharField(
         max_length=64,
         default="UTC",
+        db_default="UTC",
         validators=[validate_timezone],
         help_text="The organizers' default display timezone; the conference "
         "itself has none.",
     )
     organizers_email = models.EmailField(
         blank=True,
+        default="",
+        db_default="",
         help_text="Where unassigned organizer reminders go; blank sends them to "
         "every staff account.",
     )
     # Pretix (design §12.1). The event slug falls back to
     # Conference.pretix_event_slug; token and secret are encrypted at rest.
     pretix_base_url = models.URLField(
-        default=BASE_PRETIX_URL, help_text="The pretix API root, ending in /api/v1/."
+        default=BASE_PRETIX_URL,
+        db_default=BASE_PRETIX_URL,
+        help_text="The pretix API root, ending in /api/v1/.",
     )
-    pretix_organizer = models.CharField(max_length=100, blank=True)
+    pretix_organizer = models.CharField(
+        max_length=100, blank=True, default="", db_default=""
+    )
     pretix_event = models.CharField(
         max_length=100,
         blank=True,
+        default="",
+        db_default="",
         help_text="Event slug; blank uses the conference's pretix event slug.",
     )
-    pretix_api_token = EncryptedTextField(blank=True)
+    pretix_api_token = EncryptedTextField(blank=True, default="", db_default="")
     pretix_webhook_secret = EncryptedTextField(
-        blank=True, help_text="Sent by pretix as ?secret= on the webhook URL."
+        blank=True,
+        default="",
+        db_default="",
+        help_text="Sent by pretix as ?secret= on the webhook URL.",
     )
     pretix_last_synced_at = models.DateTimeField(null=True, blank=True)
     pretix_create_vouchers = models.BooleanField(
         default=False,
+        db_default=False,
         help_text="Create a pretix voucher per presenter (not implemented yet).",
     )
 
@@ -391,6 +407,7 @@ class Presenter(TimestampedModel):
     )
     password_reminder_dismissed = models.BooleanField(
         default=False,
+        db_default=False,
         help_text="The presenter chose to keep signing in with emailed codes.",
     )
     pretix_order = models.ForeignKey(
@@ -1188,6 +1205,8 @@ class ChecklistTemplateItem(TimestampedModel):
     requires_handbook = models.SlugField(
         max_length=40,
         blank=True,
+        default="",
+        db_default="",
         help_text=f'Guide key for the "read the guide" rule; blank means "{DEFAULT_GUIDE_KEY}".',
     )
     per_translation_language = models.BooleanField(
@@ -1206,6 +1225,8 @@ class ChecklistTemplateItem(TimestampedModel):
     default_team_name = models.CharField(
         max_length=40,
         blank=True,
+        default="",
+        db_default="",
         help_text='With "A named team": the team\'s name, matched per edition '
         "so templates clone forward.",
     )
@@ -1341,11 +1362,18 @@ class ChecklistItem(TimestampedModel):
         max_length=16, choices=MediaKind.choices, blank=True
     )
     requires_asset_language = models.CharField(max_length=10, blank=True)
-    requires_handbook = models.SlugField(max_length=40, blank=True)
+    requires_handbook = models.SlugField(
+        max_length=40, blank=True, default="", db_default=""
+    )
     # Set when a line is added to or changed on an existing checklist; the
     # daily update email clears it (speakers/notices.py).
     pending_notice = models.CharField(
-        max_length=8, choices=NoticeKind.choices, blank=True, editable=False
+        max_length=8,
+        choices=NoticeKind.choices,
+        blank=True,
+        default="",
+        db_default="",
+        editable=False,
     )
     pending_since = models.DateTimeField(null=True, blank=True, editable=False)
 
@@ -1491,12 +1519,15 @@ class Handbook(TimestampedModel):
     key = models.SlugField(
         max_length=40,
         default=DEFAULT_GUIDE_KEY,
+        db_default=DEFAULT_GUIDE_KEY,
         help_text="Short identifier checklist lines refer to, e.g. workshop.",
     )
     version = models.PositiveIntegerField(default=1)
     title = models.CharField(max_length=200, default="Speaker guide")
     url = models.URLField(
         blank=True,
+        default="",
+        db_default="",
         help_text="Where the guide lives, e.g. https://conference.pyladies.com/docs/",
     )
     body_md = models.TextField(
