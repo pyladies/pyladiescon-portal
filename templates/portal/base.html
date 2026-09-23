@@ -45,11 +45,13 @@
         <link rel="stylesheet" href="{% static 'css/portal.css' %}">
     </head>
     <body class="d-flex flex-column min-vh-100">
-        {# Display django.contrib.messages as Bootstrap alerts; shells may
-        swap in toasts. It belongs here rather than in the document head:
-        the markup is a div, and a browser that meets one in the head ends
-        the head early and folds the real body attributes into the body it
-        opened for it. #}
+        {% comment %}
+        Display django.contrib.messages as Bootstrap alerts; shells may swap
+        in toasts. It belongs here rather than in the document head: the
+        markup is a div, and a browser that meets one in the head ends the
+        head early and folds the real body attributes into the body it
+        opened for it.
+        {% endcomment %}
         {% block messages %}
             {% bootstrap_messages %}
         {% endblock messages %}
