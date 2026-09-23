@@ -94,6 +94,12 @@ class TestPublicStats:
         assert CACHE_KEY_TASKS_TOTAL not in get_stats_cached_values(conference)
 
     def test_totals_only_and_cached(self, conference, world):
+        """The figures themselves, which the public page does not show yet.
+
+        Task numbers are off the public page by the user's call on 23
+        September; the block, the cache and these numbers are kept so that
+        putting them back is uncommenting two lines.
+        """
         cache.delete(f"{CACHE_KEY_TASKS}_{conference.year}")
         values = get_task_stats_dict(conference)
         assert values == {
@@ -105,15 +111,16 @@ class TestPublicStats:
         assert get_task_stats_dict(conference)[CACHE_KEY_TASKS_DONE] == 2  # cached
         cache.delete(f"{CACHE_KEY_TASKS}_{conference.year}")
         assert get_task_stats_dict(conference)[CACHE_KEY_TASKS_DONE] == 3
-        assert get_stats_cached_values(conference)[CACHE_KEY_TASKS_TOTAL] == 6
 
-    def test_stats_page_and_json(self, client, conference, world):
+    def test_the_public_page_and_json_carry_no_task_numbers(
+        self, client, conference, world
+    ):
         cache.delete(f"{CACHE_KEY_TASKS}_{conference.year}")
         content = client.get(reverse("portal_stats")).content.decode()
-        assert "Conference Tasks" in content and "Tasks Completed" in content
-        assert "speaker" not in content.split("Conference Tasks")[1][:600].lower()
+        assert "Conference Tasks" not in content
         data = client.get(reverse("portal_stats_json")).json()["stats"]
-        assert data[CACHE_KEY_TASKS_TOTAL] == 6 and data[CACHE_KEY_TASKS_DONE] == 2
+        assert CACHE_KEY_TASKS_TOTAL not in data
+        assert CACHE_KEY_TASKS_TOTAL not in get_stats_cached_values(conference)
 
 
 @pytest.mark.django_db

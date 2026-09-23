@@ -4,7 +4,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.postgres.search import SearchQuery, SearchVector
-from django.db.models import Q
+from django.db.models import Count, Q
 from django.http import Http404
 from django.shortcuts import redirect, render
 from django.urls import reverse, reverse_lazy
@@ -508,10 +508,21 @@ class AddApplicantToTeamView(TeamLeadRequiredMixin, View):
         return redirect("team_dashboard", pk=team.pk)
 
 
+# Applications that ended in a no: the team stays in the data, but it is
+# not one of "my teams".
+SETTLED_AGAINST = (ApplicationStatus.REJECTED, ApplicationStatus.CANCELLED)
+
+
 class MyTeamsView(LoginRequiredMixin, ListView):
     """Teams the current user is on, across every edition: the ones they
     lead (linked to the team dashboard) and the ones they are a member of,
-    including applications still under review.
+    including applications still under review, which are Pending and
+    Waitlisted.
+
+    An edition whose application was rejected or cancelled is left out. The
+    team row survives the decision, so it would otherwise sit on this page
+    as a standing reminder of a "no", and there is nothing to do with it.
+    The team dashboard link stays with leads.
 
     The "My teams" nav entry (gated on ``leads_any_team``) and the personal
     rail both point here.
@@ -523,9 +534,29 @@ class MyTeamsView(LoginRequiredMixin, ListView):
 
     def get_queryset(self):
         user = self.request.user
+        # The three counts the page shows come back with the row rather
+        # than one query each: this list grows with the editions someone
+        # has volunteered for.
         return (
             Team.objects.filter(Q(team_leads__user=user) | Q(members__user=user))
             .select_related("conference")
+            .annotate(
+                approved_count=Count(
+                    "members",
+                    filter=Q(members__application_status=ApplicationStatus.APPROVED),
+                    distinct=True,
+                ),
+                pending_count=Count(
+                    "members",
+                    filter=Q(members__application_status=ApplicationStatus.PENDING),
+                    distinct=True,
+                ),
+                waitlisted_count=Count(
+                    "members",
+                    filter=Q(members__application_status=ApplicationStatus.WAITLISTED),
+                    distinct=True,
+                ),
+            )
             .order_by("-conference__year", "short_name")
             .distinct()
         )
@@ -542,12 +573,17 @@ class MyTeamsView(LoginRequiredMixin, ListView):
             )
         )
         context["rows"] = [
-            {
-                "team": team,
-                "is_lead": team.id in led_ids,
-                "status": status_by_conference.get(team.conference_id),
-            }
-            for team in context["teams"]
+            row
+            for row in (
+                {
+                    "team": team,
+                    "is_lead": team.id in led_ids,
+                    "status": status_by_conference.get(team.conference_id),
+                }
+                for team in context["teams"]
+            )
+            # A lead keeps their team whatever their own application says.
+            if row["is_lead"] or row["status"] not in SETTLED_AGAINST
         ]
         return context
 

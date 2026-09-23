@@ -178,7 +178,12 @@
                 </div>
             </div>
             {% include "volunteer/volunteer_stats.html" %}
+            {% comment %}
+            Task numbers are off the public page for now, by the user's
+            call on 23 September: the block and its figures are kept and
+            tested, so putting them back is uncommenting this line.
             {% include "speakers/task_stats.html" %}
+            {% endcomment %}
             {% include "attendee/attendee_stats.html" %}
         {% endif %}
     </div>

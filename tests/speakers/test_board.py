@@ -878,6 +878,16 @@ class TestSessionPageChecklists:
         assert "No session-level items" in content
 
 
+def _rail_entry(content, url):
+    """The rail anchor for one URL, so a test can ask whether it is marked
+    as the page the reader is on."""
+    match = re.search(
+        r'<a class="nav-link[^>]*href="%s"[^>]*' % re.escape(url), content
+    )
+    assert match, f"no rail entry for {url}"
+    return match.group(0).strip()
+
+
 @pytest.mark.django_db
 class TestQueuePage:
     """The page itself: one rail entry for everyone, two views, rows that
@@ -889,6 +899,9 @@ class TestQueuePage:
         assert "My volunteering tasks" in content and "My volunteering" in content
         assert "My queue" not in content
         assert f'href="{BOARD}"' not in content
+        # The rail marks where the reader is, on this page and not only on
+        # the item pages under it.
+        assert _rail_entry(content, QUEUE).endswith('aria-current="page"')
 
     def test_rows_views_and_in_place_tick(
         self, client, liaison, people, conference, design_team

@@ -22,7 +22,7 @@ rows as the speaker checklist; ticking swaps the row in place over htmx.
     {% trans "My volunteering" %}
 {% endblock sidebar_title %}
 {% block sidebar %}
-    {% include "volunteer/_volunteer_rail.html" with active="tasks" %}
+    {% include "volunteer/_volunteer_rail.html" with active=rail_active %}
 {% endblock sidebar %}
 {% block content %}
     {% trans "View" as view_label %}
@@ -58,8 +58,12 @@ rows as the speaker checklist; ticking swaps the row in place over htmx.
                 <section class="mb-4" data-queue-group="{{ group.key }}">
                     <h2 class="h6 fw-bold mb-2">
                         {% if group.presenter %}
-                            <a href="{{ group.presenter.get_absolute_url }}"
-                               class="link-body-emphasis">{{ group.presenter.display_name }}</a>
+                            {% if can_open_pages %}
+                                <a href="{{ group.presenter.get_absolute_url }}"
+                                   class="link-body-emphasis">{{ group.presenter.display_name }}</a>
+                            {% else %}
+                                {{ group.presenter.display_name }}
+                            {% endif %}
                         {% else %}
                             {{ group.session.title }}
                             <span class="small fw-normal text-secondary">({% trans "session item" %})</span>

@@ -1609,8 +1609,9 @@ class ChecklistQueueView(LoginRequiredMixin, SpeakerQueueRequiredMixin, Template
                 "items": items,
                 "groups": _queue_groups(items) if view == "presenter" else [],
                 "today": as_of,
-                # A volunteer assignee may not open presenter or session
-                # pages, so their rows name them without linking.
+                # A volunteer assignee may not open a presenter page, so the
+                # group headings name them without linking. The rows name
+                # everyone in plain text either way.
                 "can_open_pages": can_work_sessions(self.request.user, self.conference),
             }
         )
