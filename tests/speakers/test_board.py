@@ -602,6 +602,26 @@ class TestVolunteerAssignee:
         # Their last item is done; the queue still opens, so they can reopen it.
         assert "Nothing assigned to you" in client.get(QUEUE).content.decode()
 
+    def test_the_page_hangs_off_the_rail_they_can_use(
+        self, client, volunteer, organizer, people
+    ):
+        """A volunteer gets the same list under their own rail.
+
+        The Organize rail would offer them the presenter list, the
+        templates and the handbook, every one of which 403s for them.
+        """
+        organize_only = reverse("speakers:presenter_list")
+        item = people["items"]["Ada", "promo"]
+        assign_item(item, volunteer, actor=organizer)
+        client.force_login(volunteer)
+        content = client.get(QUEUE).content.decode()
+        assert "My volunteering" in content and "My speaker tasks" in content
+        assert organize_only not in content
+        client.force_login(organizer)
+        content = client.get(QUEUE).content.decode()
+        assert "Organize" in content and "My queue" in content
+        assert organize_only in content
+
     def test_an_approved_team_member_sees_and_ticks_a_team_item(
         self, client, volunteer, people, conference, design_team
     ):

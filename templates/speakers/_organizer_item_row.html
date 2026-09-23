@@ -20,7 +20,8 @@ for htmx is set once on <body> by the organizer shell.
                 {{ error }}
             </div>
         {% endif %}
-        {{ item.title }}
+        <a href="{% url 'speakers:item_detail' item.pk %}"
+           class="link-body-emphasis text-decoration-none">{{ item.title }}</a>
         {% if item.is_automatic %}
             <i class="fa-solid fa-wand-magic-sparkles text-secondary small"></i>
         {% endif %}

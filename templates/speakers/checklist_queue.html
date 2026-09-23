@@ -1,18 +1,51 @@
-{% extends "speakers/_organize_shell.html" %}
+{% extends shell %}
 {% load i18n %}
+{% comment %}
+Organizers and liaisons get this inside the Organize shell ("My queue");
+a volunteer who was handed an item gets the same list under the personal
+volunteer rail ("My speaker tasks"), whose other entries they can actually
+open. ``shell`` is one of two templates the view picks:
+"speakers/_organize_shell.html" or "portal/base_sidebar.html".
+{% endcomment %}
 {% block head_title %}
-    {% trans "My queue" %}
+    {% if organizer_side %}
+        {% trans "My queue" %}
+    {% else %}
+        {% trans "My speaker tasks" %}
+    {% endif %}
 {% endblock head_title %}
 {% block breadcrumb %}
-    {% trans "My queue" as bc_section %}
+    {% if organizer_side %}
+        {% trans "My queue" as bc_section %}
+    {% else %}
+        {% trans "My speaker tasks" as bc_section %}
+    {% endif %}
     {% include "portal/_breadcrumbs.html" with section=bc_section %}
 {% endblock breadcrumb %}
+{% block sidebar_title %}
+    {% if organizer_side %}
+        {% trans "Organize" %}
+    {% else %}
+        {% trans "My volunteering" %}
+    {% endif %}
+{% endblock sidebar_title %}
+{% block sidebar %}
+    {% if organizer_side %}
+        {% include "portal/_organize_rail.html" with active=rail_active %}
+    {% else %}
+        {% include "volunteer/_volunteer_rail.html" with active="queue" %}
+    {% endif %}
+{% endblock sidebar %}
 {% block content %}
     <h1 class="h3 mb-1">
-        {% trans "My queue" %}
+        {% if organizer_side %}
+            {% trans "My queue" %}
+        {% else %}
+            {% trans "My speaker tasks" %}
+        {% endif %}
     </h1>
     <p class="text-secondary">
-        {% trans "Organizer items assigned to you, soonest first." %}
+        {% trans "Items assigned to you or to a team you are on, soonest first." %}
     </p>
     <div class="table-responsive">
         <table class="table table-sm table-bordered align-middle">
@@ -36,7 +69,8 @@
                     <tr id="item-{{ item.pk }}"
                         class="{% if item.overdue %}table-warning{% elif item.status == 'BLOCKED' %}table-danger{% endif %}">
                         <td>
-                            {{ item.title }}
+                            <a href="{% url 'speakers:item_detail' item.pk %}"
+                               class="link-body-emphasis text-decoration-none">{{ item.title }}</a>
                             {% if item.session %}
                                 <div class="small text-secondary">
                                     {{ item.session.title }}

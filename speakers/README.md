@@ -137,7 +137,21 @@ An organizer checklist item is owned by a person (`assignee`) or by a
 start an item unassigned, with the presenter's liaison, or with a named
 team (`default_team_name`, matched by name per edition so templates clone
 forward). "My queue" shows items assigned to me or to a team I am an
-approved member of; team reminders go to every approved member.
+approved member of; team reminders go to every approved member. A volunteer
+who is neither an organizer nor a liaison can still open that list (as "My
+speaker tasks" under their personal rail, offered once something is assigned
+to them or their team), mark those items done and reopen one they closed too
+early. The page then hangs off the volunteer rail instead of the Organize
+one, whose entries they cannot open. Reassigning stays with organizers, and
+skipping an item, which is a judgement that it does not apply and carries a
+note that may be internal, stays with organizers and liaisons
+(`permissions.owned_by` decides who carries an item; `can_work_queue`
+decides who reaches the page).
+
+A note on an item is written by whoever changed its status. The presenter
+reads it only when the item is blocked, on their checklist and on the item
+page alike: a blocked note explains a hold-up they need to know about, while
+a skip note is a conversation among organizers.
 
 ### General items (once per presenter)
 
