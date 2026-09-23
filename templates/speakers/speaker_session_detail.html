@@ -1,0 +1,119 @@
+{% extends "speakers/_speaker_shell.html" %}
+{% load i18n %}
+{% load speakers_extras %}
+{% block head_title %}
+    {{ session.title }}
+{% endblock head_title %}
+{% block breadcrumb %}
+    {% url 'speakers:my_sessions' as bc_url %}
+    {% trans "My sessions" as bc_section %}
+    {% include "portal/_breadcrumbs.html" with section=bc_section section_url=bc_url page=session.title %}
+{% endblock breadcrumb %}
+{% block sidebar %}
+    {% include "speakers/_speaker_rail.html" with active="sessions" %}
+{% endblock sidebar %}
+{% block content %}
+    <div class="d-flex flex-wrap align-items-start justify-content-between gap-2 mb-3">
+        <div>
+            <div class="text-secondary small">
+                {{ session.get_kind_display }} · {{ session.get_delivery_display }} · {{ session.duration_minutes }} {% trans "min" %} · {{ link.get_role_display }}
+            </div>
+            <h1 class="h3 mb-1">
+                {{ session.title }}
+            </h1>
+            {% if not session.is_public %}
+                <span class="badge text-bg-secondary">{% trans "Not yet public" %}</span>
+            {% endif %}
+        </div>
+        <a class="btn btn-outline-primary"
+           href="{% url 'speakers:my_session_edit' session.slug %}">
+            <i class="fa-solid fa-pen"></i> {% trans "Edit details" %}
+        </a>
+    </div>
+    <div class="row g-4 mb-4">
+        <div class="col-lg-8">
+            {% if session.summary_md %}
+                <h2 class="h6 text-uppercase text-secondary">
+                    {% trans "Summary" %}
+                </h2>
+                <div class="mb-3">
+                    {{ session.summary_md|speaker_md }}
+                </div>
+            {% endif %}
+            {% if session.outline_md %}
+                <h2 class="h6 text-uppercase text-secondary">
+                    {% trans "Outline" %}
+                </h2>
+                <div class="mb-3">
+                    {{ session.outline_md|speaker_md }}
+                </div>
+            {% endif %}
+            {% if session.prerequisites_md %}
+                <h2 class="h6 text-uppercase text-secondary">
+                    {% trans "Prerequisites" %}
+                </h2>
+                <div class="mb-3">
+                    {{ session.prerequisites_md|speaker_md }}
+                </div>
+            {% endif %}
+            {% if session.audience_md %}
+                <h2 class="h6 text-uppercase text-secondary">
+                    {% trans "Audience" %}
+                </h2>
+                <div class="mb-3">
+                    {{ session.audience_md|speaker_md }}
+                </div>
+            {% endif %}
+            {% if not session.summary_md and not session.outline_md %}
+                <p class="text-secondary">
+                    {% trans "No description yet. A title and two sentences is a complete listing." %}
+                    <a href="{% url 'speakers:my_session_edit' session.slug %}">{% trans "Add one" %}</a>
+                </p>
+            {% endif %}
+        </div>
+        <div class="col-lg-4">
+            <div class="card mb-3">
+                <div class="card-header">
+                    {% trans "Details" %}
+                </div>
+                <div class="card-body small">
+                    <div>
+                        <strong>{% trans "Level" %}:</strong> {{ session.get_level_display|default:"—" }}
+                    </div>
+                    <div>
+                        <strong>{% trans "Language" %}:</strong> {{ session.language|default:"—" }}
+                    </div>
+                    <div>
+                        <strong>{% trans "When" %}:</strong>
+                        {% if slot %}
+                            {{ slot.start_utc|date:"D j M H:i" }} UTC
+                        {% else %}
+                            {% trans "Not scheduled yet" %}
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-header">
+                    {% trans "Co-presenters" %}
+                </div>
+                <ul class="list-group list-group-flush">
+                    {% for other in co_presenters %}
+                        <li class="list-group-item">
+                            {{ other.presenter.display_name }}
+                            <span class="badge text-bg-light border">{{ other.get_role_display }}</span>
+                        </li>
+                    {% empty %}
+                        <li class="list-group-item text-secondary">
+                            {% trans "Just you so far." %}
+                        </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+    </div>
+    <h2 class="h5 mb-3" id="checklist">
+        {% trans "Checklist for this session" %}
+    </h2>
+    {% include "speakers/_speaker_checklist_lists.html" with speaker_items=speaker_items organizer_items=organizer_items video_items=video_items %}
+{% endblock content %}

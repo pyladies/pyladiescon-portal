@@ -81,9 +81,10 @@ class TestListAndSeed:
         client.force_login(organizer)
         response = client.get(LIST)
         assert (
-            len(response.context["presenter_templates"]) == len(DEFAULT_TEMPLATES) - 1
+            len(response.context["presenter_templates"]) == len(DEFAULT_TEMPLATES) - 2
         )
         assert len(response.context["session_templates"]) == 1
+        assert response.context["general_template"].name == "Every presenter"
         content = response.content.decode()
         assert "PyJam post-production" in content and "Workshop presenter" in content
 

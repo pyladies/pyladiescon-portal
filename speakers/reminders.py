@@ -19,7 +19,7 @@ from common.send_emails import send_email
 from volunteer.constants import ApplicationStatus
 
 from .constants import OPEN_ITEM_STATUSES, ItemOwner
-from .emails import absolute_url, organizer_recipients
+from .emails import absolute_url, organizer_recipients, presenter_email_context
 from .models import ChecklistItem, ReminderLog, SpeakerSettings
 
 THRESHOLDS = (7, 3, 1)
@@ -77,6 +77,9 @@ def send_checklist_digests(conference, now=None):
     return emails
 
 
+# The speaker preface costs a query for that presenter's sessions, once
+# per recipient. This runs in a nightly task over one edition, so the
+# batch is small; prefetch across recipients if that stops being true.
 def _speaker_digests(conference, items, now, sent):
     by_presenter = defaultdict(list)
     for item in items:
@@ -97,15 +100,17 @@ def _speaker_digests(conference, items, now, sent):
             "emails/speakers/checklist_digest.md",
             {
                 "name": presenter.display_name,
+                "conference": conference,
                 "items": [item for item, _ in due],
                 "today": today,
                 "timezone": presenter.timezone,
                 "link": _dashboard_url(),
                 "for_organizer": False,
+                **presenter_email_context(presenter),
             },
             due,
             subject=f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} {conference.name}: "
-            f"{len(due)} thing(s) coming up",
+            f"{len(due)} todo(s) with deadlines coming up",
         ):
             emails.failed += 1
             continue
@@ -147,6 +152,7 @@ def _organizer_digests(conference, items, now, sent, settings_row):
             "emails/speakers/checklist_digest.md",
             {
                 "name": "team",
+                "conference": conference,
                 "items": [item for item, _ in due],
                 "today": today,
                 "timezone": str(tzinfo),
@@ -155,7 +161,7 @@ def _organizer_digests(conference, items, now, sent, settings_row):
             },
             due,
             subject=f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} {conference.name}: "
-            f"{len(due)} organizer item(s) coming up",
+            f"{len(due)} team todo(s) with deadlines coming up",
         ):
             emails.failed += 1
             continue

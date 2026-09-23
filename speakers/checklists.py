@@ -6,6 +6,7 @@ back-fills (design §9.2). Status changes go through the functions here so
 every completion lands in the ActivityLog with its actor.
 """
 
+from django.db.models import Q
 from django.utils import timezone
 
 from volunteer.models import Team
@@ -24,6 +25,8 @@ from .models import (
     ActivityLog,
     ChecklistItem,
     ChecklistTemplate,
+    ChecklistTemplateItem,
+    Presenter,
     SessionPresenter,
     SpeakerSettings,
 )
@@ -33,14 +36,33 @@ class ChecklistError(ValueError):
     """A status change that is not allowed (ticking an automatic item)."""
 
 
-def _anchors(session, accepted_at=None):
-    conference = session.conference
-    slot = getattr(session, "slot", None)
+def _anchors(session, presenter=None, accepted_at=None):
+    """Due-date anchors; ``session`` is None for items not tied to one."""
+    conference = session.conference if session is not None else presenter.conference
+    slot = getattr(session, "slot", None) if session is not None else None
     return {
         "invitation_accepted": accepted_at,
         "conference_start": conference.start_date or conference.conference_date,
         "session_start": slot.start_utc if slot is not None else None,
     }
+
+
+def _accepted_at(presenter):
+    """When the presenter first accepted, for anchoring general items."""
+    first = (
+        presenter.invitations.filter(accepted_at__isnull=False)
+        .order_by("accepted_at")
+        .values_list("accepted_at", flat=True)
+        .first()
+    )
+    if first is not None:
+        return first
+    return (
+        presenter.session_presenters.filter(confirmed_at__isnull=False)
+        .order_by("confirmed_at")
+        .values_list("confirmed_at", flat=True)
+        .first()
+    )
 
 
 def _default_owner(template_item, session, presenter):
@@ -50,8 +72,9 @@ def _default_owner(template_item, session, presenter):
     if template_item.assignee_default == AssigneeDefault.LIAISON and presenter:
         return presenter.liaison, None
     if template_item.assignee_default == AssigneeDefault.TEAM:
+        conference_id = (session or presenter).conference_id
         team = Team.objects.filter(
-            conference_id=session.conference_id,
+            conference_id=conference_id,
             short_name=template_item.default_team_name,
         ).first()
         return None, team
@@ -74,7 +97,7 @@ def _create_instance(template_item, *, session, presenter, anchors, language="")
         title = f"{title} ({language})"
     assignee, team = _default_owner(template_item, session, presenter)
     return ChecklistItem.objects.create(
-        conference_id=session.conference_id,
+        conference_id=(session or presenter).conference_id,
         order=template_item.order,
         owner=template_item.owner,
         title=title,
@@ -111,14 +134,33 @@ def instantiate_presenter_checklist(link, accepted_at=None):
     template = ChecklistTemplate.for_presenter(link.session, link.role)
     if template is None:
         return []
-    anchors = _anchors(link.session, accepted_at or link.confirmed_at)
+    accepted = accepted_at or link.confirmed_at
+    anchors = _anchors(link.session, link.presenter, accepted)
+    general_anchors = _anchors(None, link.presenter, accepted)
+    created = []
+    for template_item in template.items.all():
+        once = template_item.once_per_presenter
+        item = _create_instance(
+            template_item,
+            session=None if once else link.session,
+            presenter=link.presenter,
+            anchors=general_anchors if once else anchors,
+        )
+        if item is not None:
+            created.append(item)
+    return created
+
+
+def instantiate_general_checklist(presenter, accepted_at=None):
+    """Create the every-presenter items for one presenter, once."""
+    template = ChecklistTemplate.for_general(presenter.conference)
+    if template is None:
+        return []
+    anchors = _anchors(None, presenter, accepted_at or _accepted_at(presenter))
     created = []
     for template_item in template.items.all():
         item = _create_instance(
-            template_item,
-            session=link.session,
-            presenter=link.presenter,
-            anchors=anchors,
+            template_item, session=None, presenter=presenter, anchors=anchors
         )
         if item is not None:
             created.append(item)
@@ -148,8 +190,23 @@ def instantiate_session_checklist(session):
 
 def _matching_targets(template_item):
     """``(session, presenter, anchors)`` for every checklist already created
-    from the line's template."""
+    from the line's template. ``session`` is None for general lines and for
+    once-per-presenter lines."""
     template = template_item.template
+    if template.scope == ChecklistScope.GENERAL:
+        # Everyone who has accepted, the same set instantiate_general_
+        # checklist runs for: an invitation to the conference in general
+        # carries no session, so filtering on a confirmed session link would
+        # skip those presenters and quietly never give them the new line.
+        presenters = Presenter.objects.filter(
+            Q(session_presenters__confirmed_at__isnull=False)
+            | Q(invitations__accepted_at__isnull=False),
+            conference=template.conference,
+        ).distinct()
+        return [
+            (None, presenter, _anchors(None, presenter, _accepted_at(presenter)))
+            for presenter in presenters
+        ]
     if template.scope == ChecklistScope.PRESENTER:
         links = SessionPresenter.objects.filter(
             conference=template.conference,
@@ -157,11 +214,26 @@ def _matching_targets(template_item):
             role=template.role,
             confirmed_at__isnull=False,
         ).select_related("session", "presenter", "presenter__liaison")
+        if template_item.once_per_presenter:
+            first_link = {}
+            for link in links:
+                first_link.setdefault(link.presenter_id, link)
+            # Anchored on when they accepted, not on whichever link happens
+            # to sort first, so the line lands on the same day whether it is
+            # created at acceptance or added to the template later.
+            return [
+                (
+                    None,
+                    link.presenter,
+                    _anchors(None, link.presenter, _accepted_at(link.presenter)),
+                )
+                for link in first_link.values()
+            ]
         return [
             (
                 link.session,
                 link.presenter,
-                _anchors(link.session, link.confirmed_at),
+                _anchors(link.session, link.presenter, link.confirmed_at),
             )
             for link in links
         ]
@@ -230,20 +302,39 @@ def apply_template_item_changes(template_item):
     changed = 0
     touched = []
     anchors_for = {
-        (session.pk, presenter.pk if presenter else None): anchors
+        (session.pk if session else None, presenter.pk if presenter else None): anchors
         for session, presenter, anchors in _matching_targets(template_item)
     }
     for item in ChecklistItem.objects.filter(
         template_item=template_item
-    ).select_related("session"):
-        anchors = anchors_for.get((item.session_id, item.presenter_id), {})
+    ).select_related("session", "presenter"):
+        anchors = anchors_for.get((item.session_id, item.presenter_id))
+        if anchors is None:
+            # An instance the target list does not cover (a presenter whose
+            # link was unconfirmed since, say). Work its anchors out rather
+            # than leaving a stale due date behind with nothing to say so.
+            anchors = _anchors(
+                item.session,
+                item.presenter,
+                _accepted_at(item.presenter) if item.presenter_id else None,
+            )
         title = template_item.title
         if template_item.per_translation_language and item.requires_asset_language:
             title = f"{title} ({item.requires_asset_language})"
         before = {field: getattr(item, field) for field in NOTIFY_ON_CHANGE}
         item.title = title
         item.description_md = template_item.description_md
-        item.due_date = template_item.due_date(**anchors) if anchors else item.due_date
+        recomputed = template_item.due_date(**anchors)
+        # None means one of two different things. A line with no anchor has
+        # no deadline, and its instances should lose theirs. A line that has
+        # an anchor this item cannot resolve (no acceptance, no slot) is a
+        # date we merely cannot work out, so the one it has stands rather
+        # than being wiped and mailed out as a change.
+        item.due_date = (
+            recomputed
+            if recomputed is not None or not template_item.due_anchor
+            else item.due_date
+        )
         item.order = template_item.order
         item.owner = template_item.owner
         item.is_required = template_item.is_required
@@ -395,3 +486,85 @@ def assign_item(item, assignee=None, team=None, actor=None):
             f"{item.title} → {item.owner_label or 'nobody'}",
         )
     return item
+
+
+def collapse_general_duplicates(conference):
+    """Fold per-session copies of general lines into one session-less item.
+
+    Two passes: lines of per-session templates whose title matches a line
+    of the every-presenter template (they are moved and the redundant
+    template lines deleted), and once-per-presenter lines that still have
+    several copies. A done copy is preferred; open extras are dropped.
+    Returns ``(moved, dropped, lines_deleted)``. Idempotent.
+    """
+    general = ChecklistTemplate.for_general(conference)
+    moved = dropped = lines = 0
+    if general is not None:
+        general_by_title = {line.title: line for line in general.items.all()}
+        stale_lines = ChecklistTemplateItem.objects.filter(
+            template__conference=conference,
+            template__scope=ChecklistScope.PRESENTER,
+            title__in=general_by_title,
+        )
+        for line in list(stale_lines):
+            m, d = _collapse_line(line, general_by_title[line.title])
+            moved += m
+            dropped += d
+            line.delete()
+            lines += 1
+    for line in ChecklistTemplateItem.objects.filter(
+        template__conference=conference, once_per_presenter=True
+    ):
+        m, d = _collapse_line(line, line)
+        moved += m
+        dropped += d
+    return moved, dropped, lines
+
+
+def _collapse_line(line, target_line):
+    """Per presenter, leave exactly one copy of ``line``: the session-less
+    item of ``target_line``, preferring one they have already done.
+
+    Every other copy goes, whatever its status. Pass 1 deletes ``line``
+    afterwards and ``ChecklistItem.template_item`` is SET_NULL, so anything
+    left behind becomes a one-off item on a session with no line behind it,
+    which nothing can collapse later: a blocked "Join the Discord" the
+    speaker can never resolve. There is no second chance, so this takes them
+    all.
+    """
+    moved = dropped = 0
+    # A set, not .distinct(): the model's default ordering would make
+    # DISTINCT include the order columns and repeat presenters.
+    presenter_ids = set(
+        ChecklistItem.objects.filter(template_item=line).values_list(
+            "presenter_id", flat=True
+        )
+    )
+    for presenter_id in presenter_ids:
+        candidates = list(
+            ChecklistItem.objects.filter(template_item=line, presenter_id=presenter_id)
+        )
+        # The general item may already exist, from an earlier collapse or
+        # from the presenter accepting after the line became general.
+        candidates += list(
+            ChecklistItem.objects.filter(
+                template_item=target_line,
+                presenter_id=presenter_id,
+                session__isnull=True,
+            ).exclude(pk__in=[i.pk for i in candidates])
+        )
+        # Done wins: a speaker who finished this once should not be asked
+        # again because the copy that survived happened to be open.
+        candidates.sort(key=lambda i: (i.status != ItemStatus.DONE, i.pk))
+        keep, extras = candidates[0], candidates[1:]
+        for extra in extras:
+            extra.delete()
+            dropped += 1
+        if keep.template_item_id != target_line.pk or keep.session_id is not None:
+            keep.template_item = target_line
+            keep.session = None
+            keep.save()
+            moved += 1
+        # An item already where it belongs is left alone, so running this
+        # twice reports nothing the second time and writes nothing either.
+    return moved, dropped

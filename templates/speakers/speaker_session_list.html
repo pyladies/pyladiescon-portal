@@ -28,7 +28,7 @@
                             {{ link.session.kind.name }} · {{ link.session.duration_minutes }} {% trans "min" %}
                         </div>
                         <h2 class="h5 mb-1">
-                            {{ link.session.title }}
+                            <a href="{% url 'speakers:my_session_detail' link.session.slug %}">{{ link.session.title }}</a>
                         </h2>
                         <div class="small">
                             {% for other in link.session.session_presenters.all %}
@@ -40,11 +40,22 @@
                             {% endfor %}
                         </div>
                     </div>
-                    <div>
+                    <div class="d-flex flex-wrap align-items-center gap-2">
                         {% if not link.session.is_public %}
                             <span class="badge text-bg-secondary">{% trans "Not yet public" %}</span>
                         {% endif %}
-                        <a class="btn btn-sm btn-outline-primary ms-2"
+                        {% if link.summary.total %}
+                            <span class="badge {% if link.summary.done == link.summary.total %}text-bg-success{% else %}text-bg-light border{% endif %}">
+                                {% blocktranslate with done=link.summary.done total=link.summary.total %}{{ done }} of {{ total }} tasks done{% endblocktranslate %}
+                            </span>
+                        {% endif %}
+                        <a class="btn btn-sm btn-outline-primary"
+                           href="{% url 'speakers:my_session_detail' link.session.slug %}">{% trans "View" %}</a>
+                        <a class="btn btn-sm btn-outline-primary"
+                           href="{% url 'speakers:my_checklist' %}?session={{ link.session.slug }}">
+                            <i class="fa-solid fa-list-check"></i> {% trans "Checklist" %}
+                        </a>
+                        <a class="btn btn-sm btn-outline-secondary"
                            href="{% url 'speakers:my_session_edit' link.session.slug %}">{% trans "Edit details" %}</a>
                     </div>
                 </div>

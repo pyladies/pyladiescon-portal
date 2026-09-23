@@ -15,6 +15,7 @@ One checklist line. Params:
     {% if tickable and not item.is_automatic %}
         <form method="post" action="{% url 'speakers:my_item_toggle' item.pk %}">
             {% csrf_token %}
+            <input type="hidden" name="next" value="{{ request.get_full_path }}">
             <button type="submit"
                     class="btn btn-sm {% if item.is_done %}btn-success{% else %}btn-outline-secondary{% endif %}"
                     aria-label="{% if item.is_done %}{{ undo_label }}{% else %}{{ do_label }}{% endif %}">

@@ -183,3 +183,33 @@ def send_acceptance_email(invitation):
             "dashboard_url": absolute_url(reverse("speakers:my_dashboard")),
         },
     )
+
+
+def presenter_email_context(presenter):
+    """The common preface for emails to a presenter: what to call them and
+    their sessions with the scheduled time in their timezone, if any."""
+    links = list(
+        presenter.session_presenters.select_related(
+            "session", "session__kind", "session__slot", "role"
+        ).order_by("session__title")
+    )
+    # Each role carries the word to call its people by (PresenterRole.
+    # email_word), so a new role an organizer adds reads properly too.
+    roles = {link.role.email_word or "speaker" for link in links}
+    sessions = []
+    for link in links:
+        slot = getattr(link.session, "slot", None)
+        sessions.append(
+            {
+                "title": link.session.title,
+                "kind": link.session.kind.name,
+                "role": link.role.name.lower(),
+                "starts": slot.start_utc.astimezone(presenter.tzinfo) if slot else None,
+            }
+        )
+    return {
+        "presenter": presenter,
+        "role_word": roles.pop() if len(roles) == 1 else "speaker",
+        "sessions": sessions,
+        "dashboard_url": absolute_url(reverse("speakers:my_dashboard")),
+    }

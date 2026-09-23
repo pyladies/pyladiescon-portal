@@ -5,9 +5,9 @@
     {{ session.title }}
 {% endblock head_title %}
 {% block breadcrumb %}
-    {% url 'speakers:my_sessions' as bc_url %}
-    {% trans "My sessions" as bc_section %}
-    {% include "portal/_breadcrumbs.html" with section=bc_section section_url=bc_url page=session.title %}
+    {% url 'speakers:my_session_detail' session.slug as bc_url %}
+    {% trans "Edit" as bc_page %}
+    {% include "portal/_breadcrumbs.html" with section=session.title section_url=bc_url page=bc_page %}
 {% endblock breadcrumb %}
 {% block sidebar %}
     {% include "speakers/_speaker_rail.html" with active="sessions" %}
@@ -45,7 +45,8 @@
                 {% endif %}
                 {% bootstrap_form form %}
                 {% bootstrap_button "Save" button_type="submit" %}
-                <a class="btn btn-link" href="{% url 'speakers:my_sessions' %}">{% trans "Back" %}</a>
+                <a class="btn btn-link"
+                   href="{% url 'speakers:my_session_detail' session.slug %}">{% trans "Back" %}</a>
             </form>
         </div>
         <div class="col-lg-4">

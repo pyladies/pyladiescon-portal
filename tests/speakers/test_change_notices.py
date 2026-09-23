@@ -12,7 +12,7 @@ from speakers.tasks import send_checklist_change_notices_task
 from volunteer.constants import ApplicationStatus
 from volunteer.models import Team, VolunteerProfile
 
-from .factories import make_presenter, make_session, make_settings
+from .factories import add_presenter, make_presenter, make_session, make_settings
 
 
 @pytest.fixture
@@ -25,6 +25,7 @@ class TestChangeNotices:
     def test_one_email_per_recipient_then_silence(self, conference, enabled):
         ada = make_presenter(conference, display_name="Ada", email="ada@example.com")
         session = make_session(conference, title="Django 101")
+        add_presenter(session, ada)
         add_adhoc_item(
             conference,
             "Bring cookies",
@@ -48,7 +49,15 @@ class TestChangeNotices:
         assert send_checklist_change_notices(conference) == 2
         by_to = {tuple(m.to): m for m in mail.outbox}
         speaker_mail = by_to[("ada@example.com",)]
-        assert "your checklist has changed" in speaker_mail.subject
+        assert speaker_mail.subject.endswith(
+            "PyLadiesCon 2025: Update to your todo list"
+        )
+        assert "Thank you for being a speaker at PyLadiesCon 2025" in speaker_mail.body
+        assert (
+            "Your session:" in speaker_mail.body
+            and "not scheduled yet" in speaker_mail.body
+        )
+        assert "visit your speaker dashboard" in speaker_mail.body
         assert "\nNew\n" in speaker_mail.body and "Bring cookies" in speaker_mail.body
         assert "<h2>New</h2>" in speaker_mail.alternatives[0][0]
         assert (
@@ -58,7 +67,16 @@ class TestChangeNotices:
         assert "\nChanged\n" in speaker_mail.body and "Send slides" in speaker_mail.body
         assert "/speakers/me/" in speaker_mail.body
         organizer_mail = by_to[("lena@example.com",)]
+        assert organizer_mail.subject.endswith("Update to your team todo list")
         assert "Promo" in organizer_mail.body and "for Ada" in organizer_mail.body
+        assert "Thank you for being" not in organizer_mail.body
+        assert (
+            "Thank you for volunteering with us at PyLadiesCon 2025"
+            in organizer_mail.body
+        )
+        assert "Go to your queue for more details" in organizer_mail.body
+        for message in (speaker_mail, organizer_mail):
+            assert "mark them as done and we won't bother you" in message.body
         assert "/speakers/checklists/queue/" in organizer_mail.body
         assert not ChecklistItem.objects.exclude(pending_notice="").exists()
         mail.outbox.clear()

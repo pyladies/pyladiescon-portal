@@ -139,6 +139,20 @@ team (`default_team_name`, matched by name per edition so templates clone
 forward). "My queue" shows items assigned to me or to a team I am an
 approved member of; team reminders go to every approved member.
 
+### General items (once per presenter)
+
+Templates have three scopes. `GENERAL` ("Every presenter", one per edition,
+no kind/role/delivery) is instantiated once per presenter when they first
+accept, with `session=None` items: bio, guide, registration, Discord and
+the organizer's onboarding lines. `PRESENTER` templates keep per-session
+lines; a line marked `once_per_presenter` (the kind-specific guides) also
+creates one session-less item per presenter, whatever the number of
+sessions. General items live in the speaker's "For you as a speaker"
+group and never on a session page; the dashboard shows their completion.
+Loading the defaults (or `manage.py dedupe_general_items`) collapses the
+per-session copies an edition seeded before this change still carries
+(`collapse_general_duplicates`). The tech check is general too.
+
 ### Template changes reach existing checklists
 
 There is no back-fill step. Adding a template line creates the item on
@@ -188,6 +202,28 @@ it a "Read the workshop guide" item would sit open with nothing to read
 and nothing on the organizer side to say so. On the speaker side,
 `required_guide_keys` returns only what their own items name: a presenter
 with no checklist yet is asked to read nothing.
+
+### What everyone gets, and what their session gets
+
+The every-presenter template holds the lines that are about the person
+rather than a session: bio and headshot, registration, Discord and the tech
+check. It applies to every presenter whatever their role, so an opening host
+now carries those four as well, which is deliberate: a host registers,
+joins Discord, appears on the schedule and goes live like anyone else.
+
+The speaker guide is not in that list. A presenter reads one guide, the most
+specific one their sessions call for: the workshop, keynote or performer
+guide where there is one, and the general speaker guide otherwise, carried
+by those templates as a once-per-presenter line. Two "read the guide" items
+falling due on the same day read as a bug rather than as two guides.
+
+Folding an edition that predates this (`manage.py dedupe_general_items`, and
+loading the defaults) keeps one copy per presenter and prefers one they have
+already done, because nobody should be asked to redo something they
+finished. Every other copy goes, whatever its status: the template line is
+deleted straight afterwards and `ChecklistItem.template_item` is SET_NULL,
+so anything left behind would become a one-off item nothing can ever
+collapse again.
 
 ### Checklist change notices
 
@@ -362,6 +398,10 @@ installed; this app keeps small factory functions in `tests/speakers/factories.p
   apart twice.
 - Speaker side: `/speakers/me/...`, gated by `PresenterRequiredMixin` (the
   user must own a `Presenter` row in the active edition, else 403). The
+  dashboard is a summary (sessions with "x of y tasks done", open to-do
+  count); the checklist has its own page (`my_checklist`, all-by-due-date
+  or grouped by session, `?session=` for one), and each session has a
+  read-only detail page with its checklist next to the edit form. The
   personal rail is `templates/speakers/_speaker_rail.html`; the navbar shows
   "Speaking" through the `is_speaker_presenter` context flag, and the portal
   index routes presenters who are not volunteering this year to their

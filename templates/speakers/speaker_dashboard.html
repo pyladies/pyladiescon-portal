@@ -46,19 +46,22 @@
             <span>
                 <i class="fa-solid fa-chalkboard-user"></i> {% trans "Your sessions" %}
             </span>
-            <a class="small" href="{% url 'speakers:my_sessions' %}">{% trans "Edit details" %}</a>
+            <a class="small" href="{% url 'speakers:my_checklist' %}">{% trans "Full checklist" %}</a>
         </div>
         <ul class="list-group list-group-flush">
             {% for summary in session_summaries %}
                 <li class="list-group-item d-flex flex-wrap align-items-center gap-2">
                     <span class="badge text-bg-light border">{{ summary.session.kind.name }}</span>
                     <a class="fw-semibold"
-                       href="{% url 'speakers:my_session_edit' summary.session.slug %}">{{ summary.session.title }}</a>
+                       href="{% url 'speakers:my_session_detail' summary.session.slug %}">{{ summary.session.title }}</a>
                     <span class="text-secondary small">{{ summary.role }}</span>
+                    {% if not summary.session.is_public %}
+                        <span class="badge text-bg-secondary">{% trans "Not yet public" %}</span>
+                    {% endif %}
                     <span class="ms-auto d-flex align-items-center gap-2">
                         {% if summary.total %}
-                            <span class="badge text-bg-light border">
-                                {% blocktranslate with done=summary.done total=summary.total %}{{ done }} of {{ total }} to-dos done{% endblocktranslate %}
+                            <span class="badge {% if summary.done == summary.total %}text-bg-success{% else %}text-bg-light border{% endif %}">
+                                {% blocktranslate with done=summary.done total=summary.total %}{{ done }} of {{ total }} tasks done{% endblocktranslate %}
                             </span>
                         {% endif %}
                         {% if not summary.session.is_public %}
@@ -69,6 +72,10 @@
                             <i class="fa-solid fa-lock text-secondary small"
                                title="{{ locked_label }}"></i>
                         {% endif %}
+                        <a class="btn btn-sm btn-outline-primary"
+                           href="{% url 'speakers:my_checklist' %}?session={{ summary.session.slug }}">
+                            <i class="fa-solid fa-list-check"></i> {% trans "Checklist" %}
+                        </a>
                     </span>
                 </li>
             {% empty %}
@@ -78,53 +85,42 @@
             {% endfor %}
         </ul>
     </div>
-    <div class="row g-4">
-        <div class="col-lg-6">
-            <div class="card h-100">
-                <div class="card-header d-flex justify-content-between">
-                    <span>{% trans "Your to-dos" %}</span>
-                    <span class="small text-secondary"><i class="fa-solid fa-wand-magic-sparkles"></i> {% trans "= ticks itself" %}</span>
-                </div>
-                <ul class="list-group list-group-flush">
-                    {% for item in speaker_items %}
-                        {% include "speakers/_checklist_item.html" with item=item tickable=True %}
-                    {% empty %}
-                        <li class="list-group-item text-secondary">
-                            {% trans "Nothing on your list yet. Your checklist appears here once you're confirmed on a session." %}
-                        </li>
-                    {% endfor %}
-                </ul>
-            </div>
-        </div>
-        <div class="col-lg-6">
-            <div class="card h-100">
-                <div class="card-header">
-                    {% trans "What we're doing for you" %}
-                </div>
-                <ul class="list-group list-group-flush">
-                    {% for item in organizer_items %}
-                        {% include "speakers/_checklist_item.html" with item=item show_assignee=True %}
-                    {% empty %}
-                        <li class="list-group-item text-secondary">
-                            {% trans "The team's list for you appears here, with who is on each item." %}
-                        </li>
-                    {% endfor %}
-                </ul>
-            </div>
-        </div>
-        {% if video_items %}
-            <div class="col-12">
-                <div class="card">
-                    <div class="card-header">
-                        {% trans "What we're doing with your video" %}
+    {% if general_total %}
+        <div class="card mb-4" id="general-summary">
+            <div class="card-body d-flex flex-wrap align-items-center gap-3">
+                <i class="fa-solid fa-user fs-4 text-secondary"></i>
+                <div class="flex-grow-1">
+                    <span class="fw-semibold">{% trans "For you as a speaker" %}</span>
+                    <span class="badge ms-2 {% if general_done == general_total %}text-bg-success{% else %}text-bg-light border{% endif %}">
+                        {% blocktranslate with done=general_done total=general_total %}{{ done }} of {{ total }} tasks done{% endblocktranslate %}
+                    </span>
+                    <div class="small text-secondary">
+                        {% trans "Bio, guide, registration, Discord: the things that are not tied to one session." %}
                     </div>
-                    <ul class="list-group list-group-flush">
-                        {% for item in video_items %}
-                            {% include "speakers/_checklist_item.html" with item=item show_assignee=True %}
-                        {% endfor %}
-                    </ul>
                 </div>
+                <a class="btn btn-sm btn-outline-primary"
+                   href="{% url 'speakers:my_checklist' %}?view=session">{% trans "See the list" %}</a>
             </div>
-        {% endif %}
+        </div>
+    {% endif %}
+    <div class="card" id="todo-summary">
+        <div class="card-body d-flex flex-wrap align-items-center gap-3">
+            <i class="fa-solid fa-list-check fs-4 text-secondary"></i>
+            <div class="flex-grow-1">
+                {% if open_count %}
+                    {% blocktranslate count counter=open_count %}{{ counter }} open to-do{% plural %}{{ counter }} open to-dos{% endblocktranslate %}
+                    {% if overdue_count %}
+                        <span class="text-danger">({{ overdue_count }} {% trans "overdue" %})</span>
+                    {% endif %}
+                    {% if next_due %}
+                        · {% trans "next due" %} {{ next_due.due_date|date:"j M" }}: {{ next_due.title }}
+                    {% endif %}
+                {% else %}
+                    {% trans "Nothing open on your to-do list." %}
+                {% endif %}
+            </div>
+            <a class="btn btn-sm btn-primary"
+               href="{% url 'speakers:my_checklist' %}">{% trans "Open my checklist" %}</a>
+        </div>
     </div>
 {% endblock content %}

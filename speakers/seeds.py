@@ -20,6 +20,7 @@ from typing import NamedTuple
 
 from django.db import transaction
 
+from .checklists import collapse_general_duplicates
 from .constants import (
     SESSION_LANGUAGE,
     AssigneeDefault,
@@ -96,6 +97,7 @@ WORKSHOP_GUIDE = _item(
     AutoRule.HANDBOOK_READ,
     requires_handbook="workshop",
     description_md="How a workshop runs at the conference, the setup we need from you and the deadlines. Ticks itself when you reach the end of the guide.",
+    once_per_presenter=True,
 )
 KEYNOTE_GUIDE = _item(
     SPK,
@@ -105,6 +107,7 @@ KEYNOTE_GUIDE = _item(
     AutoRule.HANDBOOK_READ,
     requires_handbook="keynote",
     description_md="What we need from a keynote: timing, format and the deadlines. Ticks itself when you reach the end of the guide.",
+    once_per_presenter=True,
 )
 REGISTER = _item(
     SPK,
@@ -145,12 +148,14 @@ SLIDES = _item(
 TECH_CHECK = _item(
     SPK,
     "Do a tech check",
-    SESSION,
-    3,
+    # Once per speaker, a week before the conference: it is about them and
+    # their setup, not about one session.
+    CONF,
+    7,
     description_md="A short call with the team to test your camera, microphone and screen sharing before the day.",
 )
 
-ORGANIZER_ITEMS = [
+ORGANIZER_ITEMS_ALL = [
     _item(ORG, "Invitation sent", ACCEPTED, 0, AutoRule.INVITATION_SENT),
     _item(ORG, "Presenter in portal", ACCEPTED, 0, AutoRule.INVITATION_ACCEPTED),
     _item(
@@ -193,30 +198,28 @@ ORGANIZER_ITEMS = [
     ),
 ]
 
-WORKSHOP_SPEAKER = [
-    BIO,
-    CONFIRM_TITLE,
-    WORKSHOP_GUIDE,
-    REGISTER,
-    DISCORD,
-    CONFIRM_SLOT,
-    MATERIALS,
-    TECH_CHECK,
-]
-TALK_SPEAKER = [
-    BIO,
-    CONFIRM_TITLE,
-    GUIDE,
-    REGISTER,
-    DISCORD,
-    CONFIRM_SLOT,
-    SLIDES,
-    TECH_CHECK,
-]
-KEYNOTE_SPEAKER = [KEYNOTE_GUIDE if item is GUIDE else item for item in TALK_SPEAKER]
-PANEL_LIGHT = [BIO, GUIDE, REGISTER, DISCORD, CONFIRM_SLOT, TECH_CHECK]
+# Once per presenter for the whole edition (the general template).
+GENERAL_TITLES = {
+    "Presenter in portal",
+    "Onboarding email sent",
+    "Registration info sent",
+    "Discord channel and speaker role assigned",
+}
+# The speaker guide is not here: a workshop or keynote presenter reads the
+# guide for their kind instead, and two "read the guide" lines due the same
+# day read as a bug rather than as two guides. Kinds without one of their
+# own carry the general guide themselves, once per presenter.
+GENERAL_SPEAKER = [BIO, REGISTER, DISCORD, TECH_CHECK]
+GENERAL_ORGANIZER = [i for i in ORGANIZER_ITEMS_ALL if i["title"] in GENERAL_TITLES]
+# Per presenter per session.
+ORGANIZER_ITEMS = [i for i in ORGANIZER_ITEMS_ALL if i["title"] not in GENERAL_TITLES]
+
+GUIDE_ONCE = dict(GUIDE, once_per_presenter=True)
+WORKSHOP_SPEAKER = [CONFIRM_TITLE, WORKSHOP_GUIDE, CONFIRM_SLOT, MATERIALS]
+TALK_SPEAKER = [CONFIRM_TITLE, GUIDE_ONCE, CONFIRM_SLOT, SLIDES]
+KEYNOTE_SPEAKER = [CONFIRM_TITLE, KEYNOTE_GUIDE, CONFIRM_SLOT, SLIDES]
+PANEL_LIGHT = [GUIDE_ONCE, CONFIRM_SLOT]
 PERFORMER = [
-    BIO,
     _item(
         SPK,
         "Check your title and description",
@@ -232,6 +235,7 @@ PERFORMER = [
         AutoRule.HANDBOOK_READ,
         description_md="How PyJam works, the video format we need and the deadlines. Ticks itself when you reach the end.",
         requires_handbook="performer",
+        once_per_presenter=True,
     ),
     _item(
         SPK,
@@ -249,8 +253,6 @@ PERFORMER = [
         7,
         description_md="We will send you the edited video; watch it and tick this when you are happy for it to go out.",
     ),
-    REGISTER,
-    DISCORD,
 ]
 HOST = [
     _item(
@@ -260,7 +262,6 @@ HOST = [
         7,
         description_md="Tick this once you have checked the time and can be there to host.",
     ),
-    DISCORD,
 ]
 HOST_ORGANIZER = [
     _item(ORG, "Invitation sent", ACCEPTED, 0, AutoRule.INVITATION_SENT),
@@ -326,6 +327,14 @@ POST_PRODUCTION = [
 
 # (scope, name, type code, role code, delivery, items)
 DEFAULT_TEMPLATES = [
+    (
+        ChecklistScope.GENERAL,
+        "Every presenter",
+        "",
+        "",
+        "",
+        GENERAL_SPEAKER + GENERAL_ORGANIZER,
+    ),
     (
         ChecklistScope.PRESENTER,
         "Workshop presenter",
@@ -452,7 +461,9 @@ def _seed_checklists(conference):
     templates_created = items_created = described = 0
     skipped = []
     for scope, name, kind, role, delivery, items in DEFAULT_TEMPLATES:
-        if kind not in kinds:
+        # The every-presenter template names no kind, role or delivery: its
+        # lines are about the person, not about a session.
+        if kind and kind not in kinds:
             skipped.append((name, f"no {kind} session type in this edition"))
             continue
         if role and role not in roles:
@@ -461,7 +472,7 @@ def _seed_checklists(conference):
         template, created = ChecklistTemplate.objects.get_or_create(
             conference=conference,
             scope=scope,
-            kind=kinds[kind],
+            kind=kinds[kind] if kind else None,
             role=roles[role] if role else None,
             delivery=delivery,
             defaults={"name": name},
@@ -485,6 +496,9 @@ def _seed_checklists(conference):
             existing[spec["title"]] = None
             next_order += 1
             items_created += 1
+    # An edition seeded before a line moved to the general template still
+    # carries it per session; fold those copies into the general item.
+    collapse_general_duplicates(conference)
     return SeedResult(templates_created, items_created, skipped, described)
 
 
@@ -503,6 +517,7 @@ ITEM_FIELDS = [
     "is_required",
     "assignee_default",
     "default_team_name",
+    "once_per_presenter",
 ]
 
 
@@ -521,7 +536,9 @@ def clone_checklists(target, source):
         copy, created = ChecklistTemplate.objects.get_or_create(
             conference=target,
             scope=template.scope,
-            kind=session_type(target, template.kind.code),
+            kind=(
+                session_type(target, template.kind.code) if template.kind_id else None
+            ),
             role=presenter_role(target, template.role.code) if template.role else None,
             delivery=template.delivery,
             defaults={"name": template.name, "is_active": template.is_active},

@@ -4,13 +4,19 @@ Personal rail for presenters (design mockups §2.x): dashboard, profile,
 sessions, schedule. Rails are menus, never data rows.
 
 Expects:
-    active: one of "dashboard", "profile", "sessions", "guide", "schedule".
+    active: one of "dashboard", "checklist", "profile", "sessions", "guide", "schedule".
 {% endcomment %}
 {% url 'speakers:my_dashboard' as dashboard_url %}
 {% if active == "dashboard" %}
     {% include "portal/_sidebar_item.html" with url=dashboard_url label=_("Dashboard") icon="fa-house" active=True only %}
 {% else %}
     {% include "portal/_sidebar_item.html" with url=dashboard_url label=_("Dashboard") icon="fa-house" only %}
+{% endif %}
+{% url 'speakers:my_checklist' as checklist_url %}
+{% if active == "checklist" %}
+    {% include "portal/_sidebar_item.html" with url=checklist_url label=_("My checklist") icon="fa-list-check" active=True only %}
+{% else %}
+    {% include "portal/_sidebar_item.html" with url=checklist_url label=_("My checklist") icon="fa-list-check" only %}
 {% endif %}
 {% url 'speakers:my_profile' as profile_url %}
 {% if active == "profile" %}

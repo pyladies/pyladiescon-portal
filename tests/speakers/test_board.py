@@ -291,7 +291,7 @@ class TestPresenterPageChecklists:
         ada = people["ada"]
         client.force_login(organizer)
         content = client.get(ada.get_absolute_url()).content.decode()
-        assert "Their to-dos" in content and "What we're doing for them" in content
+        assert "Their to-dos" in content and "What we're preparing for them" in content
         assert "Update bio" in content and "Promo materials" in content
         assert (
             reverse("speakers:item_assign", args=[people["items"]["Ada", "promo"].pk])
@@ -772,3 +772,69 @@ class TestTeamOwnership:
         content = client.get(ada.get_absolute_url()).content.decode()
         assert "Design team" in content
         assert "Design team" in client.get(BOARD, {"tab": "organizer"}).content.decode()
+
+
+@pytest.mark.django_db
+class TestSessionPageChecklists:
+    def test_session_page_shows_checklists_per_presenter_and_session_items(
+        self, client, organizer, people, conference, liaison
+    ):
+        session, ada = people["session"], people["ada"]
+        session_item = add_adhoc_item(
+            conference,
+            "Edit the recording",
+            ItemOwner.ORGANIZER,
+            session=session,
+            assignee=liaison,
+        )
+        add_adhoc_item(
+            conference, "General thing", ItemOwner.SPEAKER, presenter=ada
+        )  # no session
+        client.force_login(organizer)
+        content = client.get(session.get_absolute_url()).content.decode()
+        assert "Checklists for this session" in content
+        assert f'data-checklist-presenter="{ada.pk}"' in content
+        assert "Update bio" in content  # tied to this session
+        assert "Promo materials" not in content  # Ada's, but not tied to a session
+        assert "Edit the recording" in content and "General thing" not in content
+        assert reverse("speakers:item_assign", args=[session_item.pk]) in content
+        assert reverse("speakers:session_add_item", args=[session.slug]) in content
+        # Mary is on no session here: no group for her.
+        assert f'data-checklist-presenter="{people["mary"].pk}"' not in content
+
+    def test_add_session_item(self, client, organizer, people, liaison):
+        session = people["session"]
+        client.force_login(organizer)
+        url = reverse("speakers:session_add_item", args=[session.slug])
+        response = client.post(
+            url,
+            {
+                "title": "Cut the trailer",
+                "owner_kind": ItemOwner.ORGANIZER,
+                "owner": f"user:{liaison.pk}",
+            },
+        )
+        assertRedirects(response, session.get_absolute_url())
+        item = session.checklist_items.get(title="Cut the trailer")
+        assert item.presenter is None and item.assignee == liaison
+        response = client.post(
+            url, {"title": "", "owner_kind": ItemOwner.ORGANIZER}, follow=True
+        )
+        assert "give it a title" in response.content.decode()
+
+    def test_liaison_cannot_add_session_item(self, client, liaison, people):
+        client.force_login(liaison)
+        url = reverse("speakers:session_add_item", args=[people["session"].slug])
+        assert (
+            client.post(
+                url, {"title": "x", "owner_kind": ItemOwner.ORGANIZER}
+            ).status_code
+            == 403
+        )
+
+    def test_empty_session_checklists(self, client, organizer, conference, enabled):
+        session = make_session(conference)
+        client.force_login(organizer)
+        content = client.get(session.get_absolute_url()).content.decode()
+        assert "No presenter checklists yet" in content
+        assert "No session-level items" in content

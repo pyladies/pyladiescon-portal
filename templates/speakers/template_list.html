@@ -30,7 +30,23 @@
         </div>
     </div>
     <h2 class="h5 mt-3">
-        {% trans "Per presenter" %}
+        {% trans "Every presenter" %}
+    </h2>
+    <p class="text-secondary small">
+        {% trans "Once per presenter for the whole edition: bio, guide, registration, Discord. Created when they first accept." %}
+    </p>
+    {% if general_template %}
+        <p>
+            <a class="btn btn-sm btn-outline-primary"
+               href="{% url 'speakers:template_detail' general_template.pk %}">{{ general_template.name }} · {{ general_template.item_count }} {% trans "items" %}</a>
+        </p>
+    {% else %}
+        <p class="text-secondary">
+            {% trans "None yet. Load the defaults, or create a template with scope \"Every presenter\"." %}
+        </p>
+    {% endif %}
+    <h2 class="h5 mt-3">
+        {% trans "Per presenter per session" %}
     </h2>
     <p class="text-secondary small">
         {% trans "Keyed by session kind and role; instantiated for each presenter on each session." %}

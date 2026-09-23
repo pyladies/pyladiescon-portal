@@ -39,6 +39,7 @@ from speakers.models import (
     ChecklistItem,
     ChecklistTemplate,
     ChecklistTemplateItem,
+    SessionPresenter,
     TransitionError,
 )
 from speakers.seeds import seed_checklists
@@ -91,12 +92,21 @@ class TestInstantiateOnAccept:
         accept_invitation(invitation)
 
         template = workshop_template(seeded)
-        items = list(presenter.checklist_items.order_by("order", "id"))
-        assert [i.title for i in items] == list(
-            template.items.values_list("title", flat=True)
+        items = list(
+            presenter.checklist_items.filter(session=session).order_by("order", "id")
         )
-        assert all(i.session == session and i.conference == seeded for i in items)
-        assert ChecklistItem.objects.count() == template.items.count()
+        assert [i.title for i in items] == list(
+            template.items.filter(once_per_presenter=False).values_list(
+                "title", flat=True
+            )
+        )
+        assert all(i.conference == seeded for i in items)
+        general = ChecklistTemplate.for_general(seeded)
+        general_items = list(presenter.checklist_items.filter(session__isnull=True))
+        assert {i.title for i in general_items} == set(
+            general.items.values_list("title", flat=True)
+        ) | {"Read the workshop guide"}
+        assert ChecklistItem.objects.count() == len(items) + len(general_items)
 
         bio = presenter.checklist_items.get(title="Update your bio and headshot")
         assert bio.owner == ItemOwner.SPEAKER
@@ -116,7 +126,8 @@ class TestInstantiateOnAccept:
         # weeks of accepting, on both sides; registration info a month out;
         # promo material three weeks out. Conference starts 2026-12-05.
         accepted = invitation.accepted_at.date()
-        by_title = {i.title: i for i in items}
+        # The general items are created by the same acceptance, off-session.
+        by_title = {i.title: i for i in presenter.checklist_items.all()}
         assert by_title[
             "Join the PyLadiesCon Discord"
         ].due_date == accepted + timedelta(days=14)
@@ -323,12 +334,57 @@ class TestTemplateChangesReachExistingChecklists:
         translate = template.items.get(title="Translate")
         assert apply_new_template_item(translate) == []
 
+    def test_an_item_off_the_target_list_still_gets_its_new_date(self, seeded):
+        """An instance whose link is no longer confirmed is not in the list
+        of targets, and its due date must still follow the template rather
+        than freeze at whatever it was, silently and unflagged."""
+        template = workshop_template(seeded)
+        session = make_session(seeded, kind="WORKSHOP")
+        link = add_presenter(session, make_presenter(seeded), confirmed=True)
+        instantiate_presenter_checklist(link)
+        line = template.items.get(title="Share a link to your workshop materials")
+        instance = link.presenter.checklist_items.get(template_item=line)
+        SessionPresenter.objects.filter(pk=link.pk).update(confirmed_at=None)
+        line.due_anchor = DueAnchor.CONFERENCE_START
+        line.due_offset_days = 4
+        line.save()
+        assert apply_template_item_changes(line) == 1
+        instance.refresh_from_db()
+        assert instance.due_date == date(2026, 12, 1)
+        assert instance.pending_notice == NoticeKind.CHANGED
+
+    def test_a_date_that_cannot_be_recomputed_is_kept(self, seeded):
+        """An anchor with nothing to anchor to leaves the date alone; an
+        anchor removed from the line takes the date with it."""
+        template = workshop_template(seeded)
+        session = make_session(seeded, kind="WORKSHOP")
+        link = add_presenter(session, make_presenter(seeded), confirmed=True)
+        instantiate_presenter_checklist(link)
+        line = template.items.get(title="Check your session title and summary")
+        instance = link.presenter.checklist_items.get(template_item=line)
+        assert instance.due_date is not None
+        was = instance.due_date
+        # Nothing to anchor on: no acceptance and no confirmed link.
+        SessionPresenter.objects.filter(pk=link.pk).update(confirmed_at=None)
+        line.due_offset_days = 9
+        line.save()
+        apply_template_item_changes(line)
+        instance.refresh_from_db()
+        assert instance.due_date == was
+        # The organizer clears the anchor: now the line has no deadline, and
+        # neither should its instances.
+        line.due_anchor = ""
+        line.save()
+        apply_template_item_changes(line)
+        instance.refresh_from_db()
+        assert instance.due_date is None
+
     def test_edits_propagate_and_flag_only_visible_changes(self, seeded):
         template = workshop_template(seeded)
         session = make_session(seeded, kind="WORKSHOP")
         link = add_presenter(session, make_presenter(seeded), confirmed=True)
         instantiate_presenter_checklist(link)
-        line = template.items.get(title="Do a tech check")
+        line = template.items.get(title="Share a link to your workshop materials")
         instance = link.presenter.checklist_items.get(template_item=line)
         assert instance.pending_notice == ""
         line.order = 0
@@ -336,14 +392,14 @@ class TestTemplateChangesReachExistingChecklists:
         assert apply_template_item_changes(line) == 0
         instance.refresh_from_db()
         assert instance.order == 0 and instance.pending_notice == ""
-        line.title = "Do a tech check with us"
+        line.title = "Share a link to your workshop materials with us"
         line.due_anchor = DueAnchor.CONFERENCE_START
         line.due_offset_days = 2
         line.is_required = True
         line.save()
         assert apply_template_item_changes(line) == 1
         instance.refresh_from_db()
-        assert instance.title == "Do a tech check with us"
+        assert instance.title == "Share a link to your workshop materials with us"
         assert instance.due_date == date(2026, 12, 3)
         assert instance.is_required is True
         assert instance.pending_notice == NoticeKind.CHANGED
@@ -381,13 +437,15 @@ class TestTemplateChangesReachExistingChecklists:
         second = add_presenter(session, make_presenter(seeded), confirmed=True)
         instantiate_presenter_checklist(first)
         instantiate_presenter_checklist(second)
-        line = template.items.get(title="Do a tech check")
+        line = template.items.get(title="Share a link to your workshop materials")
         complete_item(second.presenter.checklist_items.get(template_item=line))
         assert retire_template_item(line) == 1
         assert not first.presenter.checklist_items.filter(
-            title="Do a tech check"
+            title="Share a link to your workshop materials"
         ).exists()
-        kept = second.presenter.checklist_items.get(title="Do a tech check")
+        kept = second.presenter.checklist_items.get(
+            title="Share a link to your workshop materials"
+        )
         line.delete()
         kept.refresh_from_db()
         assert kept.status == ItemStatus.DONE and kept.template_item is None
@@ -397,9 +455,16 @@ class TestTemplateChangesReachExistingChecklists:
         session = make_session(seeded, kind="WORKSHOP")
         link = add_presenter(session, make_presenter(seeded), confirmed=True)
         instantiate_presenter_checklist(link)
-        template.items.filter(title="Do a tech check").update(order=0)
+        template.items.filter(title="Share a link to your workshop materials").update(
+            order=0
+        )
         sync_template_order(template)
-        assert link.presenter.checklist_items.get(title="Do a tech check").order == 0
+        assert (
+            link.presenter.checklist_items.get(
+                title="Share a link to your workshop materials"
+            ).order
+            == 0
+        )
 
     def test_adhoc_item_is_flagged_new(self, seeded):
         item = add_adhoc_item(

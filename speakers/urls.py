@@ -30,6 +30,11 @@ urlpatterns = [
         name="session_edit",
     ),
     path(
+        "sessions/<slug:slug>/items/add/",
+        views.SessionAddItemView.as_view(),
+        name="session_add_item",
+    ),
+    path(
         "sessions/<slug:slug>/presenters/add/",
         views.SessionAddPresenterView.as_view(),
         name="session_add_presenter",
@@ -94,7 +99,13 @@ urlpatterns = [
         name="my_dismiss_password_reminder",
     ),
     path("me/profile/", views.SpeakerProfileUpdateView.as_view(), name="my_profile"),
+    path("me/checklist/", views.SpeakerChecklistView.as_view(), name="my_checklist"),
     path("me/sessions/", views.SpeakerSessionListView.as_view(), name="my_sessions"),
+    path(
+        "me/sessions/<slug:slug>/",
+        views.SpeakerSessionDetailView.as_view(),
+        name="my_session_detail",
+    ),
     path(
         "me/sessions/<slug:slug>/edit/",
         views.SpeakerSessionUpdateView.as_view(),

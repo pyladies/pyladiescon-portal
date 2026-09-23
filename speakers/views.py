@@ -308,6 +308,41 @@ class SessionDetailView(SessionScopedMixin, DetailView):
         ):
             latest[invitation.presenter_id] = invitation
         context["invitations_by_presenter"] = latest
+        # The session's checklists: per presenter, plus session-scope items.
+        today = timezone.now().date()
+        items = list(
+            self.object.checklist_items.select_related(
+                "presenter", "assignee", "team", "completed_by", "session"
+            ).order_by("presenter__display_name", "order", "id")
+        )
+        for item in items:
+            item.overdue = (
+                item.is_open and item.due_date is not None and item.due_date < today
+            )
+        groups = []
+        for link in self.object.presenter_links:
+            mine = [i for i in items if i.presenter_id == link.presenter_id]
+            if mine:
+                groups.append(
+                    {
+                        "presenter": link.presenter,
+                        "speaker": [i for i in mine if i.owner == ItemOwner.SPEAKER],
+                        "organizer": [
+                            i for i in mine if i.owner == ItemOwner.ORGANIZER
+                        ],
+                    }
+                )
+        context["checklist_groups"] = groups
+        context["session_items"] = [i for i in items if i.presenter_id is None]
+        # One query for the people and teams, shared by every row; each row
+        # reads its own current value off the item (review of #425).
+        context["owner_choices"] = owner_choices(self.conference)
+        # A liaison reaches this page but may not hand work to someone else
+        # (ItemAssignView is organizer-only), so do not offer them the select.
+        context["can_assign"] = is_speaker_organizer(self.request.user)
+        context["adhoc_form"] = AdhocItemForm(
+            initial={"owner_kind": ItemOwner.ORGANIZER}, conference=self.conference
+        )
         return context
 
 
@@ -804,13 +839,63 @@ class InvitationCancelView(InvitationActionMixin, View):
 # ---- Speaker side -----------------------------------------------------------
 
 
-class SpeakerDashboardView(LoginRequiredMixin, PresenterRequiredMixin, TemplateView):
-    """The presenter's home (design §2.2 and §9.5).
+def _speaker_checklist(presenter, as_of):
+    """Every item the presenter can see, with overdue flags, split by side.
 
-    Two lists side by side: their own to-dos (tickable unless automatic)
-    and what the team is doing for them (read-only, with the assignee).
-    Performers also see the post-production items for their sessions.
+    ``speaker``: their own to-dos; ``organizer``: what the team does for
+    them; ``video``: session-scope items (post-production) on their
+    sessions. Each list is sorted by due date, undated last.
     """
+    links = list(
+        presenter.session_presenters.select_related(
+            "session", "session__kind", "role"
+        ).order_by("session__title")
+    )
+    items = list(
+        ChecklistItem.objects.filter(
+            Q(presenter=presenter)
+            | Q(presenter__isnull=True, session__in=[link.session_id for link in links])
+        )
+        .select_related("session", "assignee", "team", "completed_by")
+        .order_by(F("due_date").asc(nulls_last=True), "session__title", "order", "id")
+    )
+    for item in items:
+        item.overdue = (
+            item.is_open and item.due_date is not None and item.due_date < as_of
+        )
+    return {
+        "links": links,
+        "speaker": [
+            i for i in items if i.presenter_id and i.owner == ItemOwner.SPEAKER
+        ],
+        "organizer": [
+            i for i in items if i.presenter_id and i.owner == ItemOwner.ORGANIZER
+        ],
+        "video": [i for i in items if i.presenter_id is None],
+    }
+
+
+def _session_summaries(links, speaker_items):
+    """One row per session: role and how many of the speaker's own to-dos
+    for it are done."""
+    summaries = []
+    for link in links:
+        mine = [i for i in speaker_items if i.session_id == link.session_id]
+        summaries.append(
+            {
+                "session": link.session,
+                "link": link,
+                "role": link.role.name,
+                "done": sum(1 for i in mine if not i.is_open),
+                "total": len(mine),
+            }
+        )
+    return summaries
+
+
+class SpeakerDashboardView(LoginRequiredMixin, PresenterRequiredMixin, TemplateView):
+    """The presenter's home: their sessions with to-do progress, and the
+    account and profile nudges. The checklist itself has its own page."""
 
     template_name = "speakers/speaker_dashboard.html"
 
@@ -818,56 +903,113 @@ class SpeakerDashboardView(LoginRequiredMixin, PresenterRequiredMixin, TemplateV
         context = super().get_context_data(**kwargs)
         presenter = self.presenter
         today_here = today(presenter.tzinfo)
-        links = list(
-            presenter.session_presenters.select_related(
-                "session", "session__kind", "role"
-            ).order_by("session__title")
-        )
-        session_ids = [link.session_id for link in links]
-        items = list(
-            ChecklistItem.objects.filter(
-                Q(presenter=presenter)
-                | Q(presenter__isnull=True, session__in=session_ids)
-            )
-            .select_related("session", "assignee")
-            .order_by("session__title", "order", "id")
-        )
-        for item in items:
-            item.overdue = (
-                item.is_open
-                and item.due_date is not None
-                and item.due_date < today_here
-            )
-        speaker_items = [
-            i for i in items if i.presenter_id and i.owner == ItemOwner.SPEAKER
-        ]
-        organizer_items = [
-            i for i in items if i.presenter_id and i.owner == ItemOwner.ORGANIZER
-        ]
-        video_items = [i for i in items if i.presenter_id is None]
-        summaries = []
-        for link in links:
-            mine = [i for i in speaker_items if i.session_id == link.session_id]
-            summaries.append(
-                {
-                    "session": link.session,
-                    "role": link.role.name,
-                    "done": sum(1 for i in mine if not i.is_open),
-                    "total": len(mine),
-                }
-            )
+        checklist = _speaker_checklist(presenter, today_here)
+        open_items = [i for i in checklist["speaker"] if i.is_open]
+        general = [i for i in checklist["speaker"] if i.session_id is None]
         context.update(
             {
                 "conference": self.conference,
                 "presenter": presenter,
                 "today": today_here,
-                "speaker_items": speaker_items,
-                "organizer_items": organizer_items,
-                "video_items": video_items,
-                "session_summaries": summaries,
+                "session_summaries": _session_summaries(
+                    checklist["links"], checklist["speaker"]
+                ),
+                "open_count": len(open_items),
+                "general_total": len(general),
+                "general_done": sum(1 for i in general if not i.is_open),
+                "overdue_count": sum(1 for i in open_items if i.overdue),
+                "next_due": next((i for i in open_items if i.due_date), None),
                 "profile_complete": bool(presenter.bio_md and presenter.headshot),
                 "show_password_reminder": not self.request.user.has_usable_password()
                 and not presenter.password_reminder_dismissed,
+            }
+        )
+        return context
+
+
+class SpeakerChecklistView(LoginRequiredMixin, PresenterRequiredMixin, TemplateView):
+    """The presenter's checklist (design §2.2 and §9.5): their to-dos, what
+    the team does for them, and post-production items on their sessions.
+
+    ``?view=all`` (default) sorts everything by due date; ``?view=session``
+    groups by session; ``?session=<slug>`` narrows to one session.
+    """
+
+    template_name = "speakers/speaker_checklist.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        presenter = self.presenter
+        today_here = today(presenter.tzinfo)
+        checklist = _speaker_checklist(presenter, today_here)
+        view = "session" if self.request.GET.get("view") == "session" else "all"
+        only = None
+        session_param = self.request.GET.get("session")
+        if session_param:
+            only = next(
+                (
+                    link.session
+                    for link in checklist["links"]
+                    if link.session.slug == session_param
+                ),
+                None,
+            )
+            if only is None:
+                raise Http404("Not one of your sessions.")
+            view = "session"
+        groups = []
+        if view == "session":
+            targets = [
+                link.session
+                for link in checklist["links"]
+                if only is None or link.session_id == only.pk
+            ]
+            for session in targets:
+                groups.append(
+                    {
+                        "session": session,
+                        "speaker": [
+                            i
+                            for i in checklist["speaker"]
+                            if i.session_id == session.pk
+                        ],
+                        "organizer": [
+                            i
+                            for i in checklist["organizer"]
+                            if i.session_id == session.pk
+                        ],
+                        "video": [
+                            i for i in checklist["video"] if i.session_id == session.pk
+                        ],
+                    }
+                )
+            if only is None:
+                general = {
+                    "session": None,
+                    "speaker": [
+                        i for i in checklist["speaker"] if i.session_id is None
+                    ],
+                    "organizer": [
+                        i for i in checklist["organizer"] if i.session_id is None
+                    ],
+                    "video": [],
+                }
+                if general["speaker"] or general["organizer"]:
+                    groups.insert(0, general)
+            for group in groups:
+                group["total"] = len(group["speaker"])
+                group["done"] = sum(1 for i in group["speaker"] if not i.is_open)
+        context.update(
+            {
+                "conference": self.conference,
+                "presenter": presenter,
+                "today": today_here,
+                "view": view,
+                "only": only,
+                "groups": groups,
+                "speaker_items": checklist["speaker"],
+                "organizer_items": checklist["organizer"],
+                "video_items": checklist["video"],
             }
         )
         return context
@@ -900,7 +1042,12 @@ class SpeakerItemToggleView(LoginRequiredMixin, PresenterRequiredMixin, View):
                 )
         except ChecklistError as exc:
             messages.error(request, str(exc))
-        return redirect("speakers:my_dashboard")
+        target = request.POST.get("next", "")
+        if not url_has_allowed_host_and_scheme(
+            target, allowed_hosts={request.get_host()}
+        ):
+            target = reverse("speakers:my_checklist")
+        return redirect(target)
 
 
 class SpeakerProfileUpdateView(LoginRequiredMixin, PresenterRequiredMixin, UpdateView):
@@ -958,12 +1105,63 @@ class SpeakerSessionListView(LoginRequiredMixin, PresenterRequiredMixin, Templat
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
+        today_here = today(self.presenter.tzinfo)
+        checklist = _speaker_checklist(self.presenter, today_here)
+        links = list(
+            self.presenter.session_presenters.select_related(
+                "session", "session__kind", "role"
+            )
+            .prefetch_related(
+                "session__session_presenters__presenter",
+                # The card names each co-presenter's role, so fetch those
+                # with the rows rather than one query per session.
+                "session__session_presenters__role",
+            )
+            .order_by("session__title")
+        )
+        summaries = {
+            summary["session"].pk: summary
+            for summary in _session_summaries(links, checklist["speaker"])
+        }
+        for link in links:
+            link.summary = summaries[link.session_id]
         context["conference"] = self.conference
         context["presenter"] = self.presenter
-        context["session_links"] = list(
-            self.presenter.session_presenters.select_related("session")
-            .prefetch_related("session__session_presenters__presenter")
-            .order_by("session__title")
+        context["session_links"] = links
+        return context
+
+
+class SpeakerSessionDetailView(SpeakerSessionMixin, TemplateView):
+    """Read-only view of one of the presenter's sessions with its checklist."""
+
+    template_name = "speakers/speaker_session_detail.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        session = self.get_session()
+        today_here = today(self.presenter.tzinfo)
+        checklist = _speaker_checklist(self.presenter, today_here)
+        link = next(row for row in checklist["links"] if row.session_id == session.pk)
+        context.update(
+            {
+                "conference": self.conference,
+                "presenter": self.presenter,
+                "session": session,
+                "link": link,
+                "co_presenters": session.session_presenters.exclude(
+                    presenter=self.presenter
+                ).select_related("presenter"),
+                "slot": getattr(session, "slot", None),
+                "speaker_items": [
+                    i for i in checklist["speaker"] if i.session_id == session.pk
+                ],
+                "organizer_items": [
+                    i for i in checklist["organizer"] if i.session_id == session.pk
+                ],
+                "video_items": [
+                    i for i in checklist["video"] if i.session_id == session.pk
+                ],
+            }
         )
         return context
 
@@ -985,7 +1183,7 @@ class SpeakerSessionUpdateView(SpeakerSessionMixin, UpdateView):
         return session
 
     def get_success_url(self):
-        return reverse("speakers:my_sessions")
+        return reverse("speakers:my_session_detail", args=[self.object.slug])
 
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()
@@ -1345,6 +1543,31 @@ class PresenterAddItemView(PresenterScopedMixin, View):
         return redirect(presenter.get_absolute_url())
 
 
+class SessionAddItemView(OrganizerSessionActionMixin, View):
+    """A one-off item on the session itself (post-production style)."""
+
+    def post(self, request, slug):
+        session = self.get_session()
+        form = AdhocItemForm(request.POST, conference=self.conference)
+        if form.is_valid():
+            assignee, team = form.cleaned_data["owner"]
+            add_adhoc_item(
+                self.conference,
+                form.cleaned_data["title"],
+                form.cleaned_data["owner_kind"],
+                session=session,
+                due_date=form.cleaned_data["due_date"],
+                assignee=assignee,
+                team=team,
+                description_md=form.cleaned_data["description_md"],
+                actor=request.user,
+            )
+            messages.success(request, f"Added “{form.cleaned_data['title']}”.")
+        else:
+            messages.error(request, "Could not add the item: give it a title.")
+        return redirect(session.get_absolute_url())
+
+
 # ---- Template editor (design §9.1, task 2.6) ---------------------------------
 
 
@@ -1374,6 +1597,9 @@ class ChecklistTemplateListView(TemplateEditorMixin, TemplateView):
             .select_related("kind", "role")
             .annotate(item_count=Count("items"))
             .order_by("scope", "kind__sort_order", "role__sort_order", "delivery")
+        )
+        context["general_template"] = next(
+            (t for t in templates if t.scope == ChecklistScope.GENERAL), None
         )
         context["presenter_templates"] = [
             t for t in templates if t.scope == ChecklistScope.PRESENTER

@@ -56,7 +56,8 @@ class MediaKind(models.TextChoices):
 
 
 class ChecklistScope(models.TextChoices):
-    PRESENTER = "PRESENTER", "Per presenter (keyed by kind and role)"
+    GENERAL = "GENERAL", "Every presenter (once per edition)"
+    PRESENTER = "PRESENTER", "Per presenter per session (keyed by kind and role)"
     SESSION = "SESSION", "Per session (keyed by kind and delivery)"
 
 

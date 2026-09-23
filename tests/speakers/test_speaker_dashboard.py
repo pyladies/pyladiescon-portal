@@ -17,9 +17,16 @@ from speakers.constants import (
 from speakers.models import ChecklistItem
 from volunteer.models import Team
 
-from .factories import add_presenter, make_presenter, make_session, make_settings
+from .factories import (
+    add_presenter,
+    make_presenter,
+    make_session,
+    make_settings,
+    make_slot,
+)
 
 DASHBOARD = reverse("speakers:my_dashboard")
+CHECKLIST = reverse("speakers:my_checklist")
 
 
 def toggle(item):
@@ -52,39 +59,55 @@ def session(conference, presenter):
 
 @pytest.mark.django_db
 class TestDashboardLists:
-    def test_lock_icon_once_scheduled_and_item_descriptions(
+    def test_lock_icon_once_scheduled(
         self, client, speaker, presenter, session, conference
     ):
-        described = add_adhoc_item(
+        client.force_login(speaker)
+        page = client.get(DASHBOARD).content.decode()
+        assert "locked now that the session is scheduled" not in page
+        session.status = SessionStatus.SCHEDULED
+        session.save()
+        page = client.get(DASHBOARD).content.decode()
+        assert "locked now that the session is scheduled" in page
+
+    def test_item_descriptions_render_on_the_checklist(
+        self, client, speaker, presenter, conference
+    ):
+        """The items moved off the dashboard to their own page; their
+        descriptions went with them."""
+        add_adhoc_item(
             conference,
             "Bring snacks",
             ItemOwner.SPEAKER,
             presenter=presenter,
             description_md="Something **salty** for the tech check.",
         )
-        bare = add_adhoc_item(
-            conference, "Wave hello", ItemOwner.SPEAKER, presenter=presenter
-        )
+        add_adhoc_item(conference, "Wave hello", ItemOwner.SPEAKER, presenter=presenter)
         client.force_login(speaker)
-        page = client.get(DASHBOARD).content.decode()
-        assert "locked now that the session is scheduled" not in page
+        page = client.get(CHECKLIST).content.decode()
+        assert "Bring snacks" in page and "Wave hello" in page
         assert "<strong>salty</strong>" in page
         assert page.count('class="small text-body-secondary item-description"') == 1
-        session.status = SessionStatus.SCHEDULED
-        session.save()
-        page = client.get(DASHBOARD).content.decode()
-        assert "locked now that the session is scheduled" in page
-        assert described.pk and bare.pk  # both still listed
 
-    def test_renders_with_zero_items(self, client, speaker, presenter, session):
+    def test_dashboard_summarises_sessions_and_todos(
+        self, client, speaker, presenter, session
+    ):
         client.force_login(speaker)
         content = client.get(DASHBOARD).content.decode()
-        assert "Nothing on your list yet" in content
-        assert "Dates are in Africa/Lagos" in content
         assert 'id="my-sessions"' in content and "Your sessions" in content
         assert "Django 101" in content and "Not yet public" in content
         assert "Workshop" in content and "Presenter" in content
-        assert "to-dos done" not in content
+        assert "tasks done" not in content
+        assert "Nothing open on your to-do list" in content
+        assert "Your to-dos" not in content  # the lists live on the checklist page
+        assert f"{CHECKLIST}?session={session.slug}" in content
+
+    def test_checklist_page_with_zero_items(self, client, speaker, presenter, session):
+        client.force_login(speaker)
+        content = client.get(CHECKLIST).content.decode()
+        assert "Nothing on your list here" in content
+        assert "Dates are in Africa/Lagos" in content
+        assert "All, by due date" in content and "By session" in content
 
     def test_two_lists_summary_and_assignee(
         self, client, speaker, presenter, session, conference
@@ -122,8 +145,10 @@ class TestDashboardLists:
             presenter=presenter,
         )
         client.force_login(speaker)
-        content = client.get(DASHBOARD).content.decode()
-        assert "1 of 2 to-dos done" in content
+        dashboard = client.get(DASHBOARD).content.decode()
+        assert "1 of 2 tasks done" in dashboard
+        assert "1 open to-do" in dashboard
+        content = client.get(CHECKLIST).content.decode()
         assert toggle(mine) in content and toggle(done) in content
         assert toggle(theirs) not in content and toggle(unassigned) not in content
         assert "Lena K is on it" in content and "not yet assigned" in content
@@ -138,7 +163,7 @@ class TestDashboardLists:
             conference, "Poster", ItemOwner.ORGANIZER, presenter=presenter, team=team
         )
         client.force_login(speaker)
-        assert "Design team is on it" in client.get(DASHBOARD).content.decode()
+        assert "Design team is on it" in client.get(CHECKLIST).content.decode()
 
     def test_speaker_sees_who_completed_a_team_task(
         self, client, speaker, presenter, session, conference
@@ -160,7 +185,7 @@ class TestDashboardLists:
         )
         complete_item(automatic, manual=False)
         client.force_login(speaker)
-        content = client.get(DASHBOARD).content.decode()
+        content = client.get(CHECKLIST).content.decode()
         assert "done by Volunteer A on" in content
         assert "done automatically on" in content
         assert "nothing for you to do here" not in content.split("Session scheduled")[1]
@@ -177,7 +202,7 @@ class TestDashboardLists:
             auto_complete_rule=AutoRule.BIO_AND_HEADSHOT,
         )
         client.force_login(speaker)
-        content = client.get(DASHBOARD).content.decode()
+        content = client.get(CHECKLIST).content.decode()
         assert "checklist-item-auto" in content
         assert toggle(auto) not in content
         assert "Ticks itself" in content
@@ -190,8 +215,8 @@ class TestDashboardLists:
         )
         block_item(length, "Video is 2:05 over the 10-minute limit.")
         client.force_login(speaker)
-        content = client.get(DASHBOARD).content.decode()
-        assert "What we're doing with your video" in content
+        content = client.get(CHECKLIST).content.decode()
+        assert "What we're preparing for your video" in content
         assert "Blocked" in content
         assert "2:05 over the 10-minute limit" in content
 
@@ -213,7 +238,7 @@ class TestDashboardLists:
             due_date=date.today() + timedelta(days=30),
         )
         client.force_login(speaker)
-        response = client.get(DASHBOARD)
+        response = client.get(CHECKLIST)
         content = response.content.decode()
         assert "(overdue)" in content
         by_id = {i.pk: i for i in response.context["speaker_items"]}
@@ -230,10 +255,18 @@ class TestToggle:
             conference, "Read the guide", ItemOwner.SPEAKER, presenter=presenter
         )
         client.force_login(speaker)
-        assertRedirects(client.post(toggle(item)), DASHBOARD)
+        assertRedirects(client.post(toggle(item)), CHECKLIST)
         item.refresh_from_db()
         assert item.status == ItemStatus.DONE
         assert item.completed_by == speaker
+        # The form sends the page it was on; anything off-site is ignored.
+        assertRedirects(
+            client.post(toggle(item), {"next": f"{CHECKLIST}?view=session"}),
+            f"{CHECKLIST}?view=session",
+        )
+        assertRedirects(
+            client.post(toggle(item), {"next": "https://evil.example/x"}), CHECKLIST
+        )
         client.post(toggle(item))
         item.refresh_from_db()
         assert item.status == ItemStatus.TODO
@@ -281,3 +314,154 @@ class TestToggle:
         )
         client.force_login(portal_user)
         assert client.post(toggle(item)).status_code == 403
+
+
+@pytest.mark.django_db
+class TestChecklistViews:
+    @pytest.fixture
+    def items(self, conference, presenter, session):
+        panel = make_session(conference, title="Careers panel", kind="PANEL")
+        add_presenter(panel, presenter, role="PANELIST", confirmed=True)
+        return {
+            "late": add_adhoc_item(
+                conference,
+                "Slides",
+                ItemOwner.SPEAKER,
+                presenter=presenter,
+                session=session,
+                due_date=date.today() + timedelta(days=9),
+            ),
+            "soon": add_adhoc_item(
+                conference,
+                "Bio",
+                ItemOwner.SPEAKER,
+                presenter=presenter,
+                session=panel,
+                due_date=date.today() + timedelta(days=2),
+            ),
+            "undated": add_adhoc_item(
+                conference, "Discord", ItemOwner.SPEAKER, presenter=presenter
+            ),
+            "team": add_adhoc_item(
+                conference,
+                "Promo",
+                ItemOwner.ORGANIZER,
+                presenter=presenter,
+                session=session,
+                due_date=date.today() + timedelta(days=5),
+            ),
+            "panel": panel,
+        }
+
+    def test_all_view_sorts_by_due_date_undated_last(
+        self, client, speaker, presenter, items
+    ):
+        client.force_login(speaker)
+        response = client.get(CHECKLIST)
+        assert [i.title for i in response.context["speaker_items"]] == [
+            "Bio",
+            "Slides",
+            "Discord",
+        ]
+        assert response.context["view"] == "all"
+
+    def test_session_view_groups(self, client, speaker, presenter, session, items):
+        client.force_login(speaker)
+        response = client.get(CHECKLIST, {"view": "session"})
+        groups = response.context["groups"]
+        assert [g["session"].title if g["session"] else None for g in groups] == [
+            None,
+            "Careers panel",
+            "Django 101",
+        ]
+        assert [i.title for i in groups[2]["speaker"]] == ["Slides"]
+        assert [i.title for i in groups[2]["organizer"]] == ["Promo"]
+        assert [i.title for i in groups[0]["speaker"]] == ["Discord"]
+        complete_item(items["late"])
+        response = client.get(CHECKLIST, {"view": "session"})
+        groups = response.context["groups"]
+        assert (groups[2]["done"], groups[2]["total"]) == (1, 1)
+        assert (groups[1]["done"], groups[1]["total"]) == (0, 1)
+        content = response.content.decode()
+        assert "1 of 1 tasks done" in content and "0 of 1 tasks done" in content
+        assert (
+            'data-session-group="general"' in content
+            and "For you as a speaker" in content
+        )
+
+    def test_single_session_filter(self, client, speaker, presenter, session, items):
+        client.force_login(speaker)
+        response = client.get(CHECKLIST, {"session": session.slug})
+        assert response.context["only"] == session
+        assert [g["session"] for g in response.context["groups"]] == [session]
+        assert "Checklist for Django 101" in response.content.decode()
+        other = make_session(session.conference, title="Not mine")
+        assert client.get(CHECKLIST, {"session": other.slug}).status_code == 404
+
+
+@pytest.mark.django_db
+class TestSessionDetail:
+    def test_detail_shows_content_and_checklist(
+        self, client, speaker, presenter, session, conference
+    ):
+        session.summary_md = "Learn **Django**"
+        session.level = "BEGINNER"
+        session.save()
+        add_adhoc_item(
+            conference,
+            "Slides",
+            ItemOwner.SPEAKER,
+            presenter=presenter,
+            session=session,
+        )
+        add_adhoc_item(conference, "Elsewhere", ItemOwner.SPEAKER, presenter=presenter)
+        client.force_login(speaker)
+        url = reverse("speakers:my_session_detail", args=[session.slug])
+        content = client.get(url).content.decode()
+        assert "<strong>Django</strong>" in content and "Beginner" in content
+        assert "Checklist for this session" in content
+        assert "Slides" in content and "Elsewhere" not in content
+        assert "Not scheduled yet" in content and "Just you so far" in content
+        assert reverse("speakers:my_session_edit", args=[session.slug]) in content
+
+    def test_detail_empty_description_and_slot(
+        self, client, speaker, presenter, session, conference
+    ):
+        make_slot(session)
+        client.force_login(speaker)
+        content = client.get(
+            reverse("speakers:my_session_detail", args=[session.slug])
+        ).content.decode()
+        assert "No description yet" in content and "14:00 UTC" in content
+
+    def test_detail_forbidden_for_others_session(
+        self, client, speaker, presenter, conference
+    ):
+        other = make_session(conference, title="Theirs")
+        client.force_login(speaker)
+        assert (
+            client.get(
+                reverse("speakers:my_session_detail", args=[other.slug])
+            ).status_code
+            == 403
+        )
+
+    def test_sessions_list_has_counts_and_buttons(
+        self, client, speaker, presenter, session, conference
+    ):
+        done = add_adhoc_item(
+            conference,
+            "Slides",
+            ItemOwner.SPEAKER,
+            presenter=presenter,
+            session=session,
+        )
+        add_adhoc_item(
+            conference, "Bio", ItemOwner.SPEAKER, presenter=presenter, session=session
+        )
+        complete_item(done)
+        client.force_login(speaker)
+        content = client.get(reverse("speakers:my_sessions")).content.decode()
+        assert "1 of 2 tasks done" in content
+        assert f"{CHECKLIST}?session={session.slug}" in content
+        assert reverse("speakers:my_session_detail", args=[session.slug]) in content

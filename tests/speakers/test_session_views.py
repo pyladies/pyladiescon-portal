@@ -226,7 +226,11 @@ class TestSlugUrls:
         assert session.slug == "new-2"
         client.force_login(organizer)
         page = client.get(session.get_absolute_url()).content.decode()
-        assert "Presenters" in page and 'name="title"' not in page
+        # The session page, not the create form. (Both carry a "title" field
+        # now that the session page can add a one-off item, so the marker is
+        # the form's own action.)
+        assert "Presenters" in page
+        assert reverse("speakers:session_create") not in page
 
     def test_title_without_letters_falls_back_to_the_model_name(self, sessions):
         session = make_session(sessions["mine"].conference, title="🎉🎉")

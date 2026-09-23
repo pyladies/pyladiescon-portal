@@ -4,6 +4,8 @@ import pytest
 from django.contrib.auth.models import AnonymousUser, User
 from django.core import mail
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.db import connection
+from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 from PIL import Image
 from pytest_django.asserts import assertRedirects
@@ -136,6 +138,25 @@ class TestPortalIndexRouting:
 
 
 @pytest.mark.django_db
+class TestSessionListCost:
+    def test_query_count_does_not_grow_with_sessions(
+        self, client, speaker, presenter, my_session, conference
+    ):
+        """The page reads each row's role and kind, so both are fetched with
+        the links rather than one query per session."""
+        client.force_login(speaker)
+        with CaptureQueriesContext(connection) as before:
+            client.get(SESSIONS)
+        for name in ("Second", "Third", "Fourth"):
+            add_presenter(
+                make_session(conference, title=name), presenter, confirmed=True
+            )
+        with CaptureQueriesContext(connection) as after:
+            client.get(SESSIONS)
+        assert len(after) == len(before)
+
+
+@pytest.mark.django_db
 class TestDashboard:
     def test_lists_sessions_and_profile_nudge(
         self, client, speaker, presenter, my_session
@@ -146,7 +167,7 @@ class TestDashboard:
         assert "Django 101" in content
         assert "Not yet public" in content
         assert "Your bio or photo is still missing" in content
-        assert "Your to-dos" in content and "What we're doing for you" in content
+        assert "Open my checklist" in content
 
     def test_nudge_gone_when_complete(self, client, speaker, presenter):
         presenter.bio_md = "Hi"
@@ -155,7 +176,7 @@ class TestDashboard:
         client.force_login(speaker)
         content = client.get(DASHBOARD).content.decode()
         assert "still missing" not in content
-        assert "Nothing on your list yet" in content
+        assert "Nothing open on your to-do list" in content
         assert "You are not on any session yet" in content
 
     def test_schedule_placeholder(self, client, speaker, presenter):
@@ -307,7 +328,10 @@ class TestSessions:
                 "slug": "hacked",
             },
         )
-        assertRedirects(response, SESSIONS)
+        assertRedirects(
+            response,
+            reverse("speakers:my_session_detail", args=[my_session.slug]),
+        )
         my_session.refresh_from_db()
         assert my_session.summary_md == "Still editable"
         assert my_session.title == "Django 101" and my_session.slug == "django-101"
@@ -352,8 +376,11 @@ class TestSessions:
                 "duration_minutes": 5,
             },
         )
-        assertRedirects(response, SESSIONS)
+        # Renaming it moves its address, so read that back before checking.
         my_session.refresh_from_db()
+        assertRedirects(
+            response, reverse("speakers:my_session_detail", args=[my_session.slug])
+        )
         assert my_session.summary_md == "Learn *Django*"
         assert my_session.level == "BEGINNER"
         # Title and address are the speaker's until the session is scheduled;
