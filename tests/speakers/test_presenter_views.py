@@ -981,6 +981,18 @@ class TestInviteFromPresenterPage:
         assert SessionPresenter.objects.get(session=talk, presenter=ada).role == (
             session_type(theirs.conference, "TALK").default_role
         )
+        # A type someone left without a default role, and no role picked.
+        roleless = session_type(theirs.conference, "OTHER")
+        roleless.default_role = None
+        roleless.save(update_fields=["default_role"])
+        odd = make_session(theirs.conference, title="Odd one", kind=roleless)
+        response = client.post(
+            reverse("speakers:presenter_invite", args=[ada.slug]),
+            {"session": odd.pk},
+            follow=True,
+        )
+        assert "Pick a session of this edition" in response.content.decode()
+        assert not SessionPresenter.objects.filter(session=odd, presenter=ada)
         keynote = make_session(theirs.conference, title="A keynote", kind="KEYNOTE")
         response = client.post(
             reverse("speakers:presenter_invite", args=[ada.slug]),

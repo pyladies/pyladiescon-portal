@@ -38,9 +38,7 @@ def send_added_to_session_email_task(link_id):
     """Tell an already-accepted presenter they were added to a session."""
     link = (
         SessionPresenter.objects.filter(pk=link_id, confirmed_at__isnull=False)
-        .select_related(
-            "presenter", "role", "session", "session__slot", "conference"
-        )
+        .select_related("presenter", "role", "session", "session__slot", "conference")
         .first()
     )
     if link is None:
