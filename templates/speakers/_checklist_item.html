@@ -15,7 +15,7 @@ middle, the due date on the right. Params:
     data-item-id="{{ item.pk }}"
     data-status="{{ item.status }}">
     <div class="d-flex align-items-start gap-3">
-        {% if tickable and not item.is_automatic %}
+        {% if tickable and not item.is_automatic and item.status != "SKIPPED" %}
             <form method="post"
                   action="{% url 'speakers:my_item_toggle' item.pk %}"
                   hx-post="{% url 'speakers:my_item_toggle' item.pk %}"

@@ -780,10 +780,17 @@ class PresenterInviteView(LoginRequiredMixin, SpeakerOrganizerRequiredMixin, Vie
         )
         form = PresenterInviteForm(request.POST, presenter=presenter)
         if not form.is_valid():
-            messages.error(request, "Pick a session of this edition.")
+            # The form knows which session or role it refused and why, and
+            # the organizer is sent back to a page that cannot show field
+            # errors, so carry the reasons into the message.
+            reasons = " ".join(
+                error for errors in form.errors.values() for error in errors
+            )
+            messages.error(
+                request, f"Pick a session of this edition. {reasons}".strip()
+            )
             return redirect(presenter.get_absolute_url())
         session = form.cleaned_data["session"]
-        added = ""
         if form.is_new_session:
             link = SessionPresenter.objects.create(
                 session=session, presenter=presenter, role=form.cleaned_data["role"]
@@ -796,9 +803,21 @@ class PresenterInviteView(LoginRequiredMixin, SpeakerOrganizerRequiredMixin, Vie
                 presenter_id=presenter.pk,
                 role=link.role.code,
             )
-            added = f" They were added to {session.title} as {link.role.name}."
+            added = f"Added to {session.title} as {link.role.name}."
             if presenter_added_to_session(link, actor=request.user):
-                added += " They had already accepted, so they are confirmed on it."
+                # They are confirmed on it already; an invitation to accept
+                # what they are confirmed on is a second email asking for
+                # something that has happened. The added-to-session email
+                # queued by the confirmation is the one they get.
+                messages.success(
+                    request,
+                    f"{added} They had already accepted, so they are "
+                    "confirmed on it.",
+                )
+                return redirect(presenter.get_absolute_url())
+            added = f" {added}"
+        else:
+            added = ""
         invitation = (
             Invitation.objects.filter(presenter=presenter, session=session)
             .exclude(accepted_at__isnull=False)

@@ -205,9 +205,12 @@ def accept_invitation(invitation):
         )
         for link in confirmed_links:
             confirm_session_if_ready(link.session)
-        # Queued inside the block: enqueue() hands it to on_commit, so a
-        # rollback takes the welcome email with it.
-        enqueue(send_acceptance_email_task, invitation.pk)
+        # On commit, not here: enqueue() publishes straight away, so a
+        # worker could read the invitation before this transaction commits,
+        # and a rollback would leave the welcome email already sent.
+        transaction.on_commit(
+            lambda: enqueue(send_acceptance_email_task, invitation.pk)
+        )
     return user
 
 
@@ -287,9 +290,10 @@ def _confirm_from_general_acceptance(link, actor):
         # threshold on the first digest.
         accepted_at=link.confirmed_at,
     )
-    confirm_session_if_ready(link.session)
-    enqueue(send_added_to_session_email_task, link.pk)
-    return True
+    # Only once the confirmation is durably stored: a worker on another
+    # connection would otherwise look for a row this transaction has not
+    # committed and log the email as a legitimate skip.
+    transaction.on_commit(lambda: enqueue(send_added_to_session_email_task, link.pk))
 
 
 def change_presenter_role(link, role, *, is_required=None, actor=None):

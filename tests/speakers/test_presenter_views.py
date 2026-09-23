@@ -2,6 +2,7 @@ import re
 from datetime import date, timedelta
 
 import pytest
+from django.conf import settings
 from django.contrib.auth.models import User
 from django.core import mail
 from django.core.exceptions import ValidationError
@@ -964,7 +965,7 @@ class TestInviteFromPresenterPage:
             follow=True,
         )
         content = response.content.decode()
-        assert "added to Careers panel as Moderator" in content
+        assert "Added to Careers panel as Moderator" in content
         link = SessionPresenter.objects.get(session=panel, presenter=ada)
         assert link.role == moderator
         invitation = Invitation.objects.get()
@@ -991,7 +992,7 @@ class TestInviteFromPresenterPage:
             {"session": odd.pk},
             follow=True,
         )
-        assert "Pick a session of this edition" in response.content.decode()
+        assert "A Other has no role to add them with." in response.content.decode()
         assert not SessionPresenter.objects.filter(session=odd, presenter=ada)
         keynote = make_session(theirs.conference, title="A keynote", kind="KEYNOTE")
         response = client.post(
@@ -1002,7 +1003,8 @@ class TestInviteFromPresenterPage:
             },
             follow=True,
         )
-        assert "Pick a session of this edition" in response.content.decode()
+        # The form's own reason reaches the organizer, not just "pick one".
+        assert "A Keynote has no Performer role." in response.content.decode()
         assert not SessionPresenter.objects.filter(session=keynote, presenter=ada)
 
     def test_new_session_for_an_accepted_presenter_confirms_them(
@@ -1014,6 +1016,7 @@ class TestInviteFromPresenterPage:
         accept_invitation(general)
         talk = make_session(theirs.conference, title="A talk", kind="TALK")
         client.force_login(organizer)
+        before = len(mail.outbox)
         response = client.post(
             reverse("speakers:presenter_invite", args=[ada.slug]),
             {
@@ -1022,8 +1025,17 @@ class TestInviteFromPresenterPage:
             },
             follow=True,
         )
-        assert "already accepted, so they are confirmed" in response.content.decode()
+        content = response.content.decode()
+        assert "Added to A talk as Presenter" in content
+        assert "already accepted, so they are confirmed" in content
+        assert "Invitation sent" not in content
         assert SessionPresenter.objects.get(session=talk, presenter=ada).is_confirmed
+        # One email, the one that fits: no invitation to accept what they
+        # are already confirmed on, and no invitation row for it either.
+        assert [m.subject for m in mail.outbox[before:]] == [
+            f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} You've been added to A talk"
+        ]
+        assert not Invitation.objects.filter(session=talk).exists()
 
     def test_rejects_a_session_from_another_edition(
         self, client, organizer, presenters

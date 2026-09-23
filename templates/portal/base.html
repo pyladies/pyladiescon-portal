@@ -43,12 +43,16 @@
         <link rel="stylesheet"
               href="https://fonts.googleapis.com/css2?family=Blinker:wght@400;600;700&family=Orbitron:wght@500;700&display=swap">
         <link rel="stylesheet" href="{% static 'css/portal.css' %}">
-        {# Display django.contrib.messages as Bootstrap alerts; shells may swap in toasts #}
+    </head>
+    <body class="d-flex flex-column min-vh-100">
+        {# Display django.contrib.messages as Bootstrap alerts; shells may
+        swap in toasts. It belongs here rather than in the document head:
+        the markup is a div, and a browser that meets one in the head ends
+        the head early and folds the real body attributes into the body it
+        opened for it. #}
         {% block messages %}
             {% bootstrap_messages %}
         {% endblock messages %}
-    </head>
-    <body class="d-flex flex-column min-vh-100">
         {% block body %}
         {% endblock body %}
         <nav class="navbar navbar-expand-md navbar-dark bg-dark"

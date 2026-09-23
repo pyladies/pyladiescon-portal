@@ -176,7 +176,11 @@ class TestPasswordReminder:
 
 @pytest.mark.django_db
 class TestAcceptanceEmail:
-    def test_sent_on_accept(self, conference, enabled):
+    def test_sent_on_accept(
+        self, conference, enabled, django_capture_on_commit_callbacks
+    ):
+        """The welcome email is queued on commit, not inside the block, so
+        the test has to commit before reading the mailbox."""
         session = make_session(conference, title="Django 101", kind="WORKSHOP")
         presenter = make_presenter(
             conference, display_name="Ada Lovelace", email="ada@example.com"
@@ -185,7 +189,8 @@ class TestAcceptanceEmail:
         invitation = make_invitation(presenter, session)
         send_invitation(invitation)
         mail.outbox.clear()
-        accept_invitation(invitation)
+        with django_capture_on_commit_callbacks(execute=True):
+            accept_invitation(invitation)
         welcome = [m for m in mail.outbox if "Welcome aboard" in m.subject]
         assert len(welcome) == 1
         body = welcome[0].body
