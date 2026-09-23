@@ -27,11 +27,10 @@ from .models import (
     ChecklistTemplate,
     ChecklistTemplateItem,
     Presenter,
-    ReadinessGate,
     SessionPresenter,
     SpeakerSettings,
 )
-from .readiness import apply_readiness, refresh_dependents
+from .readiness import apply_readiness, refresh_dependents, refresh_readiness
 
 
 class ChecklistError(ValueError):
@@ -83,18 +82,6 @@ def _default_owner(template_item, session, presenter):
     return None, None
 
 
-def _gate_for(template_item, conference_id):
-    """The edition's gate with the line's code, matched the way the default
-    team name is, so a template cloned into next year finds next year's
-    gate. A code no gate carries yet holds the item shut: it names work
-    nobody has recorded, which is exactly what waiting means."""
-    if not template_item.ready_gate_code:
-        return None
-    return ReadinessGate.objects.filter(
-        conference_id=conference_id, code=template_item.ready_gate_code
-    ).first()
-
-
 def _create_instance(template_item, *, session, presenter, anchors, language=""):
     """Create one instance unless the same one already exists. Returns
     the item, or None when it was already there."""
@@ -124,7 +111,7 @@ def _create_instance(template_item, *, session, presenter, anchors, language="")
         requires_asset_kind=template_item.requires_asset_kind,
         requires_handbook=template_item.requires_handbook,
         ready_rule=template_item.ready_rule,
-        ready_gate=_gate_for(template_item, (session or presenter).conference_id),
+        ready_gate_code=template_item.ready_gate_code,
         waits_for_line=template_item.waits_for,
         template_waiting_note=template_item.waiting_note,
         **lookup,
@@ -170,6 +157,20 @@ def instantiate_presenter_checklist(link, accepted_at=None):
         )
         if item is not None:
             created.append(item)
+    return _settle_readiness(created)
+
+
+def _settle_readiness(created):
+    """Re-evaluate a batch once all of it exists.
+
+    An item is evaluated as it is created, and a line may wait on one that
+    sorts after it, whose item does not exist yet at that moment. Without
+    this pass such an item would look startable until the nightly refresh.
+    """
+    if created:
+        refresh_readiness(ChecklistItem.objects.filter(pk__in=[i.pk for i in created]))
+        for item in created:
+            item.refresh_from_db()
     return created
 
 
@@ -186,7 +187,7 @@ def instantiate_general_checklist(presenter, accepted_at=None):
         )
         if item is not None:
             created.append(item)
-    return created
+    return _settle_readiness(created)
 
 
 def instantiate_session_checklist(session):
@@ -207,7 +208,7 @@ def instantiate_session_checklist(session):
             )
             if item is not None:
                 created.append(item)
-    return created
+    return _settle_readiness(created)
 
 
 def _matching_targets(template_item):

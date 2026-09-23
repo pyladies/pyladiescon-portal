@@ -10,6 +10,7 @@ from datetime import date, timedelta
 import pytest
 from django.contrib.auth.models import User
 from django.core import mail
+from django.core.exceptions import ValidationError
 from django.urls import reverse
 
 from speakers.checklists import (
@@ -27,6 +28,7 @@ from speakers.models import ChecklistTemplateItem, Handbook, ReadinessGate
 from speakers.readiness import (
     apply_readiness,
     evaluate_readiness,
+    refresh_dependents,
     refresh_for_conference,
 )
 from speakers.reminders import send_checklist_digests
@@ -186,11 +188,57 @@ class TestWaitSources:
 
     def test_a_gate_code_with_no_gate_row_holds_the_item(self, world, conference):
         """A line naming a gate the edition does not have waits: the code
-        names work nobody has recorded."""
-        line = item(world["ada"], "Do a tech check").template_item
-        line.ready_gate_code = "does-not-exist"
-        line.save()
-        ReadinessGate.objects.filter(conference=conference).delete()
+        names work nobody has recorded (review of #432)."""
+        tech = item(world["ada"], "Do a tech check")
+        tech.ready_gate = None
+        tech.ready_gate_code = "does-not-exist"
+        tech.save()
+        apply_readiness(tech)
+        tech.refresh_from_db()
+        assert tech.is_waiting
+        assert tech.ready_gate_id is None
+
+    def test_a_gate_added_later_attaches_to_the_items_that_named_it(
+        self, client, world, conference, organizer
+    ):
+        """The whole point of naming a gate by code: one population, not
+        items made before the gate existed and items made after."""
+        tech = item(world["ada"], "Do a tech check")
+        tech.ready_gate = None
+        tech.ready_gate_code = "upload-later"
+        tech.save()
+        apply_readiness(tech)
+        assert item(world["ada"], "Do a tech check").is_waiting
+        client.force_login(organizer)
+        client.post(
+            reverse("speakers:readiness_gate_add"),
+            {
+                "code": "upload-later",
+                "name": "Uploads later",
+                "waiting_note": "uploads are not open",
+            },
+        )
+        tech.refresh_from_db()
+        gate = ReadinessGate.objects.get(conference=conference, code="upload-later")
+        assert tech.ready_gate == gate and tech.is_waiting
+        assert tech.waiting_reason == "uploads are not open"
+        gate.set_open(True, actor=organizer)
+        refresh_for_conference(conference)
+        assert not item(world["ada"], "Do a tech check").is_waiting
+
+    def test_deleting_a_gate_puts_its_items_back_to_waiting(
+        self, world, conference, organizer
+    ):
+        gate = ReadinessGate.objects.get(conference=conference, code="tech-check-open")
+        gate.set_open(True, actor=organizer)
+        refresh_for_conference(conference)
+        assert not item(world["ada"], "Do a tech check").is_waiting
+        gate.delete()
+        refresh_for_conference(conference)
+        tech = item(world["ada"], "Do a tech check")
+        assert tech.is_waiting and tech.ready_gate_id is None
+
+    def test_an_item_with_no_gate_row_and_no_code_is_not_held(self, world, conference):
         fresh = add_adhoc_item(
             conference, "Ad hoc", ItemOwner.SPEAKER, presenter=world["ada"]
         )
@@ -200,6 +248,36 @@ class TestWaitSources:
         line = item(world["ada"], "Join the PyLadiesCon Discord")
         assert not line.is_waiting
         assert evaluate_readiness(line) == (False, "")
+
+
+@pytest.mark.django_db
+class TestFinishedWork:
+    def test_shutting_a_gate_leaves_done_work_done(self, world, conference, organizer):
+        """A done item must not re-enter the waiting count when its gate
+        shuts again, or the counts hold it twice (review of #432)."""
+        gate = ReadinessGate.objects.get(conference=conference, code="tech-check-open")
+        gate.set_open(True, actor=organizer)
+        refresh_for_conference(conference)
+        tech = item(world["ada"], "Do a tech check")
+        complete_item(tech, actor=world["ada"].user)
+        gate.set_open(False, actor=organizer)
+        refresh_for_conference(conference)
+        tech = item(world["ada"], "Do a tech check")
+        assert tech.is_done and not tech.is_waiting
+        assert evaluate_readiness(tech) == (False, "")
+
+    def test_the_gates_page_does_not_count_finished_items(
+        self, client, world, conference, organizer
+    ):
+        gate = ReadinessGate.objects.get(conference=conference, code="tech-check-open")
+        gate.set_open(True, actor=organizer)
+        refresh_for_conference(conference)
+        complete_item(item(world["ada"], "Do a tech check"), actor=world["ada"].user)
+        gate.set_open(False, actor=organizer)
+        refresh_for_conference(conference)
+        client.force_login(organizer)
+        gates = client.get(GATES).context["gates"]
+        assert [g.waiting for g in gates if g.code == "tech-check-open"] == [0]
 
 
 @pytest.mark.django_db
@@ -222,6 +300,16 @@ class TestOverride:
         )
         slot_item.refresh_from_db()
         assert slot_item.ready_override == ""
+
+    def test_a_hold_says_a_person_decided(self, client, world, organizer):
+        """Not the gate's wording: someone chose this."""
+        tech = item(world["ada"], "Do a tech check")
+        client.force_login(organizer)
+        client.post(
+            reverse("speakers:item_ready", args=[tech.pk]), {"override": "HOLD"}
+        )
+        tech.refresh_from_db()
+        assert tech.waiting_reason == "the organizers are holding this"
 
     def test_an_organizer_holds_an_item_shut(self, client, world, organizer):
         discord = item(world["ada"], "Join the PyLadiesCon Discord")
@@ -410,6 +498,67 @@ class TestWhatPeopleSee:
 
 
 @pytest.mark.django_db
+class TestInstantiationOrder:
+    def test_a_line_waiting_on_one_that_sorts_after_it_starts_waiting(
+        self, conference, enabled, speaker_user
+    ):
+        """The item a line waits for may not exist yet when the line is
+        instantiated, because it sorts later in the same template. Without
+        a second pass the speaker gets a tickable box until the nightly
+        refresh (review of #432).
+        """
+        seed_checklists(conference)
+        session = make_session(conference, title="Ordering")
+        template = ChecklistTemplateItem.objects.filter(
+            template__conference=conference,
+            title="Check your session title and summary",
+        ).first()
+        blocker = ChecklistTemplateItem.objects.create(
+            template=template.template,
+            owner=ItemOwner.ORGANIZER,
+            title="Prepare the thing first",
+            order=template.order + 500,
+        )
+        template.waits_for = blocker
+        template.waiting_note = "we are getting it ready"
+        template.save()
+        presenter = make_presenter(
+            conference, display_name="Ordered", user=speaker_user
+        )
+        link = add_presenter(session, presenter, confirmed=True)
+        created = instantiate_presenter_checklist(link)
+        waiter = next(i for i in created if i.template_item_id == template.pk)
+        blocked_by = next(i for i in created if i.template_item_id == blocker.pk)
+        assert waiter.is_waiting and waiter.waits_for == blocked_by
+        assert waiter.waiting_reason == "we are getting it ready"
+
+    def test_a_line_may_not_wait_on_itself_through_others(self, conference, enabled):
+        seed_checklists(conference)
+        first = ChecklistTemplateItem.objects.filter(
+            template__conference=conference
+        ).first()
+        second = (
+            ChecklistTemplateItem.objects.filter(template=first.template)
+            .exclude(pk=first.pk)
+            .first()
+        )
+        second.waits_for = first
+        second.save()
+        first.waits_for = second
+        with pytest.raises(ValidationError, match="wait on each other"):
+            first.save()
+
+    def test_completing_a_one_off_item_does_not_sweep_the_presenter(
+        self, world, conference
+    ):
+        """A one-off item names no line, so nothing can be waiting on it."""
+        one_off = add_adhoc_item(
+            conference, "One off", ItemOwner.SPEAKER, presenter=world["ada"]
+        )
+        assert refresh_dependents(one_off) == 0
+
+
+@pytest.mark.django_db
 class TestSeedsAndCloning:
     def test_seeding_gates_is_idempotent(self, conference):
         assert seed_readiness_gates(conference) == 2
@@ -447,8 +596,12 @@ class TestSeedsAndCloning:
 @pytest.mark.django_db
 class TestStatusGuard:
     def test_reopening_a_waiting_item_is_allowed(self, world, organizer):
-        """An item ticked before its source shut again can still be put
-        back: reopening is not work, it is a correction."""
+        """An item ticked while it was open can still be put back once its
+        source has shut again: reopening is a correction, not work.
+
+        While it is done it does not wait, whatever the source says; it
+        starts waiting again the moment it is open.
+        """
         slot_item = item(world["ada"], "Confirm your scheduled slot")
         slot_item.ready_override = ReadyOverride.OPEN
         slot_item.save()
@@ -457,11 +610,12 @@ class TestStatusGuard:
         slot_item.ready_override = ""
         slot_item.save()
         apply_readiness(slot_item)
-        assert slot_item.is_waiting
+        assert slot_item.is_done and not slot_item.is_waiting
         reopen_item(slot_item, actor=organizer)
-        assert item(world["ada"], "Confirm your scheduled slot").status == (
-            ItemStatus.TODO
-        )
+        slot_item = item(world["ada"], "Confirm your scheduled slot")
+        assert slot_item.status == ItemStatus.TODO
+        apply_readiness(slot_item)
+        assert slot_item.is_waiting
 
     def test_the_message_falls_back_when_there_is_no_reason(self, world, organizer):
         discord = item(world["ada"], "Join the PyLadiesCon Discord")

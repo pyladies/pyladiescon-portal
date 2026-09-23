@@ -11,6 +11,9 @@ all of them:
 * a **rule**, for something the database can answer. The registry below
   holds the predicates; ``ReadyRule`` names them.
 * a **gate**, a switch organizers flip, for work the portal cannot see.
+  The item carries the gate's code and the row is resolved from it, so a
+  gate added later attaches to items that already named it, and a code
+  with no gate row holds them shut rather than opening them.
 * **another item**, for the one piece of work that unblocks this one.
 
 ``apply_readiness`` writes the answer onto the item, so the digests, the
@@ -20,7 +23,13 @@ counts and the board can filter in SQL instead of asking every row.
 from django.db.models import Q
 
 from .constants import ItemStatus, ReadyOverride, ReadyRule
-from .models import ChecklistItem, Handbook, ScheduleSlot, SpeakerSettings
+from .models import (
+    ChecklistItem,
+    Handbook,
+    ReadinessGate,
+    ScheduleSlot,
+    SpeakerSettings,
+)
 
 READY_RULES = {}
 
@@ -56,12 +65,30 @@ def registration_open(item):
     return bool(settings_row and settings_row.pretix_configured)
 
 
+def _gate(item):
+    """The gate this item waits on, resolved from the code its line named.
+
+    The gate row may be created after the item (an organizer adds it on the
+    gates page), so the code is what the item carries and the link is
+    resolved here. A code with no gate row resolves to nothing, and the
+    caller treats that as shut: it names work nobody has recorded.
+    """
+    if item.ready_gate_id is not None:
+        return item.ready_gate
+    if not item.ready_gate_code:
+        return None
+    return ReadinessGate.objects.filter(
+        conference_id=item.conference_id, code=item.ready_gate_code
+    ).first()
+
+
 def _blocking_item(item):
     """The item this one waits for, resolved from the line it was made from.
 
-    The blocking item may be created after this one (an organizer line
-    instantiated later), so the link is resolved here rather than only at
-    instantiation, and stored once it resolves.
+    The blocking item may be created after this one (a line that sorts
+    later in the same template, or an organizer line instantiated later),
+    so the link is resolved here rather than only at instantiation, and
+    stored once it resolves.
     """
     if item.waits_for_id is not None:
         return item.waits_for
@@ -79,19 +106,35 @@ def _blocking_item(item):
     return candidates.order_by("session_id", "id").first()
 
 
-def evaluate_readiness(item):
+def _sources(item):
+    """The two rows the answer may depend on, read once per evaluation."""
+    return _gate(item), _blocking_item(item)
+
+
+def evaluate_readiness(item, sources=None):
     """``(waiting, reason)`` for one item, without saving anything."""
+    gate, blocking = _sources(item) if sources is None else sources
+    if not item.is_open:
+        # Finished work never waits. Shutting a gate again must not drag a
+        # done item back into the waiting count on either side.
+        return False, ""
     if item.ready_override == ReadyOverride.OPEN:
         return False, ""
     if item.ready_override == ReadyOverride.HOLD:
-        return True, item.template_waiting_note or "the organizers are holding this"
+        # A person decided this, so say that rather than repeating whatever
+        # the item would otherwise have been waiting for.
+        return True, "the organizers are holding this"
     note = item.template_waiting_note
-    if item.ready_gate_id is not None and not item.ready_gate.is_open:
-        return True, note or item.ready_gate.waiting_note
+    if item.ready_gate_code or item.ready_gate_id is not None:
+        if gate is None:
+            # The line names a gate this edition has not got. That is work
+            # nobody has recorded, so the item waits until someone does.
+            return True, note or "this has not been opened yet"
+        if not gate.is_open:
+            return True, note or gate.waiting_note
     func = READY_RULES.get(item.ready_rule)
     if func is not None and not func(item):
         return True, note or ReadyRule(item.ready_rule).label.lower()
-    blocking = _blocking_item(item)
     if blocking is not None and blocking.status not in (
         ItemStatus.DONE,
         ItemStatus.SKIPPED,
@@ -101,10 +144,18 @@ def evaluate_readiness(item):
 
 
 def apply_readiness(item, save=True):
-    """Evaluate and store. Returns whether the item's readiness moved."""
-    waiting, reason = evaluate_readiness(item)
-    blocking = _blocking_item(item)
+    """Evaluate and store. Returns whether the item's readiness moved.
+
+    Resolving the gate and the blocking item here is what lets a gate added
+    later, or a blocking item created later, attach to items that already
+    exist.
+    """
+    gate, blocking = _sources(item)
+    waiting, reason = evaluate_readiness(item, (gate, blocking))
     fields = []
+    if gate is not None and item.ready_gate_id != gate.pk:
+        item.ready_gate = gate
+        fields.append("ready_gate")
     if blocking is not None and item.waits_for_id != blocking.pk:
         item.waits_for = blocking
         fields.append("waits_for")
@@ -121,6 +172,7 @@ def _waiting_capable(queryset):
     return queryset.filter(
         Q(ready_rule__gt="")
         | Q(ready_gate__isnull=False)
+        | Q(ready_gate_code__gt="")
         | Q(waits_for_line__isnull=False)
         | Q(waits_for__isnull=False)
         | Q(ready_override__gt="")
@@ -143,9 +195,15 @@ def refresh_for_conference(conference=None):
 
 def refresh_dependents(item):
     """Items waiting on this one, after it was completed or reopened."""
+    waiting_on_it = Q(waits_for=item)
+    if item.template_item_id is not None:
+        # Lines name a template line, so an item made from one may be
+        # waiting on this one without the link resolved yet. A one-off item
+        # has no line, and matching on a null line would sweep in every
+        # waiting item this presenter has.
+        waiting_on_it |= Q(
+            waits_for_line_id=item.template_item_id, presenter_id=item.presenter_id
+        )
     return refresh_readiness(
-        ChecklistItem.objects.filter(
-            Q(waits_for=item)
-            | Q(waits_for_line_id=item.template_item_id, presenter_id=item.presenter_id)
-        ).exclude(pk=item.pk)
+        ChecklistItem.objects.filter(waiting_on_it).exclude(pk=item.pk)
     )

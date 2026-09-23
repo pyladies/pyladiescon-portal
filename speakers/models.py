@@ -1385,6 +1385,7 @@ class ChecklistTemplateItem(TimestampedModel):
             raise ValidationError(
                 {"auto_complete_rule": f"Unknown rule {self.auto_complete_rule!r}."}
             )
+        self._reject_wait_cycle()
         if self.requires_asset_kind and not self.auto_complete_rule:
             raise ValidationError(
                 {
@@ -1394,6 +1395,23 @@ class ChecklistTemplateItem(TimestampedModel):
                     )
                 }
             )
+
+    def _reject_wait_cycle(self):
+        """A line may not wait, directly or through others, on itself.
+
+        Nothing recurses at evaluation time, so a cycle does not crash: it
+        leaves every line in it waiting forever with no sign of why. Refuse
+        it where someone can still see what they did.
+        """
+        seen = {self.pk} if self.pk else set()
+        node = self.waits_for
+        while node is not None:
+            if node.pk in seen:
+                raise ValidationError(
+                    {"waits_for": "These lines would wait on each other."}
+                )
+            seen.add(node.pk)
+            node = node.waits_for
 
     def save(self, *args, **kwargs):
         self.clean()
@@ -1509,6 +1527,13 @@ class ChecklistItem(TimestampedModel):
     # start this item, and what the speaker reads while it waits.
     ready_rule = models.CharField(
         max_length=32, choices=ReadyRule.choices, blank=True, default="", db_default=""
+    )
+    # The code the line named, and the gate it resolves to. The code is
+    # what the item carries: a gate added later attaches to items that
+    # already exist, and deleting a gate puts them back to waiting rather
+    # than opening them.
+    ready_gate_code = models.SlugField(
+        max_length=40, blank=True, default="", db_default=""
     )
     ready_gate = models.ForeignKey(
         ReadinessGate,

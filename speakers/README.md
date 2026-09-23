@@ -171,21 +171,34 @@ outranks all of them (`speakers/readiness.py`):
 - **A gate** (`ready_gate_code`), a switch organizers flip on the
   "Readiness gates" page, for work the portal cannot see: the tech check
   equipment, an upload feature that does not exist yet. One flip opens every
-  item waiting on it, and adding a gate is data rather than a deploy. A line
-  naming a code the edition has no gate for waits: the code names work
-  nobody has recorded.
+  item waiting on it, and adding a gate is data rather than a deploy. The
+  item carries the **code**, and the gate row is resolved from it, so a gate
+  created later attaches to the items that already named it and deleting one
+  puts those items back to waiting. A code the edition has no gate for waits
+  too: it names work nobody has recorded. Gates fail shut in every
+  direction, on purpose.
 - **Another line** (`waits_for`), for the one piece of work that unblocks
   this one, which is how a speaker line waits on the organizer line behind
   it. The instance link is resolved from the line, since the blocking item
   may be created later.
 - **The override** (`ready_override`, organizer-only): open this item
-  whatever it waits for, or hold it shut whatever it does not. The activity
-  log says who decided.
+  whatever it waits for, or hold it shut whatever it does not. A held item
+  tells the speaker that the organizers are holding it, rather than
+  repeating a reason that is no longer the one that matters, and the
+  activity log says who decided.
+
+A finished item never waits, whatever its sources say: shutting a gate
+again must not drag done work back into the waiting count, where the
+progress line would hold it twice.
 
 The answer is stored on the item (`is_waiting`, `waiting_reason`) so the
 digests and the counts can filter in SQL. It is refreshed when a gate flips,
 when a blocking item is finished or reopened, when an item is created, and
-nightly alongside the auto-completion rules.
+nightly alongside the auto-completion rules. A batch of new items is
+evaluated once more when the batch is complete, since a line may wait on one
+that sorts after it, whose item does not exist yet as the first one is
+made. A line may not wait on itself through others; `clean()` refuses the
+cycle where the person making it can see what they did.
 
 A waiting item is **counted but never chased**: it is in "3 of 12 done, 2
 waiting", and it is left out of the overdue count, the digests and the
