@@ -4,7 +4,8 @@
 Organizers and liaisons get this inside the Organize shell ("My queue");
 a volunteer who was handed an item gets the same list under the personal
 volunteer rail ("My speaker tasks"), whose other entries they can actually
-open. The view picks the shell.
+open. ``shell`` is one of two templates the view picks:
+"speakers/_organize_shell.html" or "portal/base_sidebar.html".
 {% endcomment %}
 {% block head_title %}
     {% if organizer_side %}

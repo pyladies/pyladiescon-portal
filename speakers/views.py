@@ -1593,6 +1593,13 @@ class ItemStatusView(ItemActionMixin, View):
         item = self.get_item()
         status = request.POST.get("status", "")
         note = request.POST.get("note")
+        if status == ItemStatus.SKIPPED and not can_work_sessions(
+            request.user, self.conference
+        ):
+            # Ticking an item off is one thing; deciding it does not apply,
+            # with a note that may be internal, is the organizing side's
+            # call. The form is hidden for a volunteer; refuse the post too.
+            raise PermissionDenied("Only organizers and liaisons skip an item.")
         error = ""
         try:
             if status == ItemStatus.DONE:

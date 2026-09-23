@@ -5,7 +5,13 @@ from django.contrib.auth.models import User
 from django.urls import reverse
 from pytest_django.asserts import assertRedirects
 
-from speakers.checklists import add_adhoc_item, assign_item, block_item, complete_item
+from speakers.checklists import (
+    add_adhoc_item,
+    assign_item,
+    block_item,
+    complete_item,
+    skip_item,
+)
 from speakers.constants import ItemOwner
 from speakers.models import Handbook
 from volunteer.constants import ApplicationStatus
@@ -170,6 +176,27 @@ class TestSpeakerItemDetail:
         content = client.get(my_detail(world["todo"])).content.decode()
         assert "Video is too long" in content and "Blocked" in content
 
+    def test_only_a_blocked_note_reaches_the_presenter(
+        self, client, speaker, world, liaison
+    ):
+        """A note written on a skip or a completion is internal.
+
+        The checklist list has always shown a note only on a blocked item;
+        the item page follows the same rule, or an organizer's "she never
+        answered three emails" lands in front of the speaker.
+        """
+        team_item = world["team_item"]
+        skip_item(team_item, actor=liaison, note="Not worth chasing her again")
+        client.force_login(speaker)
+        content = client.get(my_detail(team_item)).content.decode()
+        assert "Not worth chasing" not in content
+        complete_item(world["todo"], actor=liaison, note="chased her for weeks")
+        content = client.get(my_detail(world["todo"])).content.decode()
+        assert "chased her for weeks" not in content
+        # The organizing side still reads every note.
+        client.force_login(liaison)
+        assert "Not worth chasing" in client.get(detail(team_item)).content.decode()
+
     def test_list_links_to_the_detail_page(self, client, speaker, world):
         client.force_login(speaker)
         content = client.get(reverse("speakers:my_checklist")).content.decode()
@@ -252,6 +279,15 @@ class TestOrganizerItemDetail:
         assert world["session"].get_absolute_url() not in content
         assert "Django 101" in content
         assert "Mark as done" in content
+        # Skipping is the organizing side's call, in the page and in the view.
+        assert "Skip" not in content
+        refused = client.post(
+            reverse("speakers:item_status", args=[world["video_item"].pk]),
+            {"status": "SKIPPED", "note": "internal: not worth chasing"},
+        )
+        assert refused.status_code == 403
+        world["video_item"].refresh_from_db()
+        assert world["video_item"].note == ""
         assert client.get(detail(world["team_item"])).status_code == 403
 
     def test_queue_and_presenter_page_link_to_detail(

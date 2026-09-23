@@ -4,7 +4,10 @@
 {% comment %}
 One checklist item for the organizing side. Organizers and liaisons get the
 Organize shell and may reassign; a volunteer the item was handed to gets
-their personal rail and may only change its status.
+their personal rail and may only mark it done or reopen it.
+
+``shell`` is one of two templates the view picks:
+"speakers/_organize_shell.html" or "portal/base_sidebar.html".
 {% endcomment %}
 {% block head_title %}
     {{ item.title }}
@@ -87,7 +90,13 @@ their personal rail and may only change its status.
                                 </button>
                             {% endif %}
                         </form>
-                        {% if item.status != "SKIPPED" %}
+                        {% comment %}
+                        Skipping is a judgement about whether the item
+                        applies at all, and its note can be internal, so it
+                        stays with organizers and liaisons. A volunteer
+                        carrying the item marks it done or reopens it.
+                        {% endcomment %}
+                        {% if organizer_side and item.status != "SKIPPED" %}
                             <form method="post" action="{% url 'speakers:item_status' item.pk %}">
                                 {% csrf_token %}
                                 <input type="hidden"

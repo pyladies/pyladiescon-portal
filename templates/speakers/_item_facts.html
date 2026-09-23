@@ -5,7 +5,9 @@ The facts about one checklist item, shared by the organizer and speaker
 detail pages. Params:
     item          — ChecklistItem with .overdue set
     link_records  — truthy to link the presenter and session to organizer pages
-    speaker_view  — truthy when the presenter is reading their own item
+    speaker_view  — truthy when the presenter is reading their own item,
+                    which also keeps notes that are not about a hold-up off
+                    the page
 {% endcomment %}
 <div class="mb-3">
     <span class="badge {% if item.is_done %}text-bg-success{% elif item.status == 'BLOCKED' %}text-bg-danger{% elif item.status == 'SKIPPED' %}text-bg-secondary{% elif item.overdue %}text-bg-warning{% else %}text-bg-light border{% endif %}">
@@ -103,11 +105,20 @@ detail pages. Params:
         </dd>
     {% endif %}
     {% if item.note %}
-        <dt class="col-sm-3">
-            {% trans "Note" %}
-        </dt>
-        <dd class="col-sm-9 {% if item.status == 'BLOCKED' %}text-danger{% endif %}">
-            {{ item.note }}
-        </dd>
+        {% comment %}
+        A note is written by whoever changed the status, including an
+        organizer skipping an item, so it can be internal. The presenter
+        reads it only when the item is blocked, which is the rule the
+        checklist list has always followed: a hold-up they need to know
+        about.
+        {% endcomment %}
+        {% if not speaker_view or item.status == "BLOCKED" %}
+            <dt class="col-sm-3">
+                {% trans "Note" %}
+            </dt>
+            <dd class="col-sm-9 {% if item.status == 'BLOCKED' %}text-danger{% endif %}">
+                {{ item.note }}
+            </dd>
+        {% endif %}
     {% endif %}
 </dl>

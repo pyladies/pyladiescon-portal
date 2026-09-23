@@ -17,6 +17,7 @@ from datetime import timezone as dt_timezone
 from django.conf import settings
 from django.contrib.auth.models import User
 from django.core.management.base import BaseCommand, CommandError
+from django.db import transaction
 from django.utils import timezone
 
 from portal.models import Conference
@@ -197,7 +198,15 @@ class Command(BaseCommand):
             "--conference", help="Year or slug; defaults to the active one."
         )
 
+    @transaction.atomic
     def handle(self, *args, **options):
+        """One transaction for the lot.
+
+        The phases depend on each other (the checklist states look up
+        presenters and the Design Team by name), so a half-built edition
+        would fail the next run somewhere else. Either the edition is
+        fully seeded or it is untouched.
+        """
         if not settings.DEBUG:
             raise CommandError("This command only runs with DEBUG on.")
         self.conference = self._conference(options.get("conference"))
@@ -234,6 +243,9 @@ class Command(BaseCommand):
             if conference is None:
                 raise CommandError("No active conference; pass --conference.")
         first_weekend = datetime(conference.year, 12, 5).date()
+        # The only row the command changes rather than creates, and only
+        # when the edition has no dates at all: the schedule slots below
+        # need a first day to hang off.
         if not conference.start_date:
             conference.start_date = first_weekend
             conference.end_date = first_weekend + timedelta(days=1)
@@ -295,10 +307,12 @@ class Command(BaseCommand):
                 username=username,
                 defaults={"email": email, "first_name": first, "last_name": last},
             )
-            user.is_staff, user.is_superuser = staff, superuser
             if created:
+                # Only on creation: a developer who promoted one of these
+                # accounts to test something keeps it through a rerun.
+                user.is_staff, user.is_superuser = staff, superuser
                 user.set_password(PASSWORD)
-            user.save()
+                user.save()
             PortalProfile.objects.get_or_create(
                 user=user, defaults={"coc_agreement": True, "tos_agreement": True}
             )
