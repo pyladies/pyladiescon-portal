@@ -353,6 +353,32 @@ class TestTemplateChangesReachExistingChecklists:
         assert instance.due_date == date(2026, 12, 1)
         assert instance.pending_notice == NoticeKind.CHANGED
 
+    def test_a_date_that_cannot_be_recomputed_is_kept(self, seeded):
+        """An anchor with nothing to anchor to leaves the date alone; an
+        anchor removed from the line takes the date with it."""
+        template = workshop_template(seeded)
+        session = make_session(seeded, kind="WORKSHOP")
+        link = add_presenter(session, make_presenter(seeded), confirmed=True)
+        instantiate_presenter_checklist(link)
+        line = template.items.get(title="Check your session title and summary")
+        instance = link.presenter.checklist_items.get(template_item=line)
+        assert instance.due_date is not None
+        was = instance.due_date
+        # Nothing to anchor on: no acceptance and no confirmed link.
+        SessionPresenter.objects.filter(pk=link.pk).update(confirmed_at=None)
+        line.due_offset_days = 9
+        line.save()
+        apply_template_item_changes(line)
+        instance.refresh_from_db()
+        assert instance.due_date == was
+        # The organizer clears the anchor: now the line has no deadline, and
+        # neither should its instances.
+        line.due_anchor = ""
+        line.save()
+        apply_template_item_changes(line)
+        instance.refresh_from_db()
+        assert instance.due_date is None
+
     def test_edits_propagate_and_flag_only_visible_changes(self, seeded):
         template = workshop_template(seeded)
         session = make_session(seeded, kind="WORKSHOP")

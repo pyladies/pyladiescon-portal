@@ -324,7 +324,17 @@ def apply_template_item_changes(template_item):
         before = {field: getattr(item, field) for field in NOTIFY_ON_CHANGE}
         item.title = title
         item.description_md = template_item.description_md
-        item.due_date = template_item.due_date(**anchors)
+        recomputed = template_item.due_date(**anchors)
+        # None means one of two different things. A line with no anchor has
+        # no deadline, and its instances should lose theirs. A line that has
+        # an anchor this item cannot resolve (no acceptance, no slot) is a
+        # date we merely cannot work out, so the one it has stands rather
+        # than being wiped and mailed out as a change.
+        item.due_date = (
+            recomputed
+            if recomputed is not None or not template_item.due_anchor
+            else item.due_date
+        )
         item.order = template_item.order
         item.owner = template_item.owner
         item.is_required = template_item.is_required
