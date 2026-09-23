@@ -9,7 +9,7 @@ sponsor table live in the content area.
 
 Expects:
     active: one of: "dashboard", "volunteers", "teams", "conferences", "program_types",
-             "sessions", "presenters", "checklists", "queue", "templates", "handbook", "sponsors", "tiers", "add" (the Add sponsor action).
+             "sessions", "presenters", "checklists", "queue", "templates", "gates", "handbook", "sponsors", "tiers", "add" (the Add sponsor action).
              Anything else = no item highlighted.
 Uses from the user_capabilities context processor:
     is_organizer, can_manage_sponsorship, can_start_next_year, is_maintainer
@@ -71,6 +71,12 @@ layout, as before.
         {% include "portal/_sidebar_item.html" with url=queue_url label=_("My queue") icon="fa-inbox" only %}
     {% endif %}
     {% if is_organizer %}
+        {% url 'speakers:readiness_gates' as gates_url %}
+        {% if active == "gates" %}
+            {% include "portal/_sidebar_item.html" with url=gates_url label=_("Readiness gates") icon="fa-hourglass-half" active=True only %}
+        {% else %}
+            {% include "portal/_sidebar_item.html" with url=gates_url label=_("Readiness gates") icon="fa-hourglass-half" only %}
+        {% endif %}
         {% url 'speakers:program_types' as program_types_url %}
         {% if active == "program_types" %}
             {% include "portal/_sidebar_item.html" with url=program_types_url label=_("Types and roles") icon="fa-tags" active=True only %}

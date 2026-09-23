@@ -445,8 +445,8 @@ class TestNightly:
         ChecklistItem.objects.filter(pk=item.pk).update(status=ItemStatus.TODO)
         assert reevaluate_all(conference) == 1
         assert status_of(item) == ItemStatus.DONE
-        assert (
-            reevaluate_checklists_task() == "Re-evaluated checklists; 0 item(s) changed"
+        assert reevaluate_checklists_task() == (
+            "Re-evaluated checklists; 0 item(s) changed, " "0 item(s) changed readiness"
         )
 
     def test_reevaluate_all_scopes_by_conference(self, conference):

@@ -153,6 +153,45 @@ reads it only when the item is blocked, on their checklist and on the item
 page alike: a blocked note explains a hold-up they need to know about, while
 a skip note is a conversation among organizers.
 
+### Items nobody can start yet (readiness)
+
+An item exists long before it can be done: confirming a slot before the
+schedule is built, reading a guide nobody has published, a tech check the
+team has not opened booking for. Such an item **waits**. It stays in place
+on the list, muted, with one line saying what it waits for, and
+`set_item_status` refuses a manual tick, so the disabled box is not the
+only guard.
+
+A template line waits on any of three sources, and an organizer override
+outranks all of them (`speakers/readiness.py`):
+
+- **A rule** (`ready_rule`), for something the database can answer:
+  `session_scheduled`, `guide_published`, `registration_open`. Adding one is
+  a code change, because the predicate is code.
+- **A gate** (`ready_gate_code`), a switch organizers flip on the
+  "Readiness gates" page, for work the portal cannot see: the tech check
+  equipment, an upload feature that does not exist yet. One flip opens every
+  item waiting on it, and adding a gate is data rather than a deploy. A line
+  naming a code the edition has no gate for waits: the code names work
+  nobody has recorded.
+- **Another line** (`waits_for`), for the one piece of work that unblocks
+  this one, which is how a speaker line waits on the organizer line behind
+  it. The instance link is resolved from the line, since the blocking item
+  may be created later.
+- **The override** (`ready_override`, organizer-only): open this item
+  whatever it waits for, or hold it shut whatever it does not. The activity
+  log says who decided.
+
+The answer is stored on the item (`is_waiting`, `waiting_reason`) so the
+digests and the counts can filter in SQL. It is refreshed when a gate flips,
+when a blocking item is finished or reopened, when an item is created, and
+nightly alongside the auto-completion rules.
+
+A waiting item is **counted but never chased**: it is in "3 of 12 done, 2
+waiting", and it is left out of the overdue count, the digests and the
+reminder emails. Gates clone into next year shut, since last year's answer
+says nothing about this year's work.
+
 ### General items (once per presenter)
 
 Templates have three scopes. `GENERAL` ("Every presenter", one per edition,

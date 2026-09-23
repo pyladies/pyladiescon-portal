@@ -1,0 +1,108 @@
+{% extends "speakers/_organize_shell.html" %}
+{% load i18n %}
+{% load django_bootstrap5 %}
+{% comment %}
+The switches that hold checklist items shut until the work behind them is
+possible. A line names a gate by code; flipping one here opens every item
+waiting on it.
+{% endcomment %}
+{% block head_title %}
+    {% trans "Readiness gates" %}
+{% endblock head_title %}
+{% block breadcrumb %}
+    {% trans "Readiness gates" as bc_section %}
+    {% include "portal/_breadcrumbs.html" with section=bc_section %}
+{% endblock breadcrumb %}
+{% block content %}
+    <h1 class="h3 mb-1">
+        {% trans "Readiness gates" %}
+    </h1>
+    <p class="text-secondary">
+        {% trans "Some checklist items cannot be started until we have done something first: gathered the tech check equipment, opened the upload. A gate holds those items shut and says so on the speaker's list. Open it and they all become to-dos." %}
+    </p>
+    <div class="table-responsive mb-4">
+        <table class="table table-sm table-bordered align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>
+                        {% trans "Gate" %}
+                    </th>
+                    <th>
+                        {% trans "While it is shut" %}
+                    </th>
+                    <th>
+                        {% trans "Waiting" %}
+                    </th>
+                    <th>
+                        {% trans "State" %}
+                    </th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for gate in gates %}
+                    <tr>
+                        <td>
+                            {{ gate.name }}
+                            <div class="small text-secondary">
+                                <code>{{ gate.code }}</code>
+                                {% if gate.description %}
+                                    · {{ gate.description }}
+                                {% endif %}
+                            </div>
+                        </td>
+                        <td class="small text-secondary">
+                            {{ gate.waiting_note }}
+                        </td>
+                        <td>
+                            {% blocktranslate count counter=gate.waiting %}{{ counter }} item{% plural %}{{ counter }} items{% endblocktranslate %}
+                        </td>
+                        <td class="text-nowrap">
+                            <form method="post"
+                                  action="{% url 'speakers:readiness_gate_toggle' gate.pk %}">
+                                {% csrf_token %}
+                                {% if gate.is_open %}
+                                    <span class="badge text-bg-success">{% trans "Open" %}</span>
+                                    <input type="hidden" name="open" value="0">
+                                    <button class="btn btn-sm btn-link text-secondary" type="submit">
+                                        {% trans "shut it" %}
+                                    </button>
+                                {% else %}
+                                    <span class="badge text-bg-light border">{% trans "Shut" %}</span>
+                                    <input type="hidden" name="open" value="1">
+                                    <button class="btn btn-sm btn-outline-success" type="submit">
+                                        {% trans "Open it" %}
+                                    </button>
+                                {% endif %}
+                            </form>
+                            {% if gate.opened_at %}
+                                <div class="small text-secondary">
+                                    {% blocktranslate with date=gate.opened_at|date:"j M" name=gate.opened_by.get_full_name|default:gate.opened_by.username %}opened {{ date }} by {{ name }}{% endblocktranslate %}
+                                </div>
+                            {% endif %}
+                        </td>
+                    </tr>
+                {% empty %}
+                    <tr>
+                        <td colspan="4" class="text-secondary">
+                            {% trans "No gates yet. Add one when a checklist line has to wait for work the portal cannot see." %}
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <details>
+        <summary class="h6">
+            {% trans "Add a gate" %}
+        </summary>
+        <form method="post"
+              action="{% url 'speakers:readiness_gate_add' %}"
+              class="mt-3">
+            {% csrf_token %}
+            {% bootstrap_form form %}
+            <button class="btn btn-sm btn-primary" type="submit">
+                {% trans "Add" %}
+            </button>
+        </form>
+    </details>
+{% endblock content %}

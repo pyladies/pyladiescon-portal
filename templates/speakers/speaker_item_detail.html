@@ -37,7 +37,12 @@
         <div class="col-lg-4">
             <div class="card mb-4">
                 <div class="card-body">
-                    {% if tickable %}
+                    {% if item.is_waiting %}
+                        <p class="text-secondary small mb-0">
+                            <i class="fa-solid fa-hourglass-half"></i>
+                            {% trans "Nothing to do here yet. We will let you know when it is ready." %}
+                        </p>
+                    {% elif tickable %}
                         <form method="post" action="{% url 'speakers:my_item_toggle' item.pk %}">
                             {% csrf_token %}
                             <input type="hidden"

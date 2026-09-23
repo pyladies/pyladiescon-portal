@@ -27,9 +27,11 @@ from .models import (
     ChecklistTemplate,
     ChecklistTemplateItem,
     Presenter,
+    ReadinessGate,
     SessionPresenter,
     SpeakerSettings,
 )
+from .readiness import apply_readiness, refresh_dependents
 
 
 class ChecklistError(ValueError):
@@ -81,6 +83,18 @@ def _default_owner(template_item, session, presenter):
     return None, None
 
 
+def _gate_for(template_item, conference_id):
+    """The edition's gate with the line's code, matched the way the default
+    team name is, so a template cloned into next year finds next year's
+    gate. A code no gate carries yet holds the item shut: it names work
+    nobody has recorded, which is exactly what waiting means."""
+    if not template_item.ready_gate_code:
+        return None
+    return ReadinessGate.objects.filter(
+        conference_id=conference_id, code=template_item.ready_gate_code
+    ).first()
+
+
 def _create_instance(template_item, *, session, presenter, anchors, language=""):
     """Create one instance unless the same one already exists. Returns
     the item, or None when it was already there."""
@@ -96,7 +110,7 @@ def _create_instance(template_item, *, session, presenter, anchors, language="")
     if template_item.per_translation_language and language:
         title = f"{title} ({language})"
     assignee, team = _default_owner(template_item, session, presenter)
-    return ChecklistItem.objects.create(
+    item = ChecklistItem.objects.create(
         conference_id=(session or presenter).conference_id,
         order=template_item.order,
         owner=template_item.owner,
@@ -109,8 +123,16 @@ def _create_instance(template_item, *, session, presenter, anchors, language="")
         auto_complete_rule=template_item.auto_complete_rule,
         requires_asset_kind=template_item.requires_asset_kind,
         requires_handbook=template_item.requires_handbook,
+        ready_rule=template_item.ready_rule,
+        ready_gate=_gate_for(template_item, (session or presenter).conference_id),
+        waits_for_line=template_item.waits_for,
+        template_waiting_note=template_item.waiting_note,
         **lookup,
     )
+    # A line that waits starts out waiting, rather than looking actionable
+    # until the next pass runs.
+    apply_readiness(item)
+    return item
 
 
 def _languages_for(template_item, session):
@@ -434,6 +456,14 @@ def set_item_status(item, status, *, actor=None, note=None, manual=True):
     """
     if manual and item.is_automatic and status in (ItemStatus.DONE, ItemStatus.TODO):
         raise ChecklistError("This item completes itself; it cannot be ticked by hand.")
+    if manual and item.is_waiting and status != ItemStatus.TODO:
+        # The row's box is not clickable, and this is the guard behind it.
+        # An organizer who has to close it anyway opens it first.
+        raise ChecklistError(
+            f"This item is not ready yet: {item.waiting_reason}."
+            if item.waiting_reason
+            else "This item is not ready to be worked on yet."
+        )
     previous = item.status
     item.status = status
     if note is not None:
@@ -447,6 +477,9 @@ def set_item_status(item, status, *, actor=None, note=None, manual=True):
     item.save()
     if status != previous:
         _log(item, f"checklist.{status.lower()}", actor)
+        # Anything waiting on this item may have just opened, or closed
+        # again if it was reopened.
+        refresh_dependents(item)
         if item.is_required and status in (ItemStatus.DONE, ItemStatus.SKIPPED):
             if item.session_id is not None:
                 confirm_session_if_ready(item.session)

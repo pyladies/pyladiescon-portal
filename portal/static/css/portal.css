@@ -164,6 +164,16 @@ button.checklist-box-done:hover {
     border-color: var(--bs-secondary);
     color: var(--bs-secondary);
 }
+/* Waiting: nothing to click yet, and the row says why. */
+.checklist-box-waiting {
+    border-style: dotted;
+    border-color: var(--bs-secondary);
+    color: var(--bs-secondary);
+    opacity: 0.75;
+}
+.checklist-row-waiting .checklist-title-waiting {
+    color: var(--bs-secondary) !important;
+}
 .checklist-title-done {
     text-decoration: line-through !important;
     color: var(--bs-secondary) !important;

@@ -45,6 +45,8 @@ from .constants import (
     MediaStatus,
     NoticeKind,
     PremiereLocation,
+    ReadyOverride,
+    ReadyRule,
     SessionLevel,
     SessionStatus,
     format_owner,
@@ -1199,6 +1201,65 @@ class ChecklistTemplate(TimestampedModel):
         ).first()
 
 
+class ReadinessGate(TimestampedModel):
+    """A switch organizers flip when work the portal cannot see is done.
+
+    A checklist line waits on a gate when nothing in the database can
+    answer whether it can be started: the tech check nobody can book until
+    the team has the equipment, the asset upload that waits on a portal
+    feature. One flip opens every line waiting on it. Gates are rows per
+    edition, matched by ``code`` when a template clones forward, so adding
+    one is data rather than a deploy.
+    """
+
+    conference = models.ForeignKey(
+        "portal.Conference",
+        on_delete=models.PROTECT,
+        related_name="readiness_gates",
+    )
+    code = models.SlugField(max_length=40)
+    name = models.CharField(
+        max_length=100, help_text="What organizers call it on the gates page."
+    )
+    waiting_note = models.CharField(
+        max_length=120,
+        help_text="What a speaker reads while it is shut, e.g. "
+        '"booking opens later".',
+    )
+    description = models.TextField(blank=True, default="", db_default="")
+    is_open = models.BooleanField(default=False, db_default=False)
+    opened_at = models.DateTimeField(null=True, blank=True)
+    opened_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
+    )
+
+    class Meta:
+        ordering = ["name", "id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["conference", "code"], name="speakers_gate_code_per_edition"
+            )
+        ]
+
+    def __str__(self):
+        return self.name
+
+    def set_open(self, is_open, actor=None):
+        """Open or shut the gate, recording who did it. Returns whether the
+        gate moved, so the caller only re-evaluates when it did."""
+        if self.is_open == is_open:
+            return False
+        self.is_open = is_open
+        self.opened_at = timezone.now() if is_open else None
+        self.opened_by = actor if is_open else None
+        self.save(update_fields=["is_open", "opened_at", "opened_by", "modified_date"])
+        return True
+
+
 class ChecklistTemplateItem(TimestampedModel):
     """One line of a template (design §9.1 table)."""
 
@@ -1259,6 +1320,42 @@ class ChecklistTemplateItem(TimestampedModel):
         db_default="",
         help_text='With "A named team": the team\'s name, matched per edition '
         "so templates clone forward.",
+    )
+    # What has to be true before anyone can start this line (design §9.3a).
+    # Any of the three may be set; the item waits while any one of them says
+    # so, and an organizer override outranks all of them.
+    ready_rule = models.CharField(
+        max_length=32,
+        choices=ReadyRule.choices,
+        blank=True,
+        default="",
+        db_default="",
+        help_text="Wait for something the portal can check.",
+    )
+    ready_gate_code = models.SlugField(
+        max_length=40,
+        blank=True,
+        default="",
+        db_default="",
+        help_text="Wait for a gate organizers flip, matched per edition by "
+        "code so templates clone forward.",
+    )
+    waits_for = models.ForeignKey(
+        "self",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="blocks",
+        help_text="Wait for the item made from another line, for the same "
+        "presenter, to be done.",
+    )
+    waiting_note = models.CharField(
+        max_length=120,
+        blank=True,
+        default="",
+        db_default="",
+        help_text="What the speaker reads while it waits; blank uses the "
+        "source's own wording.",
     )
 
     class Meta:
@@ -1408,6 +1505,51 @@ class ChecklistItem(TimestampedModel):
     requires_handbook = models.SlugField(
         max_length=40, blank=True, default="", db_default=""
     )
+    # Copied from the template line: what has to be true before anyone can
+    # start this item, and what the speaker reads while it waits.
+    ready_rule = models.CharField(
+        max_length=32, choices=ReadyRule.choices, blank=True, default="", db_default=""
+    )
+    ready_gate = models.ForeignKey(
+        ReadinessGate,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="items",
+    )
+    waits_for_line = models.ForeignKey(
+        ChecklistTemplateItem,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="blocked_instances",
+        help_text="The line whose item this one waits for; resolved to the "
+        "item itself once that item exists.",
+    )
+    waits_for = models.ForeignKey(
+        "self",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="blocks",
+    )
+    template_waiting_note = models.CharField(
+        max_length=120, blank=True, default="", db_default=""
+    )
+    # Written by the readiness pass, so the digests and the counts can ask
+    # the database rather than every item.
+    is_waiting = models.BooleanField(default=False, db_default=False)
+    waiting_reason = models.CharField(
+        max_length=200, blank=True, default="", db_default=""
+    )
+    ready_override = models.CharField(
+        max_length=8,
+        choices=ReadyOverride.choices,
+        blank=True,
+        default="",
+        db_default="",
+        help_text="An organizer's answer, which outranks every wait source.",
+    )
     # Set when a line is added to or changed on an existing checklist; the
     # daily update email clears it (speakers/notices.py).
     pending_notice = models.CharField(
@@ -1485,7 +1627,14 @@ class ChecklistItem(TimestampedModel):
 
     @property
     def is_overdue(self):
-        return self.is_open and self.due_date is not None and self.due_date < today()
+        """Overdue only counts when someone could have done it: a waiting
+        item is never chased."""
+        return (
+            self.is_open
+            and not self.is_waiting
+            and self.due_date is not None
+            and self.due_date < today()
+        )
 
 
 class MediaAsset(TimestampedModel):

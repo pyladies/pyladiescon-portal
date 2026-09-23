@@ -69,6 +69,9 @@ def send_checklist_digests(conference, now=None):
             conference=conference,
             status__in=list(OPEN_ITEM_STATUSES),
             due_date__isnull=False,
+            # Nobody is chased for an item they cannot start: a waiting
+            # item has no reminder and no overdue line (design §9.3a).
+            is_waiting=False,
         ).select_related("presenter", "session", "assignee", "team")
     )
     emails = DigestCount(0)

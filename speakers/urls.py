@@ -72,6 +72,21 @@ urlpatterns = [
     ),
     path("settings/types/", views.ProgramTypesView.as_view(), name="program_types"),
     path(
+        "settings/gates/",
+        views.ReadinessGatesView.as_view(),
+        name="readiness_gates",
+    ),
+    path(
+        "settings/gates/add/",
+        views.ReadinessGateCreateView.as_view(),
+        name="readiness_gate_add",
+    ),
+    path(
+        "settings/gates/<int:pk>/toggle/",
+        views.ReadinessGateToggleView.as_view(),
+        name="readiness_gate_toggle",
+    ),
+    path(
         "settings/types/new/",
         views.SessionTypeCreateView.as_view(),
         name="session_type_create",
@@ -150,6 +165,7 @@ urlpatterns = [
     ),
     path("items/<int:pk>/", views.ItemDetailView.as_view(), name="item_detail"),
     path("items/<int:pk>/status/", views.ItemStatusView.as_view(), name="item_status"),
+    path("items/<int:pk>/ready/", views.ItemReadyView.as_view(), name="item_ready"),
     path("items/<int:pk>/assign/", views.ItemAssignView.as_view(), name="item_assign"),
     path(
         "presenters/<slug:slug>/items/add/",

@@ -62,6 +62,9 @@
                         {% if summary.total %}
                             <span class="badge {% if summary.done == summary.total %}text-bg-success{% else %}text-bg-light border{% endif %}">
                                 {% blocktranslate with done=summary.done total=summary.total %}{{ done }} of {{ total }} tasks done{% endblocktranslate %}
+                                {% if summary.waiting %}
+                                    {% blocktranslate with waiting=summary.waiting %}, {{ waiting }} waiting{% endblocktranslate %}
+                                {% endif %}
                             </span>
                         {% endif %}
                         {% if not summary.session.is_public %}
@@ -93,6 +96,9 @@
                     <span class="fw-semibold">{% trans "For you as a speaker" %}</span>
                     <span class="badge ms-2 {% if general_done == general_total %}text-bg-success{% else %}text-bg-light border{% endif %}">
                         {% blocktranslate with done=general_done total=general_total %}{{ done }} of {{ total }} tasks done{% endblocktranslate %}
+                        {% if general_waiting %}
+                            {% blocktranslate with waiting=general_waiting %}, {{ waiting }} waiting{% endblocktranslate %}
+                        {% endif %}
                     </span>
                     <div class="small text-secondary">
                         {% trans "Bio, guide, registration, Discord: the things that are not tied to one session." %}
@@ -111,6 +117,11 @@
                     {% blocktranslate count counter=open_count %}{{ counter }} open to-do{% plural %}{{ counter }} open to-dos{% endblocktranslate %}
                     {% if overdue_count %}
                         <span class="text-danger">({{ overdue_count }} {% trans "overdue" %})</span>
+                    {% endif %}
+                    {% if waiting_count %}
+                        <span class="text-secondary">
+                            {% blocktranslate count counter=waiting_count %}({{ counter }} waiting on us){% plural %}({{ counter }} waiting on us){% endblocktranslate %}
+                        </span>
                     {% endif %}
                     {% if next_due %}
                         · {% trans "next due" %} {{ next_due.due_date|date:"j M" }}: {{ next_due.title }}

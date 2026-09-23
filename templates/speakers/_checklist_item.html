@@ -3,19 +3,26 @@
 {% trans "Mark as not done" as undo_label %}
 {% trans "Mark as done" as do_label %}
 {% trans "Ticks itself" as auto_label %}
+{% trans "Waiting" as waiting_label %}
 {% comment %}
 One checklist line: a box on the left, the title and who is on it in the
 middle, the due date on the right. Params:
-    item      — ChecklistItem (with .overdue, .days_left, .due_tone set by the view)
+    item      — ChecklistItem (with .overdue, .days_left, .due_tone set by
+                the view). A waiting item shows why and cannot be ticked.
     tickable  — truthy when the viewer may tick/untick it (own SPEAKER items)
     show_assignee — truthy to show who is on it (organizer items)
 {% endcomment %}
-<li class="list-group-item checklist-row {% if item.is_automatic %}checklist-item-auto{% else %}checklist-item-manual{% endif %}{% if item.is_done %} checklist-item-done{% endif %}"
+<li class="list-group-item checklist-row {% if item.is_automatic %}checklist-item-auto{% else %}checklist-item-manual{% endif %}{% if item.is_done %} checklist-item-done{% endif %}{% if item.is_waiting %} checklist-row-waiting{% endif %}"
     id="item-{{ item.pk }}"
     data-item-id="{{ item.pk }}"
     data-status="{{ item.status }}">
     <div class="d-flex align-items-start gap-3">
-        {% if tickable and not item.is_automatic and item.status != "SKIPPED" %}
+        {% if item.is_waiting %}
+            <span class="checklist-box checklist-box-waiting"
+                  title="{{ waiting_label }}">
+                <i class="fa-solid fa-hourglass-half"></i>
+            </span>
+        {% elif tickable and not item.is_automatic and item.status != "SKIPPED" %}
             <form method="post"
                   action="{% url 'speakers:my_item_toggle' item.pk %}"
                   hx-post="{% url 'speakers:my_item_toggle' item.pk %}"
@@ -50,11 +57,13 @@ middle, the due date on the right. Params:
         <div class="flex-grow-1 min-w-0">
             <div>
                 <a href="{% url 'speakers:my_item_detail' item.pk %}"
-                   class="link-body-emphasis text-decoration-none {% if item.is_done %}checklist-title-done{% endif %}">{{ item.title }}</a>
+                   class="link-body-emphasis text-decoration-none {% if item.is_done %}checklist-title-done{% elif item.is_waiting %}checklist-title-waiting{% endif %}">{{ item.title }}</a>
                 {% if item.is_automatic %}
                     <span class="small text-secondary">· {{ auto_label|lower }}</span>
                 {% endif %}
-                {% if item.status == "BLOCKED" %}
+                {% if item.is_waiting %}
+                    <span class="badge text-bg-light border">{{ waiting_label }}</span>
+                {% elif item.status == "BLOCKED" %}
                     <span class="badge text-bg-danger">{% trans "Blocked" %}</span>
                 {% elif item.status == "SKIPPED" %}
                     <span class="badge text-bg-secondary">{% trans "Skipped" %}</span>
@@ -86,6 +95,11 @@ middle, the due date on the right. Params:
                     {% endif %}
                 {% endif %}
             </div>
+            {% if item.is_waiting and item.waiting_reason %}
+                <div class="small text-secondary fst-italic">
+                    {% blocktranslate with reason=item.waiting_reason %}waiting: {{ reason }}{% endblocktranslate %}
+                </div>
+            {% endif %}
             {% if item.status == "BLOCKED" and item.note %}
                 <div class="small text-danger">
                     {{ item.note }}

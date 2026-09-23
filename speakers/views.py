@@ -11,7 +11,7 @@ from django.urls import reverse
 from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views import View
-from django.views.generic import DetailView, TemplateView
+from django.views.generic import DetailView, ListView, TemplateView
 from django.views.generic.edit import CreateView, FormView, UpdateView
 from django_filters.views import FilterView
 from django_tables2.views import SingleTableMixin
@@ -43,6 +43,7 @@ from .constants import (
     ChecklistScope,
     ItemOwner,
     ItemStatus,
+    ReadyOverride,
     SessionStatus,
 )
 from .emails import render_invitation_preview
@@ -60,6 +61,7 @@ from .forms import (
     PresenterInviteForm,
     PresenterRoleForm,
     ProgramItemForm,
+    ReadinessGateForm,
     SessionForm,
     SessionPresenterForm,
     SessionPresenterRoleForm,
@@ -88,6 +90,7 @@ from .models import (
     Invitation,
     Presenter,
     PresenterRole,
+    ReadinessGate,
     Session,
     SessionPresenter,
     SessionType,
@@ -105,6 +108,7 @@ from .pretix import (
     lookup_presenter_orders,
     unlink_presenter_order,
 )
+from .readiness import apply_readiness, refresh_for_conference, refresh_readiness
 from .rules import evaluate_items
 from .seeds import seed_checklists
 from .services import (
@@ -310,16 +314,13 @@ class SessionDetailView(SessionScopedMixin, DetailView):
             latest[invitation.presenter_id] = invitation
         context["invitations_by_presenter"] = latest
         # The session's checklists: per presenter, plus session-scope items.
-        today = timezone.now().date()
         items = list(
             self.object.checklist_items.select_related(
                 "presenter", "assignee", "team", "completed_by", "session"
             ).order_by("presenter__display_name", "order", "id")
         )
         for item in items:
-            item.overdue = (
-                item.is_open and item.due_date is not None and item.due_date < today
-            )
+            item.overdue = item.is_overdue
         groups = []
         for link in self.object.presenter_links:
             mine = [i for i in items if i.presenter_id == link.presenter_id]
@@ -878,8 +879,17 @@ class InvitationCancelView(InvitationActionMixin, View):
 
 def annotate_due(item, as_of):
     """Set the display attributes the checklist row reads: ``overdue``,
-    ``days_left`` and ``due_tone``."""
-    item.overdue = item.is_open and item.due_date is not None and item.due_date < as_of
+    ``days_left`` and ``due_tone``.
+
+    A waiting item is never overdue, whatever its date says: nobody could
+    have done it (design §9.3a).
+    """
+    item.overdue = (
+        item.is_open
+        and not item.is_waiting
+        and item.due_date is not None
+        and item.due_date < as_of
+    )
     item.days_left = (item.due_date - as_of).days if item.due_date else None
     item.due_tone = due_tone(item)
     return item
@@ -912,7 +922,9 @@ def _speaker_checklist(presenter, as_of):
             Q(presenter=presenter)
             | Q(presenter__isnull=True, session__in=[link.session_id for link in links])
         )
-        .select_related("session", "assignee", "team", "completed_by")
+        .select_related(
+            "session", "assignee", "team", "completed_by", "ready_gate", "waits_for"
+        )
         .order_by(F("due_date").asc(nulls_last=True), "session__title", "order", "id")
     )
     for item in items:
@@ -942,6 +954,9 @@ def _session_summaries(links, speaker_items):
                 "role": link.role.name,
                 "done": sum(1 for i in mine if not i.is_open),
                 "total": len(mine),
+                # Counted in the total, never chased: the speaker sees the
+                # whole run of work and is not asked for what they cannot do.
+                "waiting": sum(1 for i in mine if i.is_waiting),
             }
         )
     return summaries
@@ -969,10 +984,14 @@ class SpeakerDashboardView(LoginRequiredMixin, PresenterRequiredMixin, TemplateV
                     checklist["links"], checklist["speaker"]
                 ),
                 "open_count": len(open_items),
+                "waiting_count": sum(1 for i in open_items if i.is_waiting),
                 "general_total": len(general),
                 "general_done": sum(1 for i in general if not i.is_open),
+                "general_waiting": sum(1 for i in general if i.is_waiting),
                 "overdue_count": sum(1 for i in open_items if i.overdue),
-                "next_due": next((i for i in open_items if i.due_date), None),
+                "next_due": next(
+                    (i for i in open_items if i.due_date and not i.is_waiting), None
+                ),
                 "profile_complete": bool(presenter.bio_md and presenter.headshot),
                 "show_password_reminder": not self.request.user.has_usable_password()
                 and not presenter.password_reminder_dismissed,
@@ -1388,6 +1407,77 @@ class ProgramTypesView(LoginRequiredMixin, SpeakerOrganizerRequiredMixin, Templa
         return context
 
 
+class ReadinessGatesView(LoginRequiredMixin, SpeakerOrganizerRequiredMixin, ListView):
+    """Settings: the switches that open checklist items nobody can start yet.
+
+    A gate stands for work the portal cannot see: the tech check nobody can
+    book until the team has the equipment, an upload that waits on a portal
+    feature. Each row says how many items are waiting on it.
+    """
+
+    template_name = "speakers/readiness_gates.html"
+    context_object_name = "gates"
+
+    def get_queryset(self):
+        return ReadinessGate.objects.filter(conference=self.conference).annotate(
+            waiting=Count("items", filter=Q(items__is_waiting=True))
+        )
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context.update(
+            {
+                "conference": self.conference,
+                "rail_active": "gates",
+                "form": ReadinessGateForm(),
+            }
+        )
+        return context
+
+
+class ReadinessGateCreateView(LoginRequiredMixin, SpeakerOrganizerRequiredMixin, View):
+    """Add a gate to this edition. Codes are what templates name, so a
+    template cloned forward finds next year's gate by the same code."""
+
+    def post(self, request):
+        form = ReadinessGateForm(request.POST)
+        if not form.is_valid():
+            reasons = " ".join(e for errors in form.errors.values() for e in errors)
+            messages.error(request, f"That gate was not added. {reasons}".strip())
+            return redirect("speakers:readiness_gates")
+        gate = form.save(commit=False)
+        gate.conference = self.conference
+        gate.save()
+        # A template line may already name this code and be holding items
+        # shut for want of a gate row.
+        refresh_for_conference(self.conference)
+        messages.success(request, f"Added the gate “{gate.name}”.")
+        return redirect("speakers:readiness_gates")
+
+
+class ReadinessGateToggleView(LoginRequiredMixin, SpeakerOrganizerRequiredMixin, View):
+    """Open or shut one gate, then re-evaluate what was waiting on it."""
+
+    def post(self, request, pk):
+        gate = get_object_or_404(ReadinessGate, pk=pk, conference=self.conference)
+        is_open = request.POST.get("open") == "1"
+        if gate.set_open(is_open, actor=request.user):
+            opened = refresh_readiness(ChecklistItem.objects.filter(ready_gate=gate))
+            ActivityLog.record(
+                self.conference,
+                "checklist.gate_opened" if is_open else "checklist.gate_shut",
+                actor=request.user,
+                message=f"{gate.name}: {'open' if is_open else 'shut'}",
+                gate_id=gate.pk,
+            )
+            messages.success(
+                request,
+                f"“{gate.name}” is {'open' if is_open else 'shut'}. "
+                f"{opened} item(s) changed.",
+            )
+        return redirect("speakers:readiness_gates")
+
+
 class ProgramTypeFormMixin(LoginRequiredMixin, SpeakerOrganizerRequiredMixin):
     """Shared by the four settings forms: edition-scoped rows, the edition
     passed to the form, back to the settings page when done."""
@@ -1641,6 +1731,8 @@ class ItemDetailView(ItemActionMixin, TemplateView):
                     else "portal/base_sidebar.html"
                 ),
                 "rail_active": "presenters" if item.presenter_id else "sessions",
+                "can_override": is_speaker_organizer(self.request.user),
+                "ready_override": ReadyOverride,
                 "assign_form": (
                     AssignItemForm(
                         initial={"owner": item.owner_value},
@@ -1652,6 +1744,38 @@ class ItemDetailView(ItemActionMixin, TemplateView):
             }
         )
         return context
+
+
+class ItemReadyView(ItemActionMixin, View):
+    """Open an item that is waiting, or hold one shut (organizers only).
+
+    The three wait sources answer for the common case; this is the answer
+    for the one they get wrong, and the log says who gave it.
+    """
+
+    def post(self, request, pk):
+        if not is_speaker_organizer(request.user):
+            raise PermissionDenied("Only organizers open or hold an item.")
+        item = self.get_item()
+        answer = request.POST.get("override", "")
+        if answer not in ("", ReadyOverride.OPEN, ReadyOverride.HOLD):
+            return HttpResponseBadRequest("Unknown answer.")
+        item.ready_override = answer
+        item.save(update_fields=["ready_override", "modified_date"])
+        apply_readiness(item)
+        ActivityLog.record(
+            self.conference,
+            "checklist.readiness_set",
+            target=item.presenter or item.session,
+            actor=request.user,
+            message={
+                ReadyOverride.OPEN: f"Opened “{item.title}”",
+                ReadyOverride.HOLD: f"Held “{item.title}”",
+                "": f"Left “{item.title}” to its own conditions",
+            }[answer],
+            item_id=item.pk,
+        )
+        return self.respond(request, item)
 
 
 class ItemStatusView(ItemActionMixin, View):

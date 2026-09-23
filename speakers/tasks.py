@@ -13,6 +13,7 @@ from .emails import (
 from .models import Invitation, Presenter, Session, SessionPresenter, SpeakerSettings
 from .notices import send_checklist_change_notices
 from .pretix import PretixError, reconcile, sync_order_by_code
+from .readiness import refresh_for_conference
 from .reminders import send_checklist_digests
 from .rules import reevaluate_all
 
@@ -76,9 +77,19 @@ def send_copresenter_suggestion_task(presenter_id, session_id, name, email, note
 
 @shared_task
 def reevaluate_checklists_task():
-    """Nightly safety net: re-run every auto-completion rule (design §9.3)."""
+    """Nightly safety net: re-run every auto-completion rule (design §9.3)
+    and every readiness source (§9.3a).
+
+    Readiness is refreshed when a gate flips and when a blocking item is
+    finished, so this only catches what happens without either: a guide
+    published, a slot booked, pretix configured.
+    """
     changed = reevaluate_all()
-    return f"Re-evaluated checklists; {changed} item(s) changed"
+    opened = refresh_for_conference()
+    return (
+        f"Re-evaluated checklists; {changed} item(s) changed, "
+        f"{opened} item(s) changed readiness"
+    )
 
 
 @shared_task(
