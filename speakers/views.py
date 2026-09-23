@@ -337,7 +337,9 @@ class SessionDetailView(SessionScopedMixin, DetailView):
         # One query for the people and teams, shared by every row; each row
         # reads its own current value off the item (review of #425).
         context["owner_choices"] = owner_choices(self.conference)
-        context["can_assign"] = True
+        # A liaison reaches this page but may not hand work to someone else
+        # (ItemAssignView is organizer-only), so do not offer them the select.
+        context["can_assign"] = is_speaker_organizer(self.request.user)
         context["adhoc_form"] = AdhocItemForm(
             initial={"owner_kind": ItemOwner.ORGANIZER}, conference=self.conference
         )
@@ -1106,8 +1108,15 @@ class SpeakerSessionListView(LoginRequiredMixin, PresenterRequiredMixin, Templat
         today_here = today(self.presenter.tzinfo)
         checklist = _speaker_checklist(self.presenter, today_here)
         links = list(
-            self.presenter.session_presenters.select_related("session")
-            .prefetch_related("session__session_presenters__presenter")
+            self.presenter.session_presenters.select_related(
+                "session", "session__kind", "role"
+            )
+            .prefetch_related(
+                "session__session_presenters__presenter",
+                # The card names each co-presenter's role, so fetch those
+                # with the rows rather than one query per session.
+                "session__session_presenters__role",
+            )
             .order_by("session__title")
         )
         summaries = {

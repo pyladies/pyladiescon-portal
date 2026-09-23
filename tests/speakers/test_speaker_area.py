@@ -4,6 +4,8 @@ import pytest
 from django.contrib.auth.models import AnonymousUser, User
 from django.core import mail
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.db import connection
+from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 from PIL import Image
 from pytest_django.asserts import assertRedirects
@@ -133,6 +135,25 @@ class TestPortalIndexRouting:
             reverse("volunteer:index"),
             fetch_redirect_response=False,
         )
+
+
+@pytest.mark.django_db
+class TestSessionListCost:
+    def test_query_count_does_not_grow_with_sessions(
+        self, client, speaker, presenter, my_session, conference
+    ):
+        """The page reads each row's role and kind, so both are fetched with
+        the links rather than one query per session."""
+        client.force_login(speaker)
+        with CaptureQueriesContext(connection) as before:
+            client.get(SESSIONS)
+        for name in ("Second", "Third", "Fourth"):
+            add_presenter(
+                make_session(conference, title=name), presenter, confirmed=True
+            )
+        with CaptureQueriesContext(connection) as after:
+            client.get(SESSIONS)
+        assert len(after) == len(before)
 
 
 @pytest.mark.django_db

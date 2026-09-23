@@ -205,15 +205,20 @@ GENERAL_TITLES = {
     "Registration info sent",
     "Discord channel and speaker role assigned",
 }
-GENERAL_SPEAKER = [BIO, GUIDE, REGISTER, DISCORD, TECH_CHECK]
+# The speaker guide is not here: a workshop or keynote presenter reads the
+# guide for their kind instead, and two "read the guide" lines due the same
+# day read as a bug rather than as two guides. Kinds without one of their
+# own carry the general guide themselves, once per presenter.
+GENERAL_SPEAKER = [BIO, REGISTER, DISCORD, TECH_CHECK]
 GENERAL_ORGANIZER = [i for i in ORGANIZER_ITEMS_ALL if i["title"] in GENERAL_TITLES]
 # Per presenter per session.
 ORGANIZER_ITEMS = [i for i in ORGANIZER_ITEMS_ALL if i["title"] not in GENERAL_TITLES]
 
+GUIDE_ONCE = dict(GUIDE, once_per_presenter=True)
 WORKSHOP_SPEAKER = [CONFIRM_TITLE, WORKSHOP_GUIDE, CONFIRM_SLOT, MATERIALS]
-TALK_SPEAKER = [CONFIRM_TITLE, CONFIRM_SLOT, SLIDES]
+TALK_SPEAKER = [CONFIRM_TITLE, GUIDE_ONCE, CONFIRM_SLOT, SLIDES]
 KEYNOTE_SPEAKER = [CONFIRM_TITLE, KEYNOTE_GUIDE, CONFIRM_SLOT, SLIDES]
-PANEL_LIGHT = [CONFIRM_SLOT]
+PANEL_LIGHT = [GUIDE_ONCE, CONFIRM_SLOT]
 PERFORMER = [
     _item(
         SPK,

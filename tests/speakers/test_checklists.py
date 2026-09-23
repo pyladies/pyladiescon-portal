@@ -39,6 +39,7 @@ from speakers.models import (
     ChecklistItem,
     ChecklistTemplate,
     ChecklistTemplateItem,
+    SessionPresenter,
     TransitionError,
 )
 from speakers.seeds import seed_checklists
@@ -332,6 +333,25 @@ class TestTemplateChangesReachExistingChecklists:
         assert not untouched.checklist_items.exists()
         translate = template.items.get(title="Translate")
         assert apply_new_template_item(translate) == []
+
+    def test_an_item_off_the_target_list_still_gets_its_new_date(self, seeded):
+        """An instance whose link is no longer confirmed is not in the list
+        of targets, and its due date must still follow the template rather
+        than freeze at whatever it was, silently and unflagged."""
+        template = workshop_template(seeded)
+        session = make_session(seeded, kind="WORKSHOP")
+        link = add_presenter(session, make_presenter(seeded), confirmed=True)
+        instantiate_presenter_checklist(link)
+        line = template.items.get(title="Share a link to your workshop materials")
+        instance = link.presenter.checklist_items.get(template_item=line)
+        SessionPresenter.objects.filter(pk=link.pk).update(confirmed_at=None)
+        line.due_anchor = DueAnchor.CONFERENCE_START
+        line.due_offset_days = 4
+        line.save()
+        assert apply_template_item_changes(line) == 1
+        instance.refresh_from_db()
+        assert instance.due_date == date(2026, 12, 1)
+        assert instance.pending_notice == NoticeKind.CHANGED
 
     def test_edits_propagate_and_flag_only_visible_changes(self, seeded):
         template = workshop_template(seeded)

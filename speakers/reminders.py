@@ -77,6 +77,9 @@ def send_checklist_digests(conference, now=None):
     return emails
 
 
+# The speaker preface costs a query for that presenter's sessions, once
+# per recipient. This runs in a nightly task over one edition, so the
+# batch is small; prefetch across recipients if that stops being true.
 def _speaker_digests(conference, items, now, sent):
     by_presenter = defaultdict(list)
     for item in items:

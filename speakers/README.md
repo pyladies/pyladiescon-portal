@@ -203,6 +203,28 @@ and nothing on the organizer side to say so. On the speaker side,
 `required_guide_keys` returns only what their own items name: a presenter
 with no checklist yet is asked to read nothing.
 
+### What everyone gets, and what their session gets
+
+The every-presenter template holds the lines that are about the person
+rather than a session: bio and headshot, registration, Discord and the tech
+check. It applies to every presenter whatever their role, so an opening host
+now carries those four as well, which is deliberate: a host registers,
+joins Discord, appears on the schedule and goes live like anyone else.
+
+The speaker guide is not in that list. A presenter reads one guide, the most
+specific one their sessions call for: the workshop, keynote or performer
+guide where there is one, and the general speaker guide otherwise, carried
+by those templates as a once-per-presenter line. Two "read the guide" items
+falling due on the same day read as a bug rather than as two guides.
+
+Folding an edition that predates this (`manage.py dedupe_general_items`, and
+loading the defaults) keeps one copy per presenter and prefers one they have
+already done, because nobody should be asked to redo something they
+finished. Every other copy goes, whatever its status: the template line is
+deleted straight afterwards and `ChecklistItem.template_item` is SET_NULL,
+so anything left behind would become a one-off item nothing can ever
+collapse again.
+
 ### Checklist change notices
 
 A template line that is added, edited or deleted reaches the checklists

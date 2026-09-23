@@ -230,8 +230,10 @@ class TestDedupeCommand:
             conference
         )
         assert not ChecklistTemplateItem.objects.filter(pk=old_discord.pk).exists()
-        # The guide line is flagged once-per-presenter later, and this presenter
-        # already has a session-less copy: the command keeps that one.
+        # The guide line is flagged once-per-presenter later. The presenter
+        # has a done copy on a session and an open session-less one, and the
+        # done one is what should survive: nobody should be asked to read a
+        # guide they have read.
         guide.once_per_presenter = True
         guide.save()
         instantiate_presenter_checklist(
@@ -243,14 +245,17 @@ class TestDedupeCommand:
         )
         out = StringIO()
         call_command("dedupe_general_items", stdout=out)
-        assert "moved 0 item(s)" in out.getvalue()
-        assert "dropped 1 duplicate(s)" in out.getvalue()
-        assert "deleted 0 redundant template line(s)" in out.getvalue()
         guides = presenter.checklist_items.filter(title="Read the workshop guide")
-        assert guides.filter(session__isnull=True).count() == 1
-        assert guides.filter(session__isnull=False, status=ItemStatus.DONE).count() == 1
-        assert guides.count() == 2
+        assert guides.count() == 1
+        survivor = guides.get()
+        assert survivor.session is None and survivor.status == ItemStatus.DONE
+        assert survivor.pk == done.pk  # the copy they finished
+        before = out.getvalue()
+        assert "moved 1 item(s)" in before and "dropped" in before
+        out = StringIO()
         call_command("dedupe_general_items", stdout=out)  # idempotent
+        assert "moved 0 item(s)" in out.getvalue()
+        assert "dropped 0 duplicate(s)" in out.getvalue()
 
     def test_loading_defaults_collapses_an_old_edition(self, conference):
         make_settings(conference)

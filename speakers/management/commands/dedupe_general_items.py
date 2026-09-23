@@ -8,10 +8,10 @@ from .seed_checklists import resolve_conference
 
 class Command(BaseCommand):
     help = (
-        "One-off after lines moved to the every-presenter template: fold each "
-        "presenter's per-session copies into one general item, drop the other "
-        "open copies, keep done ones, and delete the redundant template lines. "
-        "Loading the default checklists does the same."
+        "One-off after lines moved to the every-presenter template: leave each "
+        "presenter one copy, the one they have already done if any, as the "
+        "general item, delete the rest whatever their status, and remove the "
+        "redundant template lines. Loading the default checklists does the same."
     )
 
     def add_arguments(self, parser):

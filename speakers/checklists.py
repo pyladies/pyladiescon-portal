@@ -6,6 +6,7 @@ back-fills (design §9.2). Status changes go through the functions here so
 every completion lands in the ActivityLog with its actor.
 """
 
+from django.db.models import Q
 from django.utils import timezone
 
 from volunteer.models import Team
@@ -193,9 +194,14 @@ def _matching_targets(template_item):
     once-per-presenter lines."""
     template = template_item.template
     if template.scope == ChecklistScope.GENERAL:
+        # Everyone who has accepted, the same set instantiate_general_
+        # checklist runs for: an invitation to the conference in general
+        # carries no session, so filtering on a confirmed session link would
+        # skip those presenters and quietly never give them the new line.
         presenters = Presenter.objects.filter(
+            Q(session_presenters__confirmed_at__isnull=False)
+            | Q(invitations__accepted_at__isnull=False),
             conference=template.conference,
-            session_presenters__confirmed_at__isnull=False,
         ).distinct()
         return [
             (None, presenter, _anchors(None, presenter, _accepted_at(presenter)))
@@ -212,11 +218,14 @@ def _matching_targets(template_item):
             first_link = {}
             for link in links:
                 first_link.setdefault(link.presenter_id, link)
+            # Anchored on when they accepted, not on whichever link happens
+            # to sort first, so the line lands on the same day whether it is
+            # created at acceptance or added to the template later.
             return [
                 (
                     None,
                     link.presenter,
-                    _anchors(None, link.presenter, link.confirmed_at),
+                    _anchors(None, link.presenter, _accepted_at(link.presenter)),
                 )
                 for link in first_link.values()
             ]
@@ -298,15 +307,24 @@ def apply_template_item_changes(template_item):
     }
     for item in ChecklistItem.objects.filter(
         template_item=template_item
-    ).select_related("session"):
-        anchors = anchors_for.get((item.session_id, item.presenter_id), {})
+    ).select_related("session", "presenter"):
+        anchors = anchors_for.get((item.session_id, item.presenter_id))
+        if anchors is None:
+            # An instance the target list does not cover (a presenter whose
+            # link was unconfirmed since, say). Work its anchors out rather
+            # than leaving a stale due date behind with nothing to say so.
+            anchors = _anchors(
+                item.session,
+                item.presenter,
+                _accepted_at(item.presenter) if item.presenter_id else None,
+            )
         title = template_item.title
         if template_item.per_translation_language and item.requires_asset_language:
             title = f"{title} ({item.requires_asset_language})"
         before = {field: getattr(item, field) for field in NOTIFY_ON_CHANGE}
         item.title = title
         item.description_md = template_item.description_md
-        item.due_date = template_item.due_date(**anchors) if anchors else item.due_date
+        item.due_date = template_item.due_date(**anchors)
         item.order = template_item.order
         item.owner = template_item.owner
         item.is_required = template_item.is_required
@@ -494,8 +512,16 @@ def collapse_general_duplicates(conference):
 
 
 def _collapse_line(line, target_line):
-    """Per presenter, keep one instance of ``line`` (a done one if any) as
-    the session-less item of ``target_line``; drop the other open copies."""
+    """Per presenter, leave exactly one copy of ``line``: the session-less
+    item of ``target_line``, preferring one they have already done.
+
+    Every other copy goes, whatever its status. Pass 1 deletes ``line``
+    afterwards and ``ChecklistItem.template_item`` is SET_NULL, so anything
+    left behind becomes a one-off item on a session with no line behind it,
+    which nothing can collapse later: a blocked "Join the Discord" the
+    speaker can never resolve. There is no second chance, so this takes them
+    all.
+    """
     moved = dropped = 0
     # A set, not .distinct(): the model's default ordering would make
     # DISTINCT include the order columns and repeat presenters.
@@ -505,31 +531,30 @@ def _collapse_line(line, target_line):
         )
     )
     for presenter_id in presenter_ids:
-        copies = list(
+        candidates = list(
             ChecklistItem.objects.filter(template_item=line, presenter_id=presenter_id)
         )
-        copies.sort(key=lambda i: (i.status != ItemStatus.DONE, i.pk))
-        keep = copies[0]
-        existing = (
+        # The general item may already exist, from an earlier collapse or
+        # from the presenter accepting after the line became general.
+        candidates += list(
             ChecklistItem.objects.filter(
                 template_item=target_line,
                 presenter_id=presenter_id,
                 session__isnull=True,
-            )
-            .exclude(pk=keep.pk)
-            .first()
+            ).exclude(pk__in=[i.pk for i in candidates])
         )
-        if existing is not None:
-            keep = existing
-        elif keep.template_item_id != target_line.pk or keep.session_id is not None:
+        # Done wins: a speaker who finished this once should not be asked
+        # again because the copy that survived happened to be open.
+        candidates.sort(key=lambda i: (i.status != ItemStatus.DONE, i.pk))
+        keep, extras = candidates[0], candidates[1:]
+        for extra in extras:
+            extra.delete()
+            dropped += 1
+        if keep.template_item_id != target_line.pk or keep.session_id is not None:
             keep.template_item = target_line
             keep.session = None
             keep.save()
             moved += 1
         # An item already where it belongs is left alone, so running this
         # twice reports nothing the second time and writes nothing either.
-        for extra in copies:
-            if extra.pk != keep.pk and extra.status == ItemStatus.TODO:
-                extra.delete()
-                dropped += 1
     return moved, dropped

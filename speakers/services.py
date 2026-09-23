@@ -313,13 +313,26 @@ def _swap_role(link, role, old_role_id, old_role_name, is_required, actor):
     link.save()
     removed = created = 0
     if old_role_id != role.pk:
-        removed, _ = ChecklistItem.objects.filter(
+        from_old_role = ChecklistItem.objects.filter(
             presenter=link.presenter,
-            session=link.session,
             status__in=list(OPEN_ITEM_STATUSES),
             template_item__template__scope=ChecklistScope.PRESENTER,
             template_item__template__role_id=old_role_id,
-        ).delete()
+        )
+        removed, _ = from_old_role.filter(session=link.session).delete()
+        # A once-per-presenter line of the old role (its guide, say) hangs
+        # off no session, so it only goes when they have stopped holding
+        # that role anywhere in the edition.
+        still_holds = (
+            link.presenter.session_presenters.filter(role_id=old_role_id)
+            .exclude(pk=link.pk)
+            .exists()
+        )
+        if not still_holds:
+            dropped, _ = from_old_role.filter(
+                session__isnull=True, template_item__once_per_presenter=True
+            ).delete()
+            removed += dropped
         if link.is_confirmed:
             new_items = instantiate_presenter_checklist(link)
             evaluate_items(new_items)
