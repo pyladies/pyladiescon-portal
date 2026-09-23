@@ -93,6 +93,27 @@ class AutoRule(models.TextChoices):
     YOUTUBE_PUBLISHED = "youtube_published", "YouTube URL and publish time set"
 
 
+class ReadyRule(models.TextChoices):
+    """Named conditions a checklist line can wait for (design §9.3a).
+
+    A rule answers a question the database can answer. Anything that
+    depends on a decision or on work the portal cannot see waits on a
+    ``ReadinessGate`` instead, and anything that waits on one specific
+    piece of work waits on that item.
+    """
+
+    SESSION_SCHEDULED = "session_scheduled", "The session has a slot"
+    GUIDE_PUBLISHED = "guide_published", "The guide it points at is published"
+    REGISTRATION_OPEN = "registration_open", "Registration is set up on pretix"
+
+
+class ReadyOverride(models.TextChoices):
+    """An organizer's answer, which outranks every other source."""
+
+    OPEN = "OPEN", "Open it anyway"
+    HOLD = "HOLD", "Hold it shut"
+
+
 # The language marker on a template item meaning "the session's language".
 SESSION_LANGUAGE = "session"
 

@@ -4,6 +4,7 @@
 {% trans "Mark as done" as do_label %}
 {% trans "Mark as not done" as undo_label %}
 {% trans "Ticks itself" as auto_label %}
+{% trans "Waiting" as waiting_label %}
 {% comment %}
 One checklist item as a table row on organizer pages. Params:
     item             — ChecklistItem with .overdue set
@@ -26,7 +27,12 @@ automatic items get a dashed box nobody can click.
             </div>
         {% endif %}
         <div class="d-flex align-items-start gap-2">
-            {% if item.is_automatic %}
+            {% if item.is_waiting %}
+                <span class="checklist-box checklist-box-waiting"
+                      title="{{ waiting_label }}">
+                    <i class="fa-solid fa-hourglass-half"></i>
+                </span>
+            {% elif item.is_automatic %}
                 <span class="checklist-box checklist-box-static {% if item.is_done %}checklist-box-done{% elif item.status == 'BLOCKED' %}checklist-box-blocked{% elif item.status == 'SKIPPED' %}checklist-box-skipped{% endif %}"
                       title="{{ auto_label }}">
                     {% if item.is_done %}
@@ -78,6 +84,11 @@ automatic items get a dashed box nobody can click.
                 {% if item.session %}
                     <div class="small text-secondary">
                         {{ item.session.title }}
+                    </div>
+                {% endif %}
+                {% if item.is_waiting and item.waiting_reason %}
+                    <div class="small text-secondary fst-italic">
+                        {% blocktranslate with reason=item.waiting_reason %}waiting: {{ reason }}{% endblocktranslate %}
                     </div>
                 {% endif %}
                 {% if item.note %}
@@ -151,7 +162,7 @@ automatic items get a dashed box nobody can click.
         {% endif %}
     </td>
     <td class="text-nowrap">
-        {% if item.status != "SKIPPED" %}
+        {% if item.status != "SKIPPED" and not item.is_waiting %}
             <form method="post"
                   class="d-inline"
                   action="{% url 'speakers:item_status' item.pk %}"

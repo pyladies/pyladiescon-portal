@@ -30,12 +30,14 @@ from .constants import (
     DueAnchor,
     ItemOwner,
     MediaKind,
+    ReadyRule,
 )
 from .models import (
     ChecklistTemplate,
     ChecklistTemplateItem,
     Handbook,
     PresenterRole,
+    ReadinessGate,
     SessionType,
     SpeakerSettings,
 )
@@ -52,6 +54,27 @@ ACCEPTED, CONF, SESSION = (
     DueAnchor.CONFERENCE_START,
     DueAnchor.SESSION_START,
 )
+
+
+# Gates the default lines wait on. Code, name, what the speaker reads
+# while it is shut, and what it is for. They start shut: the work behind
+# them has not been done when an edition is seeded.
+DEFAULT_GATES = [
+    (
+        "tech-check-open",
+        "Tech check booking open",
+        "booking opens closer to the conference",
+        "Open once the team has the equipment and a way for speakers to book "
+        "a slot.",
+    ),
+    (
+        "upload-open",
+        "Recording upload open",
+        "uploads open closer to the conference",
+        "Open once the portal can take recordings and the team is ready to "
+        "review them.",
+    ),
+]
 
 
 def _item(owner, title, anchor="", offset=0, rule="", **extra):
@@ -87,6 +110,8 @@ GUIDE = _item(
     ACCEPTED,
     14,
     AutoRule.HANDBOOK_READ,
+    ready_rule=ReadyRule.GUIDE_PUBLISHED,
+    waiting_note="we are still writing it",
     description_md="Everything about the format, timing and what we need from you. Ticks itself when you reach the end of the guide.",
 )
 WORKSHOP_GUIDE = _item(
@@ -96,6 +121,8 @@ WORKSHOP_GUIDE = _item(
     14,
     AutoRule.HANDBOOK_READ,
     requires_handbook="workshop",
+    ready_rule=ReadyRule.GUIDE_PUBLISHED,
+    waiting_note="we are still writing it",
     description_md="How a workshop runs at the conference, the setup we need from you and the deadlines. Ticks itself when you reach the end of the guide.",
     once_per_presenter=True,
 )
@@ -106,6 +133,8 @@ KEYNOTE_GUIDE = _item(
     14,
     AutoRule.HANDBOOK_READ,
     requires_handbook="keynote",
+    ready_rule=ReadyRule.GUIDE_PUBLISHED,
+    waiting_note="we are still writing it",
     description_md="What we need from a keynote: timing, format and the deadlines. Ticks itself when you reach the end of the guide.",
     once_per_presenter=True,
 )
@@ -115,6 +144,8 @@ REGISTER = _item(
     CONF,
     14,
     AutoRule.PRETIX_REGISTERED,
+    ready_rule=ReadyRule.REGISTRATION_OPEN,
+    waiting_note="registration is not open yet",
     description_md="Get your (free) ticket so you can join the conference platform. Ticks itself once your registration matches your email.",
 )
 DISCORD = _item(
@@ -129,6 +160,9 @@ CONFIRM_SLOT = _item(
     "Confirm your scheduled slot",
     SESSION,
     14,
+    # There is nothing to confirm until the session has a slot.
+    ready_rule=ReadyRule.SESSION_SCHEDULED,
+    waiting_note="your slot is not scheduled yet",
     description_md="Once your slot is set you will see it on your schedule page; tick this to confirm the time works for you, or tell your liaison if it does not.",
 )
 MATERIALS = _item(
@@ -152,6 +186,9 @@ TECH_CHECK = _item(
     # their setup, not about one session.
     CONF,
     7,
+    # Nothing in the database knows whether the team has the equipment and
+    # has opened booking, so this one waits on a gate.
+    ready_gate_code="tech-check-open",
     description_md="A short call with the team to test your camera, microphone and screen sharing before the day.",
 )
 
@@ -453,9 +490,29 @@ def seed_checklists(conference):
         return _seed_checklists(conference)
 
 
+def seed_readiness_gates(conference):
+    """Create the default gates for an edition, shut. Existing gates keep
+    whatever organizers changed, including whether they are open."""
+    created = 0
+    for code, name, waiting_note, description in DEFAULT_GATES:
+        _, made = ReadinessGate.objects.get_or_create(
+            conference=conference,
+            code=code,
+            defaults={
+                "name": name,
+                "waiting_note": waiting_note,
+                "description": description,
+            },
+        )
+        created += made
+    return created
+
+
 def _seed_checklists(conference):
     if not SessionType.objects.filter(conference=conference).exists():
         seed_program_types(conference)
+    # Before the lines, so a line naming a gate finds it.
+    seed_readiness_gates(conference)
     kinds = {t.code: t for t in SessionType.objects.filter(conference=conference)}
     roles = {r.code: r for r in PresenterRole.objects.filter(conference=conference)}
     templates_created = items_created = described = 0
@@ -518,6 +575,12 @@ ITEM_FIELDS = [
     "assignee_default",
     "default_team_name",
     "once_per_presenter",
+    # The wait sources travel by value: the rule is a name, and the gate is
+    # a code matched against next year's own gates. ``waits_for`` points at
+    # a line of the source edition, so it is remapped after the copy.
+    "ready_rule",
+    "ready_gate_code",
+    "waiting_note",
 ]
 
 
@@ -528,8 +591,11 @@ def clone_checklists(target, source):
     safe to run more than once. Returns ``(templates_created, items_created)``.
     """
     templates_created = items_created = 0
-    # Types and roles come along first, matched by code.
+    # Types and roles come along first, matched by code, then the gates the
+    # lines name, shut, so next year starts where this year started.
     clone_program_types(target, source)
+    clone_readiness_gates(target, source)
+    copied_lines = {}
     for template in source.checklist_templates.select_related(
         "kind", "role"
     ).prefetch_related("items"):
@@ -547,11 +613,41 @@ def clone_checklists(target, source):
             continue
         templates_created += 1
         for item in template.items.all():
-            ChecklistTemplateItem.objects.create(
+            copied_lines[item.pk] = ChecklistTemplateItem.objects.create(
                 template=copy, **{field: getattr(item, field) for field in ITEM_FIELDS}
             )
             items_created += 1
+    # Now that every line exists, point each copy at the copy of the line it
+    # waits for. A line whose target was not copied (its template already
+    # existed in the new edition) waits on nothing rather than on last
+    # year's row.
+    for source_pk, copy in copied_lines.items():
+        waits_for_id = ChecklistTemplateItem.objects.values_list(
+            "waits_for_id", flat=True
+        ).get(pk=source_pk)
+        target_line = copied_lines.get(waits_for_id)
+        if target_line is not None:
+            copy.waits_for = target_line
+            copy.save(update_fields=["waits_for", "modified_date"])
     return templates_created, items_created
+
+
+def clone_readiness_gates(target, source):
+    """Copy the gates by code, shut. Whether last year's gate was open says
+    nothing about this year's work."""
+    created = 0
+    for gate in ReadinessGate.objects.filter(conference=source):
+        _, made = ReadinessGate.objects.get_or_create(
+            conference=target,
+            code=gate.code,
+            defaults={
+                "name": gate.name,
+                "waiting_note": gate.waiting_note,
+                "description": gate.description,
+            },
+        )
+        created += made
+    return created
 
 
 # The pretix event, token and secret are deliberately absent: they are

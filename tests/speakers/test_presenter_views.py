@@ -574,7 +574,7 @@ class TestSessionPresenterActions:
         ).exists()
         # Back to moderator: open panelist items go, anything done stays.
         done = presenter.checklist_items.filter(
-            status=ItemStatus.TODO, auto_complete_rule=""
+            status=ItemStatus.TODO, auto_complete_rule="", is_waiting=False
         ).first()
         complete_item(done, actor=organizer)
         client.post(

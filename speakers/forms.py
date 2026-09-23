@@ -28,6 +28,7 @@ from .models import (
     Handbook,
     Presenter,
     PresenterRole,
+    ReadinessGate,
     Session,
     SessionPresenter,
     SessionType,
@@ -588,6 +589,18 @@ class AssignItemForm(forms.Form):
         return clean_owner_value(self)
 
 
+class ReadinessGateForm(forms.ModelForm):
+    """Add a gate: a switch organizers flip for work the portal cannot see."""
+
+    class Meta:
+        model = ReadinessGate
+        fields = ["code", "name", "waiting_note", "description"]
+        widgets = {"description": forms.Textarea(attrs={"rows": 2})}
+        help_texts = {
+            "code": "What a template line names, e.g. tech-check-open.",
+        }
+
+
 class ChecklistTemplateForm(forms.ModelForm):
     class Meta:
         model = ChecklistTemplate
@@ -650,6 +663,10 @@ class ChecklistTemplateItemForm(forms.ModelForm):
             "is_required",
             "assignee_default",
             "default_team_name",
+            "ready_rule",
+            "ready_gate_code",
+            "waits_for",
+            "waiting_note",
         ]
         widgets = {"description_md": forms.Textarea(attrs={"rows": 2})}
         help_texts = {
@@ -679,6 +696,21 @@ class ChecklistTemplateItemForm(forms.ModelForm):
             label="Default team",
             help_text='With "A named team": which team starts with the item.',
         )
+        # The three things a line can wait for before anyone may start it.
+        self.fields["ready_gate_code"] = forms.ChoiceField(
+            choices=[("", "—")]
+            + [
+                (gate.code, f"{gate.name} ({gate.code})")
+                for gate in ReadinessGate.objects.filter(conference=conference)
+            ],
+            required=False,
+            label="Wait for a gate",
+            help_text="A switch organizers flip, for work the portal cannot see.",
+        )
+        self.fields["waits_for"].queryset = ChecklistTemplateItem.objects.filter(
+            template__conference=conference
+        ).exclude(pk=self.instance.pk or 0)
+        self.fields["waits_for"].label = "Wait for another line"
 
 
 class NewHandbookForm(forms.Form):

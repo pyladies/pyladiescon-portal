@@ -30,6 +30,7 @@ from .models import (
     SessionPresenter,
     SpeakerSettings,
 )
+from .readiness import apply_readiness, refresh_dependents, refresh_readiness
 
 
 class ChecklistError(ValueError):
@@ -96,7 +97,7 @@ def _create_instance(template_item, *, session, presenter, anchors, language="")
     if template_item.per_translation_language and language:
         title = f"{title} ({language})"
     assignee, team = _default_owner(template_item, session, presenter)
-    return ChecklistItem.objects.create(
+    item = ChecklistItem.objects.create(
         conference_id=(session or presenter).conference_id,
         order=template_item.order,
         owner=template_item.owner,
@@ -109,8 +110,16 @@ def _create_instance(template_item, *, session, presenter, anchors, language="")
         auto_complete_rule=template_item.auto_complete_rule,
         requires_asset_kind=template_item.requires_asset_kind,
         requires_handbook=template_item.requires_handbook,
+        ready_rule=template_item.ready_rule,
+        ready_gate_code=template_item.ready_gate_code,
+        waits_for_line=template_item.waits_for,
+        template_waiting_note=template_item.waiting_note,
         **lookup,
     )
+    # A line that waits starts out waiting, rather than looking actionable
+    # until the next pass runs.
+    apply_readiness(item)
+    return item
 
 
 def _languages_for(template_item, session):
@@ -148,6 +157,20 @@ def instantiate_presenter_checklist(link, accepted_at=None):
         )
         if item is not None:
             created.append(item)
+    return _settle_readiness(created)
+
+
+def _settle_readiness(created):
+    """Re-evaluate a batch once all of it exists.
+
+    An item is evaluated as it is created, and a line may wait on one that
+    sorts after it, whose item does not exist yet at that moment. Without
+    this pass such an item would look startable until the nightly refresh.
+    """
+    if created:
+        refresh_readiness(ChecklistItem.objects.filter(pk__in=[i.pk for i in created]))
+        for item in created:
+            item.refresh_from_db()
     return created
 
 
@@ -164,7 +187,7 @@ def instantiate_general_checklist(presenter, accepted_at=None):
         )
         if item is not None:
             created.append(item)
-    return created
+    return _settle_readiness(created)
 
 
 def instantiate_session_checklist(session):
@@ -185,7 +208,7 @@ def instantiate_session_checklist(session):
             )
             if item is not None:
                 created.append(item)
-    return created
+    return _settle_readiness(created)
 
 
 def _matching_targets(template_item):
@@ -434,6 +457,14 @@ def set_item_status(item, status, *, actor=None, note=None, manual=True):
     """
     if manual and item.is_automatic and status in (ItemStatus.DONE, ItemStatus.TODO):
         raise ChecklistError("This item completes itself; it cannot be ticked by hand.")
+    if manual and item.is_waiting and status != ItemStatus.TODO:
+        # The row's box is not clickable, and this is the guard behind it.
+        # An organizer who has to close it anyway opens it first.
+        raise ChecklistError(
+            f"This item is not ready yet: {item.waiting_reason}."
+            if item.waiting_reason
+            else "This item is not ready to be worked on yet."
+        )
     previous = item.status
     item.status = status
     if note is not None:
@@ -447,6 +478,9 @@ def set_item_status(item, status, *, actor=None, note=None, manual=True):
     item.save()
     if status != previous:
         _log(item, f"checklist.{status.lower()}", actor)
+        # Anything waiting on this item may have just opened, or closed
+        # again if it was reopened.
+        refresh_dependents(item)
         if item.is_required and status in (ItemStatus.DONE, ItemStatus.SKIPPED):
             if item.session_id is not None:
                 confirm_session_if_ready(item.session)

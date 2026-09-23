@@ -44,12 +44,14 @@ from speakers.models import (
     Handbook,
     MediaAsset,
     Presenter,
+    ReadinessGate,
     ScheduleSlot,
     Session,
     SessionPresenter,
     SpeakerSettings,
 )
 from speakers.program_types import presenter_role, session_type
+from speakers.readiness import refresh_for_conference
 from speakers.rules import reevaluate_all
 from speakers.seeds import seed_checklists
 from speakers.services import accept_invitation, send_invitation
@@ -219,6 +221,7 @@ class Command(BaseCommand):
         self._checklist_states()
         self._performer_video()
         reevaluate_all(self.conference)
+        refresh_for_conference(self.conference)
         self.stdout.write(
             self.style.SUCCESS(
                 f"Speaker sample data ready on {self.conference}: "
@@ -261,6 +264,14 @@ class Command(BaseCommand):
         row.default_video_length_limit_minutes = 10
         row.save()
         seed_checklists(self.conference)
+        # One gate open and one shut, so both states are on the sample
+        # speaker's list: the tech check is bookable, uploads are not.
+        gates = {
+            gate.code: gate
+            for gate in ReadinessGate.objects.filter(conference=self.conference)
+        }
+        if "tech-check-open" in gates:
+            gates["tech-check-open"].set_open(True, actor=None)
         for key, title, url in (
             ("speaker", "Speaker guide", "https://conference.pyladies.com/docs/"),
             (
@@ -409,7 +420,11 @@ class Command(BaseCommand):
         """Tick the presenter's manual required items so the session can
         confirm, whatever the edition's templates mark as required."""
         blocking = presenter.checklist_items.filter(
-            is_required=True, status__in=OPEN_ITEM_STATUSES, auto_complete_rule=""
+            is_required=True,
+            status__in=OPEN_ITEM_STATUSES,
+            auto_complete_rule="",
+            # A waiting item cannot be ticked by anyone, here included.
+            is_waiting=False,
         )
         for item in blocking:
             complete_item(item, actor=presenter.user)
