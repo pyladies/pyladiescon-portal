@@ -1,0 +1,7 @@
+{% comment %}
+htmx response to ticking a checklist item: the refreshed row (swapped into
+#item-<pk>) plus the toast container, swapped out of band so the notice
+shows without a reload. Params: item (annotated), tickable.
+{% endcomment %}
+{% include "speakers/_checklist_item.html" with item=item tickable=tickable %}
+{% include "portal/_toast_messages.html" with oob=True %}

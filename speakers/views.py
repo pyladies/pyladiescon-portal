@@ -89,6 +89,7 @@ from .models import (
     Presenter,
     PresenterRole,
     Session,
+    SessionPresenter,
     SessionType,
     SpeakerSettings,
 )
@@ -779,9 +780,44 @@ class PresenterInviteView(LoginRequiredMixin, SpeakerOrganizerRequiredMixin, Vie
         )
         form = PresenterInviteForm(request.POST, presenter=presenter)
         if not form.is_valid():
-            messages.error(request, "Pick one of the presenter's sessions.")
+            # The form knows which session or role it refused and why, and
+            # the organizer is sent back to a page that cannot show field
+            # errors, so carry the reasons into the message.
+            reasons = " ".join(
+                error for errors in form.errors.values() for error in errors
+            )
+            messages.error(
+                request, f"Pick a session of this edition. {reasons}".strip()
+            )
             return redirect(presenter.get_absolute_url())
         session = form.cleaned_data["session"]
+        if form.is_new_session:
+            link = SessionPresenter.objects.create(
+                session=session, presenter=presenter, role=form.cleaned_data["role"]
+            )
+            ActivityLog.record(
+                self.conference,
+                "session.presenter_added",
+                target=session,
+                actor=request.user,
+                presenter_id=presenter.pk,
+                role=link.role.code,
+            )
+            added = f"Added to {session.title} as {link.role.name}."
+            if presenter_added_to_session(link, actor=request.user):
+                # They are confirmed on it already; an invitation to accept
+                # what they are confirmed on is a second email asking for
+                # something that has happened. The added-to-session email
+                # queued by the confirmation is the one they get.
+                messages.success(
+                    request,
+                    f"{added} They had already accepted, so they are "
+                    "confirmed on it.",
+                )
+                return redirect(presenter.get_absolute_url())
+            added = f" {added}"
+        else:
+            added = ""
         invitation = (
             Invitation.objects.filter(presenter=presenter, session=session)
             .exclude(accepted_at__isnull=False)
@@ -796,7 +832,8 @@ class PresenterInviteView(LoginRequiredMixin, SpeakerOrganizerRequiredMixin, Vie
         send_invitation(invitation, actor=request.user)
         messages.success(
             request,
-            f"Invitation {'resent' if resend else 'sent'} to {presenter.email}.",
+            f"Invitation {'resent' if resend else 'sent'} to {presenter.email}."
+            + added,
         )
         return redirect(presenter.get_absolute_url())
 
@@ -839,6 +876,25 @@ class InvitationCancelView(InvitationActionMixin, View):
 # ---- Speaker side -----------------------------------------------------------
 
 
+def annotate_due(item, as_of):
+    """Set the display attributes the checklist row reads: ``overdue``,
+    ``days_left`` and ``due_tone``."""
+    item.overdue = item.is_open and item.due_date is not None and item.due_date < as_of
+    item.days_left = (item.due_date - as_of).days if item.due_date else None
+    item.due_tone = due_tone(item)
+    return item
+
+
+def due_tone(item):
+    """How loudly to show the due date: ``overdue``, ``soon`` (within a
+    week), ``later``, or ``quiet`` once the item is no longer open."""
+    if not item.is_open or item.due_date is None:
+        return "quiet"
+    if item.overdue:
+        return "overdue"
+    return "soon" if item.days_left <= 7 else "later"
+
+
 def _speaker_checklist(presenter, as_of):
     """Every item the presenter can see, with overdue flags, split by side.
 
@@ -860,9 +916,7 @@ def _speaker_checklist(presenter, as_of):
         .order_by(F("due_date").asc(nulls_last=True), "session__title", "order", "id")
     )
     for item in items:
-        item.overdue = (
-            item.is_open and item.due_date is not None and item.due_date < as_of
-        )
+        annotate_due(item, as_of)
     return {
         "links": links,
         "speaker": [
@@ -1042,12 +1096,24 @@ class SpeakerItemToggleView(LoginRequiredMixin, PresenterRequiredMixin, View):
                 )
         except ChecklistError as exc:
             messages.error(request, str(exc))
+        if request.headers.get("HX-Request"):
+            # Swap just this row, and the notice as a toast, so the page
+            # stays exactly where it is.
+            return render(
+                request,
+                "speakers/_checklist_item_swap.html",
+                {
+                    "item": annotate_due(item, today(self.presenter.tzinfo)),
+                    "tickable": True,
+                },
+            )
         target = request.POST.get("next", "")
         if not url_has_allowed_host_and_scheme(
             target, allowed_hosts={request.get_host()}
         ):
             target = reverse("speakers:my_checklist")
-        return redirect(target)
+        # Without JavaScript: land back on the item rather than at the top.
+        return redirect(f"{target.split('#')[0]}#item-{item.pk}")
 
 
 class SpeakerItemDetailView(LoginRequiredMixin, PresenterRequiredMixin, TemplateView):

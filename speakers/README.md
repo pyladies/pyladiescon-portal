@@ -427,7 +427,10 @@ installed; this app keeps small factory functions in `tests/speakers/factories.p
   there instead of the volunteer profile form, whose username and agreement
   boxes are disabled because signup collects them. Accepting an invitation
   also sends `emails/speakers/accepted.md` (account, sign-in options,
-  sessions, next steps). The dashboard nags about setting a password until
+  sessions, next steps). A presenter who accepted generally and is later
+  added to a session gets `emails/speakers/added_to_session.md` (session,
+  role, slot if any, link to the session page); one who has not accepted
+  is told through the invitation itself. The dashboard nags about setting a password until
   one exists or `Presenter.password_reminder_dismissed` is set.
 - Headshots go through the default storage (`ImageField`, same as
   `PortalProfile.profile_picture`), so they land on Spaces when

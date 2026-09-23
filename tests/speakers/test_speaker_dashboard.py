@@ -1,9 +1,11 @@
 import re
-from datetime import date, timedelta
+from datetime import timedelta
+from zoneinfo import ZoneInfo
 
 import pytest
 from django.contrib.auth.models import User
 from django.urls import reverse
+from django.utils import timezone
 from pytest_django.asserts import assertRedirects
 
 from speakers.checklists import add_adhoc_item, block_item, complete_item, skip_item
@@ -27,6 +29,12 @@ from .factories import (
 
 DASHBOARD = reverse("speakers:my_dashboard")
 CHECKLIST = reverse("speakers:my_checklist")
+
+
+def lagos_today():
+    """Today for the test presenter (Africa/Lagos), which the checklist
+    measures deadlines against; the machine's own date can differ."""
+    return timezone.now().astimezone(ZoneInfo("Africa/Lagos")).date()
 
 
 def toggle(item):
@@ -100,7 +108,16 @@ class TestDashboardLists:
         assert "tasks done" not in content
         assert "Nothing open on your to-do list" in content
         assert "Your to-dos" not in content  # the lists live on the checklist page
-        assert f"{CHECKLIST}?session={session.slug}" in content
+        # The per-session checklist button lands on the session page's
+        # checklist section, so the reader keeps the session context.
+        session_checklist = (
+            f"{reverse('speakers:my_session_detail', args=[session.slug])}#checklist"
+        )
+        assert session_checklist in content
+        assert f"{CHECKLIST}?session=" not in content
+        content = client.get(reverse("speakers:my_sessions")).content.decode()
+        assert session_checklist in content
+        assert f"{CHECKLIST}?session=" not in content
 
     def test_checklist_page_with_zero_items(self, client, speaker, presenter, session):
         client.force_login(speaker)
@@ -152,7 +169,7 @@ class TestDashboardLists:
         assert toggle(mine) in content and toggle(done) in content
         assert toggle(theirs) not in content and toggle(unassigned) not in content
         assert "Lena K is on it" in content and "not yet assigned" in content
-        assert "A team task: nothing for you to do here." in content
+        assert "A team task" not in content
         assert re.search(r'data-item-id="%d"\s+data-status="DONE"' % done.pk, content)
 
     def test_team_owned_item_named(self, client, speaker, presenter, conference):
@@ -188,7 +205,6 @@ class TestDashboardLists:
         content = client.get(CHECKLIST).content.decode()
         assert "done by Volunteer A on" in content
         assert "done automatically on" in content
-        assert "nothing for you to do here" not in content.split("Session scheduled")[1]
 
     def test_automatic_item_is_dashed_and_not_tickable(
         self, client, speaker, presenter, session, conference
@@ -228,22 +244,48 @@ class TestDashboardLists:
             "Late thing",
             ItemOwner.SPEAKER,
             presenter=presenter,
-            due_date=date.today() - timedelta(days=2),
+            due_date=lagos_today() - timedelta(days=2),
         )
         soon = add_adhoc_item(
             conference,
             "Soon thing",
             ItemOwner.SPEAKER,
             presenter=presenter,
-            due_date=date.today() + timedelta(days=30),
+            due_date=lagos_today() + timedelta(days=30),
         )
+        tomorrow = add_adhoc_item(
+            conference,
+            "Tomorrow thing",
+            ItemOwner.SPEAKER,
+            presenter=presenter,
+            due_date=lagos_today() + timedelta(days=1),
+        )
+        done = add_adhoc_item(
+            conference,
+            "Done thing",
+            ItemOwner.SPEAKER,
+            presenter=presenter,
+            due_date=lagos_today() - timedelta(days=5),
+        )
+        complete_item(done)
         client.force_login(speaker)
         response = client.get(CHECKLIST)
         content = response.content.decode()
-        assert "(overdue)" in content
+        assert "checklist-due-overdue" in content
         by_id = {i.pk: i for i in response.context["speaker_items"]}
-        assert by_id[late.pk].overdue is True
-        assert by_id[soon.pk].overdue is False
+        assert by_id[late.pk].overdue is True and by_id[late.pk].due_tone == "overdue"
+        assert by_id[soon.pk].overdue is False and by_id[soon.pk].due_tone == "later"
+        assert by_id[tomorrow.pk].due_tone == "soon"
+        assert by_id[done.pk].due_tone == "quiet"  # finished: no colour
+        assert "checklist-due-overdue" in content and "· overdue" in content
+        assert "tomorrow" in content
+        # Done titles are struck through; open ones get an empty box.
+        assert re.search(r'checklist-title-done">Done thing</a>', content)
+        assert not re.search(r'checklist-title-done">Late thing</a>', content)
+        assert re.search(
+            r'<button[^>]*class="checklist-box "[^>]*>\s*</button>', content
+        )
+        assert "checklist-box checklist-box-done" in content
 
 
 @pytest.mark.django_db
@@ -255,17 +297,19 @@ class TestToggle:
             conference, "Read the guide", ItemOwner.SPEAKER, presenter=presenter
         )
         client.force_login(speaker)
-        assertRedirects(client.post(toggle(item)), CHECKLIST)
+        # Ticking lands back on the item, not at the top of the page.
+        assertRedirects(client.post(toggle(item)), f"{CHECKLIST}#item-{item.pk}")
         item.refresh_from_db()
         assert item.status == ItemStatus.DONE
         assert item.completed_by == speaker
         # The form sends the page it was on; anything off-site is ignored.
         assertRedirects(
-            client.post(toggle(item), {"next": f"{CHECKLIST}?view=session"}),
-            f"{CHECKLIST}?view=session",
+            client.post(toggle(item), {"next": f"{CHECKLIST}?view=session#x"}),
+            f"{CHECKLIST}?view=session#item-{item.pk}",
         )
         assertRedirects(
-            client.post(toggle(item), {"next": "https://evil.example/x"}), CHECKLIST
+            client.post(toggle(item), {"next": "https://evil.example/x"}),
+            f"{CHECKLIST}#item-{item.pk}",
         )
         client.post(toggle(item))
         item.refresh_from_db()
@@ -275,6 +319,42 @@ class TestToggle:
         item.refresh_from_db()
         assert item.status == ItemStatus.SKIPPED
         assert "An organizer skipped" in response.content.decode()
+
+    def test_htmx_tick_swaps_the_row_and_toasts_in_place(
+        self, client, speaker, presenter, session, conference
+    ):
+        """With htmx the response is just the row and the toast container,
+        so the page neither reloads nor scrolls."""
+        item = add_adhoc_item(
+            conference,
+            "Send slides",
+            ItemOwner.SPEAKER,
+            presenter=presenter,
+            session=session,
+            due_date=lagos_today() + timedelta(days=2),
+        )
+        client.force_login(speaker)
+        page = client.get(CHECKLIST).content.decode()
+        assert "htmx.min.js" in page and 'id="portal-toasts"' in page
+        assert f'hx-target="#item-{item.pk}"' in page
+        response = client.post(toggle(item), HTTP_HX_REQUEST="true")
+        assert response.status_code == 200
+        content = response.content.decode()
+        assert "<!DOCTYPE" not in content
+        assert re.search(r'id="item-%d"[^>]*data-status="DONE"' % item.pk, content)
+        assert "checklist-box checklist-box-done" in content
+        assert 'checklist-title-done">Send slides</a>' in content
+        assert 'id="portal-toasts"' in content and 'hx-swap-oob="true"' in content
+        assert "Done: Send slides" in content and "portal-toast" in content
+        # Untick the same way; the due badge comes back coloured.
+        content = client.post(toggle(item), HTTP_HX_REQUEST="true").content.decode()
+        assert "Reopened: Send slides" in content
+        assert "checklist-due-soon" in content and "in 2 days" in content
+        # A refused tick (automatic item) still answers with the row and the error toast.
+        item.auto_complete_rule = AutoRule.BIO_AND_HEADSHOT
+        item.save()
+        content = client.post(toggle(item), HTTP_HX_REQUEST="true").content.decode()
+        assert "text-bg-danger" in content and f'id="item-{item.pk}"' in content
 
     def test_cannot_tick_organizer_item(self, client, speaker, presenter, conference):
         item = add_adhoc_item(
@@ -329,7 +409,7 @@ class TestChecklistViews:
                 ItemOwner.SPEAKER,
                 presenter=presenter,
                 session=session,
-                due_date=date.today() + timedelta(days=9),
+                due_date=lagos_today() + timedelta(days=9),
             ),
             "soon": add_adhoc_item(
                 conference,
@@ -337,7 +417,7 @@ class TestChecklistViews:
                 ItemOwner.SPEAKER,
                 presenter=presenter,
                 session=panel,
-                due_date=date.today() + timedelta(days=2),
+                due_date=lagos_today() + timedelta(days=2),
             ),
             "undated": add_adhoc_item(
                 conference, "Discord", ItemOwner.SPEAKER, presenter=presenter
@@ -348,7 +428,7 @@ class TestChecklistViews:
                 ItemOwner.ORGANIZER,
                 presenter=presenter,
                 session=session,
-                due_date=date.today() + timedelta(days=5),
+                due_date=lagos_today() + timedelta(days=5),
             ),
             "panel": panel,
         }
@@ -463,5 +543,8 @@ class TestSessionDetail:
         client.force_login(speaker)
         content = client.get(reverse("speakers:my_sessions")).content.decode()
         assert "1 of 2 tasks done" in content
-        assert f"{CHECKLIST}?session={session.slug}" in content
-        assert reverse("speakers:my_session_detail", args=[session.slug]) in content
+        # The per-session checklist button lands on the session page's
+        # checklist section, so the reader keeps the session context.
+        session_url = reverse("speakers:my_session_detail", args=[session.slug])
+        assert f"{session_url}#checklist" in content
+        assert f"{CHECKLIST}?session=" not in content

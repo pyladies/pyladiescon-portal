@@ -115,7 +115,91 @@ body {
     border-left: 3px solid var(--bs-primary);
 }
 .checklist-item-done {
-    opacity: 0.65;
+    opacity: 0.75;
+}
+/* Ticking an item redirects back to #item-<pk>; keep it clear of the top. */
+.checklist-row {
+    scroll-margin-top: 1rem;
+}
+/* One box size for every row, whether it is a button, a static status, or
+   an automatic item: empty while open, ticked once done. */
+.checklist-box {
+    flex: 0 0 auto;
+    width: 1.5rem;
+    height: 1.5rem;
+    margin-top: 0.1rem;
+    padding: 0;
+    border: 2px solid var(--bs-secondary);
+    border-radius: 0.3rem;
+    background: var(--bs-body-bg);
+    color: var(--bs-body-bg);
+    font-size: 0.85rem;
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+button.checklist-box:hover,
+button.checklist-box:focus-visible {
+    border-color: var(--bs-primary);
+    color: var(--bs-primary);
+}
+.checklist-box-static {
+    border-style: dashed;
+    color: var(--bs-secondary);
+}
+.checklist-box-done,
+button.checklist-box-done:hover {
+    border-color: var(--bs-success);
+    border-style: solid;
+    background: var(--bs-success);
+    color: #fff;
+}
+.checklist-box-blocked {
+    border-color: var(--bs-danger);
+    border-style: solid;
+    color: var(--bs-danger);
+}
+.checklist-box-skipped {
+    border-color: var(--bs-secondary);
+    color: var(--bs-secondary);
+}
+.checklist-title-done {
+    text-decoration: line-through !important;
+    color: var(--bs-secondary) !important;
+}
+/* Due dates, right-aligned, louder the closer they are. */
+.checklist-due {
+    font-weight: 500;
+    white-space: nowrap;
+}
+.checklist-due-overdue {
+    background: var(--bs-danger);
+    color: #fff;
+}
+.checklist-due-soon {
+    background: var(--bs-warning);
+    color: var(--bs-dark);
+}
+.checklist-due-later {
+    background: var(--bs-primary-bg-subtle);
+    color: var(--bs-primary-text-emphasis);
+}
+.checklist-due-quiet {
+    background: transparent;
+    border: 1px solid var(--bs-border-color);
+    color: var(--bs-secondary);
+    font-weight: 400;
+}
+
+/* Flash messages as toasts (templates/portal/_toast_messages.html): shown for
+   a few seconds, then fade out without JavaScript. */
+.portal-toast {
+    animation: portal-toast-fade 7s ease-in forwards;
+}
+@keyframes portal-toast-fade {
+    0%, 80% { opacity: 1; }
+    100% { opacity: 0; visibility: hidden; }
 }
 
 /* Checklist board cells (templates/speakers/checklist_board.html). */

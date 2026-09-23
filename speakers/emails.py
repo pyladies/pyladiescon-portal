@@ -185,6 +185,32 @@ def send_acceptance_email(invitation):
     )
 
 
+def send_added_to_session_email(link):
+    """An organizer added an already-accepted presenter to a session."""
+    presenter, session = link.presenter, link.session
+    slot = getattr(session, "slot", None)
+    send_email(
+        f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} You've been added to "
+        f"{session.title}",
+        [presenter.email],
+        markdown_template="emails/speakers/added_to_session.md",
+        context={
+            "presenter": presenter,
+            "conference": link.conference,
+            "session": session,
+            "role": link.role.name.lower(),
+            # The role row carries the word the emails use for it, so a role
+            # an organizer adds later reads properly here too.
+            "role_word": link.role.email_word,
+            "starts": slot.start_utc.astimezone(presenter.tzinfo) if slot else None,
+            "session_url": absolute_url(
+                reverse("speakers:my_session_detail", kwargs={"slug": session.slug})
+            ),
+            "dashboard_url": absolute_url(reverse("speakers:my_dashboard")),
+        },
+    )
+
+
 def presenter_email_context(presenter):
     """The common preface for emails to a presenter: what to call them and
     their sessions with the scheduled time in their timezone, if any."""

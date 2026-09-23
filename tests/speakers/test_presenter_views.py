@@ -2,6 +2,7 @@ import re
 from datetime import date, timedelta
 
 import pytest
+from django.conf import settings
 from django.contrib.auth.models import User
 from django.core import mail
 from django.core.exceptions import ValidationError
@@ -19,7 +20,13 @@ from speakers.checklists import (
 )
 from speakers.constants import DueAnchor, ItemStatus, SessionStatus
 from speakers.forms import PresenterForm, liaison_candidates
-from speakers.models import ActivityLog, Invitation, InvitationStatus, Presenter
+from speakers.models import (
+    ActivityLog,
+    Invitation,
+    InvitationStatus,
+    Presenter,
+    SessionPresenter,
+)
 from speakers.program_types import presenter_role, session_type
 from speakers.seeds import seed_checklists
 from speakers.services import (
@@ -511,6 +518,14 @@ class TestSessionPresenterActions:
         # Their link is the only required one and no seeded item is
         # required, so the session confirms itself on the spot.
         assert talk.status == SessionStatus.CONFIRMED
+        # ... and they hear about it right away.
+        added = mail.outbox[-1]
+        assert added.to == ["grace@example.com"]
+        assert "You've been added to Later talk" in added.subject
+        assert "Later talk" in added.body and "Talk, presenter" in added.body
+        assert "not scheduled yet" in added.body
+        assert f"/speakers/me/sessions/{talk.slug}/" in added.body
+        assert "already accepted our invitation" in added.body
         # Someone who has not accepted anything is added unconfirmed, as before.
         client.post(
             reverse("speakers:session_add_presenter", args=[talk.slug]),
@@ -923,19 +938,124 @@ class TestInviteFromPresenterPage:
         client.force_login(organizer)
         assert "Opened" in client.get(ada.get_absolute_url()).content.decode()
 
-    def test_rejects_session_the_presenter_is_not_on(
+    def test_invite_to_any_session_adds_them_with_the_role(
         self, client, organizer, presenters
     ):
-        ada, other = presenters["ada"], presenters["session"]
-        stranger = make_session(other.conference, title="Not hers")
+        """The form lists their sessions, every other live session of the
+        edition, and the conference in general; picking a new session links
+        the presenter to it with the chosen role before the email goes out."""
+        ada, theirs = presenters["ada"], presenters["session"]
+        panel = make_session(theirs.conference, title="Careers panel", kind="PANEL")
+        cancelled = make_session(theirs.conference, title="Gone")
+        cancelled.cancel()
+        make_session(theirs.conference, title="Coffee", kind="BREAK")
         client.force_login(organizer)
+        form = client.get(ada.get_absolute_url()).context["invite_form"]
+        groups = dict(form.fields["session"].choices[1:])
+        assert [label for _, label in groups["Their sessions"]] == [
+            "Django 101 (Presenter)"
+        ]
+        assert [label for _, label in groups["Other sessions"]] == [
+            "Careers panel (Panel)"
+        ]
+        moderator = presenter_role(theirs.conference, "MODERATOR")
         response = client.post(
             reverse("speakers:presenter_invite", args=[ada.slug]),
-            {"session": stranger.pk},
+            {"session": panel.pk, "role": moderator.pk},
             follow=True,
         )
-        assert "Pick one of the presenter" in response.content.decode()
+        content = response.content.decode()
+        assert "Added to Careers panel as Moderator" in content
+        link = SessionPresenter.objects.get(session=panel, presenter=ada)
+        assert link.role == moderator
+        invitation = Invitation.objects.get()
+        assert invitation.session == panel and invitation.sent_at
+        assert ActivityLog.objects.filter(
+            action="session.presenter_added", data__presenter_id=ada.pk
+        ).exists()
+        # No role given: the type's own default, which a talk sets to
+        # Presenter. A role the type does not allow is refused.
+        talk = make_session(theirs.conference, title="A talk", kind="TALK")
+        client.post(
+            reverse("speakers:presenter_invite", args=[ada.slug]), {"session": talk.pk}
+        )
+        assert SessionPresenter.objects.get(session=talk, presenter=ada).role == (
+            session_type(theirs.conference, "TALK").default_role
+        )
+        # A type someone left without a default role, and no role picked.
+        roleless = session_type(theirs.conference, "OTHER")
+        roleless.default_role = None
+        roleless.save(update_fields=["default_role"])
+        odd = make_session(theirs.conference, title="Odd one", kind=roleless)
+        response = client.post(
+            reverse("speakers:presenter_invite", args=[ada.slug]),
+            {"session": odd.pk},
+            follow=True,
+        )
+        assert "A Other has no role to add them with." in response.content.decode()
+        assert not SessionPresenter.objects.filter(session=odd, presenter=ada)
+        keynote = make_session(theirs.conference, title="A keynote", kind="KEYNOTE")
+        response = client.post(
+            reverse("speakers:presenter_invite", args=[ada.slug]),
+            {
+                "session": keynote.pk,
+                "role": presenter_role(theirs.conference, "PERFORMER").pk,
+            },
+            follow=True,
+        )
+        # The form's own reason reaches the organizer, not just "pick one".
+        assert "A Keynote has no Performer role." in response.content.decode()
+        assert not SessionPresenter.objects.filter(session=keynote, presenter=ada)
+
+    def test_new_session_for_an_accepted_presenter_confirms_them(
+        self, client, organizer, presenters
+    ):
+        ada, theirs = presenters["ada"], presenters["session"]
+        general = make_invitation(ada, None)
+        send_invitation(general)
+        accept_invitation(general)
+        talk = make_session(theirs.conference, title="A talk", kind="TALK")
+        client.force_login(organizer)
+        before = len(mail.outbox)
+        response = client.post(
+            reverse("speakers:presenter_invite", args=[ada.slug]),
+            {
+                "session": talk.pk,
+                "role": presenter_role(theirs.conference, "PRESENTER").pk,
+            },
+            follow=True,
+        )
+        content = response.content.decode()
+        assert "Added to A talk as Presenter" in content
+        assert "already accepted, so they are confirmed" in content
+        assert "Invitation sent" not in content
+        assert SessionPresenter.objects.get(session=talk, presenter=ada).is_confirmed
+        # One email, the one that fits: no invitation to accept what they
+        # are already confirmed on, and no invitation row for it either.
+        assert [m.subject for m in mail.outbox[before:]] == [
+            f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} You've been added to A talk"
+        ]
+        assert not Invitation.objects.filter(session=talk).exists()
+
+    def test_rejects_a_session_from_another_edition(
+        self, client, organizer, presenters
+    ):
+        ada = presenters["ada"]
+        other = Conference.objects.create(year=2024, name="Old", slug="old")
+        stranger = make_session(other, title="Not here")
+        client.force_login(organizer)
+        for value in (stranger.pk, "abc"):
+            response = client.post(
+                reverse("speakers:presenter_invite", args=[ada.slug]),
+                {
+                    "session": value,
+                    "role": presenter_role(ada.conference, "PRESENTER").pk,
+                },
+                follow=True,
+            )
+            assert "Pick a session of this edition" in response.content.decode()
         assert Invitation.objects.count() == 0
+        assert not SessionPresenter.objects.filter(presenter=ada, session=stranger)
 
     def test_organizer_only(self, client, liaison, presenters):
         client.force_login(liaison)

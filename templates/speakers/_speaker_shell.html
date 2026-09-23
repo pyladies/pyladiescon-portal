@@ -4,6 +4,17 @@
 Shell for the speaker side: the personal rail with rail_active highlighted
 ("dashboard" by default). Children fill head_title, breadcrumb, content.
 {% endcomment %}
+{% block extra_head %}
+    {{ block.super }}
+    {# htmx: ticking a checklist item swaps the row in place instead of reloading. #}
+    <script src="https://cdn.jsdelivr.net/npm/htmx.org@2.0.4/dist/htmx.min.js"
+            integrity="sha384-HGfztofotfshcF7+8n44JQL2oJmowVChPTg48S+jvZoztPfvwD79OC/LTtG6dMp+"
+            crossorigin="anonymous"></script>
+{% endblock extra_head %}
+{% block messages %}
+    {# Toasts instead of top-of-page alerts; the container is always present so an htmx response can refill it. #}
+    {% include "portal/_toast_messages.html" %}
+{% endblock messages %}
 {% block sidebar_title %}
     {% trans "Speaking" %}
 {% endblock sidebar_title %}

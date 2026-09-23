@@ -1,3 +1,4 @@
+import re
 from datetime import date, timedelta
 
 import pytest
@@ -301,6 +302,20 @@ class TestPresenterPageChecklists:
         assert 'name="owner"' in content and "Lena" in content
         assert '<optgroup label="Teams">' in content
         assert "htmx.min.js" in content
+        # Rows: an empty box on open items, a ticked one plus a struck-through
+        # title on done ones; no separate reopen button.
+        assert re.search(
+            r'<button[^>]*value="DONE"[^>]*class="checklist-box "', content
+        )
+        assert 'checklist-title-done">Update bio</a>' not in content
+        assert "fa-rotate-left" not in content
+        grace = people["grace"]
+        content = client.get(grace.get_absolute_url()).content.decode()
+        assert 'checklist-title-done">Update bio</a>' in content
+        assert re.search(
+            r'<button[^>]*value="TODO"[^>]*class="checklist-box checklist-box-done"',
+            content,
+        )
 
     def test_presenter_page_shows_item_descriptions(self, client, organizer, people):
         add_adhoc_item(
