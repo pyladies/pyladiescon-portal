@@ -25,6 +25,11 @@
                     <a href="{% url 'account_signup' %}" class="btn btn-primary btn-lg">
                         <i class="fa-solid fa-user-plus"></i> {% trans "Sign up to volunteer" %}
                     </a>
+                    {% if speaker_proposals_open %}
+                        <a href="{% url 'speakers:propose' %}" class="btn btn-primary btn-lg">
+                            <i class="fa-solid fa-paper-plane"></i> {% trans "Propose a session" %}
+                        </a>
+                    {% endif %}
                     <a href="{% url 'account_login' %}"
                        class="btn btn-outline-primary btn-lg">{% trans "Sign in" %}</a>
                 </div>

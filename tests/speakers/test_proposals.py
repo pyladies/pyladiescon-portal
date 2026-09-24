@@ -611,6 +611,10 @@ class TestWhatOthersSee:
         it; a volunteer is told it is the same account they already have."""
         landing = client.get("/").content.decode()
         assert PROPOSE in landing and "Propose a session" in landing
+        # Top of the page, next to the volunteer call, and again further
+        # down with the sentence that explains it.
+        hero, _, rest = landing.partition("Across all editions")
+        assert PROPOSE in hero and PROPOSE in rest
         client.force_login(stranger)
         hub = client.get(reverse("volunteer:index")).content.decode()
         assert PROPOSE in hub and "same account" in hub
