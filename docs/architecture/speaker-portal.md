@@ -40,7 +40,7 @@ The portal is the system of record for the program. There is no external CFP too
 | Lightweight for speakers | Every content field is optional markdown; a title and two sentences is a complete listing |
 | Customizable process | Checklists are templates organizers edit in the portal, not code |
 | One source for the website | The conference site embeds a widget; publishing in the portal updates the site |
-| Reusable next year | Everything is scoped to a project (edition); templates and settings clone forward |
+| Reusable next year | Everything is scoped to a conference (edition); templates and settings clone forward |
 
 ### 1.2 Scope
 
@@ -58,7 +58,7 @@ A speaker never fills in a form they didn't ask for. The whole journey is: get i
 
 ### 2.1 Invitation
 
-An organizer adds the session and the person, writes a personal note, and sends the invitation. The email carries a link that is just for that speaker; clicking it creates their account. From then on they sign in with a link emailed to them — no passwords.
+An organizer adds the session and the person, writes a personal note, and sends the invitation. The email carries a link that is just for that speaker; clicking it creates their account. From then on they sign in with a one-time code emailed to them, or with a password if they set one: the welcome page offers to set one and the dashboard asks until they have or dismiss it.
 
 ### 2.2 The dashboard
 
@@ -81,7 +81,7 @@ The schedule in the speaker's own timezone, their sessions highlighted, visible 
 
 ### 3.1 Sessions
 
-One list for everything that will be on the schedule — workshops, panels, PyJam performances, and also the opening, breaks, and closing. Status moves from draft, to invited, to confirmed, to scheduled, to published. A speaker liaison sees only the rows assigned to them.
+One list for everything that will be on the schedule — workshops, panels, PyJam performances, and also the opening, breaks, and closing. Status moves from draft, to invited, to confirmed, to scheduled, to published, and any of them can be cancelled. A speaker liaison sees only the rows assigned to them.
 
 ### 3.2 A presenter, in one place
 
@@ -89,7 +89,7 @@ Everything about one person: their to-dos, the team's to-dos for them (assignabl
 
 ### 3.3 The checklist board
 
-Presenters down the side, required items across the top, one colour per cell. Sort by most overdue and the people who need a nudge float to the top. Tabs switch between the speaker side, the organizer side, and post-production. This replaces the spreadsheet's status columns.
+Presenters down the side, every checklist item across the top, one colour per cell. Sort by most overdue and the people who need a nudge float to the top. Tabs switch between the speaker side, the organizer side, and post-production. This replaces the spreadsheet's status columns.
 
 Checklists are templates the team edits in the portal — items can be renamed, reordered, added, or removed per role, and the templates carry forward to next year.
 
@@ -108,6 +108,8 @@ The program is internal until the team flips it to published. Each session is pu
 PyJam sessions are pre-recorded. The performer uploads the video; the team post-produces it and publishes to YouTube for a scheduled premiere or watch party.
 
 ### 4.1 The performer
+
+> **Not built** (M3b). The upload panel and the post-production lists below are the proposal; today a performer sees their checklist and nothing uploads.
 
 Same dashboard as any speaker, plus an upload panel: the video goes straight to storage in chunks and resumes if the connection drops, and the panel shows the duration against the length limit. The performer's second list is "what we're doing with your video", so they can watch it move through transcription, translation, and the final cut. When the final cut is ready, an "approve the final cut" item opens for them.
 
@@ -161,9 +163,11 @@ publish program ────────────────►  card goes p
 
 Liaisons seeing only their assigned speakers is a deliberate change from a shared spreadsheet where every volunteer sees every speaker's email and status. It is enforced in database queries and covered by the portal's tenant-isolation test suite.
 
-Speakers sign in with a magic link sent to their email. There are no passwords to reset.
+Speakers sign in with a one-time code emailed to them. A password is optional: the welcome page offers to set one, the dashboard asks until they do or dismiss the reminder, and the usual reset flow works for those who have one.
 
 ### 7.1 Permissions and teams (M2b)
+
+> **Not built.** Access today is `is_staff` and `is_superuser` plus team membership and item assignment, which is what this section is meant to replace.
 
 The table above says what each audience does. This section says how the portal decides, and replaces the mechanism the portal grew up with.
 
@@ -222,23 +226,28 @@ Ticking checklist items is never a permission: the assignee, an approved member 
 
 ## 8. Data model
 
-Every model belongs to a `Project` — the portal's existing per-edition tenant — so PyLadiesCon 2027 is a new project with the same code.
+Every model belongs to a `portal.Conference` — the portal's existing per-edition tenant — so PyLadiesCon 2027 is a new conference row with the same code.
 
 ```
-Project
+portal.Conference
+ ├── SpeakerSettings (one row: the module's switch and the edition's defaults)
+ ├── SessionType ──── PresenterRole (which roles a type allows)
  ├── Session ──────────────── SessionPresenter ──── Presenter ──── User (optional)
  │     │                        (role, order)          │
  │     ├── ScheduleSlot ──── DiscordChannel            └── ChecklistItem (owner=SPEAKER)
  │     ├── MediaAsset (pre-recorded sessions)
- │     ├── PromoAsset
+ │     ├── PromoAsset (M5, not built)
  │     └── ChecklistItem (owner=ORGANIZER; per presenter or per session)
  ├── ChecklistTemplate ──── ChecklistTemplateItem
+ ├── ReadinessGate (what a checklist line can wait for, §9.3a)
  ├── Invitation
  ├── Handbook (versioned) ──── HandbookReadReceipt
- ├── PretixOrder
  ├── ReminderLog
  └── ActivityLog
 ```
+
+A presenter's pretix order is reached through `Presenter.pretix_order`; the
+`PretixOrder` model itself belongs to the `attendee` app, not to this one.
 
 ### 8.1 Session
 
@@ -252,7 +261,7 @@ One row per **anything that appears on the schedule**: workshops, panels, PyJam 
 | `title` | required — the only required field |
 | `summary_md`, `outline_md`, `prerequisites_md`, `audience_md`, `notes_md` | Markdown, all optional |
 | `level`, `language`, `duration_minutes` | optional; duration defaults from kind (workshop 90, panel 60) |
-| `video_length_limit_minutes`, `youtube_url`, `youtube_publish_at`, `premiere_location` | pre-recorded only. `premiere_location` is `DISCORD` (watch party in the slot's channel) or `YOUTUBE` (YouTube Premiere at the slot time), defaulting from the project; it changes what the public card links to and nothing else, so the team can decide per session or late. |
+| `video_length_limit_minutes`, `youtube_url`, `youtube_publish_at`, `premiere_location` | pre-recorded only. `premiere_location` is `DISCORD` (watch party in the slot's channel) or `YOUTUBE` (YouTube Premiere at the slot time), defaulting from the edition's speaker settings; it changes what the public card links to and nothing else, so the team can decide per session or late. |
 | `status` | `DRAFT` → `INVITED` → `CONFIRMED` → `SCHEDULED` → `PUBLISHED`, plus `CANCELLED`. Program kinds skip `INVITED`. |
 | `is_public` | explicit publish switch; nothing reaches the website without it (§11.5) |
 | `slug` | stable public identifier used in URLs and calendar feeds |
@@ -267,13 +276,13 @@ The person, independent of any session. One presenter can run a workshop and sit
 |---|---|
 | `user` | nullable. Linked when the invitation is accepted; a presenter can be added and scheduled before they ever log in |
 | `display_name`, `pronouns`, `bio_md`, `headshot`, `location`, `timezone` | `timezone` drives reminder timing and the speaker's own schedule view |
-| `email` | invitation and reminder target; unique per project |
-| `links` | website, GitHub, Mastodon, LinkedIn, etc. |
+| `email` | invitation and reminder target; unique per conference |
+| `website_url`, `github_username`, `mastodon_url`, `linkedin_url`, `bluesky_username` | the links shown on a public presenter card |
 | `is_public` | presenter-controlled: opt out of a public bio page while still being named on the schedule |
 
 ### 8.3 SessionPresenter
 
-Links a presenter to a session with a `role` — `PRESENTER`, `CO_PRESENTER`, `PANELIST`, `MODERATOR`, `HOST`, `PERFORMER` — an `order` for display, and `confirmed_at`. Panels are sessions of kind `PANEL` with panelists and a moderator; nothing special is needed for them. Panels are assembled by organizers.
+Links a presenter to a session with a `role` (a `PresenterRole` row; the seeded ones are `PRESENTER`, `PANELIST`, `MODERATOR`, `HOST` and `PERFORMER`, and a type only allows the roles it lists), an `order` for display, and `confirmed_at`. Panels are sessions of kind `PANEL` with panelists and a moderator; nothing special is needed for them. Panels are assembled by organizers.
 
 ### 8.4 Invitation
 
@@ -287,9 +296,11 @@ An organizer invites a presenter to a specific session (or, for panelists, to th
 
 Validation: no two slots overlap on one channel (an all-channel slot conflicts with everything in its window, except other program-kind bands); a presenter in two overlapping slots is flagged as a warning, not blocked — a moderator moving between rooms is legitimate.
 
-All times are stored in UTC. The project's `conference_timezone` is only the organizer's default display; the conference itself has no timezone.
+All times are stored in UTC. `SpeakerSettings.conference_timezone` (one row per conference) is only the organizer's default display; the conference itself has no timezone.
 
 ### 8.6 PromoAsset
+
+> **Not built** (M5). No such model exists yet.
 
 Speaker cards, posters, and social images, attached to a session or a presenter, stored privately, downloadable by the speaker from their dashboard. Organizers upload them (the team's existing Canva workflow produces them; the presenter list exports directly to Canva's bulk-create CSV). Generating cards in the portal is a possible later addition.
 
@@ -298,6 +309,8 @@ Speaker cards, posters, and social images, attached to a session or a presenter,
 The speaker guide, versioned. Reading it records a `HandbookReadReceipt`; publishing a new version re-opens the "read the speaker guide" item for everyone who read the old one.
 
 ### 8.8 MediaAsset
+
+> **Partly built** (M3b). The model exists and the video-length rule reads it; nothing uploads or probes a file yet.
 
 For pre-recorded sessions, one row per file that moves through post-production:
 
@@ -320,7 +333,7 @@ Checklists are the core of the module: what each speaker must do, what the team 
 
 ### 9.1 Templates are organizer-defined
 
-Checklists are data, not code. Organizers create and edit templates in the portal; the defaults listed below are seed data loaded when a project is created, and every item can be renamed, reordered, removed, or added to. The only fixed part is a small registry of auto-completion rules (§9.3) that a template item may reference — organizers pick from a list, they do not write code. Templates clone across projects, so next year starts from this year's checklists.
+Checklists are data, not code. Organizers create and edit templates in the portal; the defaults listed below are seed data loaded when an edition is set up, and every item can be renamed, reordered, removed, or added to. The only fixed part is a small registry of auto-completion rules (§9.3) that a template item may reference — organizers pick from a list, they do not write code. Templates clone across editions, so next year starts from this year's checklists.
 
 A `ChecklistTemplate` has a scope:
 
@@ -336,7 +349,7 @@ Each `ChecklistTemplateItem` has:
 | `due_offset` | days relative to an anchor: invitation accepted, conference start, or session start |
 | `auto_complete_rule` | optional, from the registry in §9.3 |
 | `requires_asset_kind` | optional: the item is satisfied when a ready `MediaAsset` of that kind (and language) exists on the session |
-| `is_required` | required items gate the session reaching `CONFIRMED`. None of the default lines below is required: accepting the invitation is the presenter's confirmation (decided in the review round of 2026-09-16), so a seeded edition confirms a session as soon as its required presenters accept. An organizer may mark a line required, and from then on it holds the session at `INVITED` until it is done or skipped; the session page shows what it is waiting on. |
+| `is_required` | required items gate the session reaching `CONFIRMED`. None of the default lines below is required: accepting the invitation is the presenter's confirmation (decided in the review round of 16 September 2026), so a seeded edition confirms a session as soon as its required presenters accept. An organizer may mark a line required, and from then on it holds the session at `INVITED` until it is done or skipped; the session page shows what it is waiting on. |
 | `assignee_default` | organizer items only: the presenter's liaison, or unassigned |
 
 Templates exist for content kinds and for hosted program kinds (opening, closing, keynote get a two-item host template). Breaks and socials have no checklist.
@@ -396,7 +409,7 @@ Lines that are not about one session (bio, guide, registration, Discord, the tec
 
 ### 9.6 What the organizer sees
 
-- **Checklist board** — presenters down the side, required items across the top, one colour per cell, sortable by most overdue. Tabs for the speaker side, the organizer side, and post-production. This is the replacement for the spreadsheet's status columns.
+- **Checklist board** — presenters down the side, every checklist item across the top, one colour per cell, sortable by most overdue. Tabs for the speaker side, the organizer side, and post-production. This is the replacement for the spreadsheet's status columns.
 - **My volunteering tasks** — organizer items assigned to me or to a team I am on, soonest first or grouped by presenter, with what I have finished under them. It sits in the personal rail rather than the Organize one, for organizers too, because it is a person's own work rather than a view of the edition.
 - **Presenter page** — both checklists, invitation history, sessions, assets, activity.
 
@@ -422,7 +435,7 @@ PyJam sessions are performances recorded by the performer, post-produced by the 
 | Check video length is within limit | automatic; blocks with the overage |
 | Transcribe | transcript asset exists for the session language |
 | Review transcript | manual |
-| Translate | translation asset exists — one item per target language configured on the project |
+| Translate | translation asset exists — one item per target language configured in the edition's speaker settings |
 | Add title card and assemble final video | processed video asset exists |
 | Publish to YouTube with schedule and transcript | YouTube URL and publish time set on the session |
 
@@ -433,6 +446,8 @@ A pre-recorded session still takes a schedule slot — the premiere or watch-par
 ---
 
 ## 10. Scheduling UI
+
+> **Not built** (M3). `ScheduleSlot` rows exist and the sample data writes them, but there is no editor and the presenter's schedule page is a placeholder.
 
 **Organizer editor** — a day-by-time grid: columns are Discord channels, rows are 15-minute steps across the conference days. Unscheduled sessions wait in a sidebar and are dragged onto the grid; dragging moves a session, resizing changes its duration. A "+ program item" button on any cell creates an opening, break, or social inline, so the skeleton of a day is built without leaving the grid. All-channel slots render as full-width bands. Conflicts — channel overlap, a presenter double-booked — are highlighted in place.
 
@@ -446,23 +461,25 @@ A timezone switcher on the grid shows the whole schedule as a specific presenter
 
 ## 11. Public embeds and export
 
+> **Not built** (M4). None of the URLs below are routed yet; they are the proposal's shape for when they are.
+
 The conference website is static. The portal exposes read-only data and a drop-in widget so the site never needs a rebuild when the program changes.
 
 ### 11.1 JSON API
 
 ```
-GET /api/v1/<project>/sessions/            published sessions with presenters and slot
-GET /api/v1/<project>/presenters/          public presenters with their sessions
-GET /api/v1/<project>/schedule/            slots by day, plus channels
-GET /api/v1/<project>/sessions/<slug>/     one session
+GET /api/v1/<conference>/sessions/            published sessions with presenters and slot
+GET /api/v1/<conference>/presenters/          public presenters with their sessions
+GET /api/v1/<conference>/schedule/            slots by day, plus channels
+GET /api/v1/<conference>/sessions/<slug>/     one session
 ```
 
-Only published sessions and public presenters (others appear by name only on their sessions), never emails. Responses are cached for five minutes per project and invalidated on save. Program-kind sessions carry `is_content: false` so the widget can draw breaks as bands rather than cards.
+Only published sessions and public presenters (others appear by name only on their sessions), never emails. Responses are cached for five minutes per conference and invalidated on save. Program-kind sessions carry `is_content: false` so the widget can draw breaks as bands rather than cards.
 
 ### 11.2 Embeddable widget
 
 ```html
-<div data-pyladiescon-widget="schedule" data-project="pyladiescon-2026"></div>
+<div data-pyladiescon-widget="schedule" data-conference="pyladiescon-2026"></div>
 <script src="https://portal.pyladies.com/static/widget/v1.js" defer></script>
 ```
 
@@ -475,11 +492,11 @@ The widget is served by the portal. The conference site already depends on the p
 Attendees can put a single workshop or panel in their calendar and have it stay correct if the slot moves:
 
 ```
-GET /api/v1/<project>/schedule.ics                          everything (subscribable)
-GET /api/v1/<project>/schedule.ics?sessions=a,b,c           a personal selection (subscribable)
-GET /api/v1/<project>/schedule.ics?kind=WORKSHOP&channel=…  filtered
-GET /api/v1/<project>/sessions/<slug>.ics                   one session
-GET /api/v1/<project>/presenters/<slug>.ics                 everything one presenter is on
+GET /api/v1/<conference>/schedule.ics                          everything (subscribable)
+GET /api/v1/<conference>/schedule.ics?sessions=a,b,c           a personal selection (subscribable)
+GET /api/v1/<conference>/schedule.ics?kind=WORKSHOP&channel=…  filtered
+GET /api/v1/<conference>/sessions/<slug>.ics                   one session
+GET /api/v1/<conference>/presenters/<slug>.ics                 everything one presenter is on
 ```
 
 - Every feed is subscribable (`webcal://`), not just downloadable. Subscribing to a session means a reschedule updates the attendee's calendar.
@@ -499,7 +516,7 @@ The program is internal until the team publishes it, and a presenter's details s
 
 | Level | Switch | Effect |
 |---|---|---|
-| Project | `program_visibility` = internal / published | Master switch. While internal, the API returns an empty program and the widget shows "Program coming soon". |
+| Edition | `program_visibility` = internal / published | Master switch, planned for `SpeakerSettings` and not built yet. While internal, the API returns an empty program and the widget shows "Program coming soon". |
 | Session | scheduled **and** `is_public` | A session appears only once it has a slot and an organizer has published it. Scheduling alone publishes nothing. |
 | Presenter | `is_public` | Opt-out hides bio, headshot, and links; the name still appears on their sessions. |
 
@@ -523,7 +540,7 @@ Registration is through pretix, which offers an API and webhooks. The portal kee
 - **Organizer controls:** a "registered" column on the board and a "look up in pretix" button on the presenter page.
 - **Optional:** if speakers register free, voucher codes can be created through the pretix API and included in the registration-info email.
 
-Pretix settings (URL, organizer, event, token, webhook secret) are per project.
+Pretix settings (URL, organizer, event, token, webhook secret) are per conference.
 
 ### 12.2 Discord (deferred)
 
@@ -543,17 +560,29 @@ Channel and role setup is manual in 2026: organizers create channels on Discord 
 
 The conference is about eleven weeks away and invitations need to go out well before that, so the order lets organizers start inviting after the first milestone while the rest is built.
 
-| Milestone | Delivers | Target |
-|---|---|---|
-| **M1 — Presenters and invitations** | Session, Presenter, SessionPresenter, Invitation; invitation email and accept flow; speaker profile and session editing; admin; isolation tests | late September |
-| **M2 — Checklists** | template editor and seed defaults; instances; auto-completion; speaker dashboard; organizer board and queue; pretix sync; reminder digests | early–mid October |
-| **M2b — Permissions** | permission catalogue and team-derived grants (§7.1); every app on `has_perm`; team permission pickers and presets; `Role` dropped; media permissions land with M3b | mid October, before M3 |
-| **M3 — Scheduling** | Discord channels, slots, program items, conflict checks, drag-and-drop editor, presenter schedule view, calendar feeds | mid–late October |
-| **M3b — Media** | video upload, duration check, performer upload panel, session-scoped templates, post-production board | late October, alongside M3 |
-| **M4 — Public** | JSON API, widget, iframe, draft/preview/publish, data export; wired into the conference site | early November |
-| **M5 — Hardening** | promo assets, reminder tuning, load test on the public endpoints, documentation | mid November |
+The milestones below are called **stages** in the code and in
+`speakers/README.md` (`Stage 1`, `Stage 2`, `Stage 3b`, `Stage 4.1`, and
+so on). They are the same things: M1 is Stage 1, M2 is Stage 2, M2b is
+Stage 3 (permissions), M3 is Stage 4 (scheduling), M3b is Stage 4b
+(media), M4 is Stage 5 (public), M5 is Stage 6 (hardening). A decimal in
+the code, such as Stage 1.5 or Stage 4.1, is a task inside its stage.
 
-Each milestone ships behind the project's feature flag, so the 2026 project can use M1 while M2 is in review.
+| Milestone | Delivers | Target | Status |
+|---|---|---|---|
+| **M1 — Presenters and invitations** (Stage 1) | Session, Presenter, SessionPresenter, Invitation; invitation email and accept flow; speaker profile and session editing; admin; isolation tests | late September | **Built** |
+| **M2 — Checklists** (Stage 2) | template editor and seed defaults; instances; auto-completion; speaker dashboard; organizer board and queue; pretix sync; reminder digests | early–mid October | **Built**, plus readiness (§9.3a) which the proposal did not have |
+| **M2b — Permissions** (Stage 3) | permission catalogue and team-derived grants (§7.1); every app on `has_perm`; team permission pickers and presets; `Role` dropped; media permissions land with M3b | mid October, before M3 | **Not built.** Access is still `is_staff`/`is_superuser` plus team membership |
+| **M3 — Scheduling** (Stage 4) | Discord channels, slots, program items, conflict checks, drag-and-drop editor, presenter schedule view, calendar feeds | mid–late October | **Not built.** `ScheduleSlot` exists and is written by the sample data; there is no editor, and the presenter's schedule page is a placeholder |
+| **M3b — Media** (Stage 4b) | video upload, duration check, performer upload panel, session-scoped templates, post-production board | late October, alongside M3 | **Not built.** `MediaAsset` exists as a shell and the video-length rule reads it; nothing uploads |
+| **M4 — Public** (Stage 5) | JSON API, widget, iframe, draft/preview/publish, data export; wired into the conference site | early November | **Not built.** None of the URLs in §11 exist yet |
+| **M5 — Hardening** (Stage 6) | promo assets, reminder tuning, load test on the public endpoints, documentation | mid November | **Not built**, except this page |
+
+Each milestone ships behind the edition's feature flag, so the 2026 conference can use one while the next is in review.
+
+Sections 4.1, 8.6, 8.8, 10 and 11 describe work in the unbuilt milestones
+and are written in the present tense as proposals. The status column above
+is the place to check before reading any of them as a description of the
+running portal.
 
 ---
 
@@ -574,7 +603,7 @@ Each milestone ships behind the project's feature flag, so the 2026 project can 
 
 **Open**
 
-1. PyJam length limit and translation languages — project settings, but the seed template needs the values.
+1. PyJam length limit and translation languages — edition settings, but the seed template needs the values.
 2. Do speakers register through the normal ticket flow or with a voucher? Decides whether voucher generation goes into M2.
 
 ---
@@ -584,7 +613,7 @@ Each milestone ships behind the project's feature flag, so the 2026 project can 
 A future PyLadiesCon may run a call for proposals again. Nothing in this design assumes it never will, and the right way to bring pretalx in is **import, not integration**:
 
 - Pretalx owns the call for proposals, review, and acceptance. The portal owns everything after acceptance — checklists, scheduling, media, publishing — exactly as it does now.
-- When submissions are accepted, an organizer runs an import (a management command or a button on the sessions page) that reads accepted submissions and their speakers from the pretalx API and creates `Session` and `Presenter` rows: title, abstract, description, duration, language, track, and speaker name, bio, and email. Sessions arrive as `CONFIRMED` with the presenter linked, and the invitation step is replaced by a "welcome, your account is ready" email with a magic link.
+- When submissions are accepted, an organizer runs an import (a management command or a button on the sessions page) that reads accepted submissions and their speakers from the pretalx API and creates `Session` and `Presenter` rows: title, abstract, description, duration, language, track, and speaker name, bio, and email. Sessions arrive as `CONFIRMED` with the presenter linked, and the invitation step is replaced by a "welcome, your account is ready" email pointing at the sign-in code.
 - Each imported row keeps a `pretalx_code`, so the import can be re-run to pick up late acceptances or edited abstracts without creating duplicates. Organizers choose per field whether pretalx or the portal wins on re-import; the sensible default is pretalx for abstracts until the portal's copy has been edited, portal thereafter.
 - Scheduling stays in the portal. Pretalx's schedule features are not used, which avoids two schedules that can disagree.
 - Speakers still edit their bio and session content in the portal. If the team wants those edits reflected in pretalx (for its public pages), that is a one-way push that can be added later; it is not required.
