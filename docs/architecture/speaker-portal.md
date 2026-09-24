@@ -4,9 +4,14 @@ The design of the speaker module (the `speakers` app): how presenters are
 invited, what they and the organizers see, the two-sided checklists, the
 media pipeline, scheduling, and the public embeds. Written as a proposal on
 15 September 2026 for PyLadiesCon 2026 (first weekend of December, online on
-Discord) and kept here as the reference for the module as it is built. The
-decisions that diverged from it during implementation are listed in
-`speakers/README.md`.
+Discord) and kept here as the reference for the module as it is built.
+
+Where the built module answers a question differently from the proposal,
+this page says what was built: the session types and presenter roles that
+became rows (§8.1), readiness (§9.3a), and where a person's own tasks live
+(§9.6). Smaller divergences, and the reasons for them, are listed in
+`speakers/README.md`, which is the place to look when this page and the code
+disagree.
 
 **Stack:** Django, PostgreSQL, Digital Ocean Spaces.
 
@@ -241,9 +246,9 @@ One row per **anything that appears on the schedule**: workshops, panels, PyJam 
 
 | Field | Notes |
 |---|---|
-| `kind` | Content kinds: `WORKSHOP` · `PANEL` · `PYJAM` · `TALK` · `LIGHTNING`. Program kinds: `OPENING` · `CLOSING` · `KEYNOTE` · `ANNOUNCEMENT` · `BREAK` · `SOCIAL` · `OTHER`. Kind decides which checklist template applies, whether presenters are required, the default duration, and how the public card looks. |
+| `kind` | A **`SessionType` row** per edition, not an enumeration: the list above became the seeded defaults (`WORKSHOP` · `PANEL` · `PYJAM` · `TALK` · `LIGHTNING`, and the program types `OPENING` · `CLOSING` · `KEYNOTE` · `ANNOUNCEMENT` · `BREAK` · `SOCIAL` · `OTHER`), and organizers add their own on the "Types and roles" page without a deploy. The row carries what the code used to switch on: `is_content`, the default duration and delivery, whether it spans all channels, and which `PresenterRole` rows it allows. |
 | `delivery` | `LIVE` (default) or `PRE_RECORDED`. PyJam defaults to pre-recorded; any kind can be switched. Pre-recorded sessions get the media pipeline (§8.8) and a post-production checklist (§9.7). |
-| `is_content` | derived from `kind`: content kinds need at least one presenter to be confirmed; program kinds can be confirmed with none (a break) or with hosts (the opening) |
+| `is_content` | read from the type row: a content type needs at least one presenter to be confirmed; a program type can be confirmed with none (a break) or with hosts (the opening) |
 | `title` | required — the only required field |
 | `summary_md`, `outline_md`, `prerequisites_md`, `audience_md`, `notes_md` | Markdown, all optional |
 | `level`, `language`, `duration_minutes` | optional; duration defaults from kind (workshop 90, panel 60) |
@@ -363,21 +368,36 @@ Items complete themselves when the portal can tell:
 
 Rules re-run when the relevant record changes and nightly as a safety net.
 
+### 9.3a Readiness: items nobody can start yet
+
+An item exists long before it can be done: confirming a slot before the schedule is built, reading a guide nobody has published, a tech check the team has not opened booking for, an organizer item that waits on a portal feature. Such an item **waits**. It keeps its place in the list, muted, with one line saying what it waits for, and a manual tick is refused, so the disabled box is not the only guard.
+
+A template line waits on any of three sources, and an organizer override outranks all of them:
+
+- **A rule**, for what the database can answer: the session has a slot, the guide it points at is published, registration is configured.
+- **A gate**, a named switch organizers flip on the "Readiness gates" page, for work the portal cannot see. The item carries the gate's **code**, so a gate created later attaches to the items that already named it, deleting one puts them back to waiting, and a code with no gate row waits too. Gates fail shut in every direction, and clone into next year shut.
+- **Another item**, for the one piece of work that unblocks this one, which is how a speaker line waits on the organizer line behind it.
+- **The override** (organizer-only): open this item whatever it waits for, or hold it shut whatever it does not, recorded in the activity log.
+
+A finished item never waits, whatever its sources say. A waiting item is **counted but never chased**: it is in "3 of 12 done, 2 waiting" and out of the overdue count, the digests and the reminder emails.
+
 ### 9.4 Reminders
 
 A daily job emails each presenter one digest of their open items due within 7, 3, and 1 days, in their own timezone. Organizer items go to the assignee, or to the organizers list if unassigned. Every send is logged so the same reminder never goes out twice.
 
 ### 9.5 What the speaker sees
 
-Two lists on the dashboard, side by side:
+The dashboard became a summary and the checklist got a page of its own ("My speaker checklist"), with two views: everything by due date, or grouped by session. Both carry the same two lists:
 
-- **Your to-dos** — their items, tickable, due dates in their timezone.
+- **Your to-dos** — their items, tickable in place, due dates in their timezone, coloured by urgency.
 - **What we're doing for you** — the team's items for them, read-only, with status and who is on it. A speaker sees "promo materials — in progress, Lena" instead of emailing to ask.
+
+Lines that are not about one session (bio, guide, registration, Discord, the tech check) are instantiated once per presenter and grouped as "For you as a speaker".
 
 ### 9.6 What the organizer sees
 
 - **Checklist board** — presenters down the side, required items across the top, one colour per cell, sortable by most overdue. Tabs for the speaker side, the organizer side, and post-production. This is the replacement for the spreadsheet's status columns.
-- **My queue** — organizer items assigned to me, soonest first.
+- **My volunteering tasks** — organizer items assigned to me or to a team I am on, soonest first or grouped by presenter, with what I have finished under them. It sits in the personal rail rather than the Organize one, for organizers too, because it is a person's own work rather than a view of the edition.
 - **Presenter page** — both checklists, invitation history, sessions, assets, activity.
 
 ### 9.7 PyJam: pre-recorded performances and post-production
