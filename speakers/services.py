@@ -440,26 +440,72 @@ def submit_proposal(presenter, session, actor=None):
 
 
 def withdraw_proposal(proposal, actor=None):
-    """The proposer changing their mind while nobody has answered.
+    """The proposer taking it back while nobody has answered.
 
-    The session goes with it: nothing else references a proposed session,
-    and leaving an empty shell behind would put a session nobody proposed
-    on the organizers' list.
+    The rows stay. Someone who withdraws often means "not like this"
+    rather than "forget it": keeping the proposal lets them edit what
+    they wrote and send it again, and it stops a mis-click destroying an
+    afternoon's writing. The session stays in ``PROPOSED``, so it is on
+    nobody's program, and the organizers' queue leaves it out.
     """
     if not proposal.is_pending:
         raise ProposalError("That proposal has already been answered.")
-    session = proposal.session
     with transaction.atomic():
+        proposal.decide(ProposalDecision.WITHDRAWN, actor=actor)
         ActivityLog.record(
             proposal.conference,
             "proposal.withdrawn",
             target=proposal.presenter,
             actor=actor,
-            message=session.title,
+            message=proposal.session.title,
             presenter_id=proposal.presenter_id,
+            proposal_id=proposal.pk,
         )
-        proposal.delete()
-        session.delete()
+    return proposal
+
+
+def resubmit_proposal(proposal, actor=None):
+    """Send a withdrawn proposal back for an answer.
+
+    It counts as a new arrival: the submitted date moves, the cap applies
+    again, and the organizers hear about it the way they do for any
+    proposal.
+    """
+    if not proposal.is_withdrawn:
+        raise ProposalError("Only a withdrawn proposal can be sent again.")
+    presenter = proposal.presenter
+    if pending_proposals(presenter).count() >= MAX_PENDING_PROPOSALS:
+        raise ProposalError(
+            f"You already have {MAX_PENDING_PROPOSALS} proposals waiting for "
+            "an answer. Withdraw one to send this again."
+        )
+    with transaction.atomic():
+        proposal.decision = ProposalDecision.PENDING
+        proposal.decided_at = None
+        proposal.decided_by = None
+        proposal.submitted_at = timezone.now()
+        proposal.save(
+            update_fields=[
+                "decision",
+                "decided_at",
+                "decided_by",
+                "submitted_at",
+                "modified_date",
+            ]
+        )
+        ActivityLog.record(
+            proposal.conference,
+            "proposal.resubmitted",
+            target=proposal.session,
+            actor=actor,
+            message=proposal.session.title,
+            presenter_id=presenter.pk,
+            proposal_id=proposal.pk,
+        )
+        transaction.on_commit(
+            lambda: enqueue(send_proposal_received_email_task, proposal.pk)
+        )
+    return proposal
 
 
 def approve_proposal(proposal, actor=None):

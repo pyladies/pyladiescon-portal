@@ -29,6 +29,7 @@ from .constants import (
     DEFAULT_GUIDE_KEY,
     IDENTITY_LOCKED_STATUSES,
     OPEN_ITEM_STATUSES,
+    PROPOSER_CAN_EDIT,
     RESERVED_SLUGS,
     SESSION_LANGUAGE,
     SLUG_BASE_LENGTH,
@@ -987,6 +988,15 @@ class Proposal(TimestampedModel):
     @property
     def is_pending(self):
         return self.decision == ProposalDecision.PENDING
+
+    @property
+    def is_withdrawn(self):
+        return self.decision == ProposalDecision.WITHDRAWN
+
+    @property
+    def proposer_can_edit(self):
+        """Theirs to change: nobody has answered it, or they took it back."""
+        return self.decision in PROPOSER_CAN_EDIT
 
     def decide(self, decision, actor=None):
         """Record the answer. The session transition is the caller's."""

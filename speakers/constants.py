@@ -50,6 +50,14 @@ class ProposalDecision(models.TextChoices):
     PENDING = "PENDING", "Pending review"
     APPROVED = "APPROVED", "Approved"
     REJECTED = "REJECTED", "Not accepted"
+    # The proposer took it back before anyone answered. Kept, not deleted:
+    # they can edit it and send it again.
+    WITHDRAWN = "WITHDRAWN", "Withdrawn"
+
+
+# Decisions that are the proposer's own to change: they may edit these and
+# send them again, and only a pending one counts towards the cap.
+PROPOSER_CAN_EDIT = frozenset({ProposalDecision.PENDING, ProposalDecision.WITHDRAWN})
 
 
 # Per presenter per edition: how many proposals may be waiting at once, and

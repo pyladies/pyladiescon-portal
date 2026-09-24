@@ -121,10 +121,81 @@ class TestProposing:
         proposal.session.refresh_from_db()
         assert proposal.session.title == "Now a workshop"
         assert proposal.session.kind.code == "WORKSHOP"
+        response = client.post(
+            reverse("speakers:proposal_withdraw", args=[proposal.pk]), follow=True
+        )
+        # Kept, not deleted: a mis-click must not destroy the writing, and
+        # "not like this" is more common than "forget it".
+        proposal.refresh_from_db()
+        assert proposal.decision == ProposalDecision.WITHDRAWN
+        assert Session.objects.filter(title="Now a workshop").exists()
+        assert "send it again" in response.content.decode()
+
+    def test_a_withdrawn_proposal_is_edited_and_sent_again(
+        self, client, conference, enabled, stranger, organizer
+    ):
+        client.force_login(stranger)
+        propose(client, conference)
+        proposal = Proposal.objects.get()
         client.post(reverse("speakers:proposal_withdraw", args=[proposal.pk]))
-        assert not Proposal.objects.exists()
-        # The session goes with it: nothing else refers to it.
-        assert not Session.objects.filter(title="Now a workshop").exists()
+        # It is out of the organizers' queue while it is withdrawn.
+        client.force_login(organizer)
+        queue = client.get(QUEUE).context
+        assert not queue["pending"] and not queue["answered"]
+        client.force_login(stranger)
+        client.post(
+            reverse("speakers:proposal_edit", args=[proposal.pk]),
+            {
+                "session-kind": session_type(conference, "TALK").pk,
+                "session-title": "A better talk about testing",
+                "session-summary_md": "Rewritten.",
+                "session-level": "ALL",
+                "session-language": "en",
+            },
+        )
+        mail.outbox.clear()
+        response = client.post(
+            reverse("speakers:proposal_resubmit", args=[proposal.pk]), follow=True
+        )
+        assert "with the team again" in response.content.decode()
+        proposal.refresh_from_db()
+        assert proposal.decision == ProposalDecision.PENDING
+        assert proposal.decided_at is None and proposal.decided_by is None
+        # The organizers hear about it as they would any proposal.
+        assert any("We have your proposal" in m.subject for m in mail.outbox)
+        assert any("New session proposal" in m.subject for m in mail.outbox)
+        client.force_login(organizer)
+        assert client.get(QUEUE).context["pending"] == [proposal]
+
+    def test_a_withdrawn_proposal_does_not_count_towards_the_cap(
+        self, client, conference, enabled, stranger
+    ):
+        client.force_login(stranger)
+        for n in range(MAX_PENDING_PROPOSALS):
+            propose(client, conference, title=f"Talk {n}")
+        first = Proposal.objects.order_by("id").first()
+        client.post(reverse("speakers:proposal_withdraw", args=[first.pk]))
+        propose(client, conference, title="Room for one more")
+        assert (
+            Proposal.objects.filter(decision=ProposalDecision.PENDING).count()
+            == MAX_PENDING_PROPOSALS
+        )
+        # And sending the withdrawn one back is refused while the cap is full.
+        response = client.post(
+            reverse("speakers:proposal_resubmit", args=[first.pk]), follow=True
+        )
+        assert "waiting for an answer" in response.content.decode()
+
+    def test_only_a_withdrawn_proposal_can_be_sent_again(
+        self, client, conference, enabled, stranger
+    ):
+        client.force_login(stranger)
+        propose(client, conference)
+        proposal = Proposal.objects.get()
+        response = client.post(
+            reverse("speakers:proposal_resubmit", args=[proposal.pk]), follow=True
+        )
+        assert "Only a withdrawn proposal" in response.content.decode()
 
     def test_a_fourth_pending_proposal_is_refused(
         self, client, conference, enabled, stranger

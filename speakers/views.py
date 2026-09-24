@@ -133,6 +133,7 @@ from .services import (
     proposals_open,
     reject_proposal,
     resolve_invitation,
+    resubmit_proposal,
     self_created_sessions,
     send_invitation,
     submit_proposal,
@@ -2756,7 +2757,7 @@ class ProposalEditView(ProposalActionMixin, TemplateView):
 
     def post(self, request, pk):
         proposal = self.get_proposal()
-        if not proposal.is_pending:
+        if not proposal.proposer_can_edit:
             raise PermissionDenied("That proposal has been answered.")
         form = ProposalSessionForm(
             request.POST,
@@ -2775,7 +2776,7 @@ class ProposalEditView(ProposalActionMixin, TemplateView):
 
 
 class ProposalWithdrawView(ProposalActionMixin, View):
-    """Take it back while nobody has answered."""
+    """Take it back while nobody has answered. It is kept, not deleted."""
 
     def post(self, request, pk):
         proposal = self.get_proposal()
@@ -2785,7 +2786,28 @@ class ProposalWithdrawView(ProposalActionMixin, View):
         except ProposalError as exc:
             messages.error(request, str(exc))
             return redirect("speakers:my_proposals")
-        messages.success(request, f"“{title}” has been withdrawn.")
+        messages.success(
+            request,
+            f"“{title}” has been withdrawn. It is still here: edit it and "
+            "send it again whenever you like.",
+        )
+        return redirect("speakers:my_proposals")
+
+
+class ProposalResubmitView(ProposalActionMixin, View):
+    """Send a withdrawn proposal back for an answer."""
+
+    def post(self, request, pk):
+        proposal = self.get_proposal()
+        try:
+            resubmit_proposal(proposal, actor=request.user)
+        except ProposalError as exc:
+            messages.error(request, str(exc))
+            return redirect("speakers:my_proposals")
+        messages.success(
+            request,
+            f"“{proposal.session.title}” is with the team again.",
+        )
         return redirect("speakers:my_proposals")
 
 
@@ -2856,6 +2878,7 @@ class ProposalQueueView(LoginRequiredMixin, SpeakerStaffRequiredMixin, TemplateV
         context = super().get_context_data(**kwargs)
         proposals = (
             Proposal.objects.filter(conference=self.conference)
+            .exclude(decision=ProposalDecision.WITHDRAWN)
             .select_related("session", "session__kind", "presenter", "decided_by")
             .order_by("decision", "-submitted_at", "-id")
         )

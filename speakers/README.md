@@ -174,9 +174,10 @@ linked, a `Session` in `PROPOSED`, an unconfirmed `SessionPresenter`, and a
 invitation takes (`services.approve_proposal`), so the checklists, the
 confirmation and the emails are the ones a speaker always gets, dated from
 the approval. Rejecting keeps the rows and locks the session's identity.
-Withdrawing, while nobody has answered, deletes the session with the
-proposal: nothing else refers to it, and an empty shell on the organizers'
-list is worse than nothing.
+Withdrawing, while nobody has answered, keeps both rows and takes them off
+the organizers' list: withdrawing usually means "not like this" rather than
+"forget it", so the writing stays, the proposer can keep editing it, and
+"Send it again" puts it back in the queue as a fresh pending proposal.
 
 A speaker who is already on the program skips all of that: `add_own_session`
 creates a `DRAFT` with them confirmed on it and their checklist started, and

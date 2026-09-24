@@ -84,6 +84,11 @@ urlpatterns = [
         name="proposal_withdraw",
     ),
     path(
+        "proposals/<int:pk>/send-again/",
+        views.ProposalResubmitView.as_view(),
+        name="proposal_resubmit",
+    ),
+    path(
         "review/proposals/",
         views.ProposalQueueView.as_view(),
         name="proposal_queue",

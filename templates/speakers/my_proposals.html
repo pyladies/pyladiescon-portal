@@ -56,21 +56,36 @@ their personal rail. ``shell`` is one of two templates the view picks:
                                 {% blocktranslate with date=proposal.submitted_at|date:"j M Y" %}sent {{ date }}{% endblocktranslate %}
                             </div>
                         </div>
-                        <span class="badge {% if proposal.decision == 'APPROVED' %}text-bg-success{% elif proposal.decision == 'REJECTED' %}text-bg-secondary{% else %}text-bg-light border{% endif %}">
+                        <span class="badge {% if proposal.decision == 'APPROVED' %}text-bg-success{% elif proposal.decision == 'REJECTED' or proposal.decision == 'WITHDRAWN' %}text-bg-secondary{% else %}text-bg-light border{% endif %}">
                             {{ proposal.get_decision_display }}
                         </span>
                     </div>
-                    {% if proposal.is_pending %}
+                    {% if proposal.proposer_can_edit %}
+                        {% if proposal.is_withdrawn %}
+                            <div class="small text-secondary mt-1">
+                                {% trans "Withdrawn, and kept here. Change anything you like and send it again." %}
+                            </div>
+                        {% endif %}
                         <div class="d-flex gap-2 mt-2">
                             <a class="btn btn-sm btn-outline-primary"
                                href="{% url 'speakers:proposal_edit' proposal.pk %}">{% trans "Edit" %}</a>
-                            <form method="post"
-                                  action="{% url 'speakers:proposal_withdraw' proposal.pk %}">
-                                {% csrf_token %}
-                                <button class="btn btn-sm btn-outline-secondary" type="submit">
-                                    {% trans "Withdraw" %}
-                                </button>
-                            </form>
+                            {% if proposal.is_withdrawn %}
+                                <form method="post"
+                                      action="{% url 'speakers:proposal_resubmit' proposal.pk %}">
+                                    {% csrf_token %}
+                                    <button class="btn btn-sm btn-primary" type="submit">
+                                        {% trans "Send it again" %}
+                                    </button>
+                                </form>
+                            {% else %}
+                                <form method="post"
+                                      action="{% url 'speakers:proposal_withdraw' proposal.pk %}">
+                                    {% csrf_token %}
+                                    <button class="btn btn-sm btn-outline-secondary" type="submit">
+                                        {% trans "Withdraw" %}
+                                    </button>
+                                </form>
+                            {% endif %}
                         </div>
                     {% elif proposal.decision == "APPROVED" %}
                         <div class="small mt-2">
