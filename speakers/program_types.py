@@ -50,7 +50,12 @@ DEFAULT_SESSION_TYPES = [
 ]
 
 
-PROPOSABLE_CODES = {"TALK", "WORKSHOP"}
+# The types a person may propose, or add for themselves, on a fresh
+# edition: the three someone brings to the conference. The rest are the
+# program's own furniture (the opening, a break) or an invitation the team
+# makes (a keynote). Every edition can change this on the "Types and roles"
+# page; the seed only decides where it starts.
+PROPOSABLE_CODES = {"TALK", "WORKSHOP", "PYJAM"}
 
 
 def seed_program_types(conference):

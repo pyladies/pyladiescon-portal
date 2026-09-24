@@ -4,7 +4,11 @@ Personal rail for presenters (design mockups §2.x): dashboard, profile,
 sessions, schedule. Rails are menus, never data rows.
 
 Expects:
-    active: one of "dashboard", "checklist", "profile", "sessions", "guide", "schedule".
+    active: one of "dashboard", "checklist", "profile", "sessions",
+    "proposals", "guide", "schedule".
+Uses from speakers.context_processors.speaker_module:
+    has_speaker_proposals (the "My proposals" item, so a speaker's own
+        proposals sit with the rest of their speaking)
 {% endcomment %}
 {% url 'speakers:my_dashboard' as dashboard_url %}
 {% if active == "dashboard" %}
@@ -29,6 +33,14 @@ Expects:
     {% include "portal/_sidebar_item.html" with url=sessions_url label=_("My sessions") icon="fa-chalkboard-user" active=True only %}
 {% else %}
     {% include "portal/_sidebar_item.html" with url=sessions_url label=_("My sessions") icon="fa-chalkboard-user" only %}
+{% endif %}
+{% if has_speaker_proposals %}
+    {% url 'speakers:my_proposals' as my_proposals_url %}
+    {% if active == "proposals" %}
+        {% include "portal/_sidebar_item.html" with url=my_proposals_url label=_("My proposals") icon="fa-paper-plane" active=True only %}
+    {% else %}
+        {% include "portal/_sidebar_item.html" with url=my_proposals_url label=_("My proposals") icon="fa-paper-plane" only %}
+    {% endif %}
 {% endif %}
 {% url 'speakers:my_guide' as guide_url %}
 {% if active == "guide" %}

@@ -13,9 +13,15 @@
     {% include "speakers/_speaker_rail.html" with active="sessions" %}
 {% endblock sidebar %}
 {% block content %}
-    <h1 class="h3 mb-1">
-        {% trans "My sessions" %}
-    </h1>
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
+        <h1 class="h3 mb-1">
+            {% trans "My sessions" %}
+        </h1>
+        {% if speaker_proposals_open %}
+            <a class="btn btn-sm btn-outline-primary"
+               href="{% url 'speakers:my_session_add' %}">{% trans "Add a session" %}</a>
+        {% endif %}
+    </div>
     <p class="text-secondary">
         {% trans "A title and two sentences is a complete listing; a full outline is welcome. Nothing is public until the team publishes it." %}
     </p>

@@ -158,6 +158,53 @@ class TestProposing:
 
 
 @pytest.mark.django_db
+class TestWhereProposalsLive:
+    """A speaker's proposals sit with the rest of their speaking; a
+    proposer who is not a speaker yet keeps them in their own rail."""
+
+    def test_a_speaker_sees_them_under_speaking(self, client, conference, enabled):
+        user = User.objects.create_user(username="ada", email="ada@example.com")
+        presenter = make_presenter(conference, display_name="Ada", user=user)
+        add_presenter(make_session(conference), presenter, confirmed=True)
+        submit_proposal(presenter, make_session(conference, title="Another idea"))
+        client.force_login(user)
+        content = client.get(MINE).content.decode()
+        assert "Speaking" in content and "My speaker checklist" in content
+        assert "My proposals" in content and "Another idea" in content
+        # And from the speaker pages, the entry is there to click.
+        assert (
+            "My proposals"
+            in client.get(reverse("speakers:my_dashboard")).content.decode()
+        )
+
+    def test_a_proposer_keeps_them_in_their_own_rail(
+        self, client, conference, enabled, stranger
+    ):
+        client.force_login(stranger)
+        propose(client, conference)
+        content = client.get(MINE).content.decode()
+        assert "My volunteering" in content and "My proposals" in content
+        assert "My speaker checklist" not in content
+
+    def test_a_speaker_is_offered_add_a_session(self, client, conference, enabled):
+        user = User.objects.create_user(username="ada", email="ada@example.com")
+        presenter = make_presenter(conference, display_name="Ada", user=user)
+        add_presenter(make_session(conference), presenter, confirmed=True)
+        client.force_login(user)
+        content = client.get(reverse("speakers:my_sessions")).content.decode()
+        assert reverse("speakers:my_session_add") in content
+
+    def test_pyjam_can_be_proposed(self, conference, enabled):
+        """A performance is something people bring, like a talk or a
+        workshop; the furniture of the program is not."""
+        from speakers.services import proposable_types
+
+        codes = set(proposable_types(conference).values_list("code", flat=True))
+        assert {"TALK", "WORKSHOP", "PYJAM"} <= codes
+        assert "BREAK" not in codes and "OPENING" not in codes
+
+
+@pytest.mark.django_db
 class TestDeciding:
     def test_approving_runs_the_acceptance_path(
         self, client, conference, enabled, stranger, organizer

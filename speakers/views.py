@@ -2702,12 +2702,22 @@ class MyProposalsView(LoginRequiredMixin, ProposalsOpenMixin, TemplateView):
             if presenter
             else []
         )
+        # A speaker sees this with the rest of their speaking; someone
+        # whose proposal nobody has answered is not a speaker yet, so it
+        # sits in their personal rail instead.
+        on_the_program = bool(presenter and presenter.is_onboarded)
         context.update(
             {
                 "conference": self.conference,
                 "presenter": presenter,
                 "proposals": proposals,
                 "open_for_proposals": self.open_for_proposals,
+                "on_the_program": on_the_program,
+                "shell": (
+                    "speakers/_speaker_shell.html"
+                    if on_the_program
+                    else "portal/base_sidebar.html"
+                ),
                 "rail_active": "proposals",
             }
         )

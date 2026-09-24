@@ -478,6 +478,7 @@ class SessionTypeForm(forms.ModelForm):
             "default_duration_minutes",
             "default_delivery",
             "spans_all_channels",
+            "open_for_proposals",
             "roles",
             "default_role",
             "sort_order",

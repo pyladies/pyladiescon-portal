@@ -1,8 +1,12 @@
-{% extends "portal/base_sidebar.html" %}
+{% extends shell %}
 {% load i18n %}
 {% comment %}
-What this person proposed and what came of it. Under the personal rail: a
-proposal is theirs, and a pending one means they are not a speaker yet.
+What this person proposed and what came of it.
+
+A speaker sees it under Speaking, with the rest of their speaking; someone
+whose proposal nobody has answered is not a speaker yet, so they see it in
+their personal rail. ``shell`` is one of two templates the view picks:
+"speakers/_speaker_shell.html" or "portal/base_sidebar.html".
 {% endcomment %}
 {% block head_title %}
     {% trans "My proposals" %}
@@ -12,10 +16,18 @@ proposal is theirs, and a pending one means they are not a speaker yet.
     {% include "portal/_breadcrumbs.html" with section=bc_section %}
 {% endblock breadcrumb %}
 {% block sidebar_title %}
-    {% trans "My volunteering" %}
+    {% if on_the_program %}
+        {% trans "Speaking" %}
+    {% else %}
+        {% trans "My volunteering" %}
+    {% endif %}
 {% endblock sidebar_title %}
 {% block sidebar %}
-    {% include "volunteer/_volunteer_rail.html" with active="proposals" %}
+    {% if on_the_program %}
+        {% include "speakers/_speaker_rail.html" with active="proposals" %}
+    {% else %}
+        {% include "volunteer/_volunteer_rail.html" with active="proposals" %}
+    {% endif %}
 {% endblock sidebar %}
 {% block content %}
     <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
