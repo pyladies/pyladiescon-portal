@@ -579,13 +579,13 @@ the storage work (bucket and presigned URLs, then the upload tasks 4.1 to
 
 | Milestone | Delivers | Target | Status |
 |---|---|---|---|
-| **M1 — Presenters and invitations** (Stage 1) | Session, Presenter, SessionPresenter, Invitation; invitation email and accept flow; speaker profile and session editing; admin; isolation tests | late September | **Built** |
-| **M2 — Checklists** (Stage 2) | template editor and seed defaults; instances; auto-completion; speaker dashboard; organizer board and queue; pretix sync; reminder digests | early–mid October | **Built**, plus readiness (§9.3a) which the proposal did not have |
-| **M2b — Permissions** (Stage 3) | permission catalogue and team-derived grants (§7.1); every app on `has_perm`; team permission pickers and presets; `Role` dropped; media permissions land with M3b | mid October, before M3 | **Not built.** Access is still `is_staff`/`is_superuser` plus team membership |
-| **M3 — Scheduling** (Stage 4) | Discord channels, slots, program items, conflict checks, drag-and-drop editor, presenter schedule view, calendar feeds | mid–late October | **Not built.** `ScheduleSlot` exists and is written by the sample data; there is no editor, and the presenter's schedule page is a placeholder |
-| **M3b — Media** (Stage 4b) | video upload, duration check, performer upload panel, session-scoped templates, post-production board | late October, alongside M3 | **Not built.** `MediaAsset` exists as a shell and the video-length rule reads it; nothing uploads |
-| **M4 — Public** (Stage 5) | JSON API, widget, iframe, draft/preview/publish, data export; wired into the conference site | early November | **Not built.** None of the URLs in §11 exist yet |
-| **M5 — Hardening** (Stage 6) | promo assets, reminder tuning, load test on the public endpoints, documentation | mid November | **Not built**, except this page |
+| **M1 — Presenters and invitations** | Session, Presenter, SessionPresenter, Invitation; invitation email and accept flow; speaker profile and session editing; admin; isolation tests | late September | **Built** |
+| **M2 — Checklists** | template editor and seed defaults; instances; auto-completion; speaker dashboard; organizer board and queue; pretix sync; reminder digests | early–mid October | **Built**, plus readiness (§9.3a) which the proposal did not have |
+| **M2b — Permissions** | permission catalogue and team-derived grants (§7.1); every app on `has_perm`; team permission pickers and presets; `Role` dropped; media permissions land with M3b | mid October, before M3 | **Not built.** Access is still `is_staff`/`is_superuser` plus team membership |
+| **M3 — Scheduling** | Discord channels, slots, program items, conflict checks, drag-and-drop editor, presenter schedule view, calendar feeds | mid–late October | **Not built.** `ScheduleSlot` exists and is written by the sample data; there is no editor, and the presenter's schedule page is a placeholder |
+| **M3b — Media** | video upload, duration check, performer upload panel, session-scoped templates, post-production board | late October, alongside M3 | **Not built.** `MediaAsset` exists as a shell and the video-length rule reads it; nothing uploads |
+| **M4 — Public** | JSON API, widget, iframe, draft/preview/publish, data export; wired into the conference site | early November | **Not built.** None of the URLs in §11 exist yet |
+| **M5 — Hardening** | promo assets, reminder tuning, load test on the public endpoints, documentation | mid November | **Not built**, except this page |
 
 Each milestone ships behind the edition's feature flag, so the 2026 conference can use one while the next is in review.
 

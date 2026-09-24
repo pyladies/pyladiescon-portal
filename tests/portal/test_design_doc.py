@@ -135,6 +135,25 @@ def test_the_stage_mapping_covers_what_the_code_says():
     )
 
 
+def test_the_page_names_a_stage_number_only_where_it_maps_them():
+    """One place, or they drift.
+
+    The build-order table used to repeat the stage in every row, and when
+    the mapping was corrected the rows kept the old numbers, so the
+    section contradicted itself twelve lines apart. The mapping table and
+    the paragraph under it are the only place a stage number belongs.
+    """
+    doc = DESIGN_DOC.read_text()
+    start = doc.index("| Here | In the code |")
+    end = doc.index("\n\n", doc.index("A number with a decimal", start))
+    outside = doc[:start] + doc[end:]
+    assert STAGE.findall(outside) == [], (
+        "stage numbers appear outside the mapping: "
+        f"{sorted(set(STAGE.findall(outside)))}. The mapping is the one "
+        "place they belong, so the two cannot disagree."
+    )
+
+
 def test_every_architecture_page_is_in_the_nav():
     nav = (REPO_ROOT / "mkdocs.yml").read_text()
     missing = sorted(
