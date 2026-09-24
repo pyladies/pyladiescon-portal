@@ -12,6 +12,8 @@ portal already knows.
     {% trans "Propose a session" %}
 {% endblock head_title %}
 {% block body %}
+{% endblock body %}
+{% block content %}
     <div class="container px-4 py-4">
         <h1 class="h3 mb-3">
             {% blocktranslate with name=conference.name %}Propose a session for {{ name }}{% endblocktranslate %}
@@ -67,4 +69,4 @@ portal already knows.
             {% endif %}
         {% endif %}
     </div>
-{% endblock body %}
+{% endblock content %}

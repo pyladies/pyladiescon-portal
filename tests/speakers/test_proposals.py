@@ -148,6 +148,14 @@ class TestProposing:
         assert "Create an account" in content and "Sign in" in content
         assert reverse("account_login") in content
 
+    def test_the_page_sits_below_the_navbar(self, client, conference, enabled):
+        """The base template's body block is the hero above the navbar; a
+        page that fills it renders above the site's own navigation."""
+        content = client.get(PROPOSE).content.decode()
+        assert content.index("navbar-expand-md") < content.index(
+            "Propose a session for"
+        )
+
 
 @pytest.mark.django_db
 class TestDeciding:
