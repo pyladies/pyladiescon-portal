@@ -31,6 +31,21 @@ class SessionStatus(models.TextChoices):
 UNACCEPTED_STATUSES = frozenset({SessionStatus.PROPOSED, SessionStatus.REJECTED})
 
 
+# What a session's status means to the person giving it. The organizers'
+# vocabulary (draft, invited, confirmed) is about their own work; a speaker
+# wants to know whether it is happening and whether anyone can see it.
+SPEAKER_STATUS_LABELS = {
+    SessionStatus.PROPOSED: "Waiting for an answer",
+    SessionStatus.REJECTED: "Not accepted",
+    SessionStatus.DRAFT: "Being arranged",
+    SessionStatus.INVITED: "Being arranged",
+    SessionStatus.CONFIRMED: "Confirmed",
+    SessionStatus.SCHEDULED: "Scheduled",
+    SessionStatus.PUBLISHED: "On the public schedule",
+    SessionStatus.CANCELLED: "Cancelled",
+}
+
+
 class ProposalDecision(models.TextChoices):
     PENDING = "PENDING", "Pending review"
     APPROVED = "APPROVED", "Approved"

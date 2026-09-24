@@ -417,6 +417,10 @@ def submit_proposal(presenter, session, actor=None):
             "an answer. Withdraw one to send another."
         )
     with transaction.atomic():
+        # The session becomes a proposal here, so every caller gets it:
+        # a session left in DRAFT would sit on the organizers' program
+        # list as though they had made it.
+        session.propose()
         proposal = Proposal.objects.create(
             conference=session.conference, session=session, presenter=presenter
         )

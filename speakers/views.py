@@ -2571,11 +2571,7 @@ class DismissPasswordReminderView(LoginRequiredMixin, PresenterRequiredMixin, Vi
 
 
 class ProposalsOpenMixin(SpeakerModuleRequiredMixin):
-    """Every proposal page needs the edition to be taking them."""
-
-    def dispatch(self, request, *args, **kwargs):
-        response = super().dispatch(request, *args, **kwargs)
-        return response
+    """Every proposal page asks whether the edition is taking them."""
 
     @cached_property
     def open_for_proposals(self):
@@ -2671,8 +2667,7 @@ class ProposeSessionView(ProposalsOpenMixin, TemplateView):
             presenter.save()
         session = session_form.save(commit=False)
         session.conference = self.conference
-        session.status = SessionStatus.PROPOSED
-        session.created_by_presenter = True
+        # ``submit_proposal`` moves it to PROPOSED once the rows exist.
         session.duration_minutes = session.kind.default_duration_minutes
         session.delivery = session.kind.default_delivery
         session.save()

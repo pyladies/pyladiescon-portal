@@ -194,6 +194,32 @@ class TestWhereProposalsLive:
         content = client.get(reverse("speakers:my_sessions")).content.decode()
         assert reverse("speakers:my_session_add") in content
 
+    def test_a_speaker_sees_which_sessions_are_real_and_which_are_asked_for(
+        self, client, conference, enabled
+    ):
+        """My sessions lists a proposal too, so it has to say which is
+        which: "draft" and "confirmed" are the organizers' words, and a
+        proposal is not a session of the conference's at all yet.
+        """
+        user = User.objects.create_user(username="ada", email="ada@example.com")
+        presenter = make_presenter(conference, display_name="Ada", user=user)
+        confirmed = make_session(conference, title="The real one")
+        add_presenter(confirmed, presenter, confirmed=True)
+        confirmed.confirm()
+        asked_for = make_session(conference, title="The asked-for one")
+        add_presenter(asked_for, presenter)
+        submit_proposal(presenter, asked_for)
+        client.force_login(user)
+        content = client.get(reverse("speakers:my_sessions")).content.decode()
+        assert "Confirmed" in content and "Waiting for an answer" in content
+        # A proposal has no checklist and is edited where it was sent.
+        assert reverse("speakers:my_proposals") in content
+        assert reverse("speakers:my_session_edit", args=[asked_for.slug]) not in content
+        assert reverse("speakers:my_session_edit", args=[confirmed.slug]) in content
+        # The dashboard says the same thing.
+        dashboard = client.get(reverse("speakers:my_dashboard")).content.decode()
+        assert "Waiting for an answer" in dashboard
+
     def test_pyjam_can_be_proposed(self, conference, enabled):
         """A performance is something people bring, like a talk or a
         workshop; the furniture of the program is not."""

@@ -33,6 +33,8 @@ from .constants import (
     SESSION_LANGUAGE,
     SLUG_BASE_LENGTH,
     SLUG_MAX_LENGTH,
+    SPEAKER_STATUS_LABELS,
+    UNACCEPTED_STATUSES,
     AssigneeDefault,
     AutoRule,
     ChannelKind,
@@ -833,6 +835,21 @@ class Session(TimestampedModel):
         return self.status in IDENTITY_LOCKED_STATUSES
 
     @property
+    def speaker_status(self):
+        """What the status means to the person giving the session.
+
+        "Draft" and "invited" are about the organizers' own work; the
+        speaker's question is whether it is happening, and whether anyone
+        can see it yet.
+        """
+        return SPEAKER_STATUS_LABELS[SessionStatus(self.status)]
+
+    @property
+    def is_a_proposal(self):
+        """Still a request rather than a session of the conference's."""
+        return self.status in UNACCEPTED_STATUSES
+
+    @property
     def blocking_required_items(self):
         """Open required checklist items that keep this session from CONFIRMED."""
         return self.checklist_items.filter(
@@ -880,6 +897,15 @@ class Session(TimestampedModel):
         self.is_public = True
         if save:
             self.save(update_fields=["status", "is_public"])
+
+    def propose(self, save=True):
+        """-> PROPOSED, when someone asks for it rather than organizers
+        creating it. A session only becomes a proposal on the way in."""
+        self._require_status(SessionStatus.DRAFT, SessionStatus.PROPOSED)
+        self.status = SessionStatus.PROPOSED
+        self.created_by_presenter = True
+        if save:
+            self.save(update_fields=["status", "created_by_presenter"])
 
     def approve(self, save=True):
         """PROPOSED -> DRAFT. From here it is an ordinary session.

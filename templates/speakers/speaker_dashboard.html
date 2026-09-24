@@ -55,9 +55,7 @@
                     <a class="fw-semibold"
                        href="{% url 'speakers:my_session_detail' summary.session.slug %}">{{ summary.session.title }}</a>
                     <span class="text-secondary small">{{ summary.role }}</span>
-                    {% if not summary.session.is_public %}
-                        <span class="badge text-bg-secondary">{% trans "Not yet public" %}</span>
-                    {% endif %}
+                    {% include "speakers/_speaker_session_status.html" with session=summary.session %}
                     <span class="ms-auto d-flex align-items-center gap-2">
                         {% if summary.total %}
                             <span class="badge {% if summary.done == summary.total %}text-bg-success{% else %}text-bg-light border{% endif %}">
@@ -67,7 +65,7 @@
                                 {% endif %}
                             </span>
                         {% endif %}
-                        {% if not summary.session.is_public %}
+                        {% if not summary.session.is_public and not summary.session.is_a_proposal %}
                             <span class="badge text-bg-secondary">{% trans "Not yet public" %}</span>
                         {% endif %}
                         {% if summary.session.identity_locked %}
