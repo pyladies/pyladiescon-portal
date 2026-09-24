@@ -4,6 +4,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.postgres.search import SearchQuery, SearchVector
+from django.db.models import Count, Q
 from django.http import Http404
 from django.shortcuts import redirect, render
 from django.urls import reverse, reverse_lazy
@@ -26,6 +27,9 @@ from portal.common import (
     get_volunteer_teams_stat_cache,
 )
 from portal.models import Conference
+from speakers.models import speaker_module_enabled
+from speakers.permissions import can_work_queue
+from speakers.stats import my_task_stats
 
 from .forms import TeamForm, VolunteerProfileForm, VolunteerProfileReviewForm
 from .models import (  # Language,
@@ -62,6 +66,15 @@ def index(request):
     context["conferences_count"] = VolunteerProfile.objects.filter(
         user=request.user
     ).count()
+    # Their volunteering tasks (speaker-portal items assigned to them or a
+    # team they are on), when the module is on and they may open the list.
+    conference = Conference.get_active()
+    context["task_stats"] = (
+        my_task_stats(request.user, conference)
+        if speaker_module_enabled(conference)
+        and can_work_queue(request.user, conference)
+        else None
+    )
     return render(request, "volunteer/index.html", context)
 
 
@@ -495,11 +508,24 @@ class AddApplicantToTeamView(TeamLeadRequiredMixin, View):
         return redirect("team_dashboard", pk=team.pk)
 
 
-class MyTeamsView(LoginRequiredMixin, ListView):
-    """Teams the current user leads, across every edition.
+# Applications that ended in a no: the team stays in the data, but it is
+# not one of "my teams".
+SETTLED_AGAINST = (ApplicationStatus.REJECTED, ApplicationStatus.CANCELLED)
 
-    A one-screen landing for leads: each team links to its dashboard. The "My
-    teams" nav entry (gated on ``leads_any_team``) points here.
+
+class MyTeamsView(LoginRequiredMixin, ListView):
+    """Teams the current user is on, across every edition: the ones they
+    lead (linked to the team dashboard) and the ones they are a member of,
+    including applications still under review, which are Pending and
+    Waitlisted.
+
+    An edition whose application was rejected or cancelled is left out. The
+    team row survives the decision, so it would otherwise sit on this page
+    as a standing reminder of a "no", and there is nothing to do with it.
+    The team dashboard link stays with leads.
+
+    The "My teams" nav entry (gated on ``leads_any_team``) and the personal
+    rail both point here.
     """
 
     model = Team
@@ -507,12 +533,59 @@ class MyTeamsView(LoginRequiredMixin, ListView):
     context_object_name = "teams"
 
     def get_queryset(self):
+        user = self.request.user
+        # The three counts the page shows come back with the row rather
+        # than one query each: this list grows with the editions someone
+        # has volunteered for.
         return (
-            Team.objects.filter(team_leads__user=self.request.user)
+            Team.objects.filter(Q(team_leads__user=user) | Q(members__user=user))
             .select_related("conference")
+            .annotate(
+                approved_count=Count(
+                    "members",
+                    filter=Q(members__application_status=ApplicationStatus.APPROVED),
+                    distinct=True,
+                ),
+                pending_count=Count(
+                    "members",
+                    filter=Q(members__application_status=ApplicationStatus.PENDING),
+                    distinct=True,
+                ),
+                waitlisted_count=Count(
+                    "members",
+                    filter=Q(members__application_status=ApplicationStatus.WAITLISTED),
+                    distinct=True,
+                ),
+            )
             .order_by("-conference__year", "short_name")
             .distinct()
         )
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        user = self.request.user
+        led_ids = set(
+            Team.objects.filter(team_leads__user=user).values_list("id", flat=True)
+        )
+        status_by_conference = dict(
+            VolunteerProfile.objects.filter(user=user).values_list(
+                "conference_id", "application_status"
+            )
+        )
+        context["rows"] = [
+            row
+            for row in (
+                {
+                    "team": team,
+                    "is_lead": team.id in led_ids,
+                    "status": status_by_conference.get(team.conference_id),
+                }
+                for team in context["teams"]
+            )
+            # A lead keeps their team whatever their own application says.
+            if row["is_lead"] or row["status"] not in SETTLED_AGAINST
+        ]
+        return context
 
 
 class TeamCreate(VolunteerAdminRequiredMixin, CreateView):

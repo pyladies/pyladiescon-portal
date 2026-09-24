@@ -1,12 +1,12 @@
 {% extends "speakers/_speaker_shell.html" %}
 {% load i18n %}
 {% block head_title %}
-    {% trans "My checklist" %}
+    {% trans "My speaker checklist" %}
 {% endblock head_title %}
 {% block breadcrumb %}
     {% url 'speakers:my_dashboard' as bc_url %}
     {% trans "Speaking" as bc_section %}
-    {% trans "My checklist" as bc_page %}
+    {% trans "My speaker checklist" as bc_page %}
     {% include "portal/_breadcrumbs.html" with section=bc_section section_url=bc_url page=bc_page %}
 {% endblock breadcrumb %}
 {% block sidebar %}
@@ -19,7 +19,7 @@
             {% if only %}
                 {% blocktranslate with title=only.title %}Checklist for {{ title }}{% endblocktranslate %}
             {% else %}
-                {% trans "My checklist" %}
+                {% trans "My speaker checklist" %}
             {% endif %}
         </h1>
         <div class="btn-group btn-group-sm"

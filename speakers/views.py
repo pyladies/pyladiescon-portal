@@ -1574,50 +1574,78 @@ class ChecklistBoardExportView(ChecklistBoardView):
 
 
 class ChecklistQueueView(LoginRequiredMixin, SpeakerQueueRequiredMixin, TemplateView):
-    """Organizer items assigned to me or to a team I am on, soonest first
-    (design §9.6).
+    """My volunteering tasks: organizer items assigned to me or to a team I
+    am on (design §9.6).
 
-    Open to whoever carries one: a volunteer who is neither organizer nor
-    liaison reaches it from the daily digest."""
+    It lives under the personal "My volunteering" rail for everyone,
+    organizers included, because it is a person's own work rather than a
+    view of the edition. ``?view=all`` (default) sorts by due date;
+    ``?view=presenter`` groups by the presenter, or the session, the work
+    is for.
+    """
 
     template_name = "speakers/checklist_queue.html"
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        items = (
-            ChecklistItem.objects.filter(
+        as_of = today()
+        items = [
+            annotate_due(item, as_of)
+            for item in ChecklistItem.objects.filter(
                 owned_by(self.request.user, self.conference),
                 conference=self.conference,
                 owner=ItemOwner.ORGANIZER,
                 status__in=list(OPEN_ITEM_STATUSES),
             )
-            .select_related("presenter", "session", "team")
+            .select_related("presenter", "session", "team", "ready_gate", "waits_for")
             .order_by(F("due_date").asc(nulls_last=True), "order", "id")
-        )
-        items = list(items)
-        for item in items:
-            item.overdue = item.is_overdue
-        organizer_side = can_work_sessions(self.request.user, self.conference)
+        ]
+        view = "presenter" if self.request.GET.get("view") == "presenter" else "all"
         context.update(
             {
                 "conference": self.conference,
                 "rail_active": "queue",
+                "view": view,
                 "items": items,
-                "today": today(),
-                # A volunteer assignee may not open presenter or session
-                # pages, so their rows name them without linking, and the
-                # page hangs off their own rail rather than the Organize one
-                # whose entries would all 403.
-                "can_open_pages": organizer_side,
-                "organizer_side": organizer_side,
-                "shell": (
-                    "speakers/_organize_shell.html"
-                    if organizer_side
-                    else "portal/base_sidebar.html"
-                ),
+                "groups": _queue_groups(items) if view == "presenter" else [],
+                "today": as_of,
+                # A volunteer assignee may not open a presenter page, so the
+                # group headings name them without linking. The rows name
+                # everyone in plain text either way.
+                "can_open_pages": can_work_sessions(self.request.user, self.conference),
             }
         )
         return context
+
+
+def _queue_groups(items):
+    """Items grouped by who they are for: a presenter, else the session."""
+    groups = {}
+    for item in items:
+        key = (
+            ("presenter", item.presenter_id)
+            if item.presenter_id
+            else (
+                "session",
+                item.session_id,
+            )
+        )
+        group = groups.setdefault(
+            key,
+            {
+                "key": f"{key[0]}-{key[1]}",
+                "presenter": item.presenter,
+                "session": None if item.presenter_id else item.session,
+                "items": [],
+            },
+        )
+        group["items"].append(item)
+    return sorted(
+        groups.values(),
+        key=lambda g: (
+            g["presenter"].display_name if g["presenter"] else g["session"].title
+        ).lower(),
+    )
 
 
 class ItemActionMixin(LoginRequiredMixin, SpeakerQueueRequiredMixin):
@@ -1661,9 +1689,18 @@ class ItemActionMixin(LoginRequiredMixin, SpeakerQueueRequiredMixin):
         """An htmx request gets the refreshed row (with ``error`` shown inline,
         since a swapped row never displays queued messages); a plain form goes
         back to ``next`` when it points at this site, else to the presenter
-        or session page."""
+        or session page.
+
+        The My tasks page asks for its own row shape with ``partial=queue``.
+        """
         if request.headers.get("HX-Request"):
-            item.overdue = item.is_overdue
+            annotate_due(item, today())
+            if request.POST.get("partial") == "queue":
+                return render(
+                    request,
+                    "speakers/_queue_item.html",
+                    {"item": item, "error": error},
+                )
             return render(
                 request,
                 "speakers/_organizer_item_row.html",

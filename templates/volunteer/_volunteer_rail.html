@@ -11,8 +11,10 @@ Uses from the user_capabilities context processor:
     active_volunteer_profile (the "My profile" item is hidden until one exists)
 and from speakers.context_processors.speaker_module:
     is_speaker_liaison (the "My speakers" item for volunteers who liaise)
-    is_speaker_assignee (the "My speaker tasks" item for volunteers carrying
-        an organizer checklist item; the daily digest links there)
+    can_work_speaker_queue (the "My volunteering tasks" item, for anyone who
+        may open that page: organizers and liaisons always, a volunteer once
+        an item is assigned to them or to a team they are on; the daily
+        digest links there)
 {% endcomment %}
 {% url 'volunteer:index' as overview_url %}
 {% if active == "overview" %}
@@ -42,12 +44,12 @@ and from speakers.context_processors.speaker_module:
         {% include "portal/_sidebar_item.html" with url=liaison_sessions_url label=_("My speakers") icon="fa-chalkboard-user" only %}
     {% endif %}
 {% endif %}
-{% if is_speaker_assignee %}
+{% if can_work_speaker_queue %}
     {% url 'speakers:checklist_queue' as speaker_queue_url %}
     {% if active == "queue" %}
-        {% include "portal/_sidebar_item.html" with url=speaker_queue_url label=_("My speaker tasks") icon="fa-inbox" active=True only %}
+        {% include "portal/_sidebar_item.html" with url=speaker_queue_url label=_("My volunteering tasks") icon="fa-inbox" active=True only %}
     {% else %}
-        {% include "portal/_sidebar_item.html" with url=speaker_queue_url label=_("My speaker tasks") icon="fa-inbox" only %}
+        {% include "portal/_sidebar_item.html" with url=speaker_queue_url label=_("My volunteering tasks") icon="fa-inbox" only %}
     {% endif %}
 {% endif %}
 {% url 'volunteer:my_conferences' as my_conferences_url %}

@@ -39,6 +39,7 @@ from portal.constants import (
     STATS_CACHE_TIMEOUT,
 )
 from portal.models import Conference
+from speakers.stats import get_task_stats_dict  # noqa: F401 (see below)
 from sponsorship.models import (
     IndividualDonation,
     SponsorshipProfile,
@@ -67,6 +68,10 @@ def get_stats_cached_values(conference=None):
     stats_dict.update(get_sponsorships_stats_dict(conference))
     stats_dict.update(get_donations_stats_dict(conference))
     stats_dict.update(get_attendee_stats_dict(conference))
+    # Task numbers are off the public page and its JSON for now (the
+    # user's call, 23 September). ``get_task_stats_dict`` still works and
+    # is still tested; putting them back is uncommenting this line.
+    # stats_dict.update(get_task_stats_dict(conference))
     return stats_dict
 
 

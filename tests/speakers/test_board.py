@@ -207,7 +207,10 @@ class TestBoard:
     def test_rail_links(self, client, organizer, enabled):
         client.force_login(organizer)
         content = client.get(reverse("organizer_dashboard")).content.decode()
-        assert BOARD in content and QUEUE in content
+        assert BOARD in content
+        # My volunteering tasks lives in the personal rail, not the Organize one.
+        assert QUEUE not in content
+        assert QUEUE in client.get(reverse("volunteer:index")).content.decode()
 
     def test_csv_export(self, client, organizer, people):
         client.force_login(organizer)
@@ -620,22 +623,22 @@ class TestVolunteerAssignee:
     def test_the_page_hangs_off_the_rail_they_can_use(
         self, client, volunteer, organizer, people
     ):
-        """A volunteer gets the same list under their own rail.
+        """Everyone gets this list under their own rail.
 
-        The Organize rail would offer them the presenter list, the
-        templates and the handbook, every one of which 403s for them.
+        The Organize rail would offer a volunteer the presenter list, the
+        templates and the handbook, every one of which 403s for them, and
+        an organizer's own tasks are their work rather than a view of the
+        edition.
         """
         organize_only = reverse("speakers:presenter_list")
         item = people["items"]["Ada", "promo"]
         assign_item(item, volunteer, actor=organizer)
-        client.force_login(volunteer)
-        content = client.get(QUEUE).content.decode()
-        assert "My volunteering" in content and "My speaker tasks" in content
-        assert organize_only not in content
-        client.force_login(organizer)
-        content = client.get(QUEUE).content.decode()
-        assert "Organize" in content and "My queue" in content
-        assert organize_only in content
+        for user in (volunteer, organizer):
+            client.force_login(user)
+            content = client.get(QUEUE).content.decode()
+            assert "My volunteering" in content
+            assert "My volunteering tasks" in content
+            assert organize_only not in content
 
     def test_an_approved_team_member_sees_and_ticks_a_team_item(
         self, client, volunteer, people, conference, design_team
@@ -706,7 +709,7 @@ class TestVolunteerAssignee:
         assign_item(item, volunteer)
         client.force_login(volunteer)
         content = client.get(reverse("volunteer:index")).content.decode()
-        assert "My speaker tasks" in content and QUEUE in content
+        assert "My volunteering tasks" in content and QUEUE in content
 
     def test_an_item_that_is_not_theirs_is_refused(self, client, volunteer, people):
         assign_item(people["items"]["Ada", "promo"], volunteer)
@@ -741,7 +744,7 @@ class TestVolunteerAssignee:
         client.force_login(volunteer)
         assert client.get(QUEUE).status_code == 403
         content = client.get(reverse("volunteer:index")).content.decode()
-        assert "My speaker tasks" not in content
+        assert "My volunteering tasks" not in content
 
 
 @pytest.mark.django_db
@@ -873,3 +876,100 @@ class TestSessionPageChecklists:
         content = client.get(session.get_absolute_url()).content.decode()
         assert "No presenter checklists yet" in content
         assert "No session-level items" in content
+
+
+def _rail_entry(content, url):
+    """The rail anchor for one URL, so a test can ask whether it is marked
+    as the page the reader is on."""
+    match = re.search(
+        r'<a class="nav-link[^>]*href="%s"[^>]*' % re.escape(url), content
+    )
+    assert match, f"no rail entry for {url}"
+    return match.group(0).strip()
+
+
+@pytest.mark.django_db
+class TestQueuePage:
+    """The page itself: one rail entry for everyone, two views, rows that
+    tick in place."""
+
+    def test_organizer_gets_the_personal_shell_too(self, client, organizer, enabled):
+        client.force_login(organizer)
+        content = client.get(QUEUE).content.decode()
+        assert "My volunteering tasks" in content and "My volunteering" in content
+        assert "My queue" not in content
+        assert f'href="{BOARD}"' not in content
+        # The rail marks where the reader is, on this page and not only on
+        # the item pages under it.
+        assert _rail_entry(content, QUEUE).endswith('aria-current="page"')
+
+    def test_rows_views_and_in_place_tick(
+        self, client, liaison, people, conference, design_team
+    ):
+        ada, grace = people["ada"], people["grace"]
+        team_job = add_adhoc_item(
+            conference,
+            "Design the promo card",
+            ItemOwner.ORGANIZER,
+            presenter=ada,
+            team=design_team,
+            due_date=TODAY - timedelta(days=1),
+        )
+        session_job = add_adhoc_item(
+            conference,
+            "Cut the intro",
+            ItemOwner.ORGANIZER,
+            session=people["session"],
+            assignee=liaison,
+        )
+        client.force_login(liaison)
+        content = client.get(QUEUE).content.decode()
+        assert "htmx.min.js" in content
+        assert "for Ada" in content and "for Grace" in content
+        assert "for the session Django 101" in content
+        assert "via the Design team" in content
+        assert "checklist-due-overdue" in content and "no deadline" in content
+        assert 'value="DONE"' in content and "fa-rotate-left" not in content
+        grouped = client.get(QUEUE, {"view": "presenter"})
+        names = [(g["presenter"] or g["session"]).pk for g in grouped.context["groups"]]
+        assert names == [ada.pk, people["session"].pk, grace.pk]
+        assert 'data-queue-group="presenter-%d"' % ada.pk in grouped.content.decode()
+        assert "session item" in grouped.content.decode()
+        # Tick over htmx: just the row comes back, done and struck through.
+        response = client.post(
+            reverse("speakers:item_status", args=[team_job.pk]),
+            {"status": "DONE", "partial": "queue"},
+            HTTP_HX_REQUEST="true",
+        )
+        row = response.content.decode()
+        assert "<!DOCTYPE" not in row and "<tr" not in row
+        assert 'id="item-%d"' % team_job.pk in row and 'data-status="DONE"' in row
+        assert 'checklist-title-done">Design the promo card</a>' in row
+        assert 'value="TODO"' in row
+        assert session_job.title not in row
+
+    def test_a_waiting_item_cannot_be_ticked_from_the_page(
+        self, client, liaison, people, conference
+    ):
+        """The readiness rules reach these rows too (#432)."""
+        job = add_adhoc_item(
+            conference,
+            "Wait for the schedule",
+            ItemOwner.ORGANIZER,
+            presenter=people["ada"],
+            assignee=liaison,
+        )
+        ChecklistItem.objects.filter(pk=job.pk).update(
+            is_waiting=True, waiting_reason="the schedule is not out"
+        )
+        client.force_login(liaison)
+        content = client.get(QUEUE).content.decode()
+        assert "waiting: the schedule is not out" in content
+        assert "checklist-box-waiting" in content
+        response = client.post(
+            reverse("speakers:item_status", args=[job.pk]),
+            {"status": "DONE", "partial": "queue"},
+            HTTP_HX_REQUEST="true",
+        )
+        assert "not ready yet" in response.content.decode()
+        assert ChecklistItem.objects.get(pk=job.pk).status == ItemStatus.TODO

@@ -4,7 +4,7 @@
     {{ item.title }}
 {% endblock head_title %}
 {% block breadcrumb %}
-    {% trans "My checklist" as bc_section %}
+    {% trans "My speaker checklist" as bc_section %}
     {% url 'speakers:my_checklist' as bc_url %}
     {% include "portal/_breadcrumbs.html" with section=bc_section section_url=bc_url page=item.title %}
 {% endblock breadcrumb %}
@@ -12,7 +12,7 @@
     <p class="mb-2">
         <a href="{% url 'speakers:my_checklist' %}"
            class="text-secondary text-decoration-none">
-            <i class="fa-solid fa-arrow-left"></i> {% trans "My checklist" %}
+            <i class="fa-solid fa-arrow-left"></i> {% trans "My speaker checklist" %}
         </a>
     </p>
     <h1 class="h3 mb-3">
