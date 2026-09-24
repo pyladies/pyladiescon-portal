@@ -597,4 +597,4 @@ installed; this app keeps small factory functions in `tests/speakers/factories.p
   where "the default role must be one of the allowed roles" is enforced
   (the admin saves the many-to-many after `full_clean`, so the model cannot
   check it). Names are English only for now; per-language names arrive with
-  the public schedule (design §7.1 and Stage 5).
+  the public schedule (design §11 and Stage 5).
