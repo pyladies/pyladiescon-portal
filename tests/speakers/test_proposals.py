@@ -470,6 +470,53 @@ class TestDeciding:
             == 400
         )
 
+    def test_a_proposal_is_answered_from_the_session_page_too(
+        self, client, conference, enabled, stranger, organizer
+    ):
+        """The session page is where the whole proposal can be read, so it
+        is where an organizer wants to answer it, and where they stay."""
+        client.force_login(stranger)
+        propose(client, conference)
+        proposal = Proposal.objects.get()
+        session_url = proposal.session.get_absolute_url()
+        client.force_login(organizer)
+        page = client.get(session_url).content.decode()
+        assert "Proposed by Sam Newcomer" in page
+        assert reverse("speakers:proposal_decide", args=[proposal.pk]) in page
+        response = client.post(
+            reverse("speakers:proposal_decide", args=[proposal.pk]),
+            {"decision": "APPROVED", "next": session_url},
+        )
+        assert response["Location"] == session_url
+        proposal.refresh_from_db()
+        assert proposal.decision == ProposalDecision.APPROVED
+        # Somewhere else's "next" is ignored rather than followed.
+        second = client.post(
+            reverse("speakers:proposal_decide", args=[proposal.pk]),
+            {"decision": "APPROVED", "next": "https://example.net/gone"},
+        )
+        assert second["Location"] == QUEUE
+
+    def test_a_speaker_page_for_a_proposal_goes_to_the_proposal(
+        self, client, conference, enabled
+    ):
+        """A proposal has no speaker pages: no checklist, nothing to edit
+        there. Its own page is where it is worked on."""
+        user = User.objects.create_user(username="ada", email="ada@example.com")
+        presenter = make_presenter(conference, display_name="Ada", user=user)
+        add_presenter(make_session(conference), presenter, confirmed=True)
+        asked_for = make_session(conference, title="The asked-for one")
+        add_presenter(asked_for, presenter)
+        submit_proposal(presenter, asked_for)
+        client.force_login(user)
+        for name in ("my_session_detail", "my_session_edit"):
+            response = client.get(reverse(f"speakers:{name}", args=[asked_for.slug]))
+            assert response["Location"] == MINE
+        landed = client.get(
+            reverse("speakers:my_session_detail", args=[asked_for.slug]), follow=True
+        ).content.decode()
+        assert "still a proposal" in landed
+
     def test_the_queue_is_organizers_and_liaisons(
         self, client, conference, enabled, stranger, organizer
     ):
@@ -553,6 +600,25 @@ class TestWhatOthersSee:
             reverse("speakers:session_list"), {"status": "PROPOSED"}
         ).content.decode()
         assert "A talk about testing" in content
+
+    def test_the_invitation_is_on_the_landing_page_and_the_hub(
+        self, client, conference, enabled, stranger
+    ):
+        """Proposing needs no account, so a visitor has to be able to find
+        it; a volunteer is told it is the same account they already have."""
+        landing = client.get("/").content.decode()
+        assert PROPOSE in landing and "Propose a session" in landing
+        client.force_login(stranger)
+        hub = client.get(reverse("volunteer:index")).content.decode()
+        assert PROPOSE in hub and "same account" in hub
+
+    def test_nothing_invites_a_proposal_while_they_are_closed(
+        self, client, conference, stranger
+    ):
+        make_settings(conference, proposals_open=False)
+        assert PROPOSE not in client.get("/").content.decode()
+        client.force_login(stranger)
+        assert PROPOSE not in client.get(reverse("volunteer:index")).content.decode()
 
     def test_submitting_twice_over_the_service_keeps_the_cap(
         self, conference, enabled, stranger

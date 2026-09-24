@@ -221,6 +221,25 @@
                 </div>
             {% endif %}
         {% endif %}
+        {% comment %}
+        Speaking: a volunteer account is the same account, so the invitation
+        belongs on their hub while proposals are open.
+        {% endcomment %}
+        {% if speaker_proposals_open %}
+            <div class="card border-primary-subtle mb-4">
+                <div class="card-body d-flex flex-wrap align-items-center gap-3">
+                    <div class="flex-grow-1">
+                        <h2 class="h6 text-body-emphasis mb-1">
+                            <i class="fa-solid fa-paper-plane text-secondary"></i> {% trans "Propose a session" %}
+                        </h2>
+                        <p class="text-body-secondary mb-0">
+                            {% trans "We are taking proposals for this edition. Volunteering and speaking use this same account." %}
+                        </p>
+                    </div>
+                    <a href="{% url 'speakers:propose' %}" class="btn btn-sm btn-primary">{% trans "Propose a session" %}</a>
+                </div>
+            </div>
+        {% endif %}
         {# Contextual reference links: volunteering for everyone here; speaking #}
         {# stays here until speaker profiles exist and give it a real home. #}
         {% include "portal/_resources_card.html" with group="volunteering" %}

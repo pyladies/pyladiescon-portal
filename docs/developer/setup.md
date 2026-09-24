@@ -289,6 +289,14 @@ every screen of the speaker module has something to show. It creates:
 - **Action items with deadlines**: one owned by Design Team, one assigned to
   a volunteer and overdue, one completed by a volunteer so the presenter can
   see who did it, and ad hoc items added by the organizer
+- **Proposals**, with the edition taking them, one in each state:
+    - `vol_rosa`: an approved volunteer who has also proposed a talk, still
+      waiting for an answer, which is what "the same account does both"
+      looks like
+    - `prop_tess`: nothing but a portal account, her workshop approved, so
+      she is on the program with a checklist
+    - `prop_iris`: one turned down (organizers can still approve it later)
+      and one she took back, which she can edit and send again
 
 **Important**: like `generate_sample_data`, this only works when
 `DEBUG=True`. It is idempotent: rerunning it updates the data in place. Run
@@ -322,6 +330,10 @@ one.
   speaker dashboard offers to set a password.
 - The organizer side of the speaker portal lives under **Organize →
   Speakers**; the speaker side is the **Speaking** entry in the top menu.
+- Proposer accounts (`prop_tess`, `prop_iris`, `vol_rosa`) use
+  `password123` as well. Their proposals are under **My proposals**;
+  the organizers' queue is **Organize → Speakers → Proposals**, and each
+  proposed session can also be answered from the session page itself.
 
 ## Documentation Setup
 

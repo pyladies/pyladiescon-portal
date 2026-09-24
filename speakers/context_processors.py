@@ -1,7 +1,7 @@
 from portal.models import Conference
 
 from .constants import ProposalDecision
-from .models import Presenter, Proposal, speaker_module_enabled
+from .models import Presenter, Proposal, SpeakerSettings, speaker_module_enabled
 from .permissions import can_work_queue, is_speaker_liaison, is_speaker_organizer
 from .services import proposals_open
 
@@ -32,9 +32,20 @@ def speaker_module(request):
     # every page.
     user = getattr(request, "user", None)
     if user is None or not user.is_authenticated:
+        # Proposing is open to anyone, so the one flag a signed-out page
+        # needs is whether the edition is taking proposals: that is what
+        # puts the invitation on the public landing page. Two queries, and
+        # nothing else here is computed for a visitor.
+        settings_row = SpeakerSettings.objects.filter(
+            conference=Conference.get_active()
+        ).first()
         return {
             "speaker_module_enabled": False,
-            "speaker_proposals_open": False,
+            "speaker_proposals_open": bool(
+                settings_row
+                and settings_row.speaker_module_enabled
+                and settings_row.proposals_open
+            ),
             "pending_proposal_count": None,
             "has_speaker_proposals": False,
             "is_speaker_liaison": False,

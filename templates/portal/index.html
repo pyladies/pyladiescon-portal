@@ -148,6 +148,23 @@
                 {% trans "Read the team descriptions" %} <i class="fa-solid fa-arrow-up-right-from-square"></i>
             </a>
         </div>
+        {% comment %}
+        Speaking: only while the edition is taking proposals, and shown to
+        visitors as well, because proposing does not need an account first.
+        {% endcomment %}
+        {% if speaker_proposals_open %}
+            <div class="py-4 text-center border-top">
+                <h2 class="fw-bold text-body-emphasis mb-3">
+                    {% trans "Speak at PyLadiesCon" %}
+                </h2>
+                <p class="text-body-secondary">
+                    {% trans "We are taking session proposals. A title and two sentences is enough to start, and first-time speakers are very welcome." %}
+                </p>
+                <a href="{% url 'speakers:propose' %}" class="btn btn-primary btn-lg">
+                    <i class="fa-solid fa-paper-plane"></i> {% trans "Propose a session" %}
+                </a>
+            </div>
+        {% endif %}
         {# Secondary CTAs: different audiences, kept subordinate. #}
         <div class="row row-cols-1 row-cols-md-2 g-4 py-4">
             <div class="col">

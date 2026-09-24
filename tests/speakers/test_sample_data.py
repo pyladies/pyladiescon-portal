@@ -7,13 +7,14 @@ from django.utils import timezone
 
 from portal.models import Conference
 from portal_account.models import PortalProfile
-from speakers.constants import ItemStatus, SessionStatus
+from speakers.constants import ItemStatus, ProposalDecision, SessionStatus
 from speakers.models import (
     ChecklistItem,
     ChecklistTemplateItem,
     Handbook,
     Invitation,
     Presenter,
+    Proposal,
     Session,
 )
 from speakers.program_types import presenter_role, session_type
@@ -33,7 +34,7 @@ class TestGenerateSpeakerSampleData:
         call_command("generate_speaker_sample_data", stdout=out)
         assert "Speaker sample data ready" in out.getvalue()
         assert User.objects.filter(username="vol_maya").exists()
-        assert Session.objects.filter(conference=conference).count() == 7
+        assert Session.objects.filter(conference=conference).count() == 11
         presenters = {
             p.display_name: p for p in Presenter.objects.filter(conference=conference)
         }
@@ -78,6 +79,21 @@ class TestGenerateSpeakerSampleData:
         )
         assert Handbook.current(conference, "workshop") is not None
         assert Handbook.current(conference, "performer") is None
+        # Proposals in every state, each with an account to sign in as.
+        decisions = {
+            p.session.title: p.decision
+            for p in Proposal.objects.filter(conference=conference)
+        }
+        assert decisions == {
+            "Packaging without tears": ProposalDecision.PENDING,
+            "A workshop on Django forms": ProposalDecision.APPROVED,
+            "Live-coding a synth": ProposalDecision.REJECTED,
+            "Notebooks in production": ProposalDecision.WITHDRAWN,
+        }
+        # The approved one ran the whole acceptance path.
+        approved = Session.objects.get(title="A workshop on Django forms")
+        assert approved.status == SessionStatus.CONFIRMED
+        assert ChecklistItem.objects.filter(session=approved).exists()
         counts = (
             Session.objects.count(),
             Presenter.objects.count(),
@@ -123,7 +139,7 @@ class TestGenerateSpeakerSampleData:
         call_command(
             "generate_speaker_sample_data", conference="2024", stdout=StringIO()
         )
-        assert Session.objects.filter(conference=other).count() == 7
+        assert Session.objects.filter(conference=other).count() == 11
         with pytest.raises(CommandError, match="No conference matches"):
             call_command("generate_speaker_sample_data", conference="nope")
         conference.is_active = False

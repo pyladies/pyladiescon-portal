@@ -325,6 +325,13 @@ class SessionDetailView(SessionScopedMixin, DetailView):
             for link in self.object.presenter_links
         }
         context["invite_form"] = InviteForm()
+        # A proposed session is answered here as well as on the queue: this
+        # is the page with the whole thing on it to read.
+        context["proposal"] = (
+            Proposal.objects.filter(session=self.object)
+            .select_related("presenter", "decided_by")
+            .first()
+        )
         latest = {}
         for invitation in Invitation.objects.filter(session=self.object).order_by(
             "creation_date", "id"
@@ -1236,8 +1243,29 @@ class SpeakerProfileUpdateView(LoginRequiredMixin, PresenterRequiredMixin, Updat
         return context
 
 
+class StillAProposal(Exception):
+    """Raised when a speaker page is asked for something not answered yet.
+
+    Django's own control flow for "this request ends differently" is an
+    exception (``Http404``, ``PermissionDenied``), and the same shape keeps
+    the check in one place for every speaker session page.
+    """
+
+
 class SpeakerSessionMixin(LoginRequiredMixin, PresenterRequiredMixin):
-    """A session in this edition that the presenter is on; 403 otherwise."""
+    """A session in this edition that the presenter is on; 403 otherwise.
+
+    A session still waiting for an answer, or turned down, has no speaker
+    pages: no checklist, nothing to edit here. Those go back to My
+    proposals, which is where the proposer works on them.
+    """
+
+    def dispatch(self, request, *args, **kwargs):
+        try:
+            return super().dispatch(request, *args, **kwargs)
+        except StillAProposal as exc:
+            messages.info(request, str(exc))
+            return redirect("speakers:my_proposals")
 
     def get_session(self):
         session = get_object_or_404(
@@ -1245,6 +1273,11 @@ class SpeakerSessionMixin(LoginRequiredMixin, PresenterRequiredMixin):
         )
         if not session.session_presenters.filter(presenter=self.presenter).exists():
             raise PermissionDenied("You are not a presenter on this session.")
+        if session.is_a_proposal:
+            raise StillAProposal(
+                f"“{session.title}” is still a proposal, so it lives here "
+                "until the team answers it."
+            )
         return session
 
 
@@ -2926,4 +2959,11 @@ class ProposalDecisionView(LoginRequiredMixin, SpeakerOrganizerRequiredMixin, Vi
                 )
         except (ProposalError, TransitionError) as exc:
             messages.error(request, str(exc))
+        # Answered from the session page, the answer belongs there: the
+        # queue is where you go to empty it, not where you were reading.
+        back = request.POST.get("next", "")
+        if back and url_has_allowed_host_and_scheme(
+            back, allowed_hosts={request.get_host()}, require_https=request.is_secure()
+        ):
+            return redirect(back)
         return redirect("speakers:proposal_queue")
