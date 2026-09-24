@@ -561,11 +561,21 @@ Channel and role setup is manual in 2026: organizers create channels on Discord 
 The conference is about eleven weeks away and invitations need to go out well before that, so the order lets organizers start inviting after the first milestone while the rest is built.
 
 The milestones below are called **stages** in the code and in
-`speakers/README.md` (`Stage 1`, `Stage 2`, `Stage 3b`, `Stage 4.1`, and
-so on). They are the same things: M1 is Stage 1, M2 is Stage 2, M2b is
-Stage 3 (permissions), M3 is Stage 4 (scheduling), M3b is Stage 4b
-(media), M4 is Stage 5 (public), M5 is Stage 6 (hardening). A decimal in
-the code, such as Stage 1.5 or Stage 4.1, is a task inside its stage.
+`speakers/README.md`. Translating between the two:
+
+| Here | In the code | Where it is cited |
+|---|---|---|
+| M1 | Stage 1 | — |
+| M2 | Stage 2 | `speakers/README.md` on where checklists are instantiated |
+| M2b | no stage number yet | — |
+| M3 | Stage 3 | `ScheduleSlot` ("shell for Stage 3") and the presenter schedule placeholder |
+| M3b | Stage 3b | `MediaAsset` |
+| M4 | Stage 5 | `speakers/README.md` on the public schedule, and the addresses page |
+| M5 | no stage number yet | — |
+
+A number with a decimal is a **task**, not a stage: Stage 1.5 and 4.1 are
+the storage work (bucket and presigned URLs, then the upload tasks 4.1 to
+4.3 inside Stage 3b), and Stage 2.5 is the round that brings htmx in.
 
 | Milestone | Delivers | Target | Status |
 |---|---|---|---|
