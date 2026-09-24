@@ -286,3 +286,22 @@ button.checklist-box-done:hover {
         width: 0;
     }
 }
+
+/* Accordion headers (the propose form's two sections). Bootstrap tints an
+   open header and leaves a collapsed one plain white, which stops it
+   reading as a header at all: the closed section looked like a stray line
+   of text. A collapsed header keeps a tinted background, a border and its
+   chevron, so it still looks like something to open. */
+.accordion-button {
+    font-weight: 600;
+}
+.accordion-button.collapsed {
+    background-color: var(--bs-tertiary-bg);
+    color: var(--bs-body-color);
+}
+.accordion-button.collapsed:hover {
+    background-color: var(--bs-secondary-bg);
+}
+.accordion-button:focus {
+    box-shadow: 0 0 0 0.2rem rgba(var(--bs-primary-rgb), 0.25);
+}
