@@ -60,9 +60,9 @@
                             <h5 class="card-title">
                                 {% trans "Approved members" %}
                             </h5>
-                            <h1 class="display-4 text-primary">
+                            <p class="display-4 text-primary mb-0">
                                 {{ approved.count }}
-                            </h1>
+                            </p>
                             <span class="text-muted">{% trans "active roster" %}</span>
                         </div>
                     </div>
@@ -73,9 +73,9 @@
                             <h5 class="card-title">
                                 {% trans "Pending review" %}
                             </h5>
-                            <h1 class="display-4 text-warning">
+                            <p class="display-4 text-warning mb-0">
                                 {{ pending.count }}
-                            </h1>
+                            </p>
                             <span class="text-muted">{% trans "awaiting decision" %}</span>
                         </div>
                     </div>
@@ -86,9 +86,9 @@
                             <h5 class="card-title">
                                 {% trans "Waitlisted" %}
                             </h5>
-                            <h1 class="display-4 text-secondary">
+                            <p class="display-4 text-secondary mb-0">
                                 {{ waitlisted.count }}
-                            </h1>
+                            </p>
                             <span class="text-muted">{% trans "if spots open" %}</span>
                         </div>
                     </div>
@@ -99,9 +99,9 @@
                             <h5 class="card-title">
                                 {% trans "Team leads" %}
                             </h5>
-                            <h1 class="display-4">
+                            <p class="display-4 mb-0">
                                 {{ team.team_leads.count }}
-                            </h1>
+                            </p>
                             <span class="text-muted">{% trans "managing this team" %}</span>
                         </div>
                     </div>

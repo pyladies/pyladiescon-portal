@@ -9,7 +9,7 @@ sponsor table live in the content area.
 
 Expects:
     active: one of: "dashboard", "volunteers", "teams", "conferences", "program_types",
-             "sessions", "presenters", "checklists", "templates", "gates", "handbook", "sponsors", "tiers", "add" (the Add sponsor action).
+             "sessions", "presenters", "checklists", "templates", "gates", "handbook", "sponsors", "tiers", "add" (the Add sponsor action), "next_year".
              Anything else = no item highlighted.
 Uses from the user_capabilities context processor:
     is_organizer, can_manage_sponsorship, can_manage_conferences,
@@ -20,7 +20,6 @@ Render only when is_organizer; read-only sponsorship viewers get the plain
 layout, as before.
 {% endcomment %}
 {# Tells the top nav which section is current (see portal.css). #}
-<span class="d-none" data-rail-section="organize"></span>
 {% url 'organizer_dashboard' as dashboard_url %}
 {% if active == "dashboard" %}
     {% include "portal/_sidebar_item.html" with url=dashboard_url label=_("Dashboard") icon="fa-gauge-high" active=True only %}
@@ -135,5 +134,9 @@ layout, as before.
 {% endif %}
 {% if can_start_next_year %}
     {% url 'start_new_year' as next_year_url %}
-    {% include "portal/_sidebar_item.html" with url=next_year_url label=_("Start next year") icon="fa-calendar-plus" only %}
+    {% if active == "next_year" %}
+        {% include "portal/_sidebar_item.html" with url=next_year_url label=_("Start next year") icon="fa-calendar-plus" active=True only %}
+    {% else %}
+        {% include "portal/_sidebar_item.html" with url=next_year_url label=_("Start next year") icon="fa-calendar-plus" only %}
+    {% endif %}
 {% endif %}

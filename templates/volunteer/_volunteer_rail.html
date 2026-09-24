@@ -20,7 +20,6 @@ and from speakers.context_processors.speaker_module:
         digest links there)
 {% endcomment %}
 {# Tells the top nav which section is current (see portal.css). #}
-<span class="d-none" data-rail-section="volunteer"></span>
 {% url 'volunteer:index' as overview_url %}
 {% if active == "overview" %}
     {% include "portal/_sidebar_item.html" with url=overview_url label=_("Overview") icon="fa-house" active=True only %}

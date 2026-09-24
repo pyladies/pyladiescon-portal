@@ -83,39 +83,41 @@
                 </button>
                 <div class="collapse navbar-collapse" id="navbarsExample04">
                     <ul class="navbar-nav me-auto mb-2 mb-md-0">
+                        {% comment %}
+                        The current tab is decided server-side, from the URL
+                        that matched (portal/navigation.py), so it carries
+                        aria-current as the rail and the breadcrumbs do
+                        rather than being a colour a stylesheet paints.
+                        {% endcomment %}
                         <li class="nav-item">
-                            <a class="nav-link" data-nav-section="home" href="{% url "index" %}">{% trans "Home" %}</a>
+                            <a class="nav-link{% if nav_section == "home" %} active{% endif %}"
+                               {% if nav_section == "home" %}aria-current="page"{% endif %}
+                               href="{% url "index" %}">{% trans "Home" %}</a>
                         </li>
                         {% if user.is_authenticated %}
                             <li class="nav-item">
-                                <a class="nav-link"
-                                   data-nav-section="volunteer"
+                                <a class="nav-link{% if nav_section == "volunteer" %} active{% endif %}"
+                                   {% if nav_section == "volunteer" %}aria-current="page"{% endif %}
                                    href="{% url 'volunteer:index' %}">{% trans "Volunteer" %}</a>
-                            </li>
-                        {% endif %}
-                        {% if leads_any_team %}
-                            <li class="nav-item">
-                                <a class="nav-link" href="{% url 'my_teams' %}">{% trans "My teams" %}</a>
                             </li>
                         {% endif %}
                         {% if is_speaker_presenter %}
                             <li class="nav-item">
-                                <a class="nav-link"
-                                   data-nav-section="speaking"
+                                <a class="nav-link{% if nav_section == "speaking" %} active{% endif %}"
+                                   {% if nav_section == "speaking" %}aria-current="page"{% endif %}
                                    href="{% url 'speakers:my_dashboard' %}">{% trans "Speaking" %}</a>
                             </li>
                         {% endif %}
-                        {# Sponsorship has no tab: organizers reach Sponsors from #}
-                        {# the Organize rail, read-only viewers from My volunteering. #}
+                        {# A tab is a hub with a rail of its own. Sponsorship and #}
+                        {# My teams are pages inside a rail, so they have no tab: #}
+                        {# organizers reach Sponsors from the Organize rail, #}
+                        {# read-only viewers and team members from My volunteering. #}
                         {# Organize: one coarse link; the shared Organize rail #}
                         {# on every organizer page carries the detailed nav. #}
-                        {# The current section is marked from the rail on the page #}
-                        {# (data-rail-section, matched in portal.css), so the tab #}
-                        {# follows the shell rather than a hard-coded "active". #}
                         {% if is_organizer %}
                             <li class="nav-item">
-                                <a class="nav-link"
-                                   data-nav-section="organize"
+                                <a class="nav-link{% if nav_section == "organize" %} active{% endif %}"
+                                   {% if nav_section == "organize" %}aria-current="page"{% endif %}
                                    href="{% url 'organizer_dashboard' %}">{% trans "Organize" %}</a>
                             </li>
                         {% endif %}

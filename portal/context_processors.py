@@ -22,7 +22,11 @@ def user_capabilities(request):
     * ``can_manage_sponsorship``— same as organizer (create/edit/tiers/invoice)
     * ``can_view_sponsorship``  — organizer OR an approved volunteer (read-only)
     * ``active_volunteer_profile`` — this user's profile for the active edition
-    * ``leads_any_team``        — true if they lead at least one team
+    * ``leads_any_team``        — true if they lead at least one team. No
+      template reads it since My teams left the tabs for the personal rail;
+      it is kept because "does this person lead anything" is the question a
+      team-scoped page will ask next, and it costs one query only when a
+      template asks for it
     * ``can_manage_conferences``— superuser only (matches the Conference views
       and StartNewYearView, which use SuperuserRequiredMixin)
     * ``can_start_next_year``   — superuser AND a new edition can be started;

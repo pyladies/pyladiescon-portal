@@ -20,6 +20,7 @@ from speakers.checklists import (
 from speakers.constants import AutoRule, ItemOwner, ItemStatus
 from speakers.models import ActivityLog, ChecklistItem
 from speakers.permissions import approved_teams, is_speaker_assignee
+from speakers.views import DONE_ITEMS_SHOWN
 from volunteer.constants import ApplicationStatus
 from volunteer.models import Team, VolunteerProfile
 
@@ -944,6 +945,30 @@ class TestQueuePage:
         # Grouped view keeps the section too.
         content = client.get(QUEUE, {"view": "presenter"}).content.decode()
         assert 'id="completed"' in content
+
+    def test_the_completed_list_is_capped_with_a_way_to_see_the_rest(
+        self, client, volunteer, people, conference
+    ):
+        """It is a reward, not the bulk of the page: every row carries its
+        own form, and a team member's list grows all year."""
+        for n in range(DONE_ITEMS_SHOWN + 5):
+            complete_item(
+                add_adhoc_item(
+                    conference,
+                    f"Done {n}",
+                    ItemOwner.ORGANIZER,
+                    presenter=people["ada"],
+                    assignee=volunteer,
+                ),
+                actor=volunteer,
+            )
+        client.force_login(volunteer)
+        response = client.get(QUEUE)
+        assert len(response.context["done_items"]) == DONE_ITEMS_SHOWN
+        assert "Show everything finished" in response.content.decode()
+        response = client.get(QUEUE, {"completed": "all"})
+        assert len(response.context["done_items"]) == DONE_ITEMS_SHOWN + 5
+        assert "Show everything finished" not in response.content.decode()
 
     def test_organizer_gets_the_personal_shell_too(self, client, organizer, enabled):
         client.force_login(organizer)

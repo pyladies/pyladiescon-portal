@@ -5,6 +5,8 @@ majority) render full-width with no rail markup; pages that extend
 ``portal/base_sidebar.html`` get a pinned-on-desktop / drawer-on-mobile rail.
 """
 
+import re
+
 import pytest
 from django.template import engines
 from django.urls import reverse
@@ -66,29 +68,50 @@ class TestSidebarShell:
         assert 'aria-current="page"' not in html
 
 
+def _nav(html):
+    """The top navigation list, so a test can ask which tab is current
+    without matching the rest of the page."""
+    return html.split('id="navbarsExample04"')[1].split("</ul>")[0]
+
+
+def _current(nav):
+    """The label of the tab marked as the current page, or None."""
+    match = re.search(r'aria-current="page"[^>]*>([^<]+)<', nav)
+    return match.group(1).strip() if match else None
+
+
 @pytest.mark.django_db
 class TestTopNavSections:
-    """The top nav marks the section whose rail is on the page, and shows one
-    tab per hub: Sponsorship only for viewers who are not organizers."""
+    """The top nav marks the hub the page belongs to, in the accessibility
+    tree as well as in colour, and shows one tab per hub."""
 
-    def test_no_hard_coded_active_tab(self, client, portal_user, conference):
+    def test_a_page_outside_every_hub_marks_home(self, client, portal_user, conference):
         client.force_login(portal_user)
-        html = client.get(reverse("chapters")).content.decode()
-        assert 'class="nav-link active"' not in html
-        assert 'data-nav-section="home"' in html
-        assert "data-rail-section" not in html  # no rail: Home is current
+        nav = _nav(client.get(reverse("chapters")).content.decode())
+        assert _current(nav) == "Home"
 
-    def test_rails_name_their_section(
+    def test_each_hub_marks_its_own_tab(
         self, client, admin_user, portal_user, conference
     ):
         client.force_login(admin_user)
-        html = client.get(reverse("organizer_dashboard")).content.decode()
-        assert 'data-rail-section="organize"' in html
-        assert 'data-nav-section="organize"' in html
+        nav = _nav(client.get(reverse("organizer_dashboard")).content.decode())
+        assert _current(nav) == "Organize"
+        # An Organize page that is not the dashboard keeps the same tab.
+        nav = _nav(client.get(reverse("conference_list")).content.decode())
+        assert _current(nav) == "Organize"
         client.force_login(portal_user)
-        html = client.get(reverse("volunteer:index")).content.decode()
-        assert 'data-rail-section="volunteer"' in html
-        assert 'data-nav-section="volunteer"' in html
+        nav = _nav(client.get(reverse("volunteer:index")).content.decode())
+        assert _current(nav) == "Volunteer"
+
+    def test_the_mark_is_in_the_accessibility_tree(
+        self, client, admin_user, conference
+    ):
+        """Not colour alone, and not a stylesheet feature: the anchor says
+        which tab is current, the way the rail and the breadcrumbs do."""
+        client.force_login(admin_user)
+        nav = _nav(client.get(reverse("organizer_dashboard")).content.decode())
+        assert nav.count('aria-current="page"') == 1
+        assert "nav-link active" in nav
 
     def test_no_sponsorship_tab_for_anyone(
         self, client, admin_user, portal_user, conference

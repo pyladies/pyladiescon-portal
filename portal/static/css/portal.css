@@ -250,17 +250,6 @@ button.checklist-box-done:hover {
     color: var(--bs-secondary-bg);
 }
 
-/* Top nav: the current tab follows the rail on the page. Rails drop a hidden
-   [data-rail-section] marker (templates/portal/_organize_rail.html and the
-   volunteer and speaker rails); the navbar renders before them, so the match
-   is done here with :has(). Pages without a rail count as Home. */
-body:not(:has([data-rail-section])) .navbar .nav-link[data-nav-section="home"],
-body:has([data-rail-section="organize"]) .navbar .nav-link[data-nav-section="organize"],
-body:has([data-rail-section="volunteer"]) .navbar .nav-link[data-nav-section="volunteer"],
-body:has([data-rail-section="speaking"]) .navbar .nav-link[data-nav-section="speaking"] {
-    color: var(--bs-navbar-active-color);
-}
-
 /* Login page (templates/account/login.html): the "or" between the password
    form and the sign-in code. A rule with the word in the middle on narrow
    screens; a vertical rule between the two columns from md up. */
@@ -281,11 +270,13 @@ body:has([data-rail-section="speaking"]) .navbar .nav-link[data-nav-section="spe
     border-top: 1px solid var(--bs-border-color);
 }
 @media (min-width: 768px) {
+    /* The column stretches to the row (align-items-stretch on the parent),
+       so the rule is as tall as the taller of the two forms rather than a
+       fixed height that could overhang a short one. */
     .login-or {
         flex-direction: column;
         width: auto;
         height: 100%;
-        min-height: 14rem;
         padding: 0 0.5rem;
     }
     .login-or::before,

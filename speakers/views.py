@@ -1573,6 +1573,10 @@ class ChecklistBoardExportView(ChecklistBoardView):
         return response
 
 
+# How many finished items the task page shows before offering the rest.
+DONE_ITEMS_SHOWN = 20
+
+
 class ChecklistQueueView(LoginRequiredMixin, SpeakerQueueRequiredMixin, TemplateView):
     """My volunteering tasks: organizer items assigned to me or to a team I
     am on (design §9.6).
@@ -1603,6 +1607,10 @@ class ChecklistQueueView(LoginRequiredMixin, SpeakerQueueRequiredMixin, Template
         view = "presenter" if self.request.GET.get("view") == "presenter" else "all"
         # What they (or their team) already finished, newest first: the
         # accomplishments list under the open items.
+        # Accomplishments, not the bulk of the page: the newest few, with
+        # a link to the rest, since a team member's list grows all year and
+        # every row carries its own untick form.
+        show_all = self.request.GET.get("completed") == "all"
         done_items = [
             annotate_due(item, as_of)
             for item in ChecklistItem.objects.filter(
@@ -1612,8 +1620,14 @@ class ChecklistQueueView(LoginRequiredMixin, SpeakerQueueRequiredMixin, Template
                 status=ItemStatus.DONE,
             )
             .select_related("presenter", "session", "team", "completed_by")
-            .order_by(F("completed_at").desc(nulls_last=True), "-id")
+            .order_by(F("completed_at").desc(nulls_last=True), "-id")[
+                : None if show_all else DONE_ITEMS_SHOWN + 1
+            ]
         ]
+        done_total = len(done_items)
+        if not show_all and done_total > DONE_ITEMS_SHOWN:
+            done_items = done_items[:DONE_ITEMS_SHOWN]
+            done_total = None  # more than we are showing; the link says so
         context.update(
             {
                 "conference": self.conference,
@@ -1622,6 +1636,8 @@ class ChecklistQueueView(LoginRequiredMixin, SpeakerQueueRequiredMixin, Template
                 "items": items,
                 "groups": _queue_groups(items) if view == "presenter" else [],
                 "done_items": done_items,
+                "done_all_shown": show_all or done_total is not None,
+                "done_shown": DONE_ITEMS_SHOWN,
                 "today": as_of,
                 # A volunteer assignee may not open a presenter page, so the
                 # group headings name them without linking. The rows name

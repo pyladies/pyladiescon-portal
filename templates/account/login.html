@@ -51,12 +51,18 @@ between them (vertical on wide screens, a rule on narrow ones; see
         </div>
     </div>
     <div class="col-md">
-        <h2 class="h5 mb-3">
-            {% trans "Sign in with a code" %}
-        </h2>
-        <p class="text-secondary">
-            {% trans "No password needed: we email you a one-time code and you are in. This is how speakers sign in." %}
-        </p>
+        {% if LOGIN_BY_CODE_ENABLED %}
+            <h2 class="h5 mb-3">
+                {% trans "Sign in with a code" %}
+            </h2>
+            <p class="text-secondary">
+                {% trans "No password needed: we email you a one-time code and you are in. This is how speakers sign in." %}
+            </p>
+        {% else %}
+            <h2 class="h5 mb-3">
+                {% trans "Sign in with a passkey" %}
+            </h2>
+        {% endif %}
         {% element button_group vertical=True %}
         {% if LOGIN_BY_CODE_ENABLED %}
             {% element button href=request_login_code_url tags="prominent,login,outline,primary" %}
