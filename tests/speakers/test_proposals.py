@@ -580,6 +580,32 @@ class TestASpeakerProposesAgain:
         assert session.status == SessionStatus.CONFIRMED
         assert ChecklistItem.objects.filter(session=session).exists()
 
+    def test_their_checklist_has_nothing_for_an_unanswered_one(
+        self, client, conference, speaker, organizer
+    ):
+        """Nothing to do until it is approved, so the checklist does not
+        carry a heading for it; once approved it is there like any other."""
+        user, presenter = speaker
+        client.force_login(user)
+        propose(client, conference, title="One more talk")
+        session = Session.objects.get(title="One more talk")
+        by_session = reverse("speakers:my_checklist") + "?view=session"
+        assert "One more talk" not in client.get(by_session).content.decode()
+        # And asking for that session by name is not one of theirs either.
+        asked = f"{reverse('speakers:my_checklist')}?session={session.slug}"
+        assert client.get(asked).status_code == 404
+        client.force_login(organizer)
+        client.post(
+            reverse(
+                "speakers:proposal_decide",
+                args=[Proposal.objects.get(session=session).pk],
+            ),
+            {"decision": "APPROVED"},
+        )
+        client.force_login(user)
+        assert "One more talk" in client.get(by_session).content.decode()
+        assert client.get(asked).status_code == 200
+
     def test_the_form_skips_the_half_they_have_filled_in(
         self, client, conference, speaker
     ):

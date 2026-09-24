@@ -1037,16 +1037,16 @@ class SpeakerChecklistView(LoginRequiredMixin, PresenterRequiredMixin, TemplateV
         presenter = self.presenter
         today_here = today(presenter.tzinfo)
         checklist = _speaker_checklist(presenter, today_here)
+        # A session still waiting for an answer, or turned down, has no
+        # checklist: nothing starts before it is approved, and a heading
+        # with nothing under it reads as work that has gone missing.
+        links = [link for link in checklist["links"] if not link.session.is_a_proposal]
         view = "session" if self.request.GET.get("view") == "session" else "all"
         only = None
         session_param = self.request.GET.get("session")
         if session_param:
             only = next(
-                (
-                    link.session
-                    for link in checklist["links"]
-                    if link.session.slug == session_param
-                ),
+                (link.session for link in links if link.session.slug == session_param),
                 None,
             )
             if only is None:
@@ -1056,7 +1056,7 @@ class SpeakerChecklistView(LoginRequiredMixin, PresenterRequiredMixin, TemplateV
         if view == "session":
             targets = [
                 link.session
-                for link in checklist["links"]
+                for link in links
                 if only is None or link.session_id == only.pk
             ]
             for session in targets:
