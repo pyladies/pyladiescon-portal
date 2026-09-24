@@ -59,6 +59,11 @@ class ProposalDecision(models.TextChoices):
 # send them again, and only a pending one counts towards the cap.
 PROPOSER_CAN_EDIT = frozenset({ProposalDecision.PENDING, ProposalDecision.WITHDRAWN})
 
+# "Not this time" is an answer, not a door closing. A cancellation or an
+# extra slot late in the planning is common, so organizers can come back to
+# something they turned down and say yes after all.
+CAN_BE_APPROVED = frozenset({ProposalDecision.PENDING, ProposalDecision.REJECTED})
+
 
 # Per presenter per edition: how many proposals may be waiting at once, and
 # how many sessions someone already on the program may add themselves.

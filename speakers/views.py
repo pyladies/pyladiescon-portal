@@ -2908,11 +2908,13 @@ class ProposalDecisionView(LoginRequiredMixin, SpeakerOrganizerRequiredMixin, Vi
             return HttpResponseBadRequest("Unknown decision.")
         try:
             if answer == ProposalDecision.APPROVED:
+                after_all = proposal.is_rejected
                 approve_proposal(proposal, actor=request.user)
                 messages.success(
                     request,
-                    f"“{proposal.session.title}” is in. "
-                    f"{proposal.presenter.display_name} has been told and has "
+                    f"“{proposal.session.title}” is in"
+                    + (" after all. " if after_all else ". ")
+                    + f"{proposal.presenter.display_name} has been told and has "
                     "their checklist.",
                 )
             else:

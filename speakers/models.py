@@ -26,6 +26,7 @@ from portal.constants import BASE_PRETIX_URL
 
 from .clock import today
 from .constants import (
+    CAN_BE_APPROVED,
     DEFAULT_GUIDE_KEY,
     IDENTITY_LOCKED_STATUSES,
     OPEN_ITEM_STATUSES,
@@ -909,14 +910,16 @@ class Session(TimestampedModel):
             self.save(update_fields=["status", "created_by_presenter"])
 
     def approve(self, save=True):
-        """PROPOSED -> DRAFT. From here it is an ordinary session.
+        """PROPOSED or REJECTED -> DRAFT. From here it is an ordinary session.
 
         The presenter's own confirmation, their checklists and the
         confirmation attempt are the acceptance path's job
         (``services.approve_proposal``), which is the same one an accepted
         invitation takes.
         """
-        self._require_status(SessionStatus.PROPOSED, SessionStatus.DRAFT)
+        self._require_status(
+            SessionStatus.PROPOSED, SessionStatus.REJECTED, SessionStatus.DRAFT
+        )
         self.status = SessionStatus.DRAFT
         if save:
             self.save(update_fields=["status"])
@@ -997,6 +1000,15 @@ class Proposal(TimestampedModel):
     def proposer_can_edit(self):
         """Theirs to change: nobody has answered it, or they took it back."""
         return self.decision in PROPOSER_CAN_EDIT
+
+    @property
+    def is_rejected(self):
+        return self.decision == ProposalDecision.REJECTED
+
+    @property
+    def can_be_approved(self):
+        """Yes is still available, including on one already turned down."""
+        return self.decision in CAN_BE_APPROVED
 
     def decide(self, decision, actor=None):
         """Record the answer. The session transition is the caller's."""

@@ -17,10 +17,15 @@ from speakers.constants import (
     ProposalDecision,
     SessionStatus,
 )
-from speakers.models import ChecklistItem, Proposal, Session
+from speakers.models import ActivityLog, ChecklistItem, Proposal, Session
 from speakers.program_types import session_type
 from speakers.seeds import seed_checklists
-from speakers.services import ProposalError, add_own_session, submit_proposal
+from speakers.services import (
+    ProposalError,
+    add_own_session,
+    reject_proposal,
+    submit_proposal,
+)
 
 from .factories import add_presenter, make_presenter, make_session, make_settings
 
@@ -319,6 +324,16 @@ class TestWhereProposalsLive:
         # The dashboard says the same thing.
         dashboard = client.get(reverse("speakers:my_dashboard")).content.decode()
         assert "Waiting for an answer" in dashboard
+        # And an answer of no reads as one, in both places.
+        reject_proposal(Proposal.objects.get(session=asked_for))
+        assert (
+            "Not accepted"
+            in client.get(reverse("speakers:my_sessions")).content.decode()
+        )
+        assert (
+            "Not accepted"
+            in client.get(reverse("speakers:my_dashboard")).content.decode()
+        )
 
     def test_pyjam_can_be_proposed(self, conference, enabled):
         """A performance is something people bring, like a talk or a
@@ -396,6 +411,49 @@ class TestDeciding:
         client.post(url, {"decision": "APPROVED"})
         response = client.post(url, {"decision": "REJECTED"}, follow=True)
         assert "already been answered" in response.content.decode()
+
+    def test_a_rejected_proposal_can_be_approved_later(
+        self, client, conference, enabled, stranger, organizer
+    ):
+        """A cancellation frees a slot in November. "Not this time" should
+        not mean asking the person to send the whole thing again."""
+        client.force_login(stranger)
+        propose(client, conference)
+        proposal = Proposal.objects.get()
+        url = reverse("speakers:proposal_decide", args=[proposal.pk])
+        client.force_login(organizer)
+        client.post(url, {"decision": "REJECTED"})
+        # The answered list offers it, and the queue says so.
+        queue = client.get(QUEUE).content.decode()
+        assert "Approve after all" in queue
+        mail.outbox.clear()
+        response = client.post(url, {"decision": "APPROVED"}, follow=True)
+        assert "is in after all" in response.content.decode()
+        proposal.refresh_from_db()
+        assert proposal.decision == ProposalDecision.APPROVED
+        session = proposal.session
+        session.refresh_from_db()
+        # The acceptance path runs in full, dated from this second answer.
+        link = session.session_presenters.get()
+        assert link.is_confirmed and link.confirmed_at == proposal.decided_at
+        assert session.status == SessionStatus.CONFIRMED
+        assert ChecklistItem.objects.filter(
+            presenter=proposal.presenter, owner=ItemOwner.SPEAKER
+        ).exists()
+        assert any("Your session is in" in m.subject for m in mail.outbox)
+        assert ActivityLog.objects.filter(action="proposal.reconsidered").exists()
+
+    def test_an_approved_proposal_cannot_be_approved_again(
+        self, client, conference, enabled, stranger, organizer
+    ):
+        client.force_login(stranger)
+        propose(client, conference)
+        proposal = Proposal.objects.get()
+        url = reverse("speakers:proposal_decide", args=[proposal.pk])
+        client.force_login(organizer)
+        client.post(url, {"decision": "APPROVED"})
+        response = client.post(url, {"decision": "APPROVED"}, follow=True)
+        assert "cannot be approved as it stands" in response.content.decode()
 
     def test_an_unknown_answer_is_refused(
         self, client, conference, enabled, stranger, organizer

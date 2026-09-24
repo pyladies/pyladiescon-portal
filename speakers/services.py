@@ -515,11 +515,16 @@ def approve_proposal(proposal, actor=None):
     takes, with the approval standing in for the acceptance: the link is
     confirmed, the checklists are created and anchored at this moment, and
     the session confirms itself when nothing blocks it.
+
+    One already turned down can be approved later. Slots open up when
+    something is cancelled, and "not this time" should not mean the
+    organizers have to ask the person to send it all again.
     """
-    if not proposal.is_pending:
-        raise ProposalError("That proposal has already been answered.")
+    if not proposal.can_be_approved:
+        raise ProposalError("That proposal cannot be approved as it stands.")
     presenter = proposal.presenter
     session = proposal.session
+    was_rejected = proposal.is_rejected
     with transaction.atomic():
         session.approve()
         proposal.decide(ProposalDecision.APPROVED, actor=actor)
@@ -527,7 +532,7 @@ def approve_proposal(proposal, actor=None):
         link.confirm(when=proposal.decided_at)
         ActivityLog.record(
             proposal.conference,
-            "proposal.approved",
+            "proposal.reconsidered" if was_rejected else "proposal.approved",
             target=session,
             actor=actor,
             message=session.title,

@@ -91,6 +91,10 @@ their personal rail. ``shell`` is one of two templates the view picks:
                         <div class="small mt-2">
                             <a href="{% url 'speakers:my_dashboard' %}">{% trans "Your speaker pages" %}</a>
                         </div>
+                    {% elif proposal.is_rejected %}
+                        <div class="small text-secondary mt-1">
+                            {% trans "Not accepted for this edition. It stays here, and the team can still come back to it if a slot opens up." %}
+                        </div>
                     {% endif %}
                 </li>
             {% endfor %}

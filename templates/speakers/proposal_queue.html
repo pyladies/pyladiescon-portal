@@ -16,7 +16,7 @@ emptied; answered ones stay as the record.
         {% trans "Proposals" %}
     </h1>
     <p class="text-secondary">
-        {% trans "Approving confirms the speaker on the session and starts their checklist, exactly as accepting an invitation does. Rejecting sends a short note with no reason." %}
+        {% trans "Approving confirms the speaker on the session and starts their checklist, exactly as accepting an invitation does. Rejecting sends a short note with no reason, and can be revisited: if a slot opens up later, approve it from the answered list." %}
     </p>
     <h2 class="h5 mt-4">
         {% trans "Waiting for an answer" %}
@@ -93,6 +93,19 @@ emptied; answered ones stay as the record.
                         <span class="small text-secondary">
                             {% blocktranslate with name=proposal.decided_by.get_full_name|default:proposal.decided_by.username date=proposal.decided_at|date:"j M" %}by {{ name }}, {{ date }}{% endblocktranslate %}
                         </span>
+                    {% endif %}
+                    {% if can_decide and proposal.can_be_approved %}
+                        {# A slot can open up after the answer went out. #}
+                        <form method="post"
+                              action="{% url 'speakers:proposal_decide' proposal.pk %}">
+                            {% csrf_token %}
+                            <button class="btn btn-sm btn-outline-success"
+                                    name="decision"
+                                    value="APPROVED"
+                                    type="submit">
+                                {% trans "Approve after all" %}
+                            </button>
+                        </form>
                     {% endif %}
                 </li>
             {% endfor %}

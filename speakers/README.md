@@ -173,7 +173,10 @@ linked, a `Session` in `PROPOSED`, an unconfirmed `SessionPresenter`, and a
 `Proposal` carrying the review. Approving runs the acceptance path an
 invitation takes (`services.approve_proposal`), so the checklists, the
 confirmation and the emails are the ones a speaker always gets, dated from
-the approval. Rejecting keeps the rows and locks the session's identity.
+the approval. Rejecting keeps the rows and locks the session's identity, and an
+organizer can still approve it afterwards: slots open up when something is
+cancelled, and the whole acceptance path runs then, dated from the second
+answer.
 Withdrawing, while nobody has answered, keeps both rows and takes them off
 the organizers' list: withdrawing usually means "not like this" rather than
 "forget it", so the writing stays, the proposer can keep editing it, and
