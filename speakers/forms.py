@@ -34,6 +34,7 @@ from .models import (
     SessionType,
 )
 from .people import assignee_candidates, liaison_candidates, user_label
+from .services import proposable_types
 
 MARKDOWN_HELP = "Markdown supported: headings, lists, links, **bold**, *italics*."
 
@@ -917,3 +918,96 @@ class SpeakerOnboardingForm(forms.Form):
         profile.tos_agreement = True
         profile.save()
         return profile
+
+
+class ProposalSessionForm(forms.ModelForm):
+    """The session half of the propose-a-session form.
+
+    The same fields a speaker edits later, plus the type, which decides the
+    duration and the role they get. Only the types an edition opened for
+    proposals are offered, so nobody proposes a coffee break.
+    """
+
+    class Meta:
+        model = Session
+        fields = [
+            "kind",
+            "title",
+            "summary_md",
+            "outline_md",
+            "prerequisites_md",
+            "audience_md",
+            "level",
+            "language",
+        ]
+        widgets = {
+            "summary_md": forms.Textarea(attrs={"rows": 4}),
+            "outline_md": forms.Textarea(attrs={"rows": 6}),
+            "prerequisites_md": forms.Textarea(attrs={"rows": 3}),
+            "audience_md": forms.Textarea(attrs={"rows": 3}),
+        }
+        labels = {"kind": "What kind of session"}
+        help_texts = {
+            "summary_md": MARKDOWN_HELP + " What attendees would see on the schedule.",
+            "outline_md": MARKDOWN_HELP + " How you would spend the time.",
+            "prerequisites_md": MARKDOWN_HELP + " What someone needs to follow it.",
+            "audience_md": MARKDOWN_HELP + " Who it is for.",
+        }
+
+    def __init__(self, *args, conference, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.conference = conference
+        # The model checks that the type belongs to the session's edition,
+        # and validation runs before the view can set it.
+        self.instance.conference = conference
+        self.fields["kind"].queryset = proposable_types(conference)
+        self.fields["kind"].empty_label = None
+        self.fields["title"].required = True
+        self.fields["summary_md"].required = True
+
+    def clean_kind(self):
+        """The queryset already refuses a type from another edition or one
+        that is not open; this is the guard behind it."""
+        kind = self.cleaned_data["kind"]
+        if not proposable_types(self.conference).filter(pk=kind.pk).exists():
+            raise ValidationError("That kind of session is not open for proposals.")
+        return kind
+
+
+class ProposalProfileForm(forms.ModelForm):
+    """The "about you" half, for someone the portal has never met.
+
+    A speaker who already has a presenter row does not see this: they
+    filled it in when they accepted.
+    """
+
+    timezone = forms.ChoiceField(
+        choices=timezone_choices,
+        help_text="So we show you times in yours, and know when to reach you.",
+    )
+
+    class Meta:
+        model = Presenter
+        fields = [
+            "display_name",
+            "pronouns",
+            "bio_md",
+            "headshot",
+            "location",
+            "timezone",
+            "website_url",
+            "github_username",
+            "mastodon_url",
+            "linkedin_url",
+            "bluesky_username",
+        ]
+        widgets = {"bio_md": forms.Textarea(attrs={"rows": 6})}
+        help_texts = {
+            "bio_md": MARKDOWN_HELP + " A couple of sentences is plenty.",
+            "headshot": "A square photo works best. You can add one later.",
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["display_name"].required = True
+        self.fields["bio_md"].required = True

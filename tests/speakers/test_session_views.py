@@ -176,6 +176,9 @@ class TestContextProcessor:
         request.user = AnonymousUser()
         assert speaker_module(request) == {
             "speaker_module_enabled": False,
+            "speaker_proposals_open": False,
+            "pending_proposal_count": None,
+            "has_speaker_proposals": False,
             "is_speaker_liaison": False,
             "can_work_speaker_queue": False,
             "is_speaker_presenter": False,
@@ -189,6 +192,9 @@ class TestContextProcessor:
         request.user = liaison
         assert speaker_module(request) == {
             "speaker_module_enabled": True,
+            "speaker_proposals_open": False,
+            "pending_proposal_count": None,
+            "has_speaker_proposals": False,
             "is_speaker_liaison": True,
             "is_speaker_presenter": False,
             # Liaisons may always open My volunteering tasks.

@@ -1,0 +1,70 @@
+{% extends "portal/base.html" %}
+{% load i18n %}
+{% load django_bootstrap5 %}
+{% load speakers_extras %}
+{% comment %}
+The front door for proposals. Signed out it is an invitation to sign in,
+because the account carries the verified address we would write to; signed
+in it is one page of two halves, with "about you" skipped for someone the
+portal already knows.
+{% endcomment %}
+{% block head_title %}
+    {% trans "Propose a session" %}
+{% endblock head_title %}
+{% block body %}
+    <div class="container px-4 py-4">
+        <h1 class="h3 mb-3">
+            {% blocktranslate with name=conference.name %}Propose a session for {{ name }}{% endblocktranslate %}
+        </h1>
+        {% if not open_for_proposals %}
+            <div class="alert alert-secondary" role="alert">
+                {% trans "We are not taking proposals at the moment. Keep an eye on the conference site for the next call." %}
+            </div>
+        {% else %}
+            {% if intro_md %}
+                <div class="mb-4">
+                    {{ intro_md|speaker_md }}
+                </div>
+            {% endif %}
+            {% if not user.is_authenticated %}
+                <p class="text-secondary">
+                    {% trans "You need a portal account to propose a session: it is where we write to you, and where you will see the answer." %}
+                </p>
+                <div class="d-flex gap-2">
+                    <a class="btn btn-primary" href="{{ signup_url }}">{% trans "Create an account" %}</a>
+                    <a class="btn btn-outline-primary" href="{{ login_url }}">{% trans "Sign in" %}</a>
+                </div>
+            {% elif pending_count >= max_pending %}
+                <div class="alert alert-warning" role="alert">
+                    {% blocktranslate count counter=max_pending %}You already have {{ counter }} proposal waiting for an answer.{% plural %}You already have {{ counter }} proposals waiting for an answer.{% endblocktranslate %}
+                    <a href="{% url 'speakers:my_proposals' %}">{% trans "Withdraw one" %}</a>
+                    {% trans "to send another." %}
+                </div>
+            {% else %}
+                <form method="post" enctype="multipart/form-data">
+                    {% csrf_token %}
+                    {% if profile_form %}
+                        <h2 class="h5 mt-4">
+                            {% trans "About you" %}
+                        </h2>
+                        <p class="text-secondary small">
+                            {% trans "This is what we would put on the schedule if your session is accepted." %}
+                        </p>
+                        {% bootstrap_form profile_form %}
+                    {% else %}
+                        <p class="text-secondary">
+                            {% blocktranslate with name=presenter.display_name %}Proposing as {{ name }}. Your profile is already with us.{% endblocktranslate %}
+                        </p>
+                    {% endif %}
+                    <h2 class="h5 mt-4">
+                        {% trans "Your session" %}
+                    </h2>
+                    {% bootstrap_form session_form %}
+                    <button class="btn btn-primary" type="submit">
+                        {% trans "Send the proposal" %}
+                    </button>
+                </form>
+            {% endif %}
+        {% endif %}
+    </div>
+{% endblock body %}

@@ -161,6 +161,35 @@ reads it only when the item is blocked, on their checklist and on the item
 page alike: a blocked note explains a hold-up they need to know about, while
 a skip note is a conversation among organizers.
 
+### Proposals, and speakers adding their own sessions
+
+An edition can open the door: while `SpeakerSettings.proposals_open` is on,
+anyone with a portal account proposes a session at `/speakers/propose/`, and
+a speaker already on the program adds one without review. Only session types
+with `open_for_proposals` are offered, so nobody proposes a coffee break.
+
+A proposal is real rows from the start: a `Presenter` with the account
+linked, a `Session` in `PROPOSED`, an unconfirmed `SessionPresenter`, and a
+`Proposal` carrying the review. Approving runs the acceptance path an
+invitation takes (`services.approve_proposal`), so the checklists, the
+confirmation and the emails are the ones a speaker always gets, dated from
+the approval. Rejecting keeps the rows and locks the session's identity.
+Withdrawing, while nobody has answered, deletes the session with the
+proposal: nothing else refers to it, and an empty shell on the organizers'
+list is worse than nothing.
+
+A speaker who is already on the program skips all of that: `add_own_session`
+creates a `DRAFT` with them confirmed on it and their checklist started, and
+tells the organizers and their liaison. A draft is not public and not
+scheduled, so organizers keep the program.
+
+Both are capped per presenter per edition (`MAX_PENDING_PROPOSALS`,
+`MAX_SELF_SESSIONS`), and `Session.created_by_presenter` marks what came in
+this way.
+
+`Presenter.is_onboarded` is what the speaker area gates on, rather than the
+presenter row existing: a proposer has a row before anyone has said yes.
+
 ### Items nobody can start yet (readiness)
 
 An item exists long before it can be done: confirming a slot before the

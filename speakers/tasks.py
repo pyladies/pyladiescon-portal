@@ -4,13 +4,25 @@ from celery import shared_task
 
 from portal.models import Conference
 
+from .constants import ProposalDecision
 from .emails import (
     send_acceptance_email,
     send_added_to_session_email,
     send_copresenter_suggestion_email,
     send_invitation_email,
+    send_proposal_approved_email,
+    send_proposal_received_email,
+    send_proposal_rejected_email,
+    send_session_created_email,
 )
-from .models import Invitation, Presenter, Session, SessionPresenter, SpeakerSettings
+from .models import (
+    Invitation,
+    Presenter,
+    Proposal,
+    Session,
+    SessionPresenter,
+    SpeakerSettings,
+)
 from .notices import send_checklist_change_notices
 from .pretix import PretixError, reconcile, sync_order_by_code
 from .readiness import refresh_for_conference
@@ -161,3 +173,60 @@ def send_checklist_change_notices_task():
             note += f" ({sent.failed} failed)"
         results.append(note)
     return "; ".join(results) or "No edition has the speaker module enabled"
+
+
+@shared_task
+def send_proposal_received_email_task(proposal_id):
+    """Receipt to the proposer and a nudge to the organizers."""
+    proposal = _proposal(proposal_id)
+    if proposal is None:
+        return f"Proposal {proposal_id} not found"
+    sent = send_proposal_received_email(proposal)
+    return f"Sent proposal receipt and notice to {sent} recipient(s)"
+
+
+@shared_task
+def send_proposal_approved_email_task(proposal_id):
+    proposal = _proposal(proposal_id, decision=ProposalDecision.APPROVED)
+    if proposal is None:
+        return f"Proposal {proposal_id} is not approved"
+    send_proposal_approved_email(proposal)
+    return f"Sent proposal approval for {proposal_id}"
+
+
+@shared_task
+def send_proposal_rejected_email_task(proposal_id):
+    proposal = _proposal(proposal_id, decision=ProposalDecision.REJECTED)
+    if proposal is None:
+        return f"Proposal {proposal_id} is not rejected"
+    send_proposal_rejected_email(proposal)
+    return f"Sent proposal answer for {proposal_id}"
+
+
+@shared_task
+def send_session_created_email_task(session_id):
+    """Tell the organizing side that a speaker added a session."""
+    session = (
+        Session.objects.filter(pk=session_id)
+        .select_related("conference", "kind")
+        .first()
+    )
+    link = (
+        SessionPresenter.objects.filter(session_id=session_id)
+        .select_related("presenter", "presenter__liaison")
+        .order_by("order", "id")
+        .first()
+    )
+    if session is None or link is None:
+        return f"Session {session_id} has nobody on it"
+    sent = send_session_created_email(session, link.presenter)
+    return f"Told {sent} organizer(s) about {session_id}"
+
+
+def _proposal(proposal_id, decision=None):
+    proposals = Proposal.objects.filter(pk=proposal_id).select_related(
+        "presenter", "session", "session__kind", "conference"
+    )
+    if decision is not None:
+        proposals = proposals.filter(decision=decision)
+    return proposals.first()

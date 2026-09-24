@@ -63,4 +63,8 @@ class PresenterRequiredMixin(SpeakerModuleRequiredMixin, UserPassesTestMixin):
             .select_related("liaison")
             .first()
         )
-        return self.presenter is not None
+        # A proposer has a presenter row before anyone has said yes. The
+        # speaker area belongs to people who are on the program, so being
+        # a presenter is not enough: they need a session of the
+        # conference's, which is what being onboarded means.
+        return self.presenter is not None and self.presenter.is_onboarded

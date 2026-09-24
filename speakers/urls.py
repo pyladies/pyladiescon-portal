@@ -70,6 +70,29 @@ urlpatterns = [
         views.PresenterUpdateView.as_view(),
         name="presenter_edit",
     ),
+    # Proposals: the front door, the proposer's own list, and the queue.
+    path("propose/", views.ProposeSessionView.as_view(), name="propose"),
+    path("proposals/", views.MyProposalsView.as_view(), name="my_proposals"),
+    path(
+        "proposals/<int:pk>/edit/",
+        views.ProposalEditView.as_view(),
+        name="proposal_edit",
+    ),
+    path(
+        "proposals/<int:pk>/withdraw/",
+        views.ProposalWithdrawView.as_view(),
+        name="proposal_withdraw",
+    ),
+    path(
+        "review/proposals/",
+        views.ProposalQueueView.as_view(),
+        name="proposal_queue",
+    ),
+    path(
+        "review/proposals/<int:pk>/decide/",
+        views.ProposalDecisionView.as_view(),
+        name="proposal_decide",
+    ),
     path("settings/types/", views.ProgramTypesView.as_view(), name="program_types"),
     path(
         "settings/gates/",
@@ -115,6 +138,11 @@ urlpatterns = [
     ),
     path("me/profile/", views.SpeakerProfileUpdateView.as_view(), name="my_profile"),
     path("me/checklist/", views.SpeakerChecklistView.as_view(), name="my_checklist"),
+    path(
+        "me/sessions/add/",
+        views.AddOwnSessionView.as_view(),
+        name="my_session_add",
+    ),
     path("me/sessions/", views.SpeakerSessionListView.as_view(), name="my_sessions"),
     path(
         "me/sessions/<slug:slug>/",

@@ -239,3 +239,94 @@ def presenter_email_context(presenter):
         "sessions": sessions,
         "dashboard_url": absolute_url(reverse("speakers:my_dashboard")),
     }
+
+
+# ---- Proposals --------------------------------------------------------------
+
+
+def send_proposal_received_email(proposal):
+    """Two emails at submission: a receipt, and a nudge to the organizers."""
+    presenter, session = proposal.presenter, proposal.session
+    context = {
+        "presenter": presenter,
+        "conference": proposal.conference,
+        "session": session,
+        "proposals_url": absolute_url(reverse("speakers:my_proposals")),
+    }
+    send_email(
+        f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} We have your proposal: "
+        f"{session.title}",
+        [presenter.email],
+        markdown_template="emails/speakers/proposal_received.md",
+        context=context,
+    )
+    recipients = organizer_recipients()
+    if recipients:
+        send_email(
+            f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} New session proposal: "
+            f"{session.title}",
+            recipients,
+            markdown_template="emails/speakers/proposal_for_organizers.md",
+            context={
+                **context,
+                "review_url": absolute_url(reverse("speakers:proposal_queue")),
+            },
+        )
+    return len(recipients) + 1
+
+
+def send_proposal_approved_email(proposal):
+    """Yes. The onboarding email, for someone who already has an account."""
+    presenter, session = proposal.presenter, proposal.session
+    send_email(
+        f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} Your session is in: "
+        f"{session.title}",
+        [presenter.email],
+        markdown_template="emails/speakers/proposal_approved.md",
+        context={
+            "presenter": presenter,
+            "conference": proposal.conference,
+            "session": session,
+            "session_url": absolute_url(
+                reverse("speakers:my_session_detail", kwargs={"slug": session.slug})
+            ),
+            "dashboard_url": absolute_url(reverse("speakers:my_dashboard")),
+            "checklist_url": absolute_url(reverse("speakers:my_checklist")),
+        },
+    )
+
+
+def send_proposal_rejected_email(proposal):
+    """No. Short, kind, and without a reason, which is what was asked for."""
+    presenter = proposal.presenter
+    send_email(
+        f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} About your proposal: "
+        f"{proposal.session.title}",
+        [presenter.email],
+        markdown_template="emails/speakers/proposal_rejected.md",
+        context={
+            "presenter": presenter,
+            "conference": proposal.conference,
+            "session": proposal.session,
+        },
+    )
+
+
+def send_session_created_email(session, presenter):
+    """A speaker added a session of their own: tell the organizing side."""
+    recipients = organizer_recipients(presenter)
+    if not recipients:
+        return 0
+    send_email(
+        f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} {presenter.display_name} "
+        f"added a session: {session.title}",
+        recipients,
+        markdown_template="emails/speakers/session_created.md",
+        context={
+            "presenter": presenter,
+            "conference": session.conference,
+            "session": session,
+            "session_url": absolute_url(session.get_absolute_url()),
+        },
+    )
+    return len(recipients)

@@ -1,0 +1,72 @@
+{% extends "portal/base_sidebar.html" %}
+{% load i18n %}
+{% comment %}
+What this person proposed and what came of it. Under the personal rail: a
+proposal is theirs, and a pending one means they are not a speaker yet.
+{% endcomment %}
+{% block head_title %}
+    {% trans "My proposals" %}
+{% endblock head_title %}
+{% block breadcrumb %}
+    {% trans "My proposals" as bc_section %}
+    {% include "portal/_breadcrumbs.html" with section=bc_section %}
+{% endblock breadcrumb %}
+{% block sidebar_title %}
+    {% trans "My volunteering" %}
+{% endblock sidebar_title %}
+{% block sidebar %}
+    {% include "volunteer/_volunteer_rail.html" with active="proposals" %}
+{% endblock sidebar %}
+{% block content %}
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+        <h1 class="h3 mb-0">
+            {% trans "My proposals" %}
+        </h1>
+        {% if open_for_proposals %}
+            <a class="btn btn-sm btn-primary" href="{% url 'speakers:propose' %}">{% trans "Propose another" %}</a>
+        {% endif %}
+    </div>
+    {% if not proposals %}
+        <p class="text-secondary">
+            {% trans "You have not proposed anything yet." %}
+        </p>
+    {% else %}
+        <ul class="list-group">
+            {% for proposal in proposals %}
+                <li class="list-group-item">
+                    <div class="d-flex flex-wrap align-items-start gap-2">
+                        <div class="flex-grow-1">
+                            <div class="fw-semibold">
+                                {{ proposal.session.title }}
+                            </div>
+                            <div class="small text-secondary">
+                                {{ proposal.session.kind.name }} ·
+                                {% blocktranslate with date=proposal.submitted_at|date:"j M Y" %}sent {{ date }}{% endblocktranslate %}
+                            </div>
+                        </div>
+                        <span class="badge {% if proposal.decision == 'APPROVED' %}text-bg-success{% elif proposal.decision == 'REJECTED' %}text-bg-secondary{% else %}text-bg-light border{% endif %}">
+                            {{ proposal.get_decision_display }}
+                        </span>
+                    </div>
+                    {% if proposal.is_pending %}
+                        <div class="d-flex gap-2 mt-2">
+                            <a class="btn btn-sm btn-outline-primary"
+                               href="{% url 'speakers:proposal_edit' proposal.pk %}">{% trans "Edit" %}</a>
+                            <form method="post"
+                                  action="{% url 'speakers:proposal_withdraw' proposal.pk %}">
+                                {% csrf_token %}
+                                <button class="btn btn-sm btn-outline-secondary" type="submit">
+                                    {% trans "Withdraw" %}
+                                </button>
+                            </form>
+                        </div>
+                    {% elif proposal.decision == "APPROVED" %}
+                        <div class="small mt-2">
+                            <a href="{% url 'speakers:my_dashboard' %}">{% trans "Your speaker pages" %}</a>
+                        </div>
+                    {% endif %}
+                </li>
+            {% endfor %}
+        </ul>
+    {% endif %}
+{% endblock content %}

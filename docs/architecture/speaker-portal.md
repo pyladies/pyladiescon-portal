@@ -77,6 +77,22 @@ Every content field is optional markdown: summary, outline, prerequisites, audie
 
 The schedule in the speaker's own timezone, their sessions highlighted, visible before the program is public with a "not yet public" badge. Each session has an add-to-calendar link, and there is a personal calendar feed that stays correct if a slot moves.
 
+### 2.5 Proposing a session, and adding one
+
+> **Being built.** Decided on 21 September 2026 and extended on 23 September; the proposal side is new work rather than part of the original proposal.
+
+The 2026 edition invites its speakers, and the portal was built for that. An edition can also open the door: while proposals are open, anyone with a portal account can propose a session at `/speakers/propose/`, which is the link to put on the conference site.
+
+The form is one page: who you are, and what you would like to give. It creates real rows from the start, a presenter and a session in a **proposed** status, so nothing about it is a draft held in a form somewhere. Organizers read it and click approve or reject; the review is deliberately informal, with no notes on the proposal, because the answer is yes or no rather than a conversation.
+
+**Approving is the acceptance path an invitation takes**: the presenter is confirmed on the session, their checklists are created and dated from the approval, the session goes on to confirmed when nothing blocks it, and from then on it is an ordinary session. **Rejecting** keeps the rows and sends a short, kind note with no reason. The proposer can **withdraw** while nobody has answered, which deletes both rows. A pending proposal is capped at three per person per edition.
+
+Someone whose proposal is pending or turned down has an account and a presenter row, but no session of the conference's, so the speaker area is not theirs: the pages check that they are actually on the program.
+
+**A speaker already on the program adds a session without review.** They were invited and onboarded, so the same form creates a draft with them confirmed on it and their checklist started, and organizers and their liaison are told. A draft is not public and not scheduled, so the organizers keep the program; what they are spared is the typing.
+
+---
+
 ## 3. Running the program as an organizer
 
 ### 3.1 Sessions
@@ -327,6 +343,23 @@ Performance videos are routinely several gigabytes, so the browser uploads direc
 
 ---
 
+### 8.9 Proposal
+
+> **Being built** (§2.5).
+
+The mirror of `Invitation`: an invitation is the organizers asking a person, a proposal is a person asking the organizers. One row per proposed session, carrying the review rather than the content: the session and the presenter carry that.
+
+| Field | Notes |
+|---|---|
+| `session` | one-to-one; the session sits in `PROPOSED` until the answer |
+| `presenter` | the proposer, with their account linked from the start: they signed in to propose |
+| `decision` | `PENDING` → `APPROVED` or `REJECTED` |
+| `submitted_at`, `decided_at`, `decided_by` | when it arrived, when it was answered and by whom |
+
+`Session.created_by_presenter` marks both a proposed session and one a speaker added themselves, so the organizers' list can answer "who put this here".
+
+---
+
 ## 9. Checklists
 
 Checklists are the core of the module: what each speaker must do, what the team must do for each speaker, and — for pre-recorded sessions — what the team must do to each video. All three are the same mechanism.
@@ -551,8 +584,22 @@ Channel and role setup is manual in 2026: organizers create channels on Discord 
 ## 13. Storage, email, background jobs
 
 - **Files** — Digital Ocean Spaces, private bucket, presigned URLs for upload and download; multipart presigned upload for video; `ffprobe` on the worker for duration; a bucket lifecycle rule expires abandoned multipart uploads. Public headshots are copied to a public prefix on publish.
-- **Email** — the portal's existing backend. Templates: invitation, invitation reminder, onboarding, registration info, schedule confirmation, daily checklist digest. Every send is logged.
+- **Email** — the portal's existing backend. Templates: invitation, invitation reminder, onboarding, registration info, schedule confirmation, daily checklist digest, and the proposal emails (§2.5). Every send is logged, and a copy of what was sent is kept (§13.1).
 - **Jobs** — nightly auto-completion re-check, daily reminder digest, nightly pretix reconciliation, cache warm after publish. Uses the portal's existing job runner; no new infrastructure.
+
+### 13.1 The record of what was sent
+
+> **Not built.** Decided on 24 September 2026; the stage after open proposals (§2.5).
+
+The activity log records that an invitation was sent, and the reminder log records that a digest went out, but neither keeps what the message said. "What did we actually send her, and when" is a question organizers and maintainers ask, and today nobody can answer it.
+
+Every email the portal sends a speaker leaves a record: the address as sent, the subject, the template that identifies the kind, the rendered Markdown body (which is the source of both parts, so the HTML need not be stored), the ids it was about, the time, and whether it failed with its error. Presenter and session are nullable, so a record outlives what it was about.
+
+One place writes it. The speakers app already funnels every send through one helper, so the record is written there rather than in the shared mail code, and the other apps are untouched until they ask for the same thing.
+
+The trail is a **Maintenance** page, beside Accounts, gated on `is_maintainer` rather than on organizer status, because it holds message bodies for everyone. Newest first, filtered by edition, presenter and kind, searchable by subject and address, and a row expands to the body.
+
+Bodies are personal data: they are kept for the edition plus a year and pruned nightly, which the page says. Delivery receipts, opens and bounces are not part of this: they need the mail provider's webhooks, and the record's job is to say what the portal sent, not what the recipient's server did with it.
 
 ---
 

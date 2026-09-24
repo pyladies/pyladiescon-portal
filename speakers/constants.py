@@ -14,12 +14,33 @@ class Delivery(models.TextChoices):
 
 
 class SessionStatus(models.TextChoices):
+    # A session someone proposed and nobody has looked at yet. It is not a
+    # draft: a draft is the organizers' own, a proposal is a request.
+    PROPOSED = "PROPOSED", "Proposed"
     DRAFT = "DRAFT", "Draft"
     INVITED = "INVITED", "Invited"
     CONFIRMED = "CONFIRMED", "Confirmed"
     SCHEDULED = "SCHEDULED", "Scheduled"
     PUBLISHED = "PUBLISHED", "Published"
     CANCELLED = "CANCELLED", "Cancelled"
+    REJECTED = "REJECTED", "Not accepted"
+
+
+# Neither is a session the conference has: they never reach the public side,
+# the schedule, or a speaker's dashboard.
+UNACCEPTED_STATUSES = frozenset({SessionStatus.PROPOSED, SessionStatus.REJECTED})
+
+
+class ProposalDecision(models.TextChoices):
+    PENDING = "PENDING", "Pending review"
+    APPROVED = "APPROVED", "Approved"
+    REJECTED = "REJECTED", "Not accepted"
+
+
+# Per presenter per edition: how many proposals may be waiting at once, and
+# how many sessions someone already on the program may add themselves.
+MAX_PENDING_PROPOSALS = 3
+MAX_SELF_SESSIONS = 3
 
 
 class SessionLevel(models.TextChoices):
@@ -131,7 +152,13 @@ OPEN_ITEM_STATUSES = frozenset({ItemStatus.TODO, ItemStatus.BLOCKED})
 # and its presenters' identity (name, address) are no longer the speaker's to
 # change: links and listings may already carry them.
 IDENTITY_LOCKED_STATUSES = frozenset(
-    {SessionStatus.SCHEDULED, SessionStatus.PUBLISHED, SessionStatus.CANCELLED}
+    {
+        SessionStatus.SCHEDULED,
+        SessionStatus.PUBLISHED,
+        SessionStatus.CANCELLED,
+        # A proposal that was turned down is a record, not a draft.
+        SessionStatus.REJECTED,
+    }
 )
 
 
@@ -175,6 +202,9 @@ RESERVED_SLUGS = frozenset(
         "profile",
         "guide",
         "schedule",
+        "propose",
+        "proposals",
+        "review",
     }
 )
 

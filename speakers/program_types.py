@@ -23,7 +23,8 @@ DEFAULT_ROLES = [
 ]
 
 # code, name, is_content, default duration, default delivery, spans all
-# channels, allowed role codes (first one is the default), sort order
+# channels, allowed role codes (first one is the default), sort order.
+# The two a stranger may propose are opened below, after the table.
 DEFAULT_SESSION_TYPES = [
     ("WORKSHOP", "Workshop", True, 90, Delivery.LIVE, False, ["PRESENTER"], 10),
     ("TALK", "Talk", True, 30, Delivery.LIVE, False, ["PRESENTER"], 20),
@@ -47,6 +48,9 @@ DEFAULT_SESSION_TYPES = [
     ("SOCIAL", "Social", False, 60, Delivery.LIVE, True, [], 110),
     ("OTHER", "Other", False, 30, Delivery.LIVE, False, ["PRESENTER", "HOST"], 120),
 ]
+
+
+PROPOSABLE_CODES = {"TALK", "WORKSHOP"}
 
 
 def seed_program_types(conference):
@@ -92,6 +96,12 @@ def seed_program_types(conference):
         )
         if created:
             session_type.roles.set([roles[c] for c in role_codes])
+            # What someone may propose, or add for themselves: a talk or a
+            # workshop. Nobody proposes a coffee break, and an edition can
+            # open more types on the "Types and roles" page.
+            if code in PROPOSABLE_CODES:
+                session_type.open_for_proposals = True
+                session_type.save(update_fields=["open_for_proposals"])
             types_created += 1
     return types_created, roles_created
 
@@ -147,6 +157,7 @@ def clone_program_types(target, source):
                 "default_duration_minutes": session_type.default_duration_minutes,
                 "default_delivery": session_type.default_delivery,
                 "spans_all_channels": session_type.spans_all_channels,
+                "open_for_proposals": session_type.open_for_proposals,
                 "sort_order": session_type.sort_order,
                 "is_active": session_type.is_active,
                 "default_role": role_map.get(session_type.default_role_id),

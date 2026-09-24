@@ -45,9 +45,19 @@ def other_speaker(db):
 
 @pytest.fixture
 def presenter(conference, enabled, speaker):
-    return make_presenter(
+    """A speaker on the program: a presenter with a confirmed session.
+
+    The speaker area belongs to people who are on the program, which is
+    what accepting an invitation makes them; a proposal that nobody has
+    answered does not (``Presenter.is_onboarded``).
+    """
+    presenter = make_presenter(
         conference, display_name="Ada Lovelace", email="ada@example.com", user=speaker
     )
+    add_presenter(
+        make_session(conference, title="Her session"), presenter, confirmed=True
+    )
+    return presenter
 
 
 @pytest.fixture
@@ -177,7 +187,7 @@ class TestDashboard:
         content = client.get(DASHBOARD).content.decode()
         assert "still missing" not in content
         assert "Nothing open on your to-do list" in content
-        assert "You are not on any session yet" in content
+        assert "Her session" in content
 
     def test_schedule_placeholder(self, client, speaker, presenter):
         presenter.timezone = "Africa/Lagos"

@@ -1,0 +1,33 @@
+{% extends "portal/base_sidebar.html" %}
+{% load i18n %}
+{% load django_bootstrap5 %}
+{% block head_title %}
+    {% trans "Edit proposal" %}
+{% endblock head_title %}
+{% block breadcrumb %}
+    {% trans "My proposals" as bc_section %}
+    {% url 'speakers:my_proposals' as bc_url %}
+    {% include "portal/_breadcrumbs.html" with section=bc_section section_url=bc_url page=proposal.session.title %}
+{% endblock breadcrumb %}
+{% block sidebar_title %}
+    {% trans "My volunteering" %}
+{% endblock sidebar_title %}
+{% block sidebar %}
+    {% include "volunteer/_volunteer_rail.html" with active="proposals" %}
+{% endblock sidebar %}
+{% block content %}
+    <h1 class="h3 mb-1">
+        {{ proposal.session.title }}
+    </h1>
+    <p class="text-secondary">
+        {% trans "Change anything you like while we are still deciding." %}
+    </p>
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        {% bootstrap_form session_form %}
+        <button class="btn btn-primary" type="submit">
+            {% trans "Save" %}
+        </button>
+        <a class="btn btn-link" href="{% url 'speakers:my_proposals' %}">{% trans "Cancel" %}</a>
+    </form>
+{% endblock content %}

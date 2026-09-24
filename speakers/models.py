@@ -45,6 +45,7 @@ from .constants import (
     MediaStatus,
     NoticeKind,
     PremiereLocation,
+    ProposalDecision,
     ReadyOverride,
     ReadyRule,
     SessionLevel,
@@ -155,6 +156,19 @@ class SpeakerSettings(TimestampedModel):
         choices=PremiereLocation.choices,
         default=PremiereLocation.DISCORD,
         help_text="Where pre-recorded sessions premiere unless a session says otherwise.",
+    )
+    proposals_open = models.BooleanField(
+        default=False,
+        db_default=False,
+        help_text="While on, anyone with a portal account may propose a "
+        "session, and speakers already on the program may add one.",
+    )
+    proposals_intro_md = models.TextField(
+        blank=True,
+        default="",
+        db_default="",
+        help_text="Shown above the propose-a-session form: what you are "
+        "looking for, and by when.",
     )
     translation_languages = ArrayField(
         models.CharField(max_length=10),
@@ -478,6 +492,16 @@ class Presenter(TimestampedModel):
             return self.invitations.order_by("-creation_date", "-id").first()
         return history[0] if history else None
 
+    @property
+    def is_onboarded(self):
+        """Whether they are on the program: a confirmed link to a session.
+
+        Someone whose proposal is pending or turned down has a presenter
+        row and an account, but no session of the conference's, so the
+        speaker area is not theirs yet.
+        """
+        return self.session_presenters.filter(confirmed_at__isnull=False).exists()
+
 
 class PresenterRole(TimestampedModel):
     """What a person is on a session: presenter, panelist, host... (design
@@ -557,6 +581,13 @@ class SessionType(TimestampedModel):
     spans_all_channels = models.BooleanField(
         default=False,
         help_text="On the schedule, takes the whole grid rather than one channel.",
+    )
+    open_for_proposals = models.BooleanField(
+        default=False,
+        db_default=False,
+        help_text="Offered on the propose-a-session form, and to a speaker "
+        "adding a session of their own. Off for the types nobody proposes, "
+        "such as a break or the opening.",
     )
     roles = models.ManyToManyField(
         PresenterRole,
@@ -666,6 +697,13 @@ class Session(TimestampedModel):
     )
     status = models.CharField(
         max_length=16, choices=SessionStatus.choices, default=SessionStatus.DRAFT
+    )
+    created_by_presenter = models.BooleanField(
+        default=False,
+        db_default=False,
+        editable=False,
+        help_text="A speaker added this session themselves, or proposed it; "
+        "organizers did not type it in.",
     )
     is_public = models.BooleanField(
         default=False, help_text="Explicit publish switch (design §11.5)."
@@ -843,12 +881,96 @@ class Session(TimestampedModel):
         if save:
             self.save(update_fields=["status", "is_public"])
 
+    def approve(self, save=True):
+        """PROPOSED -> DRAFT. From here it is an ordinary session.
+
+        The presenter's own confirmation, their checklists and the
+        confirmation attempt are the acceptance path's job
+        (``services.approve_proposal``), which is the same one an accepted
+        invitation takes.
+        """
+        self._require_status(SessionStatus.PROPOSED, SessionStatus.DRAFT)
+        self.status = SessionStatus.DRAFT
+        if save:
+            self.save(update_fields=["status"])
+
+    def reject(self, save=True):
+        """PROPOSED -> REJECTED. The row stays: it is a record of an answer
+        given, and the proposer can still read what they sent."""
+        self._require_status(SessionStatus.PROPOSED, SessionStatus.REJECTED)
+        self.status = SessionStatus.REJECTED
+        self.is_public = False
+        if save:
+            self.save(update_fields=["status", "is_public"])
+
     def cancel(self, save=True):
         """Any status -> CANCELLED; takes the session off the public site."""
         self.status = SessionStatus.CANCELLED
         self.is_public = False
         if save:
             self.save(update_fields=["status", "is_public"])
+
+
+class Proposal(TimestampedModel):
+    """Someone's request to give a session, and the answer to it.
+
+    The mirror of ``Invitation``: an invitation is the organizers asking a
+    person, a proposal is a person asking the organizers. Both end in a
+    confirmed ``SessionPresenter`` and a checklist when the answer is yes.
+
+    The session, the presenter and the link all exist from the moment the
+    form is submitted, in status ``PROPOSED``; approving moves the session
+    to ``DRAFT`` and runs the acceptance path. Nothing here is a copy of
+    the session's fields: the proposal carries the review, the session
+    carries the content.
+    """
+
+    conference = models.ForeignKey(
+        "portal.Conference",
+        on_delete=models.PROTECT,
+        related_name="proposals",
+    )
+    session = models.OneToOneField(
+        Session, on_delete=models.CASCADE, related_name="proposal"
+    )
+    presenter = models.ForeignKey(
+        Presenter, on_delete=models.CASCADE, related_name="proposals"
+    )
+    decision = models.CharField(
+        max_length=16,
+        choices=ProposalDecision.choices,
+        default=ProposalDecision.PENDING,
+        db_default=ProposalDecision.PENDING,
+    )
+    submitted_at = models.DateTimeField(default=timezone.now)
+    decided_at = models.DateTimeField(null=True, blank=True)
+    decided_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
+    )
+
+    class Meta:
+        ordering = ["-submitted_at", "-id"]
+
+    def __str__(self):
+        return f"{self.presenter.display_name}: {self.session.title}"
+
+    @property
+    def is_pending(self):
+        return self.decision == ProposalDecision.PENDING
+
+    def decide(self, decision, actor=None):
+        """Record the answer. The session transition is the caller's."""
+        self.decision = decision
+        self.decided_at = timezone.now()
+        self.decided_by = actor
+        self.save(
+            update_fields=["decision", "decided_at", "decided_by", "modified_date"]
+        )
+        return self
 
 
 class SessionPresenter(TimestampedModel):

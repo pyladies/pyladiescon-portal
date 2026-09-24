@@ -16,7 +16,14 @@ from django.utils import timezone
 from common.tasks import enqueue
 
 from .checklists import instantiate_presenter_checklist
-from .constants import OPEN_ITEM_STATUSES, ChecklistScope, SessionStatus
+from .constants import (
+    MAX_PENDING_PROPOSALS,
+    MAX_SELF_SESSIONS,
+    OPEN_ITEM_STATUSES,
+    ChecklistScope,
+    ProposalDecision,
+    SessionStatus,
+)
 from .emails import INVITATION_SALT
 from .lifecycle import confirm_session_if_ready
 from .models import (
@@ -24,7 +31,11 @@ from .models import (
     ChecklistItem,
     Invitation,
     InvitationStatus,
+    Proposal,
+    Session,
     SessionPresenter,
+    SessionType,
+    SpeakerSettings,
 )
 from .rules import evaluate_items
 from .signals import invitation_accepted
@@ -32,6 +43,10 @@ from .tasks import (
     send_acceptance_email_task,
     send_added_to_session_email_task,
     send_invitation_email_task,
+    send_proposal_approved_email_task,
+    send_proposal_received_email_task,
+    send_proposal_rejected_email_task,
+    send_session_created_email_task,
 )
 
 
@@ -362,3 +377,204 @@ def _swap_role(link, role, old_role_id, old_role_name, is_required, actor):
             created_items=created,
         )
     return removed, created
+
+
+# ---- Proposals: people asking to give a session -----------------------------
+
+
+class ProposalError(ValueError):
+    """A proposal that may not be made, changed or decided."""
+
+
+def proposals_open(conference):
+    """Whether this edition is taking proposals at all."""
+    settings_row = SpeakerSettings.objects.filter(conference=conference).first()
+    return bool(settings_row and settings_row.proposals_open)
+
+
+def proposable_types(conference):
+    """The session types someone may propose or add themselves."""
+    return SessionType.objects.filter(
+        conference=conference, is_active=True, open_for_proposals=True
+    ).order_by("sort_order", "name")
+
+
+def pending_proposals(presenter):
+    return presenter.proposals.filter(decision=ProposalDecision.PENDING)
+
+
+def submit_proposal(presenter, session, actor=None):
+    """Record a proposal for a session that was just created.
+
+    The session, the presenter and the link are real rows from the start:
+    the session sits in ``PROPOSED``, which keeps it off the schedule, the
+    public side and every speaker page, and the proposal carries the
+    review. Approving is then the same path an accepted invitation takes.
+    """
+    if pending_proposals(presenter).count() >= MAX_PENDING_PROPOSALS:
+        raise ProposalError(
+            f"You already have {MAX_PENDING_PROPOSALS} proposals waiting for "
+            "an answer. Withdraw one to send another."
+        )
+    with transaction.atomic():
+        proposal = Proposal.objects.create(
+            conference=session.conference, session=session, presenter=presenter
+        )
+        ActivityLog.record(
+            session.conference,
+            "proposal.submitted",
+            target=session,
+            actor=actor,
+            message=session.title,
+            presenter_id=presenter.pk,
+            proposal_id=proposal.pk,
+        )
+        transaction.on_commit(
+            lambda: enqueue(send_proposal_received_email_task, proposal.pk)
+        )
+    return proposal
+
+
+def withdraw_proposal(proposal, actor=None):
+    """The proposer changing their mind while nobody has answered.
+
+    The session goes with it: nothing else references a proposed session,
+    and leaving an empty shell behind would put a session nobody proposed
+    on the organizers' list.
+    """
+    if not proposal.is_pending:
+        raise ProposalError("That proposal has already been answered.")
+    session = proposal.session
+    with transaction.atomic():
+        ActivityLog.record(
+            proposal.conference,
+            "proposal.withdrawn",
+            target=proposal.presenter,
+            actor=actor,
+            message=session.title,
+            presenter_id=proposal.presenter_id,
+        )
+        proposal.delete()
+        session.delete()
+
+
+def approve_proposal(proposal, actor=None):
+    """Yes: the session becomes an ordinary draft and the proposer a speaker.
+
+    Everything after the status change is the acceptance path an invitation
+    takes, with the approval standing in for the acceptance: the link is
+    confirmed, the checklists are created and anchored at this moment, and
+    the session confirms itself when nothing blocks it.
+    """
+    if not proposal.is_pending:
+        raise ProposalError("That proposal has already been answered.")
+    presenter = proposal.presenter
+    session = proposal.session
+    with transaction.atomic():
+        session.approve()
+        proposal.decide(ProposalDecision.APPROVED, actor=actor)
+        link = session.session_presenters.get(presenter=presenter)
+        link.confirm(when=proposal.decided_at)
+        ActivityLog.record(
+            proposal.conference,
+            "proposal.approved",
+            target=session,
+            actor=actor,
+            message=session.title,
+            presenter_id=presenter.pk,
+            proposal_id=proposal.pk,
+        )
+        # The same receiver an accepted invitation uses, so the checklists
+        # are the ones a speaker always gets, anchored at the approval
+        # rather than at some earlier moment.
+        invitation_accepted.send(
+            sender=Proposal,
+            invitation=None,
+            presenter=presenter,
+            user=presenter.user,
+            session_presenters=[link],
+            accepted_at=proposal.decided_at,
+        )
+        confirm_session_if_ready(session)
+        transaction.on_commit(
+            lambda: enqueue(send_proposal_approved_email_task, proposal.pk)
+        )
+    return proposal
+
+
+def reject_proposal(proposal, actor=None):
+    """No, kindly and without a reason: the answer the user asked for.
+
+    The rows stay. The proposer can still read what they sent, and the
+    organizers have a record of an answer given.
+    """
+    if not proposal.is_pending:
+        raise ProposalError("That proposal has already been answered.")
+    with transaction.atomic():
+        proposal.session.reject()
+        proposal.decide(ProposalDecision.REJECTED, actor=actor)
+        ActivityLog.record(
+            proposal.conference,
+            "proposal.rejected",
+            target=proposal.session,
+            actor=actor,
+            message=proposal.session.title,
+            presenter_id=proposal.presenter_id,
+            proposal_id=proposal.pk,
+        )
+        transaction.on_commit(
+            lambda: enqueue(send_proposal_rejected_email_task, proposal.pk)
+        )
+    return proposal
+
+
+def self_created_sessions(presenter):
+    """Sessions this presenter added themselves, this edition."""
+    return Session.objects.filter(
+        conference=presenter.conference,
+        session_presenters__presenter=presenter,
+        created_by_presenter=True,
+    )
+
+
+def add_own_session(presenter, session, actor=None):
+    """A speaker already on the program adding a session of their own.
+
+    No review: they were invited and onboarded, so the session is a draft
+    from the start with them confirmed on it. A draft is not public and not
+    scheduled, so organizers keep the schedule; what they are spared is the
+    typing. Organizers and the presenter's liaison are told.
+    """
+    if not presenter.is_onboarded:
+        raise ProposalError(
+            "Only a speaker who has accepted can add a session; everyone "
+            "else proposes one."
+        )
+    # The session being added already exists as a row when this runs, so
+    # it must not count itself towards the cap.
+    if (
+        self_created_sessions(presenter).exclude(pk=session.pk).count()
+        >= MAX_SELF_SESSIONS
+    ):
+        raise ProposalError(
+            f"You have already added {MAX_SELF_SESSIONS} sessions. Ask your "
+            "liaison if you need another."
+        )
+    with transaction.atomic():
+        link = session.session_presenters.get(presenter=presenter)
+        link.confirm()
+        ActivityLog.record(
+            session.conference,
+            "session.created_by_speaker",
+            target=session,
+            actor=actor,
+            message=session.title,
+            presenter_id=presenter.pk,
+        )
+        # The checklists a presenter gets for any session they are on.
+        instantiate_presenter_checklist(link)
+        confirm_session_if_ready(session)
+        transaction.on_commit(
+            lambda: enqueue(send_session_created_email_task, session.pk)
+        )
+    return session
