@@ -53,7 +53,13 @@ SECTION_BY_NAME = {
     "my_teams": VOLUNTEER,
     "team_dashboard": VOLUNTEER,
     "team_detail": VOLUNTEER,
+    # Posted from the team dashboard, so it belongs where that does.
+    "team_add_applicant": VOLUNTEER,
 }
+
+# Prefixes that belong to no hub: the account flows and the captcha images
+# are the site's own machinery, reachable from anywhere.
+HOME_PREFIXES = ("account_", "captcha-", "mfa_", "socialaccount_")
 
 
 def current_section(request):

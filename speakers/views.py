@@ -1624,10 +1624,11 @@ class ChecklistQueueView(LoginRequiredMixin, SpeakerQueueRequiredMixin, Template
                 : None if show_all else DONE_ITEMS_SHOWN + 1
             ]
         ]
-        done_total = len(done_items)
-        if not show_all and done_total > DONE_ITEMS_SHOWN:
+        # One more than we show tells us whether there are more, without a
+        # second query for the count.
+        all_shown = show_all or len(done_items) <= DONE_ITEMS_SHOWN
+        if not all_shown:
             done_items = done_items[:DONE_ITEMS_SHOWN]
-            done_total = None  # more than we are showing; the link says so
         context.update(
             {
                 "conference": self.conference,
@@ -1636,7 +1637,7 @@ class ChecklistQueueView(LoginRequiredMixin, SpeakerQueueRequiredMixin, Template
                 "items": items,
                 "groups": _queue_groups(items) if view == "presenter" else [],
                 "done_items": done_items,
-                "done_all_shown": show_all or done_total is not None,
+                "done_all_shown": all_shown,
                 "done_shown": DONE_ITEMS_SHOWN,
                 "today": as_of,
                 # A volunteer assignee may not open a presenter page, so the

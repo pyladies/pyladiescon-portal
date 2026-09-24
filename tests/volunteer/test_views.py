@@ -1,4 +1,5 @@
 import pytest
+from django.contrib.auth.models import User
 from django.contrib.messages import get_messages
 from django.urls import reverse
 from pytest_django.asserts import assertRedirects
@@ -2055,6 +2056,11 @@ class TestMyTeams:
         html = client.get(reverse("chapters")).content.decode()
         assert reverse("my_teams") not in html
         # The rail has it, whether or not they lead anything.
+        html = client.get(reverse("volunteer:index")).content.decode()
+        assert reverse("my_teams") in html
+        client.force_login(
+            User.objects.create_user(username="member", email="member@example.com")
+        )
         html = client.get(reverse("volunteer:index")).content.decode()
         assert reverse("my_teams") in html
 

@@ -19,7 +19,6 @@ and from speakers.context_processors.speaker_module:
 Render only when is_organizer; read-only sponsorship viewers get the plain
 layout, as before.
 {% endcomment %}
-{# Tells the top nav which section is current (see portal.css). #}
 {% url 'organizer_dashboard' as dashboard_url %}
 {% if active == "dashboard" %}
     {% include "portal/_sidebar_item.html" with url=dashboard_url label=_("Dashboard") icon="fa-gauge-high" active=True only %}

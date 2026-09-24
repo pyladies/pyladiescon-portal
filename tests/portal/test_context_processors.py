@@ -1,6 +1,8 @@
 import pytest
 from django.contrib.auth.models import AnonymousUser
+from django.db import connection
 from django.test import RequestFactory
+from django.test.utils import CaptureQueriesContext
 
 from portal.context_processors import user_capabilities
 from volunteer.models import ApplicationStatus, Team, VolunteerProfile
@@ -84,6 +86,12 @@ class TestUserCapabilities:
         assert caps["can_view_sponsorship"] is False
 
     def test_leads_any_team(self, portal_user, conference):
+        """True for a lead, and it costs nothing until something reads it.
+
+        Nothing does today: My teams left the tabs for the personal rail,
+        which offers it to everyone. A plain bool here would run its query
+        on every authenticated page for nobody.
+        """
         profile = VolunteerProfile.objects.create(
             user=portal_user,
             conference=conference,
@@ -93,5 +101,9 @@ class TestUserCapabilities:
             short_name="Comms", description="d", conference=conference
         )
         team.team_leads.add(profile)
-        caps = user_capabilities(_request(portal_user))
-        assert caps["leads_any_team"] is True
+        with CaptureQueriesContext(connection) as building:
+            caps = user_capabilities(_request(portal_user))
+        assert not [q for q in building.captured_queries if "team_leads" in q["sql"]]
+        with CaptureQueriesContext(connection) as reading:
+            assert bool(caps["leads_any_team"]) is True
+        assert [q for q in reading.captured_queries if "team_leads" in q["sql"]]

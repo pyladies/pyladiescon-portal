@@ -524,8 +524,9 @@ class MyTeamsView(LoginRequiredMixin, ListView):
     as a standing reminder of a "no", and there is nothing to do with it.
     The team dashboard link stays with leads.
 
-    The "My teams" nav entry (gated on ``leads_any_team``) and the personal
-    rail both point here.
+    Reached from the personal "My volunteering" rail, which offers it to
+    everyone: a tab is a hub with a rail of its own, and this is a page
+    inside one.
     """
 
     model = Team

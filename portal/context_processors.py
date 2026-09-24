@@ -1,3 +1,5 @@
+from django.utils.functional import SimpleLazyObject
+
 from portal_account.permissions import is_maintainer
 from volunteer.models import VolunteerProfile
 
@@ -22,11 +24,9 @@ def user_capabilities(request):
     * ``can_manage_sponsorship``— same as organizer (create/edit/tiers/invoice)
     * ``can_view_sponsorship``  — organizer OR an approved volunteer (read-only)
     * ``active_volunteer_profile`` — this user's profile for the active edition
-    * ``leads_any_team``        — true if they lead at least one team. No
-      template reads it since My teams left the tabs for the personal rail;
-      it is kept because "does this person lead anything" is the question a
-      team-scoped page will ask next, and it costs one query only when a
-      template asks for it
+    * ``leads_any_team``        — true if they lead at least one team.
+      Nothing reads it today (My teams left the tabs for the personal rail),
+      so it is lazy: the query runs when a template asks, and not otherwise
     * ``can_manage_conferences``— superuser only (matches the Conference views
       and StartNewYearView, which use SuperuserRequiredMixin)
     * ``can_start_next_year``   — superuser AND a new edition can be started;
@@ -59,7 +59,12 @@ def user_capabilities(request):
         "can_manage_sponsorship": is_organizer,
         "can_view_sponsorship": is_organizer or is_approved,
         "active_volunteer_profile": profile,
-        "leads_any_team": bool(profile and profile.team_leads.exists()),
+        # Lazy on purpose: no template reads it since My teams left the
+        # tabs for the personal rail, and a plain bool here would run its
+        # query on every authenticated page for nobody.
+        "leads_any_team": SimpleLazyObject(
+            lambda: bool(profile and profile.team_leads.exists())
+        ),
         "can_manage_conferences": user.is_superuser,
         "can_start_next_year": user.is_superuser and Conference.can_start_next_year(),
         "is_maintainer": is_maintainer(user),
