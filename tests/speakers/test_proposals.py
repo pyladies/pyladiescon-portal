@@ -148,6 +148,28 @@ class TestProposing:
         assert "Create an account" in content and "Sign in" in content
         assert reverse("account_login") in content
 
+    def test_the_form_is_two_sections_that_fold(
+        self, client, conference, enabled, stranger
+    ):
+        """The form is long: someone rewriting their summary can fold their
+        own details away without losing what they typed."""
+        client.force_login(stranger)
+        content = client.get(PROPOSE).content.decode()
+        assert "About you" in content and "Your session" in content
+        assert content.count("accordion-item") == 2
+        # Both open on arrival: nothing is hidden from a first-time reader.
+        assert content.count("accordion-collapse collapse show") == 2
+
+    def test_a_returning_proposer_only_sees_the_session_half(
+        self, client, conference, enabled, stranger
+    ):
+        client.force_login(stranger)
+        propose(client, conference)
+        content = client.get(PROPOSE).content.decode()
+        assert "About you" not in content
+        assert "Your details are already with us" in content
+        assert content.count("accordion-item") == 1
+
     def test_the_page_sits_below_the_navbar(self, client, conference, enabled):
         """The base template's body block is the hero above the navbar; a
         page that fills it renders above the site's own navigation."""

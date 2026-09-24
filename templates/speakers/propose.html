@@ -43,25 +43,60 @@ portal already knows.
                     {% trans "to send another." %}
                 </div>
             {% else %}
+                {% comment %}
+                Two sections, both open on arrival and either one foldable:
+                the form is long, and someone rewriting their summary should
+                be able to put their own details out of the way without
+                losing them.
+                {% endcomment %}
                 <form method="post" enctype="multipart/form-data">
                     {% csrf_token %}
-                    {% if profile_form %}
-                        <h2 class="h5 mt-4">
-                            {% trans "About you" %}
-                        </h2>
-                        <p class="text-secondary small">
-                            {% trans "This is what we would put on the schedule if your session is accepted." %}
-                        </p>
-                        {% bootstrap_form profile_form %}
-                    {% else %}
-                        <p class="text-secondary">
-                            {% blocktranslate with name=presenter.display_name %}Proposing as {{ name }}. Your profile is already with us.{% endblocktranslate %}
-                        </p>
-                    {% endif %}
-                    <h2 class="h5 mt-4">
-                        {% trans "Your session" %}
-                    </h2>
-                    {% bootstrap_form session_form %}
+                    <div class="accordion mb-3" id="propose-sections">
+                        {% if profile_form %}
+                            <div class="accordion-item">
+                                <h2 class="accordion-header">
+                                    <button class="accordion-button"
+                                            type="button"
+                                            data-bs-toggle="collapse"
+                                            data-bs-target="#propose-about-you"
+                                            aria-expanded="true"
+                                            aria-controls="propose-about-you">
+                                        {% trans "About you" %}
+                                    </button>
+                                </h2>
+                                <div id="propose-about-you" class="accordion-collapse collapse show">
+                                    <div class="accordion-body">
+                                        <p class="text-secondary small">
+                                            {% trans "This is what we would put on the schedule if your session is accepted." %}
+                                        </p>
+                                        {% bootstrap_form profile_form %}
+                                    </div>
+                                </div>
+                            </div>
+                        {% endif %}
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button"
+                                        type="button"
+                                        data-bs-toggle="collapse"
+                                        data-bs-target="#propose-your-session"
+                                        aria-expanded="true"
+                                        aria-controls="propose-your-session">
+                                    {% trans "Your session" %}
+                                </button>
+                            </h2>
+                            <div id="propose-your-session" class="accordion-collapse collapse show">
+                                <div class="accordion-body">
+                                    {% if not profile_form %}
+                                        <p class="text-secondary small">
+                                            {% blocktranslate with name=presenter.display_name %}Proposing as {{ name }}. Your details are already with us.{% endblocktranslate %}
+                                        </p>
+                                    {% endif %}
+                                    {% bootstrap_form session_form %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                     <button class="btn btn-primary" type="submit">
                         {% trans "Send the proposal" %}
                     </button>
