@@ -16,13 +16,25 @@ from speakers.constants import (
     ProposalDecision,
     SessionStatus,
 )
-from speakers.models import ActivityLog, ChecklistItem, Proposal, Session
+from speakers.forms import ProposalSessionForm
+from speakers.models import (
+    ActivityLog,
+    ChecklistItem,
+    Proposal,
+    Session,
+    SessionType,
+)
 from speakers.program_types import session_type
 from speakers.seeds import seed_checklists
 from speakers.services import (
     ProposalError,
     reject_proposal,
     submit_proposal,
+)
+from speakers.tasks import (
+    send_proposal_approved_email_task,
+    send_proposal_received_email_task,
+    send_proposal_rejected_email_task,
 )
 
 from .factories import add_presenter, make_presenter, make_session, make_settings
@@ -133,6 +145,47 @@ class TestProposing:
         assert proposal.decision == ProposalDecision.WITHDRAWN
         assert Session.objects.filter(title="Now a workshop").exists()
         assert "send it again" in response.content.decode()
+
+    def test_the_edit_page_shows_what_was_sent(
+        self, client, conference, enabled, stranger
+    ):
+        client.force_login(stranger)
+        propose(client, conference)
+        proposal = Proposal.objects.get()
+        url = reverse("speakers:proposal_edit", args=[proposal.pk])
+        content = client.get(url).content.decode()
+        assert "A talk about testing" in content
+        # An edit that does not validate comes back with the reason.
+        response = client.post(url, {"session-title": ""})
+        assert response.status_code == 200
+        assert "This field is required" in response.content.decode()
+        proposal.refresh_from_db()
+        assert proposal.session.title == "A talk about testing"
+
+    def test_an_answered_proposal_is_not_the_proposers_to_change(
+        self, client, conference, enabled, stranger, organizer
+    ):
+        client.force_login(stranger)
+        propose(client, conference)
+        proposal = Proposal.objects.get()
+        client.force_login(organizer)
+        client.post(
+            reverse("speakers:proposal_decide", args=[proposal.pk]),
+            {"decision": "REJECTED"},
+        )
+        client.force_login(stranger)
+        assert (
+            client.post(
+                reverse("speakers:proposal_edit", args=[proposal.pk]),
+                {"session-title": "Sneaky rewrite"},
+            ).status_code
+            == 403
+        )
+        # Nor is it theirs to withdraw after the answer.
+        response = client.post(
+            reverse("speakers:proposal_withdraw", args=[proposal.pk]), follow=True
+        )
+        assert "already been answered" in response.content.decode()
 
     def test_a_form_with_errors_says_so_above_the_folded_sections(
         self, client, conference, enabled, stranger
@@ -654,6 +707,65 @@ class TestWhatOthersSee:
         assert PROPOSE not in client.get("/").content.decode()
         client.force_login(stranger)
         assert PROPOSE not in client.get(reverse("volunteer:index")).content.decode()
+
+    def test_the_list_can_be_narrowed_to_what_speakers_sent(
+        self, client, conference, enabled, stranger, organizer
+    ):
+        """ "Added by" separates what the organizers created from what came
+        in through the form."""
+        client.force_login(stranger)
+        propose(client, conference)
+        theirs = make_session(conference, title="Made by the team")
+        client.force_login(organizer)
+        url = reverse("speakers:session_list")
+        speakers_side = client.get(
+            url, {"source": "speakers", "status": "PROPOSED"}
+        ).content.decode()
+        assert "A talk about testing" in speakers_side
+        assert theirs.title not in speakers_side
+        organizers_side = client.get(url, {"source": "organizers"}).content.decode()
+        assert theirs.title in organizers_side
+        assert "A talk about testing" not in organizers_side
+
+    def test_a_proposal_says_who_and_what(self, conference, enabled, stranger):
+        presenter = make_presenter(conference, display_name="Sam", user=stranger)
+        proposal = submit_proposal(
+            presenter, make_session(conference, title="Something")
+        )
+        assert str(proposal) == "Sam: Something"
+
+    def test_the_email_tasks_shrug_at_a_proposal_that_is_not_there(
+        self, conference, enabled, stranger
+    ):
+        """Celery runs these after the transaction; the row can be gone,
+        or answered differently, by the time one does."""
+        presenter = make_presenter(conference, display_name="Sam", user=stranger)
+        proposal = submit_proposal(presenter, make_session(conference, title="Gone"))
+        assert "not found" in send_proposal_received_email_task(999999)
+        # Still pending, so neither answer task will send anything.
+        assert "not approved" in send_proposal_approved_email_task(proposal.pk)
+        assert "not rejected" in send_proposal_rejected_email_task(proposal.pk)
+
+    def test_a_type_that_is_not_open_is_refused_behind_the_choices(
+        self, conference, enabled
+    ):
+        """The field's queryset already excludes it. This is the guard
+        behind that, for a form built with a wider queryset."""
+        keynote = session_type(conference, "KEYNOTE")
+        form = ProposalSessionForm(
+            {
+                "kind": keynote.pk,
+                "title": "A keynote, please",
+                "summary_md": "Why not.",
+                "level": "ALL",
+                "language": "en",
+            },
+            prefix=None,
+            conference=conference,
+        )
+        form.fields["kind"].queryset = SessionType.objects.filter(conference=conference)
+        assert not form.is_valid()
+        assert "not open for proposals" in str(form.errors["kind"])
 
     def test_submitting_twice_over_the_service_keeps_the_cap(
         self, conference, enabled, stranger
