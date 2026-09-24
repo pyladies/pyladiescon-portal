@@ -46,7 +46,16 @@
             <span>
                 <i class="fa-solid fa-chalkboard-user"></i> {% trans "Your sessions" %}
             </span>
-            <a class="small" href="{% url 'speakers:my_checklist' %}">{% trans "Full checklist" %}</a>
+            <span class="d-flex align-items-center gap-3">
+                {% if speaker_proposals_open %}
+                    {# The one button a speaker looks for, on the page they land on. #}
+                    <a class="btn btn-sm btn-outline-primary"
+                       href="{% url 'speakers:my_session_add' %}">
+                        <i class="fa-solid fa-plus"></i> {% trans "Add a session" %}
+                    </a>
+                {% endif %}
+                <a class="small" href="{% url 'speakers:my_checklist' %}">{% trans "Full checklist" %}</a>
+            </span>
         </div>
         <ul class="list-group list-group-flush">
             {% for summary in session_summaries %}

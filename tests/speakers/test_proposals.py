@@ -292,12 +292,15 @@ class TestWhereProposalsLive:
         assert "My speaker checklist" not in content
 
     def test_a_speaker_is_offered_add_a_session(self, client, conference, enabled):
+        """On both pages a speaker looks at: the dashboard they land on,
+        and the list of their sessions."""
         user = User.objects.create_user(username="ada", email="ada@example.com")
         presenter = make_presenter(conference, display_name="Ada", user=user)
         add_presenter(make_session(conference), presenter, confirmed=True)
         client.force_login(user)
-        content = client.get(reverse("speakers:my_sessions")).content.decode()
-        assert reverse("speakers:my_session_add") in content
+        add_url = reverse("speakers:my_session_add")
+        assert add_url in client.get(reverse("speakers:my_sessions")).content.decode()
+        assert add_url in client.get(reverse("speakers:my_dashboard")).content.decode()
 
     def test_a_speaker_sees_which_sessions_are_real_and_which_are_asked_for(
         self, client, conference, enabled
