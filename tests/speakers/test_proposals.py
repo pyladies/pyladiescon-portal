@@ -143,10 +143,17 @@ class TestProposing:
         assert "not taking proposals" in content
         assert client.post(PROPOSE, {}).status_code == 403
 
-    def test_signed_out_is_asked_to_sign_in(self, client, conference, enabled):
+    def test_signed_out_says_a_volunteer_account_is_the_same_account(
+        self, client, conference, enabled
+    ):
+        """People who have volunteered already have one, and looked for a
+        separate speaker sign-in that does not exist."""
         content = client.get(PROPOSE).content.decode()
-        assert "Create an account" in content and "Sign in" in content
+        assert "no separate speaker account" in content
+        assert "volunteer" in content
+        assert "Create an account" in content
         assert reverse("account_login") in content
+        assert reverse("account_signup") in content
 
     def test_the_form_is_two_sections_that_fold(
         self, client, conference, enabled, stranger

@@ -29,12 +29,15 @@ portal already knows.
                 </div>
             {% endif %}
             {% if not user.is_authenticated %}
-                <p class="text-secondary">
-                    {% trans "You need a portal account to propose a session: it is where we write to you, and where you will see the answer." %}
+                <p>
+                    {% trans "Proposing takes a portal account. It is where we write to you about your proposal, and where you will see the answer." %}
                 </p>
-                <div class="d-flex gap-2">
+                <p class="text-secondary">
+                    {% trans "Already have one? Sign in with it. There is no separate speaker account: the account you use to volunteer, or for anything else in this portal, is the same one. If you have never used the portal, creating an account takes a minute and asks you to confirm your email address." %}
+                </p>
+                <div class="d-flex flex-wrap gap-2">
                     <a class="btn btn-primary" href="{{ signup_url }}">{% trans "Create an account" %}</a>
-                    <a class="btn btn-outline-primary" href="{{ login_url }}">{% trans "Sign in" %}</a>
+                    <a class="btn btn-outline-primary" href="{{ login_url }}">{% trans "Sign in to the one I have" %}</a>
                 </div>
             {% elif pending_count >= max_pending %}
                 <div class="alert alert-warning" role="alert">
