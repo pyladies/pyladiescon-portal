@@ -12,7 +12,6 @@ from django.urls import reverse
 
 from speakers.constants import (
     MAX_PENDING_PROPOSALS,
-    MAX_SELF_SESSIONS,
     ItemOwner,
     ProposalDecision,
     SessionStatus,
@@ -22,7 +21,6 @@ from speakers.program_types import session_type
 from speakers.seeds import seed_checklists
 from speakers.services import (
     ProposalError,
-    add_own_session,
     reject_proposal,
     submit_proposal,
 )
@@ -135,6 +133,20 @@ class TestProposing:
         assert proposal.decision == ProposalDecision.WITHDRAWN
         assert Session.objects.filter(title="Now a workshop").exists()
         assert "send it again" in response.content.decode()
+
+    def test_a_form_with_errors_says_so_above_the_folded_sections(
+        self, client, conference, enabled, stranger
+    ):
+        """The sections fold, so an error inside one can be off screen.
+        The page has to say so before the fold, and name the sections."""
+        client.force_login(stranger)
+        response = client.post(PROPOSE, {"you-display_name": "", "session-title": ""})
+        assert response.status_code == 200
+        content = response.content.decode()
+        assert "has not been sent yet" in content
+        assert 'in "About you"' in content and 'in "Your session"' in content
+        assert content.count("text-bg-danger") == 2  # one badge per section
+        assert not Proposal.objects.exists()
 
     def test_a_withdrawn_proposal_is_edited_and_sent_again(
         self, client, conference, enabled, stranger, organizer
@@ -290,17 +302,6 @@ class TestWhereProposalsLive:
         content = client.get(MINE).content.decode()
         assert "My volunteering" in content and "My proposals" in content
         assert "My speaker checklist" not in content
-
-    def test_a_speaker_is_offered_add_a_session(self, client, conference, enabled):
-        """On both pages a speaker looks at: the dashboard they land on,
-        and the list of their sessions."""
-        user = User.objects.create_user(username="ada", email="ada@example.com")
-        presenter = make_presenter(conference, display_name="Ada", user=user)
-        add_presenter(make_session(conference), presenter, confirmed=True)
-        client.force_login(user)
-        add_url = reverse("speakers:my_session_add")
-        assert add_url in client.get(reverse("speakers:my_sessions")).content.decode()
-        assert add_url in client.get(reverse("speakers:my_dashboard")).content.decode()
 
     def test_a_speaker_sees_which_sessions_are_real_and_which_are_asked_for(
         self, client, conference, enabled
@@ -533,59 +534,60 @@ class TestDeciding:
 
 
 @pytest.mark.django_db
-class TestSpeakerAddsTheirOwn:
-    def test_a_speaker_on_the_program_adds_one_without_review(
-        self, client, conference, enabled, organizer
-    ):
+class TestASpeakerProposesAgain:
+    """One door. A speaker already on the program sends a proposal like
+    anyone else: the organizers decide what is on the program, and two
+    ways in made the pages contradict each other."""
+
+    @pytest.fixture
+    def speaker(self, conference, enabled):
         user = User.objects.create_user(username="ada", email="ada@example.com")
         presenter = make_presenter(conference, display_name="Ada", user=user)
         add_presenter(make_session(conference), presenter, confirmed=True)
+        return user, presenter
+
+    def test_the_only_offer_is_to_propose(self, client, conference, speaker):
+        user, _ = speaker
+        client.force_login(user)
+        for name in ("my_sessions", "my_dashboard"):
+            content = client.get(reverse(f"speakers:{name}")).content.decode()
+            assert PROPOSE in content
+            assert "Add a session" not in content
+
+    def test_their_proposal_waits_like_everyone_else(
+        self, client, conference, speaker, organizer
+    ):
+        user, presenter = speaker
         client.force_login(user)
         mail.outbox.clear()
-        response = client.post(
-            reverse("speakers:my_session_add"),
-            {
-                "session-kind": session_type(conference, "TALK").pk,
-                "session-title": "One more talk",
-                "session-summary_md": "About more things.",
-                "session-level": "ALL",
-                "session-language": "en",
-            },
-            follow=True,
-        )
-        assert "is on your sessions" in response.content.decode()
+        propose(client, conference, title="One more talk")
         session = Session.objects.get(title="One more talk")
-        assert session.status in (SessionStatus.DRAFT, SessionStatus.CONFIRMED)
+        assert session.status == SessionStatus.PROPOSED
         assert session.created_by_presenter is True
-        assert not Proposal.objects.exists()  # no review for them
-        link = session.session_presenters.get()
-        assert link.presenter == presenter and link.is_confirmed
-        assert ChecklistItem.objects.filter(session=session).exists()
-        assert any("added a session" in m.subject for m in mail.outbox)
-
-    def test_a_proposer_may_not_use_that_door(self, conference, enabled, stranger):
-        presenter = make_presenter(conference, display_name="Sam", user=stranger)
-        session = make_session(conference, title="Theirs")
-        add_presenter(session, presenter)
-        with pytest.raises(ProposalError, match="has accepted"):
-            add_own_session(presenter, session)
-
-    def test_the_fourth_one_is_refused(self, conference, enabled):
-        user = User.objects.create_user(username="ada", email="ada@example.com")
-        presenter = make_presenter(conference, display_name="Ada", user=user)
-        add_presenter(make_session(conference), presenter, confirmed=True)
-        for n in range(MAX_SELF_SESSIONS):
-            session = make_session(
-                conference, title=f"Mine {n}", created_by_presenter=True
-            )
-            add_presenter(session, presenter)
-            add_own_session(presenter, session)
-        session = make_session(
-            conference, title="One too many", created_by_presenter=True
+        proposal = Proposal.objects.get(session=session)
+        assert proposal.is_pending
+        # Nothing of the session's own starts before the answer.
+        assert not ChecklistItem.objects.filter(session=session).exists()
+        assert session.session_presenters.get().is_confirmed is False
+        assert any("New session proposal" in m.subject for m in mail.outbox)
+        # And the answer runs the acceptance path, as for a stranger.
+        client.force_login(organizer)
+        client.post(
+            reverse("speakers:proposal_decide", args=[proposal.pk]),
+            {"decision": "APPROVED"},
         )
-        add_presenter(session, presenter)
-        with pytest.raises(ProposalError, match="already added"):
-            add_own_session(presenter, session)
+        session.refresh_from_db()
+        assert session.status == SessionStatus.CONFIRMED
+        assert ChecklistItem.objects.filter(session=session).exists()
+
+    def test_the_form_skips_the_half_they_have_filled_in(
+        self, client, conference, speaker
+    ):
+        user, presenter = speaker
+        client.force_login(user)
+        content = client.get(PROPOSE).content.decode()
+        assert "About you" not in content
+        assert "Proposing as Ada" in content
 
 
 @pytest.mark.django_db

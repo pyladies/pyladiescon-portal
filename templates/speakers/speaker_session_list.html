@@ -18,8 +18,11 @@
             {% trans "My sessions" %}
         </h1>
         {% if speaker_proposals_open %}
+            {# One way in for everyone: a session starts as a proposal. #}
             <a class="btn btn-sm btn-outline-primary"
-               href="{% url 'speakers:my_session_add' %}">{% trans "Add a session" %}</a>
+               href="{% url 'speakers:propose' %}">
+                <i class="fa-solid fa-paper-plane"></i> {% trans "Propose another session" %}
+            </a>
         {% endif %}
     </div>
     <p class="text-secondary">

@@ -50,8 +50,8 @@
                 {% if speaker_proposals_open %}
                     {# The one button a speaker looks for, on the page they land on. #}
                     <a class="btn btn-sm btn-outline-primary"
-                       href="{% url 'speakers:my_session_add' %}">
-                        <i class="fa-solid fa-plus"></i> {% trans "Add a session" %}
+                       href="{% url 'speakers:propose' %}">
+                        <i class="fa-solid fa-paper-plane"></i> {% trans "Propose another session" %}
                     </a>
                 {% endif %}
                 <a class="small" href="{% url 'speakers:my_checklist' %}">{% trans "Full checklist" %}</a>

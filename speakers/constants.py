@@ -65,10 +65,9 @@ PROPOSER_CAN_EDIT = frozenset({ProposalDecision.PENDING, ProposalDecision.WITHDR
 CAN_BE_APPROVED = frozenset({ProposalDecision.PENDING, ProposalDecision.REJECTED})
 
 
-# Per presenter per edition: how many proposals may be waiting at once, and
-# how many sessions someone already on the program may add themselves.
+# Per presenter per edition: how many proposals may be waiting at once.
+# Everyone proposes, whether or not they are already on the program.
 MAX_PENDING_PROPOSALS = 3
-MAX_SELF_SESSIONS = 3
 
 
 class SessionLevel(models.TextChoices):

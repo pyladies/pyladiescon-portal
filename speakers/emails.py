@@ -310,23 +310,3 @@ def send_proposal_rejected_email(proposal):
             "session": proposal.session,
         },
     )
-
-
-def send_session_created_email(session, presenter):
-    """A speaker added a session of their own: tell the organizing side."""
-    recipients = organizer_recipients(presenter)
-    if not recipients:
-        return 0
-    send_email(
-        f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} {presenter.display_name} "
-        f"added a session: {session.title}",
-        recipients,
-        markdown_template="emails/speakers/session_created.md",
-        context={
-            "presenter": presenter,
-            "conference": session.conference,
-            "session": session,
-            "session_url": absolute_url(session.get_absolute_url()),
-        },
-    )
-    return len(recipients)

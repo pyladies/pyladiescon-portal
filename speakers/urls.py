@@ -143,11 +143,6 @@ urlpatterns = [
     ),
     path("me/profile/", views.SpeakerProfileUpdateView.as_view(), name="my_profile"),
     path("me/checklist/", views.SpeakerChecklistView.as_view(), name="my_checklist"),
-    path(
-        "me/sessions/add/",
-        views.AddOwnSessionView.as_view(),
-        name="my_session_add",
-    ),
     path("me/sessions/", views.SpeakerSessionListView.as_view(), name="my_sessions"),
     path(
         "me/sessions/<slug:slug>/",

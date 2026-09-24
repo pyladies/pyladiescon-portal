@@ -18,7 +18,6 @@ from common.tasks import enqueue
 from .checklists import instantiate_presenter_checklist
 from .constants import (
     MAX_PENDING_PROPOSALS,
-    MAX_SELF_SESSIONS,
     OPEN_ITEM_STATUSES,
     ChecklistScope,
     ProposalDecision,
@@ -32,7 +31,6 @@ from .models import (
     Invitation,
     InvitationStatus,
     Proposal,
-    Session,
     SessionPresenter,
     SessionType,
     SpeakerSettings,
@@ -46,7 +44,6 @@ from .tasks import (
     send_proposal_approved_email_task,
     send_proposal_received_email_task,
     send_proposal_rejected_email_task,
-    send_session_created_email_task,
 )
 
 
@@ -581,55 +578,3 @@ def reject_proposal(proposal, actor=None):
             lambda: enqueue(send_proposal_rejected_email_task, proposal.pk)
         )
     return proposal
-
-
-def self_created_sessions(presenter):
-    """Sessions this presenter added themselves, this edition."""
-    return Session.objects.filter(
-        conference=presenter.conference,
-        session_presenters__presenter=presenter,
-        created_by_presenter=True,
-    )
-
-
-def add_own_session(presenter, session, actor=None):
-    """A speaker already on the program adding a session of their own.
-
-    No review: they were invited and onboarded, so the session is a draft
-    from the start with them confirmed on it. A draft is not public and not
-    scheduled, so organizers keep the schedule; what they are spared is the
-    typing. Organizers and the presenter's liaison are told.
-    """
-    if not presenter.is_onboarded:
-        raise ProposalError(
-            "Only a speaker who has accepted can add a session; everyone "
-            "else proposes one."
-        )
-    # The session being added already exists as a row when this runs, so
-    # it must not count itself towards the cap.
-    if (
-        self_created_sessions(presenter).exclude(pk=session.pk).count()
-        >= MAX_SELF_SESSIONS
-    ):
-        raise ProposalError(
-            f"You have already added {MAX_SELF_SESSIONS} sessions. Ask your "
-            "liaison if you need another."
-        )
-    with transaction.atomic():
-        link = session.session_presenters.get(presenter=presenter)
-        link.confirm()
-        ActivityLog.record(
-            session.conference,
-            "session.created_by_speaker",
-            target=session,
-            actor=actor,
-            message=session.title,
-            presenter_id=presenter.pk,
-        )
-        # The checklists a presenter gets for any session they are on.
-        instantiate_presenter_checklist(link)
-        confirm_session_if_ready(session)
-        transaction.on_commit(
-            lambda: enqueue(send_session_created_email_task, session.pk)
-        )
-    return session

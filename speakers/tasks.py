@@ -13,7 +13,6 @@ from .emails import (
     send_proposal_approved_email,
     send_proposal_received_email,
     send_proposal_rejected_email,
-    send_session_created_email,
 )
 from .models import (
     Invitation,
@@ -201,26 +200,6 @@ def send_proposal_rejected_email_task(proposal_id):
         return f"Proposal {proposal_id} is not rejected"
     send_proposal_rejected_email(proposal)
     return f"Sent proposal answer for {proposal_id}"
-
-
-@shared_task
-def send_session_created_email_task(session_id):
-    """Tell the organizing side that a speaker added a session."""
-    session = (
-        Session.objects.filter(pk=session_id)
-        .select_related("conference", "kind")
-        .first()
-    )
-    link = (
-        SessionPresenter.objects.filter(session_id=session_id)
-        .select_related("presenter", "presenter__liaison")
-        .order_by("order", "id")
-        .first()
-    )
-    if session is None or link is None:
-        return f"Session {session_id} has nobody on it"
-    sent = send_session_created_email(session, link.presenter)
-    return f"Told {sent} organizer(s) about {session_id}"
 
 
 def _proposal(proposal_id, decision=None):

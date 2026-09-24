@@ -89,7 +89,7 @@ The form is one page: who you are, and what you would like to give. It creates r
 
 Someone whose proposal is pending or turned down has an account and a presenter row, but no session of the conference's, so the speaker area is not theirs: the pages check that they are actually on the program.
 
-**A speaker already on the program adds a session without review.** They were invited and onboarded, so the same form creates a draft with them confirmed on it and their checklist started, and organizers and their liaison are told. A draft is not public and not scheduled, so the organizers keep the program; what they are spared is the typing.
+**A speaker already on the program proposes too.** One door, whoever is knocking: the organizers decide what is on the program, and a second way in made the speaker's own pages contradict each other. What they are spared is the "About you" half, which they filled in at onboarding; the proposal then follows the ordinary path.
 
 ---
 

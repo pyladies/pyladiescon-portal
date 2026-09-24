@@ -39,7 +39,6 @@ from .clock import today
 from .constants import (
     DEFAULT_GUIDE_KEY,
     MAX_PENDING_PROPOSALS,
-    MAX_SELF_SESSIONS,
     OPEN_ITEM_STATUSES,
     AssigneeDefault,
     AutoRule,
@@ -123,7 +122,6 @@ from .services import (
     InvitationError,
     ProposalError,
     accept_invitation,
-    add_own_session,
     approve_proposal,
     cancel_invitation,
     change_presenter_role,
@@ -134,7 +132,6 @@ from .services import (
     reject_proposal,
     resolve_invitation,
     resubmit_proposal,
-    self_created_sessions,
     send_invitation,
     submit_proposal,
     withdraw_proposal,
@@ -2842,64 +2839,6 @@ class ProposalResubmitView(ProposalActionMixin, View):
             f"“{proposal.session.title}” is with the team again.",
         )
         return redirect("speakers:my_proposals")
-
-
-class AddOwnSessionView(LoginRequiredMixin, PresenterRequiredMixin, TemplateView):
-    """A speaker on the program adding a session of their own, no review."""
-
-    template_name = "speakers/add_own_session.html"
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context.update(
-            {
-                "conference": self.conference,
-                "presenter": self.presenter,
-                "session_form": kwargs.get("session_form")
-                or ProposalSessionForm(prefix="session", conference=self.conference),
-                "open_for_proposals": proposals_open(self.conference),
-                "already_added": self_created_sessions(self.presenter).count(),
-                "max_sessions": MAX_SELF_SESSIONS,
-                "rail_active": "sessions",
-            }
-        )
-        return context
-
-    def post(self, request, *args, **kwargs):
-        if not proposals_open(self.conference):
-            raise PermissionDenied("The edition is not taking new sessions.")
-        form = ProposalSessionForm(
-            request.POST, request.FILES, prefix="session", conference=self.conference
-        )
-        if not form.is_valid():
-            return self.render_to_response(self.get_context_data(session_form=form))
-        try:
-            session = self.create(form)
-        except ProposalError as exc:
-            messages.error(request, str(exc))
-            return redirect("speakers:my_sessions")
-        messages.success(
-            request,
-            f"“{session.title}” is on your sessions. The team has been told.",
-        )
-        return redirect("speakers:my_session_detail", slug=session.slug)
-
-    @transaction.atomic
-    def create(self, form):
-        session = form.save(commit=False)
-        session.conference = self.conference
-        session.status = SessionStatus.DRAFT
-        session.created_by_presenter = True
-        session.duration_minutes = session.kind.default_duration_minutes
-        session.delivery = session.kind.default_delivery
-        session.save()
-        SessionPresenter.objects.create(
-            session=session,
-            presenter=self.presenter,
-            role=session.kind.default_role,
-            is_required=True,
-        )
-        return add_own_session(self.presenter, session, actor=self.request.user)
 
 
 class ProposalQueueView(LoginRequiredMixin, SpeakerStaffRequiredMixin, TemplateView):

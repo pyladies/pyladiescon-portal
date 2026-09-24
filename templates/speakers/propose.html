@@ -54,6 +54,30 @@ portal already knows.
                 {% endcomment %}
                 <form method="post" enctype="multipart/form-data">
                     {% csrf_token %}
+                    {% if profile_form.errors or session_form.errors %}
+                        {% comment %}
+                        A section can be folded away, so the errors inside one
+                        can be off screen entirely. This says so at the top and
+                        names the sections that have them.
+                        {% endcomment %}
+                        <div class="alert alert-danger" role="alert">
+                            <h2 class="h6 alert-heading">
+                                <i class="fa-solid fa-triangle-exclamation"></i> {% trans "Your proposal has not been sent yet" %}
+                            </h2>
+                            <p class="mb-0">
+                                {% trans "There are a few things to fix first:" %}
+                                {% if profile_form.errors %}
+                                    <a class="alert-link" href="#propose-about-you">{% blocktranslate count counter=profile_form.errors|length %}{{ counter }} in "About you"{% plural %}{{ counter }} in "About you"{% endblocktranslate %}</a>
+                                {% endif %}
+                                {% if profile_form.errors and session_form.errors %}
+                                    ,
+                                {% endif %}
+                                {% if session_form.errors %}
+                                    <a class="alert-link" href="#propose-your-session">{% blocktranslate count counter=session_form.errors|length %}{{ counter }} in "Your session"{% plural %}{{ counter }} in "Your session"{% endblocktranslate %}</a>
+                                {% endif %}
+                            </p>
+                        </div>
+                    {% endif %}
                     <div class="accordion mb-3" id="propose-sections">
                         {% if profile_form %}
                             <div class="accordion-item">
@@ -65,6 +89,11 @@ portal already knows.
                                             aria-expanded="true"
                                             aria-controls="propose-about-you">
                                         {% trans "About you" %}
+                                        {% if profile_form.errors %}
+                                            <span class="badge text-bg-danger ms-2">
+                                                {% blocktranslate count counter=profile_form.errors|length %}{{ counter }} to fix{% plural %}{{ counter }} to fix{% endblocktranslate %}
+                                            </span>
+                                        {% endif %}
                                     </button>
                                 </h2>
                                 <div id="propose-about-you" class="accordion-collapse collapse show">
@@ -86,6 +115,11 @@ portal already knows.
                                         aria-expanded="true"
                                         aria-controls="propose-your-session">
                                     {% trans "Your session" %}
+                                    {% if session_form.errors %}
+                                        <span class="badge text-bg-danger ms-2">
+                                            {% blocktranslate count counter=session_form.errors|length %}{{ counter }} to fix{% plural %}{{ counter }} to fix{% endblocktranslate %}
+                                        </span>
+                                    {% endif %}
                                 </button>
                             </h2>
                             <div id="propose-your-session" class="accordion-collapse collapse show">

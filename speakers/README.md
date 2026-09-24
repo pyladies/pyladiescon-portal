@@ -182,14 +182,14 @@ the organizers' list: withdrawing usually means "not like this" rather than
 "forget it", so the writing stays, the proposer can keep editing it, and
 "Send it again" puts it back in the queue as a fresh pending proposal.
 
-A speaker who is already on the program skips all of that: `add_own_session`
-creates a `DRAFT` with them confirmed on it and their checklist started, and
-tells the organizers and their liaison. A draft is not public and not
-scheduled, so organizers keep the program.
+A speaker already on the program sends a proposal too: one door, whoever is
+knocking. They are spared the "About you" half, which they filled in at
+onboarding, and the organizers keep deciding what is on the program. An
+earlier build let them add a session outright, which left two ways in that
+said different things on the same pages.
 
-Both are capped per presenter per edition (`MAX_PENDING_PROPOSALS`,
-`MAX_SELF_SESSIONS`), and `Session.created_by_presenter` marks what came in
-this way.
+Proposals are capped per presenter per edition (`MAX_PENDING_PROPOSALS`),
+and `Session.created_by_presenter` marks what came in this way.
 
 `Presenter.is_onboarded` is what the speaker area gates on, rather than the
 presenter row existing: a proposer has a row before anyone has said yes.
