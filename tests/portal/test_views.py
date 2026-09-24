@@ -534,6 +534,23 @@ class TestOrganizerDashboard:
         assert "Keynote speaker guide" not in content
         assert "Portal documentation" not in content
 
+    def test_staff_rail_omits_superuser_only_entries(
+        self, client, django_user_model, conference
+    ):
+        staff = django_user_model.objects.create_user("staff", is_staff=True)
+        client.force_login(staff)
+        content = client.get(reverse("organizer_dashboard")).content.decode()
+        assert reverse("conference_list") not in content
+        assert reverse("start_new_year") not in content
+        assert client.get(reverse("conference_list")).status_code == 403
+        # With no active edition the notice still shows, without the link.
+        conference.is_active = False
+        conference.save()
+        content = client.get(reverse("organizer_dashboard")).content.decode()
+        assert "No active conference." in content
+        assert "Ask a superuser" in content
+        assert reverse("conference_list") not in content
+
     def test_needs_attention_counts(
         self, client, admin_user, conference, django_user_model
     ):

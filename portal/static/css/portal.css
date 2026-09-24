@@ -180,7 +180,10 @@ button.checklist-box-done:hover {
 }
 /* Due dates, right-aligned, louder the closer they are. */
 .checklist-due {
-    font-weight: 500;
+    /* Bootstrap badges are 0.75em; a deadline deserves body size. */
+    font-size: 0.95rem;
+    font-weight: 600;
+    padding: 0.4em 0.65em;
     white-space: nowrap;
 }
 .checklist-due-overdue {
@@ -245,4 +248,41 @@ button.checklist-box-done:hover {
    swatch matches the empty part of the stacked bar. */
 .task-legend-open {
     color: var(--bs-secondary-bg);
+}
+
+/* Login page (templates/account/login.html): the "or" between the password
+   form and the sign-in code. A rule with the word in the middle on narrow
+   screens; a vertical rule between the two columns from md up. */
+.login-or {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    width: 100%;
+    color: var(--bs-secondary);
+    font-size: 0.8rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+.login-or::before,
+.login-or::after {
+    content: "";
+    flex: 1;
+    border-top: 1px solid var(--bs-border-color);
+}
+@media (min-width: 768px) {
+    /* The column stretches to the row (align-items-stretch on the parent),
+       so the rule is as tall as the taller of the two forms rather than a
+       fixed height that could overhang a short one. */
+    .login-or {
+        flex-direction: column;
+        width: auto;
+        height: 100%;
+        padding: 0 0.5rem;
+    }
+    .login-or::before,
+    .login-or::after {
+        border-top: 0;
+        border-left: 1px solid var(--bs-border-color);
+        width: 0;
+    }
 }

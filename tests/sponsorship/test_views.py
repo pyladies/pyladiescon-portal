@@ -170,9 +170,11 @@ class TestSponsorshipRail:
         assert self._active_href(content, reverse("sponsorship:tier_list"))
         assert not self._active_href(content, reverse("sponsorship:sponsorship_list"))
 
-    def test_readonly_viewer_gets_no_rail(self, client, portal_user, conference):
-        # An approved volunteer can view the list but has a single destination,
-        # so no rail is rendered (full-width, as before).
+    def test_readonly_viewer_gets_the_personal_rail(
+        self, client, portal_user, conference
+    ):
+        # An approved volunteer browses sponsors from their own hub: the
+        # personal rail with Sponsors current, no Organize entries, no tab.
         VolunteerProfile.objects.create(
             user=portal_user,
             conference=conference,
@@ -181,7 +183,12 @@ class TestSponsorshipRail:
         )
         client.force_login(portal_user)
         content = client.get(reverse("sponsorship:sponsorship_list")).content.decode()
-        assert 'id="appSidebar"' not in content
+        assert 'id="appSidebar"' in content and "My volunteering" in content
+        assert self._active_href(content, reverse("sponsorship:sponsorship_list"))
+        assert reverse("sponsorship:tier_list") not in content
+        assert reverse("organizer_dashboard") not in content
+        nav = content.split('id="navbarsExample04"')[1].split("</ul>")[0]
+        assert reverse("sponsorship:sponsorship_list") not in nav
         assert reverse("sponsorship:tier_list") not in content
         assert reverse("sponsorship:sponsorship_profile_new") not in content
 

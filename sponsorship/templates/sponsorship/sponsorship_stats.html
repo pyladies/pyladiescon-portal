@@ -7,9 +7,9 @@
                     <h5 class="card-title">
                         Number of Sponsors Committed
                     </h5>
-                    <h1 class="display-4 text-primary">
+                    <p class="display-4 text-primary mb-0">
                         {{ stats.sponsorship_committed_count }}
-                    </h1>
+                    </p>
                     <span class="text-muted">out of {{ stats.sponsorship_total_count }} that were contacted</span>
                 </div>
             </div>
@@ -20,9 +20,9 @@
                     <h5 class="card-title">
                         Sponsorship Paid
                     </h5>
-                    <h1 class="display-4 text-success text-nowrap">
+                    <p class="display-4 text-success text-nowrap mb-0">
                         {{ stats.sponsorship_paid_amount| as_currency }}
-                    </h1>
+                    </p>
                     <span class="text-muted">from {{ stats.sponsorship_paid_count }} sponsors</span>
                 </div>
             </div>
@@ -33,9 +33,9 @@
                     <h5 class="card-title">
                         Pending Sponsorship Amount
                     </h5>
-                    <h1 class="display-4 text-warning text-nowrap">
+                    <p class="display-4 text-warning text-nowrap mb-0">
                         {{ stats.sponsorship_pending_amount | as_currency }}
-                    </h1>
+                    </p>
                     <span class="text-muted">from {{ stats.sponsorship_pending_count }} sponsors</span>
                 </div>
             </div>
@@ -46,9 +46,9 @@
                     <h5 class="card-title">
                         Total Sponsorship Committed
                     </h5>
-                    <h1 class="display-4 text-success text-nowrap">
+                    <p class="display-4 text-success text-nowrap mb-0">
                         {{ stats.sponsorship_committed_amount| as_currency }}
-                    </h1>
+                    </p>
                 </div>
             </div>
         </div>
@@ -61,9 +61,9 @@
                         <h5 class="card-title">
                             Total Donations Received
                         </h5>
-                        <h1 class="display-4 text-info text-nowrap">
+                        <p class="display-4 text-info text-nowrap mb-0">
                             {{ stats.donation_breakdown.total_donations_amount | as_currency }}
-                        </h1>
+                        </p>
                         <span class="text-muted">from {{ stats.donation_breakdown.donors_count }} individual donors</span>
                     </div>
                 </div>
@@ -74,9 +74,9 @@
                         <h5 class="card-title">
                             Donation Progress
                         </h5>
-                        <h1 class="display-4 text-success">
+                        <p class="display-4 text-success mb-0">
                             {{ stats.donation_breakdown.donation_towards_goal_percent|floatformat:0 }}%
-                        </h1>
+                        </p>
                         <span class="text-muted">towards our donations goal of {{ stats.donations_goal| as_currency }}</span>
                     </div>
                 </div>
@@ -90,9 +90,9 @@
                     <h5 class="card-title">
                         We've raised
                     </h5>
-                    <h1 class="display-4 text-success">
+                    <p class="display-4 text-success mb-0">
                         {{ stats.sponsorship_towards_goal_percent|floatformat:0 }}%
-                    </h1>
+                    </p>
                     <span class="text-muted">towards our sponsorship goal of {{ stats.sponsorship_goal| as_currency }}</span>
                 </div>
             </div>
@@ -103,9 +103,9 @@
                     <h5 class="card-title">
                         Total Funds Raised
                     </h5>
-                    <h1 class="display-4 text-success text-nowrap">
+                    <p class="display-4 text-success text-nowrap mb-0">
                         {{ stats.total_funds_raised| as_currency }}
-                    </h1>
+                    </p>
                     <span class="text-muted">from sponsorships and donations</span>
                 </div>
             </div>

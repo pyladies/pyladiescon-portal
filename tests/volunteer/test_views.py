@@ -1,4 +1,5 @@
 import pytest
+from django.contrib.auth.models import User
 from django.contrib.messages import get_messages
 from django.urls import reverse
 from pytest_django.asserts import assertRedirects
@@ -2042,18 +2043,26 @@ class TestMyTeams:
         assert reverse("team_dashboard", args=[design.id]) in content
         assert "Lead" in content and "Under review" in content
 
-    def test_nav_shows_my_teams_for_lead(self, client, portal_user, conference):
-        # Asserted on a page without the personal rail (which always offers
-        # My teams), so this exercises the top-nav gating specifically.
+    def test_my_teams_is_reached_from_the_personal_rail_not_a_tab(
+        self, client, portal_user, conference
+    ):
+        """A tab is a hub with a rail of its own. My teams is a page inside
+        the volunteer rail, as Sponsors is, so it has no tab: the top nav
+        carries it nowhere, and My volunteering carries it for everyone.
+        """
         self._lead(portal_user, conference)
         client.force_login(portal_user)
-        response = client.get(reverse("chapters"))
-        assert reverse("my_teams") in response.content.decode()
-
-    def test_nav_hides_my_teams_for_non_lead(self, client, portal_user, conference):
-        client.force_login(portal_user)
-        response = client.get(reverse("chapters"))
-        assert reverse("my_teams") not in response.content.decode()
+        # A page with no personal rail: the top nav is all there is.
+        html = client.get(reverse("chapters")).content.decode()
+        assert reverse("my_teams") not in html
+        # The rail has it, whether or not they lead anything.
+        html = client.get(reverse("volunteer:index")).content.decode()
+        assert reverse("my_teams") in html
+        client.force_login(
+            User.objects.create_user(username="member", email="member@example.com")
+        )
+        html = client.get(reverse("volunteer:index")).content.decode()
+        assert reverse("my_teams") in html
 
 
 @pytest.mark.django_db

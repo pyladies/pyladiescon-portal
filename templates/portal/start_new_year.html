@@ -1,9 +1,20 @@
-{% extends "portal/base.html" %}
+{% extends "portal/base_sidebar.html" %}
 {% load i18n %}
 {% load django_bootstrap5 %}
+{% comment %}
+An Organize page: it is reached from the Organize rail and the organizer
+dashboard, so it keeps that shell. Without one the top nav has no section
+to follow and falls back to Home, in the middle of an organizer flow.
+{% endcomment %}
+{% block sidebar_title %}
+    {% trans "Organize" %}
+{% endblock sidebar_title %}
+{% block sidebar %}
+    {% include "portal/_organize_rail.html" with active="next_year" %}
+{% endblock sidebar %}
 {% block content %}
     <div class="container px-4 py-3">
-        <h1 class="display-6 pb-2 border-bottom">
+        <h1 class="h3 pb-2 mb-3 border-bottom">
             {% trans "Start Next Year's Conference" %}
         </h1>
         {% if source %}

@@ -116,12 +116,20 @@
         {% if not conference or pending_reviews or unled_teams or awaiting_invoice %}
             <div class="list-group mb-4">
                 {% if not conference %}
-                    <a href="{% url 'conference_list' %}"
-                       class="list-group-item list-group-item-action list-group-item-danger d-flex align-items-center">
-                        <i class="fa-solid fa-calendar-xmark fa-fw me-3"></i>
-                        <span class="flex-grow-1"><strong>{% trans "No active conference." %}</strong> {% trans "Activate a conference so the portal reports on the current year." %}</span>
-                        <i class="fa-solid fa-chevron-right"></i>
-                    </a>
+                    {# Only a superuser can activate one; staff just get the notice. #}
+                    {% if can_manage_conferences %}
+                        <a href="{% url 'conference_list' %}"
+                           class="list-group-item list-group-item-action list-group-item-danger d-flex align-items-center">
+                            <i class="fa-solid fa-calendar-xmark fa-fw me-3"></i>
+                            <span class="flex-grow-1"><strong>{% trans "No active conference." %}</strong> {% trans "Activate a conference so the portal reports on the current year." %}</span>
+                            <i class="fa-solid fa-chevron-right"></i>
+                        </a>
+                    {% else %}
+                        <div class="list-group-item list-group-item-danger d-flex align-items-center">
+                            <i class="fa-solid fa-calendar-xmark fa-fw me-3"></i>
+                            <span class="flex-grow-1"><strong>{% trans "No active conference." %}</strong> {% trans "Ask a superuser to activate one so the portal reports on the current year." %}</span>
+                        </div>
+                    {% endif %}
                 {% endif %}
                 {% if pending_reviews %}
                     <a href="{% url 'volunteer:volunteers_list' %}?application_status={{ pending_status|urlencode }}"
@@ -193,15 +201,17 @@
                     </div>
                 </a>
             </div>
-            <div class="col">
-                <a href="{% url 'conference_list' %}"
-                   class="card h-100 text-decoration-none">
-                    <div class="card-body d-flex align-items-center gap-3">
-                        <i class="fa-solid fa-calendar-days fs-5 text-primary"></i>
-                        <span class="text-body">{% trans "Conferences" %}</span>
-                    </div>
-                </a>
-            </div>
+            {% if can_manage_conferences %}
+                <div class="col">
+                    <a href="{% url 'conference_list' %}"
+                       class="card h-100 text-decoration-none">
+                        <div class="card-body d-flex align-items-center gap-3">
+                            <i class="fa-solid fa-calendar-days fs-5 text-primary"></i>
+                            <span class="text-body">{% trans "Conferences" %}</span>
+                        </div>
+                    </a>
+                </div>
+            {% endif %}
             {% if can_start_next_year %}
                 <div class="col">
                     <a href="{% url 'start_new_year' %}"

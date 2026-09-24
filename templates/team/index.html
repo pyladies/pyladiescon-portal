@@ -12,7 +12,7 @@
 {% endblock sidebar %}
 {% block content %}
     <div id="featured-3">
-        <h1 class="display-5">
+        <h1 class="h3 mb-3">
             {% trans "Teams" %} — {{ selected_conference.year }}
             <a class="btn btn-primary" href="{% url 'team_new' %}">{% trans "New Team" %}</a>
         </h1>
@@ -35,9 +35,9 @@
                             <h5 class="card-title">
                                 {% trans "Onboarded" %}
                             </h5>
-                            <h1 class="display-4 text-primary">
+                            <p class="display-4 text-primary mb-0">
                                 {{ onboarded_count }}
-                            </h1>
+                            </p>
                             <span class="text-muted">{% trans "approved volunteers" %}</span>
                         </div>
                     </div>
@@ -48,9 +48,9 @@
                             <h5 class="card-title">
                                 {% trans "Active teams" %}
                             </h5>
-                            <h1 class="display-4">
+                            <p class="display-4 mb-0">
                                 {{ teams_count }}
-                            </h1>
+                            </p>
                             <span class="text-muted">{% blocktranslate %}{{ open_count }} open{% endblocktranslate %}</span>
                         </div>
                     </div>
@@ -61,9 +61,9 @@
                             <h5 class="card-title">
                                 {% trans "Pending review" %}
                             </h5>
-                            <h1 class="display-4 text-warning">
+                            <p class="display-4 text-warning mb-0">
                                 {{ pending_total }}
-                            </h1>
+                            </p>
                             <span class="text-muted">{% trans "across all teams" %}</span>
                         </div>
                     </div>
@@ -74,9 +74,9 @@
                             <h5 class="card-title">
                                 {% trans "Languages" %}
                             </h5>
-                            <h1 class="display-4">
+                            <p class="display-4 mb-0">
                                 {{ languages_count }}
-                            </h1>
+                            </p>
                             <span class="text-muted">{% trans "covered" %}</span>
                         </div>
                     </div>

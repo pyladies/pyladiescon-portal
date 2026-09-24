@@ -9,9 +9,9 @@
                     <h5 class="card-title">
                         Registered Attendees
                     </h5>
-                    <h1 class="display-4 text-info">
+                    <p class="display-4 text-info mb-0">
                         {{ stats.attendee_count }}
-                    </h1>
+                    </p>
                 </div>
             </div>
         </div>
@@ -21,9 +21,9 @@
                     <h5 class="card-title">
                         First Time Attendees
                     </h5>
-                    <h1 class="display-4 text-success">
+                    <p class="display-4 text-success mb-0">
                         {{ stats.attendee_first_time_count }}
-                    </h1>
+                    </p>
                 </div>
             </div>
         </div>
@@ -33,9 +33,9 @@
                     <h5 class="card-title">
                         % of First Time Attendees
                     </h5>
-                    <h1 class="display-4 text-warning">
+                    <p class="display-4 text-warning mb-0">
                         {{ stats.attendee_first_time_percent |floatformat:0 }}%
-                    </h1>
+                    </p>
                 </div>
             </div>
         </div>

@@ -132,6 +132,9 @@ class TestDashboards:
         assert "My volunteering tasks" in content
         assert response.context["task_stats"]["total"] == 2
         assert "1 of 2 tasks" in content and "50%" in content
+        # The bar is Bootstrap 5.2 stacking: bars with widths inside one track.
+        assert 'class="progress-bar bg-success" style="width: 50%"' in content
+        assert "progress-stacked" not in content
         assert reverse("speakers:checklist_queue") in content
         assert "Nothing assigned to you yet" not in content
 

@@ -91,9 +91,10 @@ Task numbers as a row of small cards plus a done/open/overdue bar. Params:
 {% if stats.total %}
     {% trans "Task progress" as bar_label %}
     {# djlint:off #}
-    <div class="progress-stacked mb-1" role="img" aria-label="{{ bar_label }}" style="height: 10px;">
-        <div class="progress" style="width: {{ stats.done_percent }}%"><div class="progress-bar bg-success"></div></div>
-        <div class="progress" style="width: {% widthratio stats.overdue stats.total 100 %}%"><div class="progress-bar bg-danger"></div></div>
+    {# Bootstrap 5.2 stacking: several bars inside one track, each with its width. #}
+    <div class="progress mb-1" role="img" aria-label="{{ bar_label }}" style="height: 10px;">
+        <div class="progress-bar bg-success" style="width: {{ stats.done_percent }}%"></div>
+        <div class="progress-bar bg-danger" style="width: {% widthratio stats.overdue stats.total 100 %}%"></div>
     </div>
     {# djlint:on #}
     <div class="small text-secondary mb-3">

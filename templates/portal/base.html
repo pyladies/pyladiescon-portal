@@ -83,37 +83,42 @@
                 </button>
                 <div class="collapse navbar-collapse" id="navbarsExample04">
                     <ul class="navbar-nav me-auto mb-2 mb-md-0">
+                        {% comment %}
+                        The current tab is decided server-side, from the URL
+                        that matched (portal/navigation.py), so it carries
+                        aria-current as the rail and the breadcrumbs do
+                        rather than being a colour a stylesheet paints.
+                        {% endcomment %}
                         <li class="nav-item">
-                            <a class="nav-link active" aria-current="page" href="{% url "index" %}">{% trans "Home" %}</a>
+                            <a class="nav-link{% if nav_section == "home" %} active{% endif %}"
+                               {% if nav_section == "home" %}aria-current="page"{% endif %}
+                               href="{% url "index" %}">{% trans "Home" %}</a>
                         </li>
                         {% if user.is_authenticated %}
                             <li class="nav-item">
-                                <a class="nav-link" href="{% url 'volunteer:index' %}">{% trans "Volunteer" %}</a>
-                            </li>
-                        {% endif %}
-                        {% if leads_any_team %}
-                            <li class="nav-item">
-                                <a class="nav-link" href="{% url 'my_teams' %}">{% trans "My teams" %}</a>
+                                <a class="nav-link{% if nav_section == "volunteer" %} active{% endif %}"
+                                   {% if nav_section == "volunteer" %}aria-current="page"{% endif %}
+                                   href="{% url 'volunteer:index' %}">{% trans "Volunteer" %}</a>
                             </li>
                         {% endif %}
                         {% if is_speaker_presenter %}
                             <li class="nav-item">
-                                <a class="nav-link" href="{% url 'speakers:my_dashboard' %}">{% trans "Speaking" %}</a>
+                                <a class="nav-link{% if nav_section == "speaking" %} active{% endif %}"
+                                   {% if nav_section == "speaking" %}aria-current="page"{% endif %}
+                                   href="{% url 'speakers:my_dashboard' %}">{% trans "Speaking" %}</a>
                             </li>
                         {% endif %}
-                        {# Sponsorship: a single link for anyone who can view; #}
-                        {# managers reach Add/Tiers from the in-app left rail #}
-                        {# (Stage D) rather than a duplicate top-nav dropdown. #}
-                        {% if can_view_sponsorship %}
-                            <li class="nav-item">
-                                <a class="nav-link" href="{% url 'sponsorship:sponsorship_list' %}">{% trans "Sponsorship" %}</a>
-                            </li>
-                        {% endif %}
+                        {# A tab is a hub with a rail of its own. Sponsorship and #}
+                        {# My teams are pages inside a rail, so they have no tab: #}
+                        {# organizers reach Sponsors from the Organize rail, #}
+                        {# read-only viewers and team members from My volunteering. #}
                         {# Organize: one coarse link; the shared Organize rail #}
                         {# on every organizer page carries the detailed nav. #}
                         {% if is_organizer %}
                             <li class="nav-item">
-                                <a class="nav-link" href="{% url 'organizer_dashboard' %}">{% trans "Organize" %}</a>
+                                <a class="nav-link{% if nav_section == "organize" %} active{% endif %}"
+                                   {% if nav_section == "organize" %}aria-current="page"{% endif %}
+                                   href="{% url 'organizer_dashboard' %}">{% trans "Organize" %}</a>
                             </li>
                         {% endif %}
                         <li class="nav-item dropdown">
