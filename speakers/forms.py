@@ -18,6 +18,7 @@ from .constants import (
     SLUG_MAX_LENGTH,
     Delivery,
     ItemOwner,
+    SessionLevel,
     SessionStatus,
     format_owner,
     parse_owner,
@@ -952,6 +953,15 @@ class ProposalSessionForm(forms.ModelForm):
         widget=forms.RadioSelect,
         empty_label=None,
         label="What kind of session",
+    )
+    # Four short answers, same reasoning as the type. Blank stays a choice
+    # someone can make on purpose rather than a dash at the top of a list:
+    # plenty of proposals genuinely do not know yet.
+    level = forms.ChoiceField(
+        choices=[("", "Not sure yet"), *SessionLevel.choices],
+        widget=forms.RadioSelect,
+        required=False,
+        label="Level",
     )
 
     class Meta:

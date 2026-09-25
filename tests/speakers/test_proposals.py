@@ -66,7 +66,7 @@ def stranger(db):
     return User.objects.create_user(username="sam", email="sam@example.com")
 
 
-def propose(client, conference, title="A talk about testing"):
+def propose(client, conference, title="A talk about testing", level="ALL"):
     """Post the form the way the page does."""
     return client.post(
         PROPOSE,
@@ -77,7 +77,7 @@ def propose(client, conference, title="A talk about testing"):
             "session-kind": session_type(conference, "TALK").pk,
             "session-title": title,
             "session-summary_md": "What testing is for.",
-            "session-level": "ALL",
+            "session-level": level,
             "session-language": "en",
         },
         follow=True,
@@ -201,6 +201,17 @@ class TestProposing:
         assert "Workshop · 90 minutes · Live" in page
         # The types an edition did not open are not there to pick.
         assert "Keynote" not in page
+        # Level reads the same way, with "not sure" as a real answer
+        # rather than a dash at the top of a list.
+        assert 'name="session-level"' in page and "Not sure yet" in page
+        assert "---------" not in page
+
+    def test_not_sure_yet_about_the_level_is_accepted(
+        self, client, conference, enabled, stranger
+    ):
+        client.force_login(stranger)
+        propose(client, conference, level="")
+        assert Session.objects.get(title="A talk about testing").level == ""
 
     def test_a_form_with_errors_says_so_above_the_folded_sections(
         self, client, conference, enabled, stranger
