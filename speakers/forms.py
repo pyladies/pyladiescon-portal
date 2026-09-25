@@ -921,6 +921,21 @@ class SpeakerOnboardingForm(forms.Form):
         return profile
 
 
+class SessionTypeChoiceField(forms.ModelChoiceField):
+    """Radio labels that say what picking one means.
+
+    The duration and whether it is live or pre-recorded follow from the
+    type, and nothing later on the form lets someone change them, so they
+    belong beside the choice rather than in a paragraph above it.
+    """
+
+    def label_from_instance(self, obj):
+        return (
+            f"{obj.name} · {obj.default_duration_minutes} minutes · "
+            f"{obj.get_default_delivery_display()}"
+        )
+
+
 class ProposalSessionForm(forms.ModelForm):
     """The session half of the propose-a-session form.
 
@@ -928,6 +943,16 @@ class ProposalSessionForm(forms.ModelForm):
     duration and the role they get. Only the types an edition opened for
     proposals are offered, so nobody proposes a coffee break.
     """
+
+    # A radio group, not a dropdown: there are two or three of these, the
+    # choice decides the shape of everything below it, and a dropdown hides
+    # what the alternatives are behind a click.
+    kind = SessionTypeChoiceField(
+        queryset=SessionType.objects.none(),
+        widget=forms.RadioSelect,
+        empty_label=None,
+        label="What kind of session",
+    )
 
     class Meta:
         model = Session
@@ -947,7 +972,6 @@ class ProposalSessionForm(forms.ModelForm):
             "prerequisites_md": forms.Textarea(attrs={"rows": 3}),
             "audience_md": forms.Textarea(attrs={"rows": 3}),
         }
-        labels = {"kind": "What kind of session"}
         help_texts = {
             "summary_md": MARKDOWN_HELP + " What attendees would see on the schedule.",
             "outline_md": MARKDOWN_HELP + " How you would spend the time.",
@@ -962,7 +986,6 @@ class ProposalSessionForm(forms.ModelForm):
         # and validation runs before the view can set it.
         self.instance.conference = conference
         self.fields["kind"].queryset = proposable_types(conference)
-        self.fields["kind"].empty_label = None
         self.fields["title"].required = True
         self.fields["summary_md"].required = True
 

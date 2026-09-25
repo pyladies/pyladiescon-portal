@@ -188,6 +188,20 @@ class TestProposing:
         )
         assert "already been answered" in response.content.decode()
 
+    def test_the_kinds_are_radios_that_say_what_they_mean(
+        self, client, conference, enabled, stranger
+    ):
+        """Two or three choices that decide the shape of everything below:
+        a dropdown would hide them, and the duration follows from the
+        choice, so it is on the label rather than in a note above."""
+        client.force_login(stranger)
+        page = client.get(PROPOSE).content.decode()
+        assert 'type="radio"' in page and 'name="session-kind"' in page
+        assert "Talk · 30 minutes · Live" in page
+        assert "Workshop · 90 minutes · Live" in page
+        # The types an edition did not open are not there to pick.
+        assert "Keynote" not in page
+
     def test_a_form_with_errors_says_so_above_the_folded_sections(
         self, client, conference, enabled, stranger
     ):
