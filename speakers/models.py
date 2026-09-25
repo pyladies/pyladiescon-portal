@@ -504,7 +504,8 @@ class Presenter(TimestampedModel):
         row and an account, but no session of the conference's, so the
         speaker area is not theirs yet.
         """
-        return self.session_presenters.filter(confirmed_at__isnull=False).exists()
+        # The one place the rule is written: ``PresenterQuerySet.onboarded``.
+        return type(self).objects.filter(pk=self.pk).onboarded().exists()
 
     @property
     def liaison_email(self):

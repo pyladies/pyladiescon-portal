@@ -200,9 +200,9 @@ and `Session.created_by_presenter` marks what came in this way.
 presenter row existing: a proposer has a row before anyone has said yes. The
 rule itself is `PresenterQuerySet.onboarded()`, which the agreements-gate
 resolver reads too, so the two cannot drift apart. The checklist board uses
-the looser `not_only_proposing()`: a presenter an organizer created but has
-not invited yet is still their work, while someone who has only asked is
-not a row until the answer.
+the looser `not_only_proposing()`: a presenter an organizer created, invited
+or not, is still their work, while someone whose every session is still a
+proposal or a refused one is not a row until an answer puts them on one.
 
 Title and display name are collapsed to one line on the way in
 (`forms.one_line`): both reach email subject lines, and a newline in a

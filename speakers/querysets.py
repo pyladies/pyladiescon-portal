@@ -56,21 +56,22 @@ class PresenterQuerySet(models.QuerySet):
         """Everyone the organizers are working with.
 
         Looser than ``onboarded``: a presenter an organizer created but has
-        not invited yet is still their work and still belongs on the board.
-        What does not is someone who only ever asked: a proposal with no
-        answer makes a presenter row with no checklist behind it, and an
-        empty line reads as work that has gone missing.
+        not invited yet is still their work, and so is one with an
+        invitation outstanding, whatever else they have proposed. What
+        does not belong is someone whose every session is still a
+        proposal or a refused one: a presenter row with no checklist
+        behind it, and an empty line reads as work that has gone missing.
         """
-        from .models import Proposal, SessionPresenter
+        from .constants import UNACCEPTED_STATUSES
+        from .models import SessionPresenter
 
-        confirmed = SessionPresenter.objects.filter(
-            presenter=models.OuterRef("pk"), confirmed_at__isnull=False
-        )
-        asked = Proposal.objects.filter(presenter=models.OuterRef("pk"))
+        links = SessionPresenter.objects.filter(presenter=models.OuterRef("pk"))
         return self.annotate(
-            _is_confirmed=models.Exists(confirmed),
-            _has_proposed=models.Exists(asked),
-        ).filter(models.Q(_is_confirmed=True) | models.Q(_has_proposed=False))
+            _linked=models.Exists(links),
+            _on_program=models.Exists(
+                links.exclude(session__status__in=UNACCEPTED_STATUSES)
+            ),
+        ).filter(models.Q(_on_program=True) | models.Q(_linked=False))
 
     def with_listing_data(self):
         """Sessions, account, liaison and invitations in a fixed query count."""
