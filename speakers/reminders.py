@@ -19,7 +19,7 @@ from common.send_emails import send_email
 from volunteer.constants import ApplicationStatus
 
 from .constants import OPEN_ITEM_STATUSES, ItemOwner
-from .emails import absolute_url, organizer_recipients, presenter_email_context
+from .emails import absolute_url, organizer_inbox, presenter_email_context
 from .models import ChecklistItem, ReminderLog, SpeakerSettings
 
 THRESHOLDS = (7, 3, 1)
@@ -140,11 +140,7 @@ def _organizer_digests(conference, items, now, sent, settings_row):
             by_recipient[tuple(members)].append((item, thresholds))
         else:
             if fallback is None:
-                fallback = (
-                    [settings_row.organizers_email]
-                    if settings_row and settings_row.organizers_email
-                    else organizer_recipients()
-                )
+                fallback = organizer_inbox(conference)
             if fallback:
                 by_recipient[tuple(fallback)].append((item, thresholds))
     emails = DigestCount(0)

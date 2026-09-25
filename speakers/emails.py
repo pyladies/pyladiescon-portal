@@ -15,6 +15,7 @@ from django.utils import timezone
 from common.markdown_emails import MarkdownEmailRenderer
 from common.send_emails import send_email
 
+from .models import SpeakerSettings
 from .people import user_label
 
 INVITATION_SALT = "speakers.invitation"
@@ -120,6 +121,21 @@ def render_invitation_preview(invitation):
 
 
 FENCE = "`" * 3  # a note may not close the code block it is shown in
+
+
+def organizer_inbox(conference, presenter=None):
+    """Where organizer-facing mail for this edition goes.
+
+    The team's own address when they have set one: a proposal is work for
+    whoever runs the program, not news for everybody who happens to hold
+    ``is_staff`` (which is not per edition and outlives the year someone
+    helped). With the field blank it falls back to the staff accounts, so
+    nothing sits unread in the queue while nobody is told.
+    """
+    settings_row = SpeakerSettings.objects.filter(conference=conference).first()
+    if settings_row and settings_row.organizers_email:
+        return [settings_row.organizers_email]
+    return organizer_recipients(presenter)
 
 
 def organizer_recipients(presenter=None):
@@ -260,7 +276,7 @@ def send_proposal_received_email(proposal):
         markdown_template="emails/speakers/proposal_received.md",
         context=context,
     )
-    recipients = organizer_recipients()
+    recipients = organizer_inbox(proposal.conference)
     if recipients:
         send_email(
             f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} New session proposal: "

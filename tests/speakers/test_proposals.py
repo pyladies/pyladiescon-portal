@@ -23,6 +23,7 @@ from speakers.models import (
     Proposal,
     Session,
     SessionType,
+    SpeakerSettings,
 )
 from speakers.program_types import session_type
 from speakers.seeds import seed_checklists
@@ -726,6 +727,32 @@ class TestWhatOthersSee:
         organizers_side = client.get(url, {"source": "organizers"}).content.decode()
         assert theirs.title in organizers_side
         assert "A talk about testing" not in organizers_side
+
+    def test_the_notice_goes_to_the_team_address_when_there_is_one(
+        self, client, conference, enabled, stranger, organizer
+    ):
+        """A proposal is work for whoever runs the program. is_staff is not
+        per edition and outlives the year someone helped."""
+        settings_row = SpeakerSettings.objects.get(conference=conference)
+        settings_row.organizers_email = "programs@example.com"
+        settings_row.save(update_fields=["organizers_email"])
+        client.force_login(stranger)
+        mail.outbox.clear()
+        propose(client, conference)
+        notice = next(m for m in mail.outbox if "New session proposal" in m.subject)
+        assert notice.to == ["programs@example.com"]
+        assert organizer.email not in notice.to
+
+    def test_without_one_it_falls_back_to_the_staff_accounts(
+        self, client, conference, enabled, stranger, organizer
+    ):
+        """Blank is the documented fallback: better every organizer than
+        nobody, with proposals waiting in a queue no one was told about."""
+        client.force_login(stranger)
+        mail.outbox.clear()
+        propose(client, conference)
+        notice = next(m for m in mail.outbox if "New session proposal" in m.subject)
+        assert notice.to == [organizer.email]
 
     def test_a_proposal_says_who_and_what(self, conference, enabled, stranger):
         presenter = make_presenter(conference, display_name="Sam", user=stranger)
