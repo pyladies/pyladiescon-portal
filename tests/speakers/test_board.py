@@ -20,11 +20,17 @@ from speakers.checklists import (
 from speakers.constants import AutoRule, ItemOwner, ItemStatus
 from speakers.models import ActivityLog, ChecklistItem
 from speakers.permissions import approved_teams, is_speaker_assignee
+from speakers.services import approve_proposal, submit_proposal
 from speakers.views import DONE_ITEMS_SHOWN
 from volunteer.constants import ApplicationStatus
 from volunteer.models import Team, VolunteerProfile
 
 from .factories import add_presenter, make_presenter, make_session, make_settings
+
+
+def conference_of(settings_row):
+    return settings_row.conference
+
 
 BOARD = reverse("speakers:checklist_board")
 QUEUE = reverse("speakers:checklist_queue")
@@ -204,6 +210,42 @@ class TestBoard:
     def test_empty_board(self, client, organizer, enabled):
         client.force_login(organizer)
         assert "No presenters with checklists yet" in client.get(BOARD).content.decode()
+
+    def test_only_someone_who_has_only_asked_is_not_a_row(
+        self, client, organizer, enabled
+    ):
+        """The board tracks the program's work. Four shapes of presenter:
+        created and never invited, invited and also proposing, approved,
+        and only ever asked. Only the last has nothing behind their row."""
+        conference = conference_of(enabled)
+        made = make_presenter(conference, display_name="A Organizer Made Me")
+        invited = make_presenter(conference, display_name="B Invited And Proposed")
+        approved = make_presenter(conference, display_name="C Proposed And Approved")
+        asked = make_presenter(conference, display_name="D Only Asked")
+        # B: on a real session with the invitation outstanding, and a
+        # proposal of their own besides. Propose, get turned down, get
+        # invited to a panel instead is a natural run of events.
+        add_presenter(make_session(conference, title="A panel"), invited)
+        theirs = make_session(conference, title="B's idea")
+        add_presenter(theirs, invited)
+        submit_proposal(invited, theirs)
+        # C: proposed and approved, so confirmed on it.
+        mine = make_session(conference, title="C's idea")
+        add_presenter(mine, approved)
+        approve_proposal(submit_proposal(approved, mine))
+        # D: only ever asked.
+        wish = make_session(conference, title="D's idea")
+        add_presenter(wish, asked)
+        submit_proposal(asked, wish)
+        client.force_login(organizer)
+        rows = build_board(conference, organizer, ItemOwner.SPEAKER)["rows"]
+        assert [row["presenter"].display_name for row in rows] == [
+            made.display_name,
+            invited.display_name,
+            approved.display_name,
+        ]
+        export = client.get(EXPORT).content.decode()
+        assert "B Invited And Proposed" in export and "D Only Asked" not in export
 
     def test_rail_links(self, client, organizer, enabled):
         client.force_login(organizer)

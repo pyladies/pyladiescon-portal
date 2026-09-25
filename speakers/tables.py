@@ -5,12 +5,14 @@ from .constants import SessionStatus
 from .models import InvitationStatus, Presenter, Session
 
 STATUS_BADGE_CLASSES = {
+    SessionStatus.PROPOSED: "text-bg-light border",
     SessionStatus.DRAFT: "text-bg-secondary",
     SessionStatus.INVITED: "text-bg-warning",
     SessionStatus.CONFIRMED: "text-bg-info",
     SessionStatus.SCHEDULED: "text-bg-primary",
     SessionStatus.PUBLISHED: "text-bg-success",
     SessionStatus.CANCELLED: "text-bg-dark",
+    SessionStatus.REJECTED: "text-bg-light border",
 }
 
 

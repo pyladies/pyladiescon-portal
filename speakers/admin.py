@@ -15,6 +15,8 @@ from .models import (
     MediaAsset,
     Presenter,
     PresenterRole,
+    Proposal,
+    ReadinessGate,
     ReminderLog,
     ScheduleSlot,
     Session,
@@ -348,3 +350,30 @@ class ReminderLogAdmin(admin.ModelAdmin):
     search_fields = ("recipient", "item__title")
     list_select_related = ("item", "conference")
     readonly_fields = ("sent_at",)
+
+
+@admin.register(Proposal)
+class ProposalAdmin(admin.ModelAdmin):
+    list_display = ("session", "presenter", "decision", "submitted_at", "conference")
+    list_filter = (ActiveConferenceFilter, "decision")
+    search_fields = ("session__title", "presenter__display_name")
+    list_select_related = ("session", "presenter", "conference")
+    readonly_fields = ("conference", "submitted_at", "decided_at")
+
+
+@admin.register(ReadinessGate)
+class ReadinessGateAdmin(admin.ModelAdmin):
+    list_display = ("code", "name", "is_open", "opened_at", "conference")
+    list_filter = (ActiveConferenceFilter, "is_open")
+    search_fields = ("code", "name")
+    list_select_related = ("conference",)
+    readonly_fields = ("opened_at", "opened_by")
+
+
+@admin.register(HandbookReadReceipt)
+class HandbookReadReceiptAdmin(admin.ModelAdmin):
+    list_display = ("handbook", "presenter", "read_at", "conference")
+    list_filter = (ActiveConferenceFilter,)
+    search_fields = ("presenter__display_name", "handbook__title")
+    list_select_related = ("handbook", "presenter", "conference")
+    readonly_fields = ("read_at",)

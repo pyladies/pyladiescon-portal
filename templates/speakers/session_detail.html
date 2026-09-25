@@ -36,6 +36,62 @@
             </a>
         {% endif %}
     </div>
+    {% if proposal %}
+        <div class="card border-primary-subtle mb-3">
+            <div class="card-body d-flex flex-wrap align-items-center gap-3">
+                <div class="flex-grow-1">
+                    <h2 class="h6 text-body-emphasis mb-1">
+                        <i class="fa-solid fa-paper-plane text-secondary"></i>
+                        {% blocktranslate with name=proposal.presenter.display_name date=proposal.submitted_at|date:"j M Y" %}Proposed by {{ name }}, {{ date }}{% endblocktranslate %}
+                    </h2>
+                    <p class="text-body-secondary mb-0 small">
+                        {% if proposal.is_pending %}
+                            {% trans "Approving confirms the speaker and starts their checklist. Rejecting sends a short note with no reason." %}
+                        {% else %}
+                            {% blocktranslate with answer=proposal.get_decision_display %}Answered: {{ answer }}.{% endblocktranslate %}
+                            {% if proposal.can_be_approved %}
+                                {% trans "It can still be approved if a slot opens up." %}
+                            {% endif %}
+                        {% endif %}
+                    </p>
+                </div>
+                {% if is_organizer %}
+                    <div class="d-flex gap-2">
+                        {% if proposal.can_be_approved %}
+                            <form method="post"
+                                  action="{% url 'speakers:proposal_decide' proposal.pk %}">
+                                {% csrf_token %}
+                                <input type="hidden" name="next" value="{{ session.get_absolute_url }}">
+                                <button class="btn btn-sm btn-success"
+                                        name="decision"
+                                        value="APPROVED"
+                                        type="submit">
+                                    {% if proposal.is_pending %}
+                                        {% trans "Approve" %}
+                                    {% else %}
+                                        {% trans "Approve after all" %}
+                                    {% endif %}
+                                </button>
+                            </form>
+                        {% endif %}
+                        {% if proposal.is_pending %}
+                            <form method="post"
+                                  action="{% url 'speakers:proposal_decide' proposal.pk %}">
+                                {% csrf_token %}
+                                <input type="hidden" name="next" value="{{ session.get_absolute_url }}">
+                                <button class="btn btn-sm btn-outline-secondary"
+                                        name="decision"
+                                        value="REJECTED"
+                                        type="submit">
+                                    {% trans "Not this time" %}
+                                </button>
+                            </form>
+                        {% endif %}
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    {% endif %}
     <div class="row g-4">
         <div class="col-lg-8">
             {% if session.summary_md %}

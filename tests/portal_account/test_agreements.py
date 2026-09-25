@@ -26,6 +26,7 @@ from portal_account.models import PortalProfile
 from speakers.models import Presenter
 from speakers.services import send_invitation
 from tests.speakers.factories import (
+    add_presenter,
     make_invitation,
     make_presenter,
     make_session,
@@ -149,10 +150,20 @@ class TestGate:
 class TestResolver:
     def test_a_presenter_goes_to_the_speaker_welcome_page(self, user, conference):
         make_settings(conference)
+        presenter = Presenter.objects.create(
+            conference=conference, user=user, display_name="Ada", email="a@example.com"
+        )
+        add_presenter(make_session(conference), presenter, confirmed=True)
+        assert agreement_url_for(user) == reverse("speakers:my_welcome")
+
+    def test_a_presenter_waiting_on_a_proposal_goes_to_the_plain_page(
+        self, user, conference
+    ):
+        make_settings(conference)
         Presenter.objects.create(
             conference=conference, user=user, display_name="Ada", email="a@example.com"
         )
-        assert agreement_url_for(user) == reverse("speakers:my_welcome")
+        assert agreement_url_for(user) == AGREEMENTS
 
     def test_everyone_else_goes_to_the_plain_page(self, user, conference):
         make_settings(conference)
@@ -166,9 +177,10 @@ class TestResolver:
         self, client, user, conference
     ):
         make_settings(conference)
-        Presenter.objects.create(
+        presenter = Presenter.objects.create(
             conference=conference, user=user, display_name="Ada", email="a@example.com"
         )
+        add_presenter(make_session(conference), presenter, confirmed=True)
         client.force_login(user)
         assertRedirects(
             client.get(reverse("index")),
@@ -194,13 +206,36 @@ class TestTheFlowsItSitsInFrontOf:
     def presenter_user(self, conference):
         make_settings(conference)
         user = User.objects.create_user(username="ada", email="ada@example.com")
-        Presenter.objects.create(
+        presenter = Presenter.objects.create(
             conference=conference,
             user=user,
             display_name="Ada",
             email="ada@example.com",
         )
+        # On the program: the speaker welcome page belongs to people who
+        # are, and the gate only sends them there.
+        add_presenter(make_session(conference), presenter, confirmed=True)
         return user
+
+    def test_a_proposer_waiting_for_an_answer_gets_the_plain_page(
+        self, client, conference
+    ):
+        """A presenter row is not a program place. The speaker welcome is
+        not theirs yet, so the gate must not send them to it."""
+        make_settings(conference)
+        user = User.objects.create_user(username="sam", email="sam@example.com")
+        Presenter.objects.create(
+            conference=conference,
+            user=user,
+            display_name="Sam",
+            email="sam@example.com",
+        )
+        client.force_login(user)
+        assertRedirects(
+            client.get(reverse("volunteer:index")),
+            AGREEMENTS,
+            target_status_code=200,
+        )
 
     def test_a_profile_that_predates_the_agreements_does_not_loop(
         self, client, presenter_user
@@ -251,7 +286,11 @@ class TestTheFlowsItSitsInFrontOf:
         not break the redirect that lands them in the portal."""
         make_settings(conference)
         presenter = make_presenter(conference, display_name="Grace")
-        invitation = make_invitation(presenter, make_session(conference))
+        # As the organizers' flow does it: on the session first, then
+        # invited to it, so accepting has a link to confirm.
+        session = make_session(conference)
+        add_presenter(session, presenter)
+        invitation = make_invitation(presenter, session)
         # The email is queued on commit, which a test transaction never does.
         with django_capture_on_commit_callbacks(execute=True):
             send_invitation(invitation)

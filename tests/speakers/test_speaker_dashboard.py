@@ -48,14 +48,19 @@ def speaker(db):
 
 @pytest.fixture
 def presenter(conference, speaker):
+    """On the program, which is what the speaker area is for."""
     make_settings(conference)
-    return make_presenter(
+    presenter = make_presenter(
         conference,
         display_name="Ada",
         email="ada@example.com",
         user=speaker,
         timezone="Africa/Lagos",
     )
+    add_presenter(
+        make_session(conference, title="Her session"), presenter, confirmed=True
+    )
+    return presenter
 
 
 @pytest.fixture
@@ -449,10 +454,13 @@ class TestChecklistViews:
         client.force_login(speaker)
         response = client.get(CHECKLIST, {"view": "session"})
         groups = response.context["groups"]
+        # The fixture's own session sorts last and carries nothing; the
+        # groups that matter are the two with items on them.
         assert [g["session"].title if g["session"] else None for g in groups] == [
             None,
             "Careers panel",
             "Django 101",
+            "Her session",
         ]
         assert [i.title for i in groups[2]["speaker"]] == ["Slides"]
         assert [i.title for i in groups[2]["organizer"]] == ["Promo"]

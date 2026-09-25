@@ -67,6 +67,10 @@
                             {% if type.spans_all_channels %}
                                 <span class="badge text-bg-light border" title="{{ all_channels_hint }}">{% trans "all channels" %}</span>
                             {% endif %}
+                            {% if type.open_for_proposals %}
+                                {% trans "People may propose one of these" as proposals_hint %}
+                                <span class="badge text-bg-light border" title="{{ proposals_hint }}">{% trans "open for proposals" %}</span>
+                            {% endif %}
                         </td>
                         <td>
                             <code>{{ type.code }}</code>

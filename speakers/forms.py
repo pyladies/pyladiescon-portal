@@ -18,6 +18,7 @@ from .constants import (
     SLUG_MAX_LENGTH,
     Delivery,
     ItemOwner,
+    SessionLevel,
     SessionStatus,
     format_owner,
     parse_owner,
@@ -34,6 +35,7 @@ from .models import (
     SessionType,
 )
 from .people import assignee_candidates, liaison_candidates, user_label
+from .services import proposable_types
 
 MARKDOWN_HELP = "Markdown supported: headings, lists, links, **bold**, *italics*."
 
@@ -477,6 +479,7 @@ class SessionTypeForm(forms.ModelForm):
             "default_duration_minutes",
             "default_delivery",
             "spans_all_channels",
+            "open_for_proposals",
             "roles",
             "default_role",
             "sort_order",
@@ -917,3 +920,146 @@ class SpeakerOnboardingForm(forms.Form):
         profile.tos_agreement = True
         profile.save()
         return profile
+
+
+def one_line(value):
+    """Collapse any run of whitespace, newlines included, to single spaces.
+
+    A title reaches four email subjects, and Django refuses a header with a
+    newline in it: the rows would commit and every email about that
+    proposal would die, including the one telling the speaker they are in.
+    ``strip=True`` only trims the ends, so the collapse happens here.
+    """
+    return " ".join(value.split())
+
+
+class SessionTypeChoiceField(forms.ModelChoiceField):
+    """Radio labels that say what picking one means.
+
+    The duration and whether it is live or pre-recorded follow from the
+    type, and nothing later on the form lets someone change them, so they
+    belong beside the choice rather than in a paragraph above it.
+    """
+
+    def label_from_instance(self, obj):
+        return (
+            f"{obj.name} · {obj.default_duration_minutes} minutes · "
+            f"{obj.get_default_delivery_display()}"
+        )
+
+
+class ProposalSessionForm(forms.ModelForm):
+    """The session half of the propose-a-session form.
+
+    The same fields a speaker edits later, plus the type, which decides the
+    duration and the role they get. Only the types an edition opened for
+    proposals are offered, so nobody proposes a coffee break.
+    """
+
+    # A radio group, not a dropdown: there are two or three of these, the
+    # choice decides the shape of everything below it, and a dropdown hides
+    # what the alternatives are behind a click.
+    kind = SessionTypeChoiceField(
+        queryset=SessionType.objects.none(),
+        widget=forms.RadioSelect,
+        empty_label=None,
+        label="What kind of session",
+    )
+    # Four short answers, same reasoning as the type. Blank stays a choice
+    # someone can make on purpose rather than a dash at the top of a list:
+    # plenty of proposals genuinely do not know yet.
+    level = forms.ChoiceField(
+        choices=[("", "Not sure yet"), *SessionLevel.choices],
+        widget=forms.RadioSelect,
+        required=False,
+        label="Level",
+    )
+
+    class Meta:
+        model = Session
+        fields = [
+            "kind",
+            "title",
+            "summary_md",
+            "outline_md",
+            "prerequisites_md",
+            "audience_md",
+            "level",
+            "language",
+        ]
+        widgets = {
+            "summary_md": forms.Textarea(attrs={"rows": 4}),
+            "outline_md": forms.Textarea(attrs={"rows": 6}),
+            "prerequisites_md": forms.Textarea(attrs={"rows": 3}),
+            "audience_md": forms.Textarea(attrs={"rows": 3}),
+        }
+        help_texts = {
+            "summary_md": MARKDOWN_HELP + " What attendees would see on the schedule.",
+            "outline_md": MARKDOWN_HELP + " How you would spend the time.",
+            "prerequisites_md": MARKDOWN_HELP + " What someone needs to follow it.",
+            "audience_md": MARKDOWN_HELP + " Who it is for.",
+        }
+
+    def __init__(self, *args, conference, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.conference = conference
+        # The model checks that the type belongs to the session's edition,
+        # and validation runs before the view can set it.
+        self.instance.conference = conference
+        self.fields["kind"].queryset = proposable_types(conference)
+        self.fields["title"].required = True
+        self.fields["summary_md"].required = True
+
+    def clean_title(self):
+        return one_line(self.cleaned_data["title"])
+
+    def clean_kind(self):
+        """The queryset already refuses a type from another edition or one
+        that is not open; this is the guard behind it."""
+        kind = self.cleaned_data["kind"]
+        if not proposable_types(self.conference).filter(pk=kind.pk).exists():
+            raise ValidationError("That kind of session is not open for proposals.")
+        return kind
+
+
+class ProposalProfileForm(forms.ModelForm):
+    """The "about you" half, for someone the portal has never met.
+
+    A speaker who already has a presenter row does not see this: they
+    filled it in when they accepted.
+    """
+
+    timezone = forms.ChoiceField(
+        choices=timezone_choices,
+        help_text="So we show you times in yours, and know when to reach you.",
+    )
+
+    def clean_display_name(self):
+        """A name reaches email headers too; see ``one_line``."""
+        return one_line(self.cleaned_data["display_name"])
+
+    class Meta:
+        model = Presenter
+        fields = [
+            "display_name",
+            "pronouns",
+            "bio_md",
+            "headshot",
+            "location",
+            "timezone",
+            "website_url",
+            "github_username",
+            "mastodon_url",
+            "linkedin_url",
+            "bluesky_username",
+        ]
+        widgets = {"bio_md": forms.Textarea(attrs={"rows": 6})}
+        help_texts = {
+            "bio_md": MARKDOWN_HELP + " A couple of sentences is plenty.",
+            "headshot": "A square photo works best. You can add one later.",
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["display_name"].required = True
+        self.fields["bio_md"].required = True

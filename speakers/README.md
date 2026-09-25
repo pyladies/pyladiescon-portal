@@ -161,6 +161,64 @@ reads it only when the item is blocked, on their checklist and on the item
 page alike: a blocked note explains a hold-up they need to know about, while
 a skip note is a conversation among organizers.
 
+### Proposals
+
+An edition can open the door: while `SpeakerSettings.proposals_open` is on,
+anyone with a portal account proposes a session at `/speakers/propose/`,
+speakers already on the program included. Only session types with
+`open_for_proposals` are offered, so nobody proposes a coffee break.
+
+A proposal is real rows from the start: a `Presenter` with the account
+linked, a `Session` in `PROPOSED`, an unconfirmed `SessionPresenter`, and a
+`Proposal` carrying the review. The notice goes to
+`SpeakerSettings.organizers_email` (`emails.organizer_inbox`, which the
+reminder digest and the co-presenter suggestion use too, falling back to
+the staff accounts while the field is blank, and adding the presenter's
+liaison where there is one): a proposal is work for whoever runs the program, and
+`is_staff` is neither per edition nor a job description. Approving runs the acceptance path an
+invitation takes (`services.approve_proposal`), so the checklists, the
+confirmation and the emails are the ones a speaker always gets, dated from
+the approval. Rejecting keeps the rows and locks the session's identity, and an
+organizer can still approve it afterwards: slots open up when something is
+cancelled, and the whole acceptance path runs then, dated from the second
+answer.
+Withdrawing, while nobody has answered, keeps both rows and takes them off
+the organizers' list: withdrawing usually means "not like this" rather than
+"forget it", so the writing stays, the proposer can keep editing it, and
+"Send it again" puts it back in the queue as a fresh pending proposal.
+
+A speaker already on the program sends a proposal too: one door, whoever is
+knocking. They are spared the "About you" half, which they filled in at
+onboarding, and the organizers keep deciding what is on the program. An
+earlier build let them add a session outright, which left two ways in that
+said different things on the same pages.
+
+Proposals are capped per presenter per edition (`MAX_PENDING_PROPOSALS`),
+and `Session.created_by_presenter` marks what came in this way.
+
+`Presenter.is_onboarded` is what the speaker area gates on, rather than the
+presenter row existing: a proposer has a row before anyone has said yes. The
+rule itself is `PresenterQuerySet.onboarded()`, which the agreements-gate
+resolver reads too, so the two cannot drift apart. The checklist board uses
+the looser `not_only_proposing()`: a presenter an organizer created, invited
+or not, is still their work, while someone whose every session is still a
+proposal or a refused one is not a row until an answer puts them on one.
+
+Title and display name are collapsed to one line on the way in
+(`forms.one_line`): both reach email subject lines, and a newline in a
+header makes Django refuse the message, which would silently cost the
+proposer every email about their proposal. Both are escaped again on the
+way into the organizers' email (`emails.as_written`), for the reason the
+co-presenter note is fenced: a proposer's words reach organizers as words,
+never as a link or an image.
+
+**Liaison scoping is deliberately absent here.** Everywhere else a liaison
+sees only their own presenters; the proposal queue shows them the whole
+edition's. Someone proposing for the first time has no liaison, so scoping
+by one would leave a liaison staring at an empty queue while proposals
+waited. Deciding stays organizer-only (`can_decide`), so what a liaison has
+is a reading of the program's inbox.
+
 ### Items nobody can start yet (readiness)
 
 An item exists long before it can be done: confirming a slot before the
@@ -572,8 +630,11 @@ installed; this app keeps small factory functions in `tests/speakers/factories.p
   reason (`0002_repair_invitation_sent_to` is the cost of learning it).
   See the deployment docs, "Release step and migrations".
 - Every model: `conference` FK, admin registration, factory function,
-  isolation test. Join and child rows (`SessionPresenter`, `ScheduleSlot`)
-  carry a non-editable `conference` copied from their session on save.
+  isolation test. (`Proposal`, `ReadinessGate` and `HandbookReadReceipt`
+  were registered late, in the proposals PR; the changelist smoke test
+  covers every model, which is what caught them.) Join and child rows (`SessionPresenter`, `ScheduleSlot`,
+  `Proposal`) carry a non-editable `conference` copied from their session
+  on save.
 - Status changes are model methods on `Session` (`mark_invited`, `confirm`,
   `schedule`, `publish`, `cancel`) that raise `speakers.models.TransitionError`
   when a precondition fails; views turn that into a message. Accepting an

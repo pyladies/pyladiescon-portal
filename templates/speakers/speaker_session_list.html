@@ -13,9 +13,18 @@
     {% include "speakers/_speaker_rail.html" with active="sessions" %}
 {% endblock sidebar %}
 {% block content %}
-    <h1 class="h3 mb-1">
-        {% trans "My sessions" %}
-    </h1>
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
+        <h1 class="h3 mb-1">
+            {% trans "My sessions" %}
+        </h1>
+        {% if speaker_proposals_open %}
+            {# One way in for everyone: a session starts as a proposal. #}
+            <a class="btn btn-sm btn-outline-primary"
+               href="{% url 'speakers:propose' %}">
+                <i class="fa-solid fa-paper-plane"></i> {% trans "Propose another session" %}
+            </a>
+        {% endif %}
+    </div>
     <p class="text-secondary">
         {% trans "A title and two sentences is a complete listing; a full outline is welcome. Nothing is public until the team publishes it." %}
     </p>
@@ -41,7 +50,8 @@
                         </div>
                     </div>
                     <div class="d-flex flex-wrap align-items-center gap-2">
-                        {% if not link.session.is_public %}
+                        {% include "speakers/_speaker_session_status.html" with session=link.session %}
+                        {% if not link.session.is_public and not link.session.is_a_proposal %}
                             <span class="badge text-bg-secondary">{% trans "Not yet public" %}</span>
                         {% endif %}
                         {% if link.summary.total %}
@@ -49,14 +59,22 @@
                                 {% blocktranslate with done=link.summary.done total=link.summary.total %}{{ done }} of {{ total }} tasks done{% endblocktranslate %}
                             </span>
                         {% endif %}
-                        <a class="btn btn-sm btn-outline-primary"
-                           href="{% url 'speakers:my_session_detail' link.session.slug %}">{% trans "View" %}</a>
-                        <a class="btn btn-sm btn-outline-primary"
-                           href="{% url 'speakers:my_session_detail' link.session.slug %}#checklist">
-                            <i class="fa-solid fa-list-check"></i> {% trans "Checklist" %}
-                        </a>
-                        <a class="btn btn-sm btn-outline-secondary"
-                           href="{% url 'speakers:my_session_edit' link.session.slug %}">{% trans "Edit details" %}</a>
+                        {% if link.session.is_a_proposal %}
+                            <a class="btn btn-sm btn-outline-primary"
+                               href="{% url 'speakers:my_proposals' %}">{% trans "See the proposal" %}</a>
+                        {% else %}
+                            <a class="btn btn-sm btn-outline-primary"
+                               href="{% url 'speakers:my_session_detail' link.session.slug %}">{% trans "View" %}</a>
+                        {% endif %}
+                        {% if not link.session.is_a_proposal %}
+                            {# A proposal has no checklist yet, and it is edited on the proposal page. #}
+                            <a class="btn btn-sm btn-outline-primary"
+                               href="{% url 'speakers:my_session_detail' link.session.slug %}#checklist">
+                                <i class="fa-solid fa-list-check"></i> {% trans "Checklist" %}
+                            </a>
+                            <a class="btn btn-sm btn-outline-secondary"
+                               href="{% url 'speakers:my_session_edit' link.session.slug %}">{% trans "Edit details" %}</a>
+                        {% endif %}
                     </div>
                 </div>
             </div>

@@ -15,6 +15,7 @@ from django.utils import timezone
 from common.markdown_emails import MarkdownEmailRenderer
 from common.send_emails import send_email
 
+from .models import SpeakerSettings
 from .people import user_label
 
 INVITATION_SALT = "speakers.invitation"
@@ -121,6 +122,41 @@ def render_invitation_preview(invitation):
 
 FENCE = "`" * 3  # a note may not close the code block it is shown in
 
+# What turns text into a link, an image, a code span or raw HTML. Emphasis
+# is left alone: a slanted word in an organizer's inbox is not the problem,
+# a clickable "Approve now" pointing somewhere else is.
+MARKUP_CHARS = str.maketrans({ch: "\\" + ch for ch in "\\`[]<>!"})
+
+
+def as_written(value):
+    """Presenter-typed text, shown to organizers as typed.
+
+    The co-presenter note is fenced for the same reason (no links,
+    headings or markup of theirs reach the organizers); a title and a name
+    are read inline, so they are escaped instead of fenced.
+    """
+    return (value or "").translate(MARKUP_CHARS)
+
+
+def organizer_inbox(conference, presenter=None):
+    """Where organizer-facing mail for this edition goes.
+
+    The team's own address when they have set one: a proposal is work for
+    whoever runs the program, not news for everybody who happens to hold
+    ``is_staff`` (which is not per edition and outlives the year someone
+    helped). With the field blank it falls back to the staff accounts, so
+    nothing sits unread in the queue while nobody is told.
+    """
+    settings_row = SpeakerSettings.objects.filter(conference=conference).first()
+    if settings_row and settings_row.organizers_email:
+        emails = {settings_row.organizers_email}
+        # The liaison is this presenter's person, not part of the team
+        # address, so they are told either way.
+        if presenter is not None and presenter.liaison_email:
+            emails.add(presenter.liaison_email)
+        return sorted(emails)
+    return organizer_recipients(presenter)
+
 
 def organizer_recipients(presenter=None):
     """Organizer inboxes: staff and superusers, plus the presenter's liaison."""
@@ -128,21 +164,23 @@ def organizer_recipients(presenter=None):
         Q(is_staff=True) | Q(is_superuser=True), is_active=True
     )
     emails = {user.email for user in users if user.email}
-    if presenter is not None and presenter.liaison and presenter.liaison.email:
-        emails.add(presenter.liaison.email)
+    if presenter is not None and presenter.liaison_email:
+        emails.add(presenter.liaison_email)
     return sorted(emails)
 
 
 def send_copresenter_suggestion_email(presenter, session, name, email, note):
     """Tell the organizers a presenter suggested someone for their session."""
-    recipients = organizer_recipients(presenter)
+    recipients = organizer_inbox(session.conference, presenter)
     if not recipients:
         return 0
     context = {
         "presenter": presenter,
         "session": session,
-        "suggested_name": name,
-        "suggested_email": email,
+        "title": as_written(session.title),
+        "proposer": as_written(presenter.display_name),
+        "suggested_name": as_written(name),
+        "suggested_email": as_written(email),
         # Presenter-written text goes into the email as a literal block:
         # no links, headings or markup of theirs reach the organizers.
         "note": note.replace(FENCE, "'" * 3).strip(),
@@ -239,3 +277,79 @@ def presenter_email_context(presenter):
         "sessions": sessions,
         "dashboard_url": absolute_url(reverse("speakers:my_dashboard")),
     }
+
+
+# ---- Proposals --------------------------------------------------------------
+
+
+def send_proposal_received_email(proposal):
+    """Two emails at submission: a receipt, and a nudge to the organizers."""
+    presenter, session = proposal.presenter, proposal.session
+    context = {
+        "presenter": presenter,
+        "conference": proposal.conference,
+        "session": session,
+        "proposals_url": absolute_url(reverse("speakers:my_proposals")),
+    }
+    send_email(
+        f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} We have your proposal: "
+        f"{session.title}",
+        [presenter.email],
+        markdown_template="emails/speakers/proposal_received.md",
+        context=context,
+    )
+    # With the presenter: an edition's team address does not include this
+    # proposer's liaison, and the liaison is their person.
+    recipients = organizer_inbox(proposal.conference, presenter)
+    if recipients:
+        send_email(
+            f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} New session proposal: "
+            f"{session.title}",
+            recipients,
+            markdown_template="emails/speakers/proposal_for_organizers.md",
+            context={
+                **context,
+                "review_url": absolute_url(reverse("speakers:proposal_queue")),
+                # Their words, shown as words: see ``as_written``.
+                "title": as_written(session.title),
+                "proposer": as_written(presenter.display_name),
+            },
+        )
+    return len(recipients) + 1
+
+
+def send_proposal_approved_email(proposal):
+    """Yes. The onboarding email, for someone who already has an account."""
+    presenter, session = proposal.presenter, proposal.session
+    send_email(
+        f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} Your session is in: "
+        f"{session.title}",
+        [presenter.email],
+        markdown_template="emails/speakers/proposal_approved.md",
+        context={
+            "presenter": presenter,
+            "conference": proposal.conference,
+            "session": session,
+            "session_url": absolute_url(
+                reverse("speakers:my_session_detail", kwargs={"slug": session.slug})
+            ),
+            "dashboard_url": absolute_url(reverse("speakers:my_dashboard")),
+            "checklist_url": absolute_url(reverse("speakers:my_checklist")),
+        },
+    )
+
+
+def send_proposal_rejected_email(proposal):
+    """No. Short, kind, and without a reason, which is what was asked for."""
+    presenter = proposal.presenter
+    send_email(
+        f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} About your proposal: "
+        f"{proposal.session.title}",
+        [presenter.email],
+        markdown_template="emails/speakers/proposal_rejected.md",
+        context={
+            "presenter": presenter,
+            "conference": proposal.conference,
+            "session": proposal.session,
+        },
+    )

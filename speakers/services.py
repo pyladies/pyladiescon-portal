@@ -16,7 +16,13 @@ from django.utils import timezone
 from common.tasks import enqueue
 
 from .checklists import instantiate_presenter_checklist
-from .constants import OPEN_ITEM_STATUSES, ChecklistScope, SessionStatus
+from .constants import (
+    MAX_PENDING_PROPOSALS,
+    OPEN_ITEM_STATUSES,
+    ChecklistScope,
+    ProposalDecision,
+    SessionStatus,
+)
 from .emails import INVITATION_SALT
 from .lifecycle import confirm_session_if_ready
 from .models import (
@@ -24,7 +30,11 @@ from .models import (
     ChecklistItem,
     Invitation,
     InvitationStatus,
+    Presenter,
+    Proposal,
     SessionPresenter,
+    SessionType,
+    SpeakerSettings,
 )
 from .rules import evaluate_items
 from .signals import invitation_accepted
@@ -32,6 +42,9 @@ from .tasks import (
     send_acceptance_email_task,
     send_added_to_session_email_task,
     send_invitation_email_task,
+    send_proposal_approved_email_task,
+    send_proposal_received_email_task,
+    send_proposal_rejected_email_task,
 )
 
 
@@ -362,3 +375,214 @@ def _swap_role(link, role, old_role_id, old_role_name, is_required, actor):
             created_items=created,
         )
     return removed, created
+
+
+# ---- Proposals: people asking to give a session -----------------------------
+
+
+class ProposalError(ValueError):
+    """A proposal that may not be made, changed or decided."""
+
+
+def proposals_open(conference):
+    """Whether this edition is taking proposals at all."""
+    settings_row = SpeakerSettings.objects.filter(conference=conference).first()
+    return bool(settings_row and settings_row.proposals_open)
+
+
+def proposable_types(conference):
+    """The session types someone may propose or add themselves."""
+    return SessionType.objects.filter(
+        conference=conference, is_active=True, open_for_proposals=True
+    ).order_by("sort_order", "name")
+
+
+def pending_proposals(presenter):
+    return presenter.proposals.filter(decision=ProposalDecision.PENDING)
+
+
+def _refuse_when_full(presenter, closing):
+    """The three-pending cap, counted with the proposer's row locked.
+
+    Two posts a moment apart would otherwise each read two pending and
+    each write a third. Nothing in the database backs the cap, so the lock
+    is what makes it one answer at a time per person.
+    """
+    Presenter.objects.select_for_update().filter(pk=presenter.pk).first()
+    if pending_proposals(presenter).count() >= MAX_PENDING_PROPOSALS:
+        raise ProposalError(
+            f"You already have {MAX_PENDING_PROPOSALS} proposals waiting for "
+            f"an answer. {closing}"
+        )
+
+
+def submit_proposal(presenter, session, actor=None):
+    """Record a proposal for a session that was just created.
+
+    The session, the presenter and the link are real rows from the start:
+    the session sits in ``PROPOSED``, which keeps it off the schedule, the
+    public side and every speaker page, and the proposal carries the
+    review. Approving is then the same path an accepted invitation takes.
+    """
+    with transaction.atomic():
+        _refuse_when_full(presenter, "Withdraw one to send another.")
+        # The session becomes a proposal here, so every caller gets it:
+        # a session left in DRAFT would sit on the organizers' program
+        # list as though they had made it.
+        session.propose()
+        proposal = Proposal.objects.create(
+            conference=session.conference, session=session, presenter=presenter
+        )
+        ActivityLog.record(
+            session.conference,
+            "proposal.submitted",
+            target=session,
+            actor=actor,
+            message=session.title,
+            presenter_id=presenter.pk,
+            proposal_id=proposal.pk,
+        )
+        transaction.on_commit(
+            lambda: enqueue(send_proposal_received_email_task, proposal.pk)
+        )
+    return proposal
+
+
+def withdraw_proposal(proposal, actor=None):
+    """The proposer taking it back while nobody has answered.
+
+    The rows stay. Someone who withdraws often means "not like this"
+    rather than "forget it": keeping the proposal lets them edit what
+    they wrote and send it again, and it stops a mis-click destroying an
+    afternoon's writing. The session stays in ``PROPOSED``, so it is on
+    nobody's program, and the organizers' queue leaves it out.
+    """
+    if not proposal.is_pending:
+        raise ProposalError("That proposal has already been answered.")
+    with transaction.atomic():
+        proposal.decide(ProposalDecision.WITHDRAWN, actor=actor)
+        ActivityLog.record(
+            proposal.conference,
+            "proposal.withdrawn",
+            target=proposal.presenter,
+            actor=actor,
+            message=proposal.session.title,
+            presenter_id=proposal.presenter_id,
+            proposal_id=proposal.pk,
+        )
+    return proposal
+
+
+def resubmit_proposal(proposal, actor=None):
+    """Send a withdrawn proposal back for an answer.
+
+    It counts as a new arrival: the submitted date moves, the cap applies
+    again, and the organizers hear about it the way they do for any
+    proposal.
+    """
+    if not proposal.is_withdrawn:
+        raise ProposalError("Only a withdrawn proposal can be sent again.")
+    presenter = proposal.presenter
+    with transaction.atomic():
+        _refuse_when_full(presenter, "Withdraw one to send this again.")
+        proposal.decision = ProposalDecision.PENDING
+        proposal.decided_at = None
+        proposal.decided_by = None
+        proposal.submitted_at = timezone.now()
+        proposal.save(
+            update_fields=[
+                "decision",
+                "decided_at",
+                "decided_by",
+                "submitted_at",
+                "modified_date",
+            ]
+        )
+        ActivityLog.record(
+            proposal.conference,
+            "proposal.resubmitted",
+            target=proposal.session,
+            actor=actor,
+            message=proposal.session.title,
+            presenter_id=presenter.pk,
+            proposal_id=proposal.pk,
+        )
+        transaction.on_commit(
+            lambda: enqueue(send_proposal_received_email_task, proposal.pk)
+        )
+    return proposal
+
+
+def approve_proposal(proposal, actor=None):
+    """Yes: the session becomes an ordinary draft and the proposer a speaker.
+
+    Everything after the status change is the acceptance path an invitation
+    takes, with the approval standing in for the acceptance: the link is
+    confirmed, the checklists are created and anchored at this moment, and
+    the session confirms itself when nothing blocks it.
+
+    One already turned down can be approved later. Slots open up when
+    something is cancelled, and "not this time" should not mean the
+    organizers have to ask the person to send it all again.
+    """
+    if not proposal.can_be_approved:
+        raise ProposalError("That proposal cannot be approved as it stands.")
+    presenter = proposal.presenter
+    session = proposal.session
+    was_rejected = proposal.is_rejected
+    with transaction.atomic():
+        session.approve()
+        proposal.decide(ProposalDecision.APPROVED, actor=actor)
+        link = session.session_presenters.get(presenter=presenter)
+        link.confirm(when=proposal.decided_at)
+        ActivityLog.record(
+            proposal.conference,
+            "proposal.reconsidered" if was_rejected else "proposal.approved",
+            target=session,
+            actor=actor,
+            message=session.title,
+            presenter_id=presenter.pk,
+            proposal_id=proposal.pk,
+        )
+        # The same receiver an accepted invitation uses, so the checklists
+        # are the ones a speaker always gets, anchored at the approval
+        # rather than at some earlier moment.
+        invitation_accepted.send(
+            sender=Proposal,
+            invitation=None,
+            presenter=presenter,
+            user=presenter.user,
+            session_presenters=[link],
+            accepted_at=proposal.decided_at,
+        )
+        confirm_session_if_ready(session)
+        transaction.on_commit(
+            lambda: enqueue(send_proposal_approved_email_task, proposal.pk)
+        )
+    return proposal
+
+
+def reject_proposal(proposal, actor=None):
+    """No, kindly and without a reason: the answer the user asked for.
+
+    The rows stay. The proposer can still read what they sent, and the
+    organizers have a record of an answer given.
+    """
+    if not proposal.is_pending:
+        raise ProposalError("That proposal has already been answered.")
+    with transaction.atomic():
+        proposal.session.reject()
+        proposal.decide(ProposalDecision.REJECTED, actor=actor)
+        ActivityLog.record(
+            proposal.conference,
+            "proposal.rejected",
+            target=proposal.session,
+            actor=actor,
+            message=proposal.session.title,
+            presenter_id=proposal.presenter_id,
+            proposal_id=proposal.pk,
+        )
+        transaction.on_commit(
+            lambda: enqueue(send_proposal_rejected_email_task, proposal.pk)
+        )
+    return proposal

@@ -3,7 +3,8 @@
 Builds, on the active edition, every persona and state the speaker module
 has: organizer and volunteer accounts (some on teams), sessions of each
 kind, presenters who are not yet invited, invited, accepted and onboarded,
-a performer with a video over the limit, checklists with done, overdue and
+a performer with a video over the limit, proposals in every state,
+checklists with done, overdue and
 upcoming items, team-owned and volunteer-assigned action items, guides and
 schedule slots. Idempotent: rerunning updates rather than duplicates.
 
@@ -44,17 +45,26 @@ from speakers.models import (
     Handbook,
     MediaAsset,
     Presenter,
+    Proposal,
     ReadinessGate,
     ScheduleSlot,
     Session,
     SessionPresenter,
+    SessionType,
     SpeakerSettings,
 )
-from speakers.program_types import presenter_role, session_type
+from speakers.program_types import PROPOSABLE_CODES, presenter_role, session_type
 from speakers.readiness import refresh_for_conference
 from speakers.rules import reevaluate_all
 from speakers.seeds import seed_checklists
-from speakers.services import accept_invitation, send_invitation
+from speakers.services import (
+    accept_invitation,
+    approve_proposal,
+    reject_proposal,
+    send_invitation,
+    submit_proposal,
+    withdraw_proposal,
+)
 from volunteer.constants import ApplicationStatus
 from volunteer.models import Team, VolunteerProfile
 
@@ -92,6 +102,58 @@ PEOPLE = [
         False,
         ApplicationStatus.PENDING,
         [],
+    ),
+    # A volunteer who also proposes: the same account does both, which is
+    # what the propose page tells people.
+    (
+        "vol_rosa",
+        "Rosa",
+        "Proposer",
+        "rosa@example.com",
+        False,
+        False,
+        ApplicationStatus.APPROVED,
+        ["Programs Team"],
+    ),
+    # Nothing but a portal account, which is all proposing needs.
+    ("prop_tess", "Tess", "Hopeful", "tess@example.com", False, False, None, []),
+    ("prop_iris", "Iris", "Again", "iris@example.com", False, False, None, []),
+]
+
+# Proposals, in every state the queue and My proposals have to show.
+# username, presenter name, title, type code, summary, decision
+PROPOSALS = [
+    (
+        "vol_rosa",
+        "Rosa Proposer",
+        "Packaging without tears",
+        "TALK",
+        "What to do instead of reading five packaging guides.",
+        "PENDING",
+    ),
+    (
+        "prop_tess",
+        "Tess Hopeful",
+        "A workshop on Django forms",
+        "WORKSHOP",
+        "Two hours of forms, from the boring parts to the useful ones.",
+        "APPROVED",
+    ),
+    (
+        "prop_iris",
+        "Iris Again",
+        "Live-coding a synth",
+        "PYJAM",
+        "A set, built from an empty file.",
+        "REJECTED",
+    ),
+    (
+        "prop_iris",
+        "Iris Again",
+        "Notebooks in production",
+        "TALK",
+        "Taken back for a rewrite before anyone answered it.",
+        "WITHDRAWN",
     ),
 ]
 
@@ -217,6 +279,7 @@ class Command(BaseCommand):
         self.users = self._people()
         self.sessions = self._sessions()
         self.presenters = self._presenters()
+        self._proposals()
         self._schedule()
         self._checklist_states()
         self._performer_video()
@@ -262,7 +325,17 @@ class Command(BaseCommand):
         row.organizers_email = "organizers@example.com"
         row.translation_languages = ["pt-br"]
         row.default_video_length_limit_minutes = 10
+        row.proposals_open = True
+        row.proposals_intro_md = (
+            "We are taking proposals for this edition. A title and two "
+            "sentences is enough to start."
+        )
         row.save()
+        # Which types people may propose: the rest stay the organizers' to
+        # create (opening, breaks, the keynote).
+        SessionType.objects.filter(
+            conference=self.conference, code__in=PROPOSABLE_CODES
+        ).update(open_for_proposals=True)
         seed_checklists(self.conference)
         # One gate open and one shut, so both states are on the sample
         # speaker's list: the tech check is bookable, uploads are not.
@@ -430,6 +503,43 @@ class Command(BaseCommand):
             complete_item(item, actor=presenter.user)
         for session in Session.objects.filter(session_presenters__presenter=presenter):
             confirm_session_if_ready(session)
+
+    def _proposals(self):
+        """Every state a proposal can be in, each with an account to sign
+        in as: waiting, approved (the full acceptance path ran), turned
+        down, and taken back by the proposer."""
+        for username, name, title, code, summary, decision in PROPOSALS:
+            user = self.users[username]
+            presenter, _ = Presenter.objects.get_or_create(
+                conference=self.conference,
+                email=user.email,
+                defaults={"display_name": name, "timezone": "UTC", "user": user},
+            )
+            if Proposal.objects.filter(
+                conference=self.conference, presenter=presenter, session__title=title
+            ).exists():
+                continue
+            session = Session.objects.create(
+                conference=self.conference,
+                title=title,
+                kind=session_type(self.conference, code),
+                delivery=Delivery.LIVE,
+                summary_md=summary,
+                language="en",
+            )
+            SessionPresenter.objects.create(
+                session=session,
+                presenter=presenter,
+                # Per type: a PyJam has a performer, not a presenter.
+                role=session.kind.default_role,
+            )
+            proposal = submit_proposal(presenter, session)
+            if decision == "APPROVED":
+                approve_proposal(proposal, actor=self.users["organizer_lena"])
+            elif decision == "REJECTED":
+                reject_proposal(proposal, actor=self.users["organizer_lena"])
+            elif decision == "WITHDRAWN":
+                withdraw_proposal(proposal, actor=user)
 
     def _schedule(self):
         stage = DiscordChannel.objects.get(

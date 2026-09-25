@@ -43,6 +43,36 @@ class PresenterQuerySet(models.QuerySet):
             return self
         return self.filter(liaison=user)
 
+    def onboarded(self):
+        """On the program: a confirmed link to a session of this edition.
+
+        Someone whose proposal has not been answered has a presenter row
+        and no place on the program, which is why the speaker area and the
+        agreements gate ask this rather than whether the row exists.
+        """
+        return self.filter(session_presenters__confirmed_at__isnull=False).distinct()
+
+    def not_only_proposing(self):
+        """Everyone the organizers are working with.
+
+        Looser than ``onboarded``: a presenter an organizer created but has
+        not invited yet is still their work, and so is one with an
+        invitation outstanding, whatever else they have proposed. What
+        does not belong is someone whose every session is still a
+        proposal or a refused one: a presenter row with no checklist
+        behind it, and an empty line reads as work that has gone missing.
+        """
+        from .constants import UNACCEPTED_STATUSES
+        from .models import SessionPresenter
+
+        links = SessionPresenter.objects.filter(presenter=models.OuterRef("pk"))
+        return self.annotate(
+            _linked=models.Exists(links),
+            _on_program=models.Exists(
+                links.exclude(session__status__in=UNACCEPTED_STATUSES)
+            ),
+        ).filter(models.Q(_on_program=True) | models.Q(_linked=False))
+
     def with_listing_data(self):
         """Sessions, account, liaison and invitations in a fixed query count."""
         from .models import Invitation, SessionPresenter

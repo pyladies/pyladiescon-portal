@@ -14,12 +14,60 @@ class Delivery(models.TextChoices):
 
 
 class SessionStatus(models.TextChoices):
+    # A session someone proposed and nobody has looked at yet. It is not a
+    # draft: a draft is the organizers' own, a proposal is a request.
+    PROPOSED = "PROPOSED", "Proposed"
     DRAFT = "DRAFT", "Draft"
     INVITED = "INVITED", "Invited"
     CONFIRMED = "CONFIRMED", "Confirmed"
     SCHEDULED = "SCHEDULED", "Scheduled"
     PUBLISHED = "PUBLISHED", "Published"
     CANCELLED = "CANCELLED", "Cancelled"
+    REJECTED = "REJECTED", "Not accepted"
+
+
+# Neither is a session the conference has: they never reach the public side,
+# the schedule, or a speaker's dashboard.
+UNACCEPTED_STATUSES = frozenset({SessionStatus.PROPOSED, SessionStatus.REJECTED})
+
+
+# What a session's status means to the person giving it. The organizers'
+# vocabulary (draft, invited, confirmed) is about their own work; a speaker
+# wants to know whether it is happening and whether anyone can see it.
+SPEAKER_STATUS_LABELS = {
+    SessionStatus.PROPOSED: "Waiting for an answer",
+    SessionStatus.REJECTED: "Not accepted",
+    SessionStatus.DRAFT: "Being arranged",
+    SessionStatus.INVITED: "Being arranged",
+    SessionStatus.CONFIRMED: "Confirmed",
+    SessionStatus.SCHEDULED: "Scheduled",
+    SessionStatus.PUBLISHED: "On the public schedule",
+    SessionStatus.CANCELLED: "Cancelled",
+}
+
+
+class ProposalDecision(models.TextChoices):
+    PENDING = "PENDING", "Pending review"
+    APPROVED = "APPROVED", "Approved"
+    REJECTED = "REJECTED", "Not accepted"
+    # The proposer took it back before anyone answered. Kept, not deleted:
+    # they can edit it and send it again.
+    WITHDRAWN = "WITHDRAWN", "Withdrawn"
+
+
+# Decisions that are the proposer's own to change: they may edit these and
+# send them again, and only a pending one counts towards the cap.
+PROPOSER_CAN_EDIT = frozenset({ProposalDecision.PENDING, ProposalDecision.WITHDRAWN})
+
+# "Not this time" is an answer, not a door closing. A cancellation or an
+# extra slot late in the planning is common, so organizers can come back to
+# something they turned down and say yes after all.
+CAN_BE_APPROVED = frozenset({ProposalDecision.PENDING, ProposalDecision.REJECTED})
+
+
+# Per presenter per edition: how many proposals may be waiting at once.
+# Everyone proposes, whether or not they are already on the program.
+MAX_PENDING_PROPOSALS = 3
 
 
 class SessionLevel(models.TextChoices):
@@ -131,7 +179,13 @@ OPEN_ITEM_STATUSES = frozenset({ItemStatus.TODO, ItemStatus.BLOCKED})
 # and its presenters' identity (name, address) are no longer the speaker's to
 # change: links and listings may already carry them.
 IDENTITY_LOCKED_STATUSES = frozenset(
-    {SessionStatus.SCHEDULED, SessionStatus.PUBLISHED, SessionStatus.CANCELLED}
+    {
+        SessionStatus.SCHEDULED,
+        SessionStatus.PUBLISHED,
+        SessionStatus.CANCELLED,
+        # A proposal that was turned down is a record, not a draft.
+        SessionStatus.REJECTED,
+    }
 )
 
 
@@ -175,6 +229,9 @@ RESERVED_SLUGS = frozenset(
         "profile",
         "guide",
         "schedule",
+        "propose",
+        "proposals",
+        "review",
     }
 )
 

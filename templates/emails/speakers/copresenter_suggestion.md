@@ -2,7 +2,7 @@
 {% load i18n %}
 {% block content %}
 
-**{{ presenter.display_name }}** ({{ presenter.email }}) suggests a co-presenter for **{{ session.title }}**:
+**{{ proposer }}** ({{ presenter.email }}) suggests a co-presenter for **{{ title }}**:
 
 - **Name:** {{ suggested_name }}
 - **Email:** {{ suggested_email }}

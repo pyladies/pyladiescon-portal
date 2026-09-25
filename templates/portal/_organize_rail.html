@@ -9,7 +9,7 @@ sponsor table live in the content area.
 
 Expects:
     active: one of: "dashboard", "volunteers", "teams", "conferences", "program_types",
-             "sessions", "presenters", "checklists", "templates", "gates", "handbook", "sponsors", "tiers", "add" (the Add sponsor action), "next_year".
+             "sessions", "presenters", "proposals", "checklists", "templates", "gates", "handbook", "sponsors", "tiers", "add" (the Add sponsor action), "next_year".
              Anything else = no item highlighted.
 Uses from the user_capabilities context processor:
     is_organizer, can_manage_sponsorship, can_manage_conferences,
@@ -60,6 +60,14 @@ layout, as before.
         {% include "portal/_sidebar_item.html" with url=presenters_url label=_("Presenters") icon="fa-user-group" active=True only %}
     {% else %}
         {% include "portal/_sidebar_item.html" with url=presenters_url label=_("Presenters") icon="fa-user-group" only %}
+    {% endif %}
+    {% if speaker_proposals_open %}
+        {% url 'speakers:proposal_queue' as proposals_url %}
+        {% if active == "proposals" %}
+            {% include "portal/_sidebar_item.html" with url=proposals_url label=_("Proposals") icon="fa-paper-plane" badge=pending_proposal_count active=True only %}
+        {% else %}
+            {% include "portal/_sidebar_item.html" with url=proposals_url label=_("Proposals") icon="fa-paper-plane" badge=pending_proposal_count only %}
+        {% endif %}
     {% endif %}
     {% url 'speakers:checklist_board' as checklists_url %}
     {% if active == "checklists" %}

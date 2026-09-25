@@ -40,7 +40,12 @@ def speaker(db):
 
 @pytest.fixture
 def presenter(conference, enabled, speaker):
-    return make_presenter(conference, email="ada@example.com", user=speaker)
+    """On the program: the speaker area is for people with a session."""
+    presenter = make_presenter(conference, email="ada@example.com", user=speaker)
+    add_presenter(
+        make_session(conference, title="Her session"), presenter, confirmed=True
+    )
+    return presenter
 
 
 @pytest.fixture

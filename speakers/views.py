@@ -9,6 +9,7 @@ from django.http import Http404, HttpResponse, HttpResponseBadRequest
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
+from django.utils.functional import cached_property
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views import View
 from django.views.generic import DetailView, ListView, TemplateView
@@ -37,12 +38,14 @@ from .checklists import (
 from .clock import today
 from .constants import (
     DEFAULT_GUIDE_KEY,
+    MAX_PENDING_PROPOSALS,
     OPEN_ITEM_STATUSES,
     AssigneeDefault,
     AutoRule,
     ChecklistScope,
     ItemOwner,
     ItemStatus,
+    ProposalDecision,
     ReadyOverride,
     SessionStatus,
 )
@@ -61,6 +64,8 @@ from .forms import (
     PresenterInviteForm,
     PresenterRoleForm,
     ProgramItemForm,
+    ProposalProfileForm,
+    ProposalSessionForm,
     ReadinessGateForm,
     SessionForm,
     SessionPresenterForm,
@@ -90,11 +95,13 @@ from .models import (
     Invitation,
     Presenter,
     PresenterRole,
+    Proposal,
     ReadinessGate,
     Session,
     SessionPresenter,
     SessionType,
     SpeakerSettings,
+    TransitionError,
 )
 from .permissions import (
     approved_teams,
@@ -113,13 +120,21 @@ from .rules import evaluate_items
 from .seeds import seed_checklists
 from .services import (
     InvitationError,
+    ProposalError,
     accept_invitation,
+    approve_proposal,
     cancel_invitation,
     change_presenter_role,
     decline_invitation,
+    pending_proposals,
     presenter_added_to_session,
+    proposals_open,
+    reject_proposal,
     resolve_invitation,
+    resubmit_proposal,
     send_invitation,
+    submit_proposal,
+    withdraw_proposal,
 )
 from .tables import PresenterTable, SessionTable
 from .tasks import send_copresenter_suggestion_task
@@ -307,6 +322,13 @@ class SessionDetailView(SessionScopedMixin, DetailView):
             for link in self.object.presenter_links
         }
         context["invite_form"] = InviteForm()
+        # A proposed session is answered here as well as on the queue: this
+        # is the page with the whole thing on it to read.
+        context["proposal"] = (
+            Proposal.objects.filter(session=self.object)
+            .select_related("presenter", "decided_by")
+            .first()
+        )
         latest = {}
         for invitation in Invitation.objects.filter(session=self.object).order_by(
             "creation_date", "id"
@@ -1015,16 +1037,16 @@ class SpeakerChecklistView(LoginRequiredMixin, PresenterRequiredMixin, TemplateV
         presenter = self.presenter
         today_here = today(presenter.tzinfo)
         checklist = _speaker_checklist(presenter, today_here)
+        # A session still waiting for an answer, or turned down, has no
+        # checklist: nothing starts before it is approved, and a heading
+        # with nothing under it reads as work that has gone missing.
+        links = [link for link in checklist["links"] if not link.session.is_a_proposal]
         view = "session" if self.request.GET.get("view") == "session" else "all"
         only = None
         session_param = self.request.GET.get("session")
         if session_param:
             only = next(
-                (
-                    link.session
-                    for link in checklist["links"]
-                    if link.session.slug == session_param
-                ),
+                (link.session for link in links if link.session.slug == session_param),
                 None,
             )
             if only is None:
@@ -1034,7 +1056,7 @@ class SpeakerChecklistView(LoginRequiredMixin, PresenterRequiredMixin, TemplateV
         if view == "session":
             targets = [
                 link.session
-                for link in checklist["links"]
+                for link in links
                 if only is None or link.session_id == only.pk
             ]
             for session in targets:
@@ -1218,8 +1240,29 @@ class SpeakerProfileUpdateView(LoginRequiredMixin, PresenterRequiredMixin, Updat
         return context
 
 
+class StillAProposal(Exception):
+    """Raised when a speaker page is asked for something not answered yet.
+
+    Django's own control flow for "this request ends differently" is an
+    exception (``Http404``, ``PermissionDenied``), and the same shape keeps
+    the check in one place for every speaker session page.
+    """
+
+
 class SpeakerSessionMixin(LoginRequiredMixin, PresenterRequiredMixin):
-    """A session in this edition that the presenter is on; 403 otherwise."""
+    """A session in this edition that the presenter is on; 403 otherwise.
+
+    A session still waiting for an answer, or turned down, has no speaker
+    pages: no checklist, nothing to edit here. Those go back to My
+    proposals, which is where the proposer works on them.
+    """
+
+    def dispatch(self, request, *args, **kwargs):
+        try:
+            return super().dispatch(request, *args, **kwargs)
+        except StillAProposal as exc:
+            messages.info(request, str(exc))
+            return redirect("speakers:my_proposals")
 
     def get_session(self):
         session = get_object_or_404(
@@ -1227,6 +1270,11 @@ class SpeakerSessionMixin(LoginRequiredMixin, PresenterRequiredMixin):
         )
         if not session.session_presenters.filter(presenter=self.presenter).exists():
             raise PermissionDenied("You are not a presenter on this session.")
+        if session.is_a_proposal:
+            raise StillAProposal(
+                f"“{session.title}” is still a proposal, so it lives here "
+                "until the team answers it."
+            )
         return session
 
 
@@ -2548,3 +2596,313 @@ class DismissPasswordReminderView(LoginRequiredMixin, PresenterRequiredMixin, Vi
             "Fine by us: sign-in codes it is. You can set a password later under Manage account.",
         )
         return redirect("speakers:my_dashboard")
+
+
+# ---- Proposals: someone asking to give a session -----------------------------
+
+
+class ProposalsOpenMixin(SpeakerModuleRequiredMixin):
+    """Every proposal page asks whether the edition is taking them."""
+
+    @cached_property
+    def open_for_proposals(self):
+        return proposals_open(self.conference)
+
+
+class ProposeSessionView(ProposalsOpenMixin, TemplateView):
+    """The front door: propose a session for this edition.
+
+    Signed out it is an invitation to sign in, because the account is what
+    carries the verified email address we would write to; signed in it is
+    one page of two halves, "about you" and "your session", with the first
+    half skipped for someone the portal already knows.
+    """
+
+    template_name = "speakers/propose.html"
+
+    def get_presenter(self):
+        if not self.request.user.is_authenticated:
+            return None
+        return Presenter.objects.filter(
+            conference=self.conference, user=self.request.user
+        ).first()
+
+    def forms(self, data=None, files=None):
+        presenter = self.get_presenter()
+        profile = (
+            None
+            if presenter is not None
+            else ProposalProfileForm(data, files, prefix="you")
+        )
+        return profile, ProposalSessionForm(
+            data, files, prefix="session", conference=self.conference
+        )
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        settings_row = SpeakerSettings.objects.filter(
+            conference=self.conference
+        ).first()
+        presenter = self.get_presenter()
+        profile_form, session_form = kwargs.get("forms") or self.forms()
+        context.update(
+            {
+                "conference": self.conference,
+                "open_for_proposals": self.open_for_proposals,
+                "intro_md": settings_row.proposals_intro_md if settings_row else "",
+                "presenter": presenter,
+                "profile_form": profile_form,
+                "session_form": session_form,
+                "pending_count": (
+                    pending_proposals(presenter).count() if presenter else 0
+                ),
+                "max_pending": MAX_PENDING_PROPOSALS,
+                "login_url": f"{reverse('account_login')}?next={self.request.path}",
+                "signup_url": f"{reverse('account_signup')}?next={self.request.path}",
+            }
+        )
+        return context
+
+    def post(self, request, *args, **kwargs):
+        if not self.open_for_proposals or not request.user.is_authenticated:
+            raise PermissionDenied("Proposals are not open.")
+        profile_form, session_form = self.forms(request.POST, request.FILES)
+        forms_valid = session_form.is_valid() and (
+            profile_form is None or profile_form.is_valid()
+        )
+        if not forms_valid:
+            return self.render_to_response(
+                self.get_context_data(forms=(profile_form, session_form))
+            )
+        try:
+            proposal = self.create(profile_form, session_form)
+        except ProposalError as exc:
+            messages.error(request, str(exc))
+            return redirect("speakers:my_proposals")
+        messages.success(
+            request,
+            f"Thank you. We have “{proposal.session.title}” and will write to "
+            "you either way.",
+        )
+        return redirect("speakers:my_proposals")
+
+    @transaction.atomic
+    def create(self, profile_form, session_form):
+        """The presenter, the session, the link and the proposal, together."""
+        presenter = self.get_presenter()
+        if presenter is None:
+            presenter = profile_form.save(commit=False)
+            presenter.conference = self.conference
+            presenter.user = self.request.user
+            presenter.email = self.request.user.email
+            presenter.save()
+        session = session_form.save(commit=False)
+        session.conference = self.conference
+        # ``submit_proposal`` moves it to PROPOSED once the rows exist.
+        session.duration_minutes = session.kind.default_duration_minutes
+        session.delivery = session.kind.default_delivery
+        session.save()
+        SessionPresenter.objects.create(
+            session=session,
+            presenter=presenter,
+            role=session.kind.default_role,
+            is_required=True,
+        )
+        return submit_proposal(presenter, session, actor=self.request.user)
+
+
+class MyProposalsView(LoginRequiredMixin, ProposalsOpenMixin, TemplateView):
+    """What this person has proposed, and what came of it."""
+
+    template_name = "speakers/my_proposals.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        presenter = Presenter.objects.filter(
+            conference=self.conference, user=self.request.user
+        ).first()
+        proposals = (
+            Proposal.objects.filter(presenter=presenter)
+            .select_related("session", "session__kind")
+            .order_by("-submitted_at", "-id")
+            if presenter
+            else []
+        )
+        # A speaker sees this with the rest of their speaking; someone
+        # whose proposal nobody has answered is not a speaker yet, so it
+        # sits in their personal rail instead.
+        on_the_program = bool(presenter and presenter.is_onboarded)
+        context.update(
+            {
+                "conference": self.conference,
+                "presenter": presenter,
+                "proposals": proposals,
+                "open_for_proposals": self.open_for_proposals,
+                "on_the_program": on_the_program,
+                "shell": (
+                    "speakers/_speaker_shell.html"
+                    if on_the_program
+                    else "portal/base_sidebar.html"
+                ),
+                "rail_active": "proposals",
+            }
+        )
+        return context
+
+
+class ProposalActionMixin(LoginRequiredMixin, SpeakerModuleRequiredMixin):
+    """One proposal, which must be this person's own."""
+
+    def get_proposal(self):
+        return get_object_or_404(
+            Proposal.objects.select_related("session", "presenter"),
+            pk=self.kwargs["pk"],
+            conference=self.conference,
+            presenter__user=self.request.user,
+        )
+
+
+class ProposalEditView(ProposalActionMixin, TemplateView):
+    """Change a proposal while nobody has answered it."""
+
+    template_name = "speakers/proposal_edit.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        proposal = self.get_proposal()
+        context.update(
+            {
+                "conference": self.conference,
+                "proposal": proposal,
+                "session_form": kwargs.get("session_form")
+                or ProposalSessionForm(
+                    instance=proposal.session,
+                    prefix="session",
+                    conference=self.conference,
+                ),
+                "rail_active": "proposals",
+            }
+        )
+        return context
+
+    def post(self, request, pk):
+        proposal = self.get_proposal()
+        if not proposal.proposer_can_edit:
+            raise PermissionDenied("That proposal has been answered.")
+        form = ProposalSessionForm(
+            request.POST,
+            request.FILES,
+            instance=proposal.session,
+            prefix="session",
+            conference=self.conference,
+        )
+        if not form.is_valid():
+            return self.render_to_response(self.get_context_data(session_form=form))
+        session = form.save(commit=False)
+        session.duration_minutes = session.kind.default_duration_minutes
+        session.save()
+        messages.success(request, "Your proposal has been updated.")
+        return redirect("speakers:my_proposals")
+
+
+class ProposalWithdrawView(ProposalActionMixin, View):
+    """Take it back while nobody has answered. It is kept, not deleted."""
+
+    def post(self, request, pk):
+        proposal = self.get_proposal()
+        title = proposal.session.title
+        try:
+            withdraw_proposal(proposal, actor=request.user)
+        except ProposalError as exc:
+            messages.error(request, str(exc))
+            return redirect("speakers:my_proposals")
+        messages.success(
+            request,
+            f"“{title}” has been withdrawn. It is still here: edit it and "
+            "send it again whenever you like.",
+        )
+        return redirect("speakers:my_proposals")
+
+
+class ProposalResubmitView(ProposalActionMixin, View):
+    """Send a withdrawn proposal back for an answer."""
+
+    def post(self, request, pk):
+        proposal = self.get_proposal()
+        try:
+            resubmit_proposal(proposal, actor=request.user)
+        except ProposalError as exc:
+            messages.error(request, str(exc))
+            return redirect("speakers:my_proposals")
+        messages.success(
+            request,
+            f"“{proposal.session.title}” is with the team again.",
+        )
+        return redirect("speakers:my_proposals")
+
+
+class ProposalQueueView(LoginRequiredMixin, SpeakerStaffRequiredMixin, TemplateView):
+    """The organizers' side: what people have proposed, pending first."""
+
+    template_name = "speakers/proposal_queue.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        proposals = (
+            Proposal.objects.filter(conference=self.conference)
+            .exclude(decision=ProposalDecision.WITHDRAWN)
+            .select_related("session", "session__kind", "presenter", "decided_by")
+            .order_by("decision", "-submitted_at", "-id")
+        )
+        context.update(
+            {
+                "conference": self.conference,
+                "rail_active": "proposals",
+                "pending": [p for p in proposals if p.is_pending],
+                "answered": [p for p in proposals if not p.is_pending],
+                "can_decide": is_speaker_organizer(self.request.user),
+            }
+        )
+        return context
+
+
+class ProposalDecisionView(LoginRequiredMixin, SpeakerOrganizerRequiredMixin, View):
+    """Yes or no. Organizers only; liaisons and staff may read the queue."""
+
+    def post(self, request, pk):
+        proposal = get_object_or_404(
+            Proposal.objects.select_related("session", "presenter"),
+            pk=pk,
+            conference=self.conference,
+        )
+        answer = request.POST.get("decision", "")
+        if answer not in (ProposalDecision.APPROVED, ProposalDecision.REJECTED):
+            return HttpResponseBadRequest("Unknown decision.")
+        try:
+            if answer == ProposalDecision.APPROVED:
+                after_all = proposal.is_rejected
+                approve_proposal(proposal, actor=request.user)
+                messages.success(
+                    request,
+                    f"“{proposal.session.title}” is in"
+                    + (" after all. " if after_all else ". ")
+                    + f"{proposal.presenter.display_name} has been told and has "
+                    "their checklist.",
+                )
+            else:
+                reject_proposal(proposal, actor=request.user)
+                messages.success(
+                    request,
+                    f"{proposal.presenter.display_name} has been told about "
+                    f"“{proposal.session.title}”.",
+                )
+        except (ProposalError, TransitionError) as exc:
+            messages.error(request, str(exc))
+        # Answered from the session page, the answer belongs there: the
+        # queue is where you go to empty it, not where you were reading.
+        back = request.POST.get("next", "")
+        if back and url_has_allowed_host_and_scheme(
+            back, allowed_hosts={request.get_host()}, require_https=request.is_secure()
+        ):
+            return redirect(back)
+        return redirect("speakers:proposal_queue")

@@ -26,13 +26,17 @@ from portal.constants import BASE_PRETIX_URL
 
 from .clock import today
 from .constants import (
+    CAN_BE_APPROVED,
     DEFAULT_GUIDE_KEY,
     IDENTITY_LOCKED_STATUSES,
     OPEN_ITEM_STATUSES,
+    PROPOSER_CAN_EDIT,
     RESERVED_SLUGS,
     SESSION_LANGUAGE,
     SLUG_BASE_LENGTH,
     SLUG_MAX_LENGTH,
+    SPEAKER_STATUS_LABELS,
+    UNACCEPTED_STATUSES,
     AssigneeDefault,
     AutoRule,
     ChannelKind,
@@ -45,6 +49,7 @@ from .constants import (
     MediaStatus,
     NoticeKind,
     PremiereLocation,
+    ProposalDecision,
     ReadyOverride,
     ReadyRule,
     SessionLevel,
@@ -155,6 +160,19 @@ class SpeakerSettings(TimestampedModel):
         choices=PremiereLocation.choices,
         default=PremiereLocation.DISCORD,
         help_text="Where pre-recorded sessions premiere unless a session says otherwise.",
+    )
+    proposals_open = models.BooleanField(
+        default=False,
+        db_default=False,
+        help_text="While on, anyone with a portal account may propose a "
+        "session, speakers already on the program included.",
+    )
+    proposals_intro_md = models.TextField(
+        blank=True,
+        default="",
+        db_default="",
+        help_text="Shown above the propose-a-session form: what you are "
+        "looking for, and by when.",
     )
     translation_languages = ArrayField(
         models.CharField(max_length=10),
@@ -478,6 +496,22 @@ class Presenter(TimestampedModel):
             return self.invitations.order_by("-creation_date", "-id").first()
         return history[0] if history else None
 
+    @property
+    def is_onboarded(self):
+        """Whether they are on the program: a confirmed link to a session.
+
+        Someone whose proposal is pending or turned down has a presenter
+        row and an account, but no session of the conference's, so the
+        speaker area is not theirs yet.
+        """
+        # The one place the rule is written: ``PresenterQuerySet.onboarded``.
+        return type(self).objects.filter(pk=self.pk).onboarded().exists()
+
+    @property
+    def liaison_email(self):
+        """The liaison's address, when they have one with an address."""
+        return self.liaison.email if self.liaison and self.liaison.email else ""
+
 
 class PresenterRole(TimestampedModel):
     """What a person is on a session: presenter, panelist, host... (design
@@ -557,6 +591,12 @@ class SessionType(TimestampedModel):
     spans_all_channels = models.BooleanField(
         default=False,
         help_text="On the schedule, takes the whole grid rather than one channel.",
+    )
+    open_for_proposals = models.BooleanField(
+        default=False,
+        db_default=False,
+        help_text="Offered on the propose-a-session form. Off for the types "
+        "nobody proposes, such as a break or the opening.",
     )
     roles = models.ManyToManyField(
         PresenterRole,
@@ -666,6 +706,13 @@ class Session(TimestampedModel):
     )
     status = models.CharField(
         max_length=16, choices=SessionStatus.choices, default=SessionStatus.DRAFT
+    )
+    created_by_presenter = models.BooleanField(
+        default=False,
+        db_default=False,
+        editable=False,
+        help_text="A speaker added this session themselves, or proposed it; "
+        "organizers did not type it in.",
     )
     is_public = models.BooleanField(
         default=False, help_text="Explicit publish switch (design §11.5)."
@@ -795,6 +842,23 @@ class Session(TimestampedModel):
         return self.status in IDENTITY_LOCKED_STATUSES
 
     @property
+    def speaker_status(self):
+        """What the status means to the person giving the session.
+
+        "Draft" and "invited" are about the organizers' own work; the
+        speaker's question is whether it is happening, and whether anyone
+        can see it yet.
+        """
+        return SPEAKER_STATUS_LABELS.get(
+            SessionStatus(self.status), self.get_status_display()
+        )
+
+    @property
+    def is_a_proposal(self):
+        """Still a request rather than a session of the conference's."""
+        return self.status in UNACCEPTED_STATUSES
+
+    @property
     def blocking_required_items(self):
         """Open required checklist items that keep this session from CONFIRMED."""
         return self.checklist_items.filter(
@@ -843,12 +907,131 @@ class Session(TimestampedModel):
         if save:
             self.save(update_fields=["status", "is_public"])
 
+    def propose(self, save=True):
+        """-> PROPOSED, when someone asks for it rather than organizers
+        creating it. A session only becomes a proposal on the way in."""
+        self._require_status(SessionStatus.DRAFT, SessionStatus.PROPOSED)
+        self.status = SessionStatus.PROPOSED
+        self.created_by_presenter = True
+        if save:
+            self.save(update_fields=["status", "created_by_presenter"])
+
+    def approve(self, save=True):
+        """PROPOSED or REJECTED -> DRAFT. From here it is an ordinary session.
+
+        The presenter's own confirmation, their checklists and the
+        confirmation attempt are the acceptance path's job
+        (``services.approve_proposal``), which is the same one an accepted
+        invitation takes.
+        """
+        self._require_status(
+            SessionStatus.PROPOSED, SessionStatus.REJECTED, SessionStatus.DRAFT
+        )
+        self.status = SessionStatus.DRAFT
+        if save:
+            self.save(update_fields=["status"])
+
+    def reject(self, save=True):
+        """PROPOSED -> REJECTED. The row stays: it is a record of an answer
+        given, and the proposer can still read what they sent."""
+        self._require_status(SessionStatus.PROPOSED, SessionStatus.REJECTED)
+        self.status = SessionStatus.REJECTED
+        self.is_public = False
+        if save:
+            self.save(update_fields=["status", "is_public"])
+
     def cancel(self, save=True):
         """Any status -> CANCELLED; takes the session off the public site."""
         self.status = SessionStatus.CANCELLED
         self.is_public = False
         if save:
             self.save(update_fields=["status", "is_public"])
+
+
+class Proposal(TimestampedModel):
+    """Someone's request to give a session, and the answer to it.
+
+    The mirror of ``Invitation``: an invitation is the organizers asking a
+    person, a proposal is a person asking the organizers. Both end in a
+    confirmed ``SessionPresenter`` and a checklist when the answer is yes.
+
+    The session, the presenter and the link all exist from the moment the
+    form is submitted, in status ``PROPOSED``; approving moves the session
+    to ``DRAFT`` and runs the acceptance path. Nothing here is a copy of
+    the session's fields: the proposal carries the review, the session
+    carries the content.
+    """
+
+    conference = models.ForeignKey(
+        "portal.Conference",
+        on_delete=models.PROTECT,
+        related_name="proposals",
+        editable=False,
+    )
+    session = models.OneToOneField(
+        Session, on_delete=models.CASCADE, related_name="proposal"
+    )
+    presenter = models.ForeignKey(
+        Presenter, on_delete=models.CASCADE, related_name="proposals"
+    )
+    decision = models.CharField(
+        max_length=16,
+        choices=ProposalDecision.choices,
+        default=ProposalDecision.PENDING,
+        db_default=ProposalDecision.PENDING,
+    )
+    submitted_at = models.DateTimeField(default=timezone.now)
+    decided_at = models.DateTimeField(null=True, blank=True)
+    decided_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
+    )
+
+    class Meta:
+        ordering = ["-submitted_at", "-id"]
+
+    def __str__(self):
+        return f"{self.presenter.display_name}: {self.session.title}"
+
+    def save(self, *args, **kwargs):
+        """The edition comes from the session, never from the caller."""
+        self.conference_id = self.session.conference_id
+        super().save(*args, **kwargs)
+
+    @property
+    def is_pending(self):
+        return self.decision == ProposalDecision.PENDING
+
+    @property
+    def is_withdrawn(self):
+        return self.decision == ProposalDecision.WITHDRAWN
+
+    @property
+    def proposer_can_edit(self):
+        """Theirs to change: nobody has answered it, or they took it back."""
+        return self.decision in PROPOSER_CAN_EDIT
+
+    @property
+    def is_rejected(self):
+        return self.decision == ProposalDecision.REJECTED
+
+    @property
+    def can_be_approved(self):
+        """Yes is still available, including on one already turned down."""
+        return self.decision in CAN_BE_APPROVED
+
+    def decide(self, decision, actor=None):
+        """Record the answer. The session transition is the caller's."""
+        self.decision = decision
+        self.decided_at = timezone.now()
+        self.decided_by = actor
+        self.save(
+            update_fields=["decision", "decided_at", "decided_by", "modified_date"]
+        )
+        return self
 
 
 class SessionPresenter(TimestampedModel):

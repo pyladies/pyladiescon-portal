@@ -1,0 +1,13 @@
+{% load i18n %}
+{% comment %}
+What the session's state means to the speaker, as one badge. Params:
+    session — the Session
+A proposal says so and points at the page where it can be withdrawn; an
+accepted session says whether it is arranged, scheduled or public.
+{% endcomment %}
+<span class="badge {% if session.status == 'PUBLISHED' or session.status == 'SCHEDULED' %}text-bg-success{% elif session.status == 'CONFIRMED' %}text-bg-info{% elif session.status == 'CANCELLED' or session.status == 'REJECTED' %}text-bg-secondary{% else %}text-bg-light border{% endif %}">
+    {% if session.status == "PROPOSED" %}
+        <i class="fa-solid fa-hourglass-half"></i>
+    {% endif %}
+    {{ session.speaker_status }}
+</span>

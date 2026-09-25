@@ -15,7 +15,7 @@ from speakers.constants import SessionStatus
 from speakers.context_processors import speaker_module
 from speakers.emails import organizer_recipients
 from speakers.mixins import PresenterRequiredMixin
-from speakers.models import ActivityLog, Session
+from speakers.models import ActivityLog, Session, SpeakerSettings
 from speakers.tasks import send_copresenter_suggestion_task
 from volunteer.models import VolunteerProfile
 
@@ -45,9 +45,19 @@ def other_speaker(db):
 
 @pytest.fixture
 def presenter(conference, enabled, speaker):
-    return make_presenter(
+    """A speaker on the program: a presenter with a confirmed session.
+
+    The speaker area belongs to people who are on the program, which is
+    what accepting an invitation makes them; a proposal that nobody has
+    answered does not (``Presenter.is_onboarded``).
+    """
+    presenter = make_presenter(
         conference, display_name="Ada Lovelace", email="ada@example.com", user=speaker
     )
+    add_presenter(
+        make_session(conference, title="Her session"), presenter, confirmed=True
+    )
+    return presenter
 
 
 @pytest.fixture
@@ -177,7 +187,7 @@ class TestDashboard:
         content = client.get(DASHBOARD).content.decode()
         assert "still missing" not in content
         assert "Nothing open on your to-do list" in content
-        assert "You are not on any session yet" in content
+        assert "Her session" in content
 
     def test_schedule_placeholder(self, client, speaker, presenter):
         presenter.timezone = "Africa/Lagos"
@@ -455,6 +465,29 @@ class TestSuggestCoPresenter:
         entry = ActivityLog.for_target(my_session).get()
         assert entry.action == "session.copresenter_suggested"
         assert entry.data == {"name": "Grace Hopper", "email": "grace@navy.example"}
+
+    def test_the_team_address_takes_it_when_there_is_one(
+        self, client, speaker, presenter, my_session, admin_user, conference
+    ):
+        """Same rule as the proposal notice: the address the team reads,
+        with this presenter's liaison alongside it."""
+        settings_row = SpeakerSettings.objects.get(conference=conference)
+        settings_row.organizers_email = "programs@example.com"
+        settings_row.save(update_fields=["organizers_email"])
+        liaison = User.objects.create_user(username="lena", email="lena@example.com")
+        presenter.liaison = liaison
+        presenter.save()
+        client.force_login(speaker)
+        mail.outbox.clear()
+        client.post(
+            reverse("speakers:my_session_suggest", args=[my_session.slug]),
+            {"name": "Grace Hopper", "email": "grace@navy.example", "note": ""},
+        )
+        assert sorted(m.to[0] for m in mail.outbox) == [
+            "lena@example.com",
+            "programs@example.com",
+        ]
+        assert "admin@example.com" not in [m.to[0] for m in mail.outbox]
 
     def test_note_cannot_smuggle_links_or_break_out(
         self, client, speaker, presenter, my_session, admin_user
