@@ -171,9 +171,10 @@ with `open_for_proposals` are offered, so nobody proposes a coffee break.
 A proposal is real rows from the start: a `Presenter` with the account
 linked, a `Session` in `PROPOSED`, an unconfirmed `SessionPresenter`, and a
 `Proposal` carrying the review. The notice goes to
-`SpeakerSettings.organizers_email` (`emails.organizer_inbox`, the same rule
-the reminder digest uses, falling back to the staff accounts while the
-field is blank): a proposal is work for whoever runs the program, and
+`SpeakerSettings.organizers_email` (`emails.organizer_inbox`, which the
+reminder digest and the co-presenter suggestion use too, falling back to
+the staff accounts while the field is blank, and adding the presenter's
+liaison where there is one): a proposal is work for whoever runs the program, and
 `is_staff` is neither per edition nor a job description. Approving runs the acceptance path an
 invitation takes (`services.approve_proposal`), so the checklists, the
 confirmation and the emails are the ones a speaker always gets, dated from

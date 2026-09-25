@@ -134,7 +134,12 @@ def organizer_inbox(conference, presenter=None):
     """
     settings_row = SpeakerSettings.objects.filter(conference=conference).first()
     if settings_row and settings_row.organizers_email:
-        return [settings_row.organizers_email]
+        emails = {settings_row.organizers_email}
+        # The liaison is this presenter's person, not part of the team
+        # address, so they are told either way.
+        if presenter is not None and presenter.liaison and presenter.liaison.email:
+            emails.add(presenter.liaison.email)
+        return sorted(emails)
     return organizer_recipients(presenter)
 
 
@@ -151,7 +156,7 @@ def organizer_recipients(presenter=None):
 
 def send_copresenter_suggestion_email(presenter, session, name, email, note):
     """Tell the organizers a presenter suggested someone for their session."""
-    recipients = organizer_recipients(presenter)
+    recipients = organizer_inbox(session.conference, presenter)
     if not recipients:
         return 0
     context = {
