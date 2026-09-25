@@ -30,6 +30,7 @@ from .models import (
     ChecklistItem,
     Invitation,
     InvitationStatus,
+    Presenter,
     Proposal,
     SessionPresenter,
     SessionType,
@@ -400,6 +401,21 @@ def pending_proposals(presenter):
     return presenter.proposals.filter(decision=ProposalDecision.PENDING)
 
 
+def _refuse_when_full(presenter, closing):
+    """The three-pending cap, counted with the proposer's row locked.
+
+    Two posts a moment apart would otherwise each read two pending and
+    each write a third. Nothing in the database backs the cap, so the lock
+    is what makes it one answer at a time per person.
+    """
+    Presenter.objects.select_for_update().filter(pk=presenter.pk).first()
+    if pending_proposals(presenter).count() >= MAX_PENDING_PROPOSALS:
+        raise ProposalError(
+            f"You already have {MAX_PENDING_PROPOSALS} proposals waiting for "
+            f"an answer. {closing}"
+        )
+
+
 def submit_proposal(presenter, session, actor=None):
     """Record a proposal for a session that was just created.
 
@@ -408,12 +424,8 @@ def submit_proposal(presenter, session, actor=None):
     public side and every speaker page, and the proposal carries the
     review. Approving is then the same path an accepted invitation takes.
     """
-    if pending_proposals(presenter).count() >= MAX_PENDING_PROPOSALS:
-        raise ProposalError(
-            f"You already have {MAX_PENDING_PROPOSALS} proposals waiting for "
-            "an answer. Withdraw one to send another."
-        )
     with transaction.atomic():
+        _refuse_when_full(presenter, "Withdraw one to send another.")
         # The session becomes a proposal here, so every caller gets it:
         # a session left in DRAFT would sit on the organizers' program
         # list as though they had made it.
@@ -471,12 +483,8 @@ def resubmit_proposal(proposal, actor=None):
     if not proposal.is_withdrawn:
         raise ProposalError("Only a withdrawn proposal can be sent again.")
     presenter = proposal.presenter
-    if pending_proposals(presenter).count() >= MAX_PENDING_PROPOSALS:
-        raise ProposalError(
-            f"You already have {MAX_PENDING_PROPOSALS} proposals waiting for "
-            "an answer. Withdraw one to send this again."
-        )
     with transaction.atomic():
+        _refuse_when_full(presenter, "Withdraw one to send this again.")
         proposal.decision = ProposalDecision.PENDING
         proposal.decided_at = None
         proposal.decided_by = None

@@ -24,6 +24,7 @@ from .factories import (
     add_presenter,
     make_channel,
     make_presenter,
+    make_proposal,
     make_session,
     make_settings,
     make_slot,
@@ -66,6 +67,19 @@ class TestIsolation:
         with pytest.raises(ValidationError, match="different editions"):
             add_presenter(session, presenter)
         assert SessionPresenter.objects.count() == 0
+
+    def test_proposals_scoped_and_inherit_edition(self, conference, other_conference):
+        """The proposal's edition comes from its session, never a caller."""
+        session = make_session(conference, title="Ours")
+        proposal = make_proposal(session, make_presenter(conference))
+        assert proposal.conference == conference
+        assert list(conference.proposals.all()) == [proposal]
+        assert list(other_conference.proposals.all()) == []
+        # Even when a caller insists otherwise.
+        proposal.conference = other_conference
+        proposal.save()
+        proposal.refresh_from_db()
+        assert proposal.conference == conference
 
     def test_session_presenter_and_slot_inherit_edition(self, conference):
         session = make_session(conference)

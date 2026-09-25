@@ -20,11 +20,17 @@ from speakers.checklists import (
 from speakers.constants import AutoRule, ItemOwner, ItemStatus
 from speakers.models import ActivityLog, ChecklistItem
 from speakers.permissions import approved_teams, is_speaker_assignee
+from speakers.services import submit_proposal
 from speakers.views import DONE_ITEMS_SHOWN
 from volunteer.constants import ApplicationStatus
 from volunteer.models import Team, VolunteerProfile
 
 from .factories import add_presenter, make_presenter, make_session, make_settings
+
+
+def conference_of(settings_row):
+    return settings_row.conference
+
 
 BOARD = reverse("speakers:checklist_board")
 QUEUE = reverse("speakers:checklist_queue")
@@ -204,6 +210,21 @@ class TestBoard:
     def test_empty_board(self, client, organizer, enabled):
         client.force_login(organizer)
         assert "No presenters with checklists yet" in client.get(BOARD).content.decode()
+
+    def test_an_unanswered_proposal_is_not_a_row(self, client, organizer, enabled):
+        """The board tracks the program's work. Someone waiting for an
+        answer has a presenter row and no checklist behind it, so an empty
+        line for them reads as work that has gone missing."""
+        proposer = make_presenter(conference_of(enabled), display_name="Sam Hopeful")
+        session = make_session(conference_of(enabled), title="Their idea")
+        add_presenter(session, proposer)
+        submit_proposal(proposer, session)
+        client.force_login(organizer)
+        page = client.get(BOARD).content.decode()
+        assert "Sam Hopeful" not in page
+        assert "Sam Hopeful" not in client.get(EXPORT).content.decode()
+        rows = build_board(conference_of(enabled), organizer, ItemOwner.SPEAKER)["rows"]
+        assert rows == []
 
     def test_rail_links(self, client, organizer, enabled):
         client.force_login(organizer)

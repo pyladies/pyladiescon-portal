@@ -922,6 +922,17 @@ class SpeakerOnboardingForm(forms.Form):
         return profile
 
 
+def one_line(value):
+    """Collapse any run of whitespace, newlines included, to single spaces.
+
+    A title reaches four email subjects, and Django refuses a header with a
+    newline in it: the rows would commit and every email about that
+    proposal would die, including the one telling the speaker they are in.
+    ``strip=True`` only trims the ends, so the collapse happens here.
+    """
+    return " ".join(value.split())
+
+
 class SessionTypeChoiceField(forms.ModelChoiceField):
     """Radio labels that say what picking one means.
 
@@ -999,6 +1010,9 @@ class ProposalSessionForm(forms.ModelForm):
         self.fields["title"].required = True
         self.fields["summary_md"].required = True
 
+    def clean_title(self):
+        return one_line(self.cleaned_data["title"])
+
     def clean_kind(self):
         """The queryset already refuses a type from another edition or one
         that is not open; this is the guard behind it."""
@@ -1019,6 +1033,10 @@ class ProposalProfileForm(forms.ModelForm):
         choices=timezone_choices,
         help_text="So we show you times in yours, and know when to reach you.",
     )
+
+    def clean_display_name(self):
+        """A name reaches email headers too; see ``one_line``."""
+        return one_line(self.cleaned_data["display_name"])
 
     class Meta:
         model = Presenter

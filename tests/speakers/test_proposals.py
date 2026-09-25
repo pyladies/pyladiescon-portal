@@ -213,6 +213,32 @@ class TestProposing:
         propose(client, conference, level="")
         assert Session.objects.get(title="A talk about testing").level == ""
 
+    def test_a_title_cannot_break_the_emails_about_it(
+        self, client, conference, enabled, stranger
+    ):
+        """A newline in a title would be a newline in four email subjects,
+        which Django refuses: the rows would commit and nothing would ever
+        be sent about that proposal, the answer included."""
+        client.force_login(stranger)
+        propose(client, conference, title="Fine title\nX-Injected: yes")
+        session = Session.objects.get()
+        assert session.title == "Fine title X-Injected: yes"
+        assert any("We have your proposal" in m.subject for m in mail.outbox)
+        assert all("\n" not in m.subject for m in mail.outbox)
+
+    def test_a_title_cannot_put_a_link_in_the_organizers_inbox(
+        self, client, conference, enabled, stranger, organizer
+    ):
+        """Their words reach organizers as words. The co-presenter note
+        has been fenced for this reason since it was written."""
+        client.force_login(stranger)
+        propose(client, conference, title="[Approve now](https://phish.example/x)")
+        notice = next(m for m in mail.outbox if "New session proposal" in m.subject)
+        html = notice.alternatives[0][0]
+        assert "phish.example" in html
+        assert 'href="https://phish.example/x"' not in html
+        assert "<img" not in html
+
     def test_a_form_with_errors_says_so_above_the_folded_sections(
         self, client, conference, enabled, stranger
     ):
@@ -767,6 +793,25 @@ class TestWhatOthersSee:
         notice = next(m for m in mail.outbox if "New session proposal" in m.subject)
         assert notice.to == ["programs@example.com"]
         assert organizer.email not in notice.to
+
+    def test_the_liaison_is_told_alongside_the_team_address(
+        self, client, conference, enabled, stranger
+    ):
+        """Someone proposing for the second time has a liaison, and the
+        team address is not theirs."""
+        settings_row = SpeakerSettings.objects.get(conference=conference)
+        settings_row.organizers_email = "programs@example.com"
+        settings_row.save(update_fields=["organizers_email"])
+        liaison = User.objects.create_user(username="lena", email="lena@example.com")
+        presenter = make_presenter(
+            conference, display_name="Sam", user=stranger, liaison=liaison
+        )
+        add_presenter(make_session(conference), presenter, confirmed=True)
+        client.force_login(stranger)
+        mail.outbox.clear()
+        propose(client, conference)
+        notice = next(m for m in mail.outbox if "New session proposal" in m.subject)
+        assert notice.to == ["lena@example.com", "programs@example.com"]
 
     def test_without_one_it_falls_back_to_the_staff_accounts(
         self, client, conference, enabled, stranger, organizer

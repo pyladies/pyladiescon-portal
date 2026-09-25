@@ -8,6 +8,7 @@ from .factories import (
     add_presenter,
     make_channel,
     make_presenter,
+    make_proposal,
     make_session,
     make_slot,
 )
@@ -25,6 +26,9 @@ class TestSpeakersAdmin:
             "scheduleslot",
             "activitylog",
             "speakersettings",
+            "proposal",
+            "readinessgate",
+            "handbookreadreceipt",
         ],
     )
     def test_changelists_render(self, client, admin_user, conference, model):
@@ -32,6 +36,7 @@ class TestSpeakersAdmin:
         presenter = make_presenter(conference, display_name="Listed presenter")
         add_presenter(session, presenter)
         make_slot(session, channel=make_channel(conference))
+        make_proposal(session, presenter)
         client.force_login(admin_user)
         response = client.get(reverse(f"admin:speakers_{model}_changelist"))
         assert response.status_code == 200

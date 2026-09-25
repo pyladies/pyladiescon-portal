@@ -122,6 +122,21 @@ def render_invitation_preview(invitation):
 
 FENCE = "`" * 3  # a note may not close the code block it is shown in
 
+# What turns text into a link, an image, a code span or raw HTML. Emphasis
+# is left alone: a slanted word in an organizer's inbox is not the problem,
+# a clickable "Approve now" pointing somewhere else is.
+MARKUP_CHARS = str.maketrans({ch: "\\" + ch for ch in "\\`[]<>!"})
+
+
+def as_written(value):
+    """Presenter-typed text, shown to organizers as typed.
+
+    The co-presenter note is fenced for the same reason (no links,
+    headings or markup of theirs reach the organizers); a title and a name
+    are read inline, so they are escaped instead of fenced.
+    """
+    return (value or "").translate(MARKUP_CHARS)
+
 
 def organizer_inbox(conference, presenter=None):
     """Where organizer-facing mail for this edition goes.
@@ -137,8 +152,8 @@ def organizer_inbox(conference, presenter=None):
         emails = {settings_row.organizers_email}
         # The liaison is this presenter's person, not part of the team
         # address, so they are told either way.
-        if presenter is not None and presenter.liaison and presenter.liaison.email:
-            emails.add(presenter.liaison.email)
+        if presenter is not None and presenter.liaison_email:
+            emails.add(presenter.liaison_email)
         return sorted(emails)
     return organizer_recipients(presenter)
 
@@ -149,8 +164,8 @@ def organizer_recipients(presenter=None):
         Q(is_staff=True) | Q(is_superuser=True), is_active=True
     )
     emails = {user.email for user in users if user.email}
-    if presenter is not None and presenter.liaison and presenter.liaison.email:
-        emails.add(presenter.liaison.email)
+    if presenter is not None and presenter.liaison_email:
+        emails.add(presenter.liaison_email)
     return sorted(emails)
 
 
@@ -162,8 +177,10 @@ def send_copresenter_suggestion_email(presenter, session, name, email, note):
     context = {
         "presenter": presenter,
         "session": session,
-        "suggested_name": name,
-        "suggested_email": email,
+        "title": as_written(session.title),
+        "proposer": as_written(presenter.display_name),
+        "suggested_name": as_written(name),
+        "suggested_email": as_written(email),
         # Presenter-written text goes into the email as a literal block:
         # no links, headings or markup of theirs reach the organizers.
         "note": note.replace(FENCE, "'" * 3).strip(),
@@ -281,7 +298,9 @@ def send_proposal_received_email(proposal):
         markdown_template="emails/speakers/proposal_received.md",
         context=context,
     )
-    recipients = organizer_inbox(proposal.conference)
+    # With the presenter: an edition's team address does not include this
+    # proposer's liaison, and the liaison is their person.
+    recipients = organizer_inbox(proposal.conference, presenter)
     if recipients:
         send_email(
             f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} New session proposal: "
@@ -291,6 +310,9 @@ def send_proposal_received_email(proposal):
             context={
                 **context,
                 "review_url": absolute_url(reverse("speakers:proposal_queue")),
+                # Their words, shown as words: see ``as_written``.
+                "title": as_written(session.title),
+                "proposer": as_written(presenter.display_name),
             },
         )
     return len(recipients) + 1

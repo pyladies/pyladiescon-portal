@@ -23,12 +23,9 @@ def welcome_url_for(user):
     # On the program, not merely known to us: someone whose proposal has
     # not been answered has a presenter row and no speaker pages, so the
     # speaker welcome would 403 on them. They get the plain agreements
-    # page, and the speaker welcome when their session is approved.
-    on_the_program = Presenter.objects.filter(
-        conference=conference,
-        user=user,
-        session_presenters__confirmed_at__isnull=False,
-    ).exists()
-    if not on_the_program:
+    # page, and the speaker welcome when their session is approved. The
+    # rule itself lives on the queryset, so this and the mixin cannot
+    # drift apart.
+    if not Presenter.objects.filter(conference=conference, user=user).onboarded():
         return None
     return reverse("speakers:my_welcome")

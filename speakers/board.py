@@ -37,6 +37,11 @@ def build_board(conference, user, owner, sort="overdue"):
     presenters = list(
         Presenter.objects.for_conference(conference)
         .visible_to(user)
+        # Not someone who has only asked: an unanswered proposal makes a
+        # presenter row with no checklist behind it, and an empty line on
+        # the board reads as work that has gone missing. A presenter the
+        # organizers created and have not invited yet does stay.
+        .not_only_proposing()
         .select_related("liaison")
         .order_by("display_name")
     )

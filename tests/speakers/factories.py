@@ -12,6 +12,7 @@ from speakers.models import (
     Invitation,
     Presenter,
     PresenterRole,
+    Proposal,
     ScheduleSlot,
     Session,
     SessionPresenter,
@@ -91,3 +92,8 @@ def make_slot(session, **kwargs):
 
 def make_invitation(presenter, session=None, **kwargs):
     return Invitation.objects.create(presenter=presenter, session=session, **kwargs)
+
+
+def make_proposal(session, presenter, **kwargs):
+    """The review row. ``conference`` comes from the session on save."""
+    return Proposal.objects.create(session=session, presenter=presenter, **kwargs)

@@ -161,12 +161,12 @@ reads it only when the item is blocked, on their checklist and on the item
 page alike: a blocked note explains a hold-up they need to know about, while
 a skip note is a conversation among organizers.
 
-### Proposals, and speakers adding their own sessions
+### Proposals
 
 An edition can open the door: while `SpeakerSettings.proposals_open` is on,
-anyone with a portal account proposes a session at `/speakers/propose/`, and
-a speaker already on the program adds one without review. Only session types
-with `open_for_proposals` are offered, so nobody proposes a coffee break.
+anyone with a portal account proposes a session at `/speakers/propose/`,
+speakers already on the program included. Only session types with
+`open_for_proposals` are offered, so nobody proposes a coffee break.
 
 A proposal is real rows from the start: a `Presenter` with the account
 linked, a `Session` in `PROPOSED`, an unconfirmed `SessionPresenter`, and a
@@ -197,7 +197,27 @@ Proposals are capped per presenter per edition (`MAX_PENDING_PROPOSALS`),
 and `Session.created_by_presenter` marks what came in this way.
 
 `Presenter.is_onboarded` is what the speaker area gates on, rather than the
-presenter row existing: a proposer has a row before anyone has said yes.
+presenter row existing: a proposer has a row before anyone has said yes. The
+rule itself is `PresenterQuerySet.onboarded()`, which the agreements-gate
+resolver reads too, so the two cannot drift apart. The checklist board uses
+the looser `not_only_proposing()`: a presenter an organizer created but has
+not invited yet is still their work, while someone who has only asked is
+not a row until the answer.
+
+Title and display name are collapsed to one line on the way in
+(`forms.one_line`): both reach email subject lines, and a newline in a
+header makes Django refuse the message, which would silently cost the
+proposer every email about their proposal. Both are escaped again on the
+way into the organizers' email (`emails.as_written`), for the reason the
+co-presenter note is fenced: a proposer's words reach organizers as words,
+never as a link or an image.
+
+**Liaison scoping is deliberately absent here.** Everywhere else a liaison
+sees only their own presenters; the proposal queue shows them the whole
+edition's. Someone proposing for the first time has no liaison, so scoping
+by one would leave a liaison staring at an empty queue while proposals
+waited. Deciding stays organizer-only (`can_decide`), so what a liaison has
+is a reading of the program's inbox.
 
 ### Items nobody can start yet (readiness)
 
@@ -610,8 +630,11 @@ installed; this app keeps small factory functions in `tests/speakers/factories.p
   reason (`0002_repair_invitation_sent_to` is the cost of learning it).
   See the deployment docs, "Release step and migrations".
 - Every model: `conference` FK, admin registration, factory function,
-  isolation test. Join and child rows (`SessionPresenter`, `ScheduleSlot`)
-  carry a non-editable `conference` copied from their session on save.
+  isolation test. (`Proposal`, `ReadinessGate` and `HandbookReadReceipt`
+  were registered late, in the proposals PR; the changelist smoke test
+  covers every model, which is what caught them.) Join and child rows (`SessionPresenter`, `ScheduleSlot`,
+  `Proposal`) carry a non-editable `conference` copied from their session
+  on save.
 - Status changes are model methods on `Session` (`mark_invited`, `confirm`,
   `schedule`, `publish`, `cancel`) that raise `speakers.models.TransitionError`
   when a precondition fails; views turn that into a message. Accepting an

@@ -165,7 +165,7 @@ class SpeakerSettings(TimestampedModel):
         default=False,
         db_default=False,
         help_text="While on, anyone with a portal account may propose a "
-        "session, and speakers already on the program may add one.",
+        "session, speakers already on the program included.",
     )
     proposals_intro_md = models.TextField(
         blank=True,
@@ -506,6 +506,11 @@ class Presenter(TimestampedModel):
         """
         return self.session_presenters.filter(confirmed_at__isnull=False).exists()
 
+    @property
+    def liaison_email(self):
+        """The liaison's address, when they have one with an address."""
+        return self.liaison.email if self.liaison and self.liaison.email else ""
+
 
 class PresenterRole(TimestampedModel):
     """What a person is on a session: presenter, panelist, host... (design
@@ -589,9 +594,8 @@ class SessionType(TimestampedModel):
     open_for_proposals = models.BooleanField(
         default=False,
         db_default=False,
-        help_text="Offered on the propose-a-session form, and to a speaker "
-        "adding a session of their own. Off for the types nobody proposes, "
-        "such as a break or the opening.",
+        help_text="Offered on the propose-a-session form. Off for the types "
+        "nobody proposes, such as a break or the opening.",
     )
     roles = models.ManyToManyField(
         PresenterRole,
@@ -844,7 +848,9 @@ class Session(TimestampedModel):
         speaker's question is whether it is happening, and whether anyone
         can see it yet.
         """
-        return SPEAKER_STATUS_LABELS[SessionStatus(self.status)]
+        return SPEAKER_STATUS_LABELS.get(
+            SessionStatus(self.status), self.get_status_display()
+        )
 
     @property
     def is_a_proposal(self):
@@ -959,6 +965,7 @@ class Proposal(TimestampedModel):
         "portal.Conference",
         on_delete=models.PROTECT,
         related_name="proposals",
+        editable=False,
     )
     session = models.OneToOneField(
         Session, on_delete=models.CASCADE, related_name="proposal"
@@ -987,6 +994,11 @@ class Proposal(TimestampedModel):
 
     def __str__(self):
         return f"{self.presenter.display_name}: {self.session.title}"
+
+    def save(self, *args, **kwargs):
+        """The edition comes from the session, never from the caller."""
+        self.conference_id = self.session.conference_id
+        super().save(*args, **kwargs)
 
     @property
     def is_pending(self):
