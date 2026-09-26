@@ -26,6 +26,10 @@ def welcome_url_for(user):
     # page, and the speaker welcome when their session is approved. The
     # rule itself lives on the queryset, so this and the mixin cannot
     # drift apart.
-    if not Presenter.objects.filter(conference=conference, user=user).onboarded():
+    if (
+        not Presenter.objects.filter(conference=conference, user=user)
+        .onboarded()
+        .exists()
+    ):
         return None
     return reverse("speakers:my_welcome")

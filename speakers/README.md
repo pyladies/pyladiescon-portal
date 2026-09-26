@@ -197,9 +197,19 @@ Proposals are capped per presenter per edition (`MAX_PENDING_PROPOSALS`),
 and `Session.created_by_presenter` marks what came in this way.
 
 `Presenter.is_onboarded` is what the speaker area gates on, rather than the
-presenter row existing: a proposer has a row before anyone has said yes. The
-rule itself is `PresenterQuerySet.onboarded()`, which the agreements-gate
-resolver reads too, so the two cannot drift apart. The checklist board uses
+presenter row existing: a proposer has a row before anyone has said yes.
+On the program means a confirmed link to a session of the edition, or an
+accepted invitation to the conference in general: a general invitation
+carries no session, so accepting it confirms nothing, and the acceptance
+itself is the yes (sessions added later are confirmed from it). The rule
+is written once, `PresenterQuerySet.onboarded()`, and read by everything
+that decides where a presenter may go: the `PresenterRequiredMixin` gate,
+the portal index and the speaker index redirects, the `is_speaker_presenter`
+navbar flag, the agreements-gate resolver, and `Presenter.is_onboarded`
+itself. Two of those carried their own copy of the rule once, and a
+speaker with an accepted general invitation was refused by one and sent
+back to it by the other, so a new reader calls the queryset rather than
+restating it. The checklist board uses
 the looser `not_only_proposing()`: a presenter an organizer created, invited
 or not, is still their work, while someone whose every session is still a
 proposal or a refused one is not a row until an answer puts them on one.
@@ -484,6 +494,14 @@ blocks; djlint enforces template formatting). Two-column pages extend
 via `portal/_sidebar_item.html`. There is no htmx or Alpine in the portal yet;
 the design's inline interactions will bring htmx in when Stage 2.5 needs it.
 
+`templates/403.html` and `templates/404.html` extend `portal/base.html`, so a
+refusal or a wrong address still has the navbar, sign-out and a way home.
+There is deliberately no `500.html`: Django renders it with a bare
+`Context`, no request and no context processors, and a page extending the
+base would hit the database for the navbar and the announcement, which is
+often the very thing that is down. Django's built-in 500 page needs
+nothing, and stays.
+
 ### Markdown
 
 `portal/templatetags/portal_extras.py` has a `markdownify` filter
@@ -529,15 +547,18 @@ installed; this app keeps small factory functions in `tests/speakers/factories.p
   predicate and the per-item check all use, because those three drifted
   apart twice.
 - Speaker side: `/speakers/me/...`, gated by `PresenterRequiredMixin` (the
-  user must own a `Presenter` row in the active edition, else 403). The
+  user must be on the program in the active edition, `onboarded()` above,
+  else 403). The
   dashboard is a summary (sessions with "x of y tasks done", open to-do
   count); the checklist has its own page (`my_checklist`, all-by-due-date
   or grouped by session, `?session=` for one), and each session has a
   read-only detail page with its checklist next to the edit form. The
   personal rail is `templates/speakers/_speaker_rail.html`; the navbar shows
   "Speaking" through the `is_speaker_presenter` context flag, and the portal
-  index routes presenters who are not volunteering this year to their
-  dashboard.
+  index routes presenters on the program who are not volunteering this year
+  to their dashboard; one not on the program goes to the volunteer hub, and
+  the speaker index shows them a short explanation, so nobody is sent to a
+  page that refuses them.
 - Onboarding: a presenter whose account has no `PortalProfile` yet is sent
   to `/speakers/me/welcome/` (`PresenterRequiredMixin.requires_portal_profile`)
   before any speaker page: editable username, names, pronouns, CoC and ToS
