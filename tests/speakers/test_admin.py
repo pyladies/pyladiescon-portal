@@ -1,4 +1,7 @@
 import pytest
+from django.contrib import admin
+from django.contrib.admin.utils import flatten_fieldsets
+from django.forms import modelform_factory
 from django.urls import reverse
 
 from speakers.checklists import add_adhoc_item
@@ -73,6 +76,31 @@ class TestSpeakersAdmin:
         content = client.get(url).content.decode()
         assert 'name="proposals_open"' in content
         assert 'name="proposals_intro_md"' in content
+
+    def test_pinned_admin_forms_offer_every_editable_field(self):
+        """A pinned fieldset drops a field added later without a word: the
+        proposals switch shipped unreachable that way. Every editable
+        field is on the form, read-only on it, or named in ``exclude``."""
+        for model, model_admin in admin.site._registry.items():
+            if model._meta.app_label != "speakers":
+                continue
+            if model_admin.fieldsets:
+                shown = set(flatten_fieldsets(model_admin.fieldsets))
+            elif model_admin.fields:
+                shown = set(flatten_fieldsets([(None, {"fields": model_admin.fields})]))
+            else:
+                continue
+            editable = set(
+                modelform_factory(
+                    model, form=model_admin.form, fields="__all__"
+                ).base_fields
+            )
+            allowed = (
+                shown
+                | set(model_admin.readonly_fields)
+                | set(model_admin.exclude or ())
+            )
+            assert editable <= allowed, (model.__name__, sorted(editable - allowed))
 
     def test_session_change_form_renders_inlines(self, client, admin_user, conference):
         session = make_session(conference)

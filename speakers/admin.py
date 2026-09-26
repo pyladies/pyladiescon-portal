@@ -118,6 +118,14 @@ class SpeakerSettingsAdmin(admin.ModelAdmin):
     )
     list_filter = ("speaker_module_enabled", "proposals_open")
     list_select_related = ("conference",)
+    # Written by the nightly reconciliation, which pages from it; a hand
+    # edit would move that window.
+    readonly_fields = ("pretix_last_synced_at",)
+    # Voucher creation is not built (pretix.create_voucher raises while the
+    # switch is on), so the switch stays off the form until it is. Named
+    # here rather than dropped from the fieldsets in silence: the admin
+    # tests check that every editable field is offered or excluded.
+    exclude = ("pretix_create_vouchers",)
 
 
 @admin.register(PresenterRole)
