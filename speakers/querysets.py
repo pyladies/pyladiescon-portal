@@ -44,13 +44,24 @@ class PresenterQuerySet(models.QuerySet):
         return self.filter(liaison=user)
 
     def onboarded(self):
-        """On the program: a confirmed link to a session of this edition.
+        """On the program: a confirmed link to a session of this edition, or
+        an accepted invitation to the conference in general.
 
         Someone whose proposal has not been answered has a presenter row
         and no place on the program, which is why the speaker area and the
-        agreements gate ask this rather than whether the row exists.
+        agreements gate ask this rather than whether the row exists. A
+        general invitation carries no session, so accepting one confirms
+        nothing; the acceptance itself is what says yes to the conference,
+        and sessions added later are confirmed from it
+        (``services.presenter_added_to_session``).
         """
-        return self.filter(session_presenters__confirmed_at__isnull=False).distinct()
+        return self.filter(
+            models.Q(session_presenters__confirmed_at__isnull=False)
+            | models.Q(
+                invitations__session__isnull=True,
+                invitations__accepted_at__isnull=False,
+            )
+        ).distinct()
 
     def not_only_proposing(self):
         """Everyone the organizers are working with.

@@ -143,15 +143,19 @@ from .tasks import send_copresenter_suggestion_task
 class SpeakerPortalIndexView(
     LoginRequiredMixin, SpeakerModuleRequiredMixin, TemplateView
 ):
-    """Entry point: presenters go to their dashboard, organizers and
-    liaisons to the sessions list, anyone else to a short explanation."""
+    """Entry point: presenters on the program go to their dashboard,
+    organizers and liaisons to the sessions list, anyone else to a short
+    explanation. The dashboard gate (``PresenterRequiredMixin``) uses the
+    same rule, so nobody is sent to a page that refuses them."""
 
     template_name = "speakers/index.html"
 
     def get(self, request, *args, **kwargs):
-        if Presenter.objects.filter(
-            conference=self.conference, user=request.user
-        ).exists():
+        if (
+            Presenter.objects.filter(conference=self.conference, user=request.user)
+            .onboarded()
+            .exists()
+        ):
             return redirect("speakers:my_dashboard")
         if can_work_sessions(request.user, self.conference):
             return redirect("speakers:session_list")
