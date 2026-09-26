@@ -206,10 +206,13 @@ is written once, `PresenterQuerySet.onboarded()`, and read by everything
 that decides where a presenter may go: the `PresenterRequiredMixin` gate,
 the portal index and the speaker index redirects, the `is_speaker_presenter`
 navbar flag, the agreements-gate resolver, and `Presenter.is_onboarded`
-itself. Two of those carried their own copy of the rule once, and a
-speaker with an accepted general invitation was refused by one and sent
-back to it by the other, so a new reader calls the queryset rather than
-restating it. The checklist board uses
+itself. When #436 tightened the rule from "a presenter row exists" to
+"on the program", the gate and the navbar flag moved with it (the flag as
+an inline copy) and the two redirects did not, so a speaker with an
+accepted general invitation was refused by the gate and sent back to it by
+the redirects. Two lessons, one remedy: tightening a rule means finding
+everyone who decides the same thing, and a reader that restates the rule
+can drift from it, so a new reader calls the queryset. The checklist board uses
 the looser `not_only_proposing()`: a presenter an organizer created, invited
 or not, is still their work, while someone whose every session is still a
 proposal or a refused one is not a row until an answer puts them on one.
@@ -497,10 +500,10 @@ the design's inline interactions will bring htmx in when Stage 2.5 needs it.
 `templates/403.html` and `templates/404.html` extend `portal/base.html`, so a
 refusal or a wrong address still has the navbar, sign-out and a way home.
 There is deliberately no `500.html`: Django renders it with a bare
-`Context`, no request and no context processors, and a page extending the
-base would hit the database for the navbar and the announcement, which is
-often the very thing that is down. Django's built-in 500 page needs
-nothing, and stays.
+`Context`, no request and no context processors, so a page extending the
+base would render a hollow navbar with no user and no conference, and any
+later change to the base that queries would run during the outage that is
+often the cause. Django's built-in 500 page needs nothing, and stays.
 
 ### Markdown
 
