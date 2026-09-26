@@ -166,7 +166,21 @@ a skip note is a conversation among organizers.
 An edition can open the door: while `SpeakerSettings.proposals_open` is on,
 anyone with a portal account proposes a session at `/speakers/propose/`,
 speakers already on the program included. Only session types with
-`open_for_proposals` are offered, so nobody proposes a coffee break.
+`open_for_proposals` are offered, so nobody proposes a coffee break. The
+switch and the intro text live in the settings row's admin form, under
+"Proposals"; the field defaults to off and nothing else in the portal turns
+it on, so an edition whose landing page shows no "Propose a session" button
+has not opened it there yet. "Taking proposals" is defined once,
+`services.proposals_open` (module on and switch on); the landing page, the
+hubs, the Organize rail and the propose view all read it.
+
+The settings admin pins its fieldsets, and a pinned fieldset drops a field
+added later without a word: the proposals switch shipped unreachable that
+way. `tests/speakers/test_admin.py` now checks every speakers admin that
+pins fields against the model, so a new field must be offered, read-only,
+or named in `exclude` with a reason. `pretix_create_vouchers` is the one
+exclusion: voucher creation is not built, and `pretix.create_voucher`
+raises while the switch is on.
 
 A proposal is real rows from the start: a `Presenter` with the account
 linked, a `Session` in `PROPOSED`, an unconfirmed `SessionPresenter`, and a

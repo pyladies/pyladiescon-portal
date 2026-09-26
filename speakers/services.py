@@ -385,9 +385,20 @@ class ProposalError(ValueError):
 
 
 def proposals_open(conference):
-    """Whether this edition is taking proposals at all."""
+    """Whether this edition is taking proposals at all: the speaker module
+    is on and the switch is on.
+
+    The one definition. The landing page shows a visitor the "Propose a
+    session" button on this, the hubs and the Organize rail read it for
+    members, and the propose view refuses on it, so a condition added here
+    (a closing date, say) reaches all of them.
+    """
     settings_row = SpeakerSettings.objects.filter(conference=conference).first()
-    return bool(settings_row and settings_row.proposals_open)
+    return bool(
+        settings_row
+        and settings_row.speaker_module_enabled
+        and settings_row.proposals_open
+    )
 
 
 def proposable_types(conference):

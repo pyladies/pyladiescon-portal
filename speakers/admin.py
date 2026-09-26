@@ -63,6 +63,7 @@ class SpeakerSettingsAdmin(admin.ModelAdmin):
     list_display = (
         "conference",
         "speaker_module_enabled",
+        "proposals_open",
         "default_premiere_location",
         "translation_languages",
         "pretix_organizer",
@@ -91,6 +92,15 @@ class SpeakerSettingsAdmin(admin.ModelAdmin):
             },
         ),
         (
+            "Proposals",
+            {
+                "description": "While proposals are open, the landing page and the "
+                "hubs offer the propose-a-session form to anyone with an account. "
+                "Only session types marked open for proposals are offered.",
+                "fields": ("proposals_open", "proposals_intro_md"),
+            },
+        ),
+        (
             "Pretix",
             {
                 "description": "Token and webhook secret are encrypted at rest and "
@@ -106,8 +116,16 @@ class SpeakerSettingsAdmin(admin.ModelAdmin):
             },
         ),
     )
-    list_filter = ("speaker_module_enabled",)
+    list_filter = ("speaker_module_enabled", "proposals_open")
     list_select_related = ("conference",)
+    # Written by the nightly reconciliation, which pages from it; a hand
+    # edit would move that window.
+    readonly_fields = ("pretix_last_synced_at",)
+    # Voucher creation is not built (pretix.create_voucher raises while the
+    # switch is on), so the switch stays off the form until it is. Named
+    # here rather than dropped from the fieldsets in silence: the admin
+    # tests check that every editable field is offered or excluded.
+    exclude = ("pretix_create_vouchers",)
 
 
 @admin.register(PresenterRole)

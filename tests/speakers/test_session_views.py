@@ -184,6 +184,23 @@ class TestContextProcessor:
             "is_speaker_presenter": False,
         }
 
+    def test_visitor_reads_the_same_proposals_switch_as_members(
+        self, rf, conference, organizer
+    ):
+        """Both branches call ``services.proposals_open``: the landing page
+        button and the propose form cannot disagree."""
+        row = make_settings(conference, proposals_open=True)
+        visitor = rf.get("/")
+        visitor.user = AnonymousUser()
+        member = rf.get("/")
+        member.user = organizer
+        assert speaker_module(visitor)["speaker_proposals_open"] is True
+        assert speaker_module(member)["speaker_proposals_open"] is True
+        row.speaker_module_enabled = False
+        row.save()
+        assert speaker_module(visitor)["speaker_proposals_open"] is False
+        assert speaker_module(member)["speaker_proposals_open"] is False
+
     def test_no_request_user(self, rf):
         assert speaker_module(rf.get("/"))["speaker_module_enabled"] is False
 

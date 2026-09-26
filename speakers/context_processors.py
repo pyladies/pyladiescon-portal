@@ -1,7 +1,7 @@
 from portal.models import Conference
 
 from .constants import ProposalDecision
-from .models import Presenter, Proposal, SpeakerSettings, speaker_module_enabled
+from .models import Presenter, Proposal, speaker_module_enabled
 from .permissions import can_work_queue, is_speaker_liaison, is_speaker_organizer
 from .services import proposals_open
 
@@ -35,17 +35,11 @@ def speaker_module(request):
         # Proposing is open to anyone, so the one flag a signed-out page
         # needs is whether the edition is taking proposals: that is what
         # puts the invitation on the public landing page. Two queries, and
-        # nothing else here is computed for a visitor.
-        settings_row = SpeakerSettings.objects.filter(
-            conference=Conference.get_active()
-        ).first()
+        # nothing else here is computed for a visitor. The same helper
+        # answers for members below, so the button and the form agree.
         return {
             "speaker_module_enabled": False,
-            "speaker_proposals_open": bool(
-                settings_row
-                and settings_row.speaker_module_enabled
-                and settings_row.proposals_open
-            ),
+            "speaker_proposals_open": proposals_open(Conference.get_active()),
             "pending_proposal_count": None,
             "has_speaker_proposals": False,
             "is_speaker_liaison": False,
@@ -54,7 +48,7 @@ def speaker_module(request):
         }
     conference = Conference.get_active()
     enabled = speaker_module_enabled(conference)
-    taking_proposals = enabled and proposals_open(conference)
+    taking_proposals = proposals_open(conference)
     return {
         "speaker_proposals_open": taking_proposals,
         # Organizers see the count; nobody else needs it, and it is one
