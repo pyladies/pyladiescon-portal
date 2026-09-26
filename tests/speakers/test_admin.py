@@ -82,14 +82,14 @@ class TestSpeakersAdmin:
         proposals switch shipped unreachable that way. Every editable
         field is on the form, read-only on it, or named in ``exclude``."""
         for model, model_admin in admin.site._registry.items():
-            if model._meta.app_label != "speakers":
+            # ``fields`` pins the form the same way; no speakers admin uses
+            # it today, so it is folded in rather than given a branch.
+            pinned = model_admin.fieldsets or (
+                model_admin.fields and [(None, {"fields": model_admin.fields})]
+            )
+            if model._meta.app_label != "speakers" or not pinned:
                 continue
-            if model_admin.fieldsets:
-                shown = set(flatten_fieldsets(model_admin.fieldsets))
-            elif model_admin.fields:
-                shown = set(flatten_fieldsets([(None, {"fields": model_admin.fields})]))
-            else:
-                continue
+            shown = set(flatten_fieldsets(pinned))
             editable = set(
                 modelform_factory(
                     model, form=model_admin.form, fields="__all__"
