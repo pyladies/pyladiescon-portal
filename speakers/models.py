@@ -498,7 +498,8 @@ class Presenter(TimestampedModel):
 
     @property
     def is_onboarded(self):
-        """Whether they are on the program: a confirmed link to a session.
+        """Whether they are on the program: a confirmed link to a session,
+        or an accepted general invitation.
 
         Someone whose proposal is pending or turned down has a presenter
         row and an account, but no session of the conference's, so the

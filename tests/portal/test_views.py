@@ -110,6 +110,26 @@ class TestPortalIndex:
 
 
 @pytest.mark.django_db
+class TestPageNotFound:
+    """The 404 is a portal page with the navbar, so a wrong address is
+    never a dead end: a visitor can sign in, a signed-in user can sign out."""
+
+    def test_visitor_sees_the_navbar(self, client):
+        response = client.get("/no-such-page/")
+        assert response.status_code == 404
+        content = response.content.decode()
+        assert "Page not found" in content
+        assert "Login" in content and reverse("index") in content
+
+    def test_signed_in_user_can_sign_out(self, client, portal_user):
+        PortalProfile.objects.create(user=portal_user)
+        client.force_login(portal_user)
+        response = client.get("/no-such-page/")
+        assert response.status_code == 404
+        assert "Sign Out" in response.content.decode()
+
+
+@pytest.mark.django_db
 class TestPortalStats:
 
     def test_stats_doesnt_require_login(self, client):

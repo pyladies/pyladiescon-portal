@@ -82,11 +82,10 @@ def speaker_module(request):
         "can_work_speaker_queue": enabled and can_work_queue(user, conference),
         # Being a presenter is not enough for the Speaking tab: a
         # proposal that has not been answered yet makes a presenter row
-        # and no program.
+        # and no program. The rule lives on the queryset, shared with the
+        # gate on the pages the tab opens.
         "is_speaker_presenter": enabled
-        and Presenter.objects.filter(
-            conference=conference,
-            user=user,
-            session_presenters__confirmed_at__isnull=False,
-        ).exists(),
+        and Presenter.objects.filter(conference=conference, user=user)
+        .onboarded()
+        .exists(),
     }

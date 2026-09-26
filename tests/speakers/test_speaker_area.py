@@ -5,8 +5,10 @@ from django.contrib.auth.models import AnonymousUser, User
 from django.core import mail
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import connection
+from django.test import RequestFactory
 from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
+from django.utils import timezone
 from PIL import Image
 from pytest_django.asserts import assertRedirects
 
@@ -19,7 +21,13 @@ from speakers.models import ActivityLog, Session, SpeakerSettings
 from speakers.tasks import send_copresenter_suggestion_task
 from volunteer.models import VolunteerProfile
 
-from .factories import add_presenter, make_presenter, make_session, make_settings
+from .factories import (
+    add_presenter,
+    make_invitation,
+    make_presenter,
+    make_session,
+    make_settings,
+)
 
 DASHBOARD = reverse("speakers:my_dashboard")
 PROFILE = reverse("speakers:my_profile")
@@ -82,6 +90,12 @@ def their_session(conference, other_presenter):
     return session
 
 
+def rf_request(user):
+    request = RequestFactory().get("/")
+    request.user = user
+    return request
+
+
 def png_upload(name="headshot.png"):
     buffer = io.BytesIO()
     Image.new("RGB", (8, 8), "purple").save(buffer, format="PNG")
@@ -97,8 +111,41 @@ class TestAccess:
 
     def test_non_presenter_forbidden(self, client, portal_user, enabled):
         client.force_login(portal_user)
-        assert client.get(DASHBOARD).status_code == 403
+        response = client.get(DASHBOARD)
+        assert response.status_code == 403
         assert client.get(PROFILE).status_code == 403
+        # The refusal is a portal page, not Django's bare one: the navbar
+        # with its sign-out is there, and so is a way home.
+        content = response.content.decode()
+        assert "Sign Out" in content and reverse("index") in content
+        assert reverse("account_logout") in content
+
+    def test_general_acceptance_opens_the_area(
+        self, client, conference, enabled, speaker
+    ):
+        """Someone who accepted an invitation to the conference itself has no
+        session to be confirmed on yet; the acceptance is what puts them on
+        the program (``PresenterQuerySet.onboarded``)."""
+        presenter = make_presenter(conference, user=speaker)
+        make_invitation(presenter, accepted_at=timezone.now())
+        client.force_login(speaker)
+        assert client.get(DASHBOARD).status_code == 200
+        assertRedirects(client.get(reverse("speakers:index")), DASHBOARD)
+        request = rf_request(speaker)
+        assert speaker_module(request)["is_speaker_presenter"] is True
+
+    def test_presenter_not_on_program_is_explained_to(
+        self, client, conference, enabled, speaker
+    ):
+        """A presenter row with nothing confirmed (a proposal nobody has
+        answered) must not be sent to a page that refuses them."""
+        presenter = make_presenter(conference, user=speaker)
+        add_presenter(make_session(conference), presenter)
+        client.force_login(speaker)
+        response = client.get(reverse("speakers:index"))
+        assert response.status_code == 200
+        assert "not on the program" in response.content.decode()
+        assert speaker_module(rf_request(speaker))["is_speaker_presenter"] is False
 
     def test_module_off_404(self, client, speaker, conference):
         make_presenter(conference, user=speaker)
@@ -132,6 +179,18 @@ class TestPortalIndexRouting:
         client.force_login(speaker)
         assertRedirects(
             client.get(reverse("index")), DASHBOARD, fetch_redirect_response=False
+        )
+
+    def test_presenter_not_on_program_lands_on_volunteer_hub(
+        self, client, conference, enabled, speaker
+    ):
+        presenter = make_presenter(conference, user=speaker)
+        add_presenter(make_session(conference), presenter)
+        client.force_login(speaker)
+        assertRedirects(
+            client.get(reverse("index")),
+            reverse("volunteer:index"),
+            fetch_redirect_response=False,
         )
 
     def test_presenter_who_volunteers_keeps_volunteer_hub(

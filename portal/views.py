@@ -53,9 +53,14 @@ def index(request):
     user = get_user(request)
     if user.is_authenticated:
         active = Conference.get_active()
+        # On the program, not merely known to the speakers app: a presenter
+        # row alone (a proposal nobody has answered) opens no speaker page,
+        # and sending it there would land on a refusal.
         is_presenter = (
             speaker_module_enabled(active)
-            and Presenter.objects.filter(conference=active, user=user).exists()
+            and Presenter.objects.filter(conference=active, user=user)
+            .onboarded()
+            .exists()
         )
         # An account with no profile never reaches this view: the agreement
         # gate (portal_account.agreements) sends it to the page that asks,
