@@ -63,6 +63,7 @@ class SpeakerSettingsAdmin(admin.ModelAdmin):
     list_display = (
         "conference",
         "speaker_module_enabled",
+        "proposals_open",
         "default_premiere_location",
         "translation_languages",
         "pretix_organizer",
@@ -91,6 +92,15 @@ class SpeakerSettingsAdmin(admin.ModelAdmin):
             },
         ),
         (
+            "Proposals",
+            {
+                "description": "While proposals are open, the landing page and the "
+                "hubs offer the propose-a-session form to anyone with an account. "
+                "Only session types marked open for proposals are offered.",
+                "fields": ("proposals_open", "proposals_intro_md"),
+            },
+        ),
+        (
             "Pretix",
             {
                 "description": "Token and webhook secret are encrypted at rest and "
@@ -106,7 +116,7 @@ class SpeakerSettingsAdmin(admin.ModelAdmin):
             },
         ),
     )
-    list_filter = ("speaker_module_enabled",)
+    list_filter = ("speaker_module_enabled", "proposals_open")
     list_select_related = ("conference",)
 
 

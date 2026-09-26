@@ -10,6 +10,7 @@ from .factories import (
     make_presenter,
     make_proposal,
     make_session,
+    make_settings,
     make_slot,
 )
 
@@ -59,6 +60,19 @@ class TestSpeakersAdmin:
         assert 'name="status"' not in content
         assert 'name="note"' not in content
         assert 'name="assignee"' in content
+
+    def test_settings_form_offers_the_proposals_switch(
+        self, client, admin_user, conference
+    ):
+        """The switch defaults to off and nothing else in the portal sets
+        it, so the admin form is where an organizer opens proposals; the
+        first edition shipped without the field on the form."""
+        row = make_settings(conference)
+        client.force_login(admin_user)
+        url = reverse("admin:speakers_speakersettings_change", args=[row.pk])
+        content = client.get(url).content.decode()
+        assert 'name="proposals_open"' in content
+        assert 'name="proposals_intro_md"' in content
 
     def test_session_change_form_renders_inlines(self, client, admin_user, conference):
         session = make_session(conference)
