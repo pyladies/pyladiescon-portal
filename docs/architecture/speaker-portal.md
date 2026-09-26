@@ -586,22 +586,22 @@ Channel and role setup is manual in 2026: organizers create channels on Discord 
 ## 13. Storage, email, background jobs
 
 - **Files** — Digital Ocean Spaces, private bucket, presigned URLs for upload and download; multipart presigned upload for video; `ffprobe` on the worker for duration; a bucket lifecycle rule expires abandoned multipart uploads. Public headshots are copied to a public prefix on publish.
-- **Email** — the portal's existing backend. Templates: invitation, invitation reminder, onboarding, registration info, schedule confirmation, daily checklist digest, and the proposal emails (§2.5). Every send is logged, and a copy of what was sent is kept (§13.1).
+- **Email** — the portal's existing backend. Templates: invitation, invitation reminder, onboarding, registration info, schedule confirmation, daily checklist digest, and the proposal emails (§2.5). Every send is logged, and a copy of what was sent is kept, for maintainers and for the person it went to (§13.1).
 - **Jobs** — nightly auto-completion re-check, daily reminder digest, nightly pretix reconciliation, cache warm after publish. Uses the portal's existing job runner; no new infrastructure.
 
 ### 13.1 The record of what was sent
 
-> **Not built.** Decided on 24 September 2026; the stage after open proposals (§2.5).
+> **Not built.** Decided on 24 September 2026 and widened on 25 September; the stage after open proposals (§2.5).
 
-The activity log records that an invitation was sent, and the reminder log records that a digest went out, but neither keeps what the message said. "What did we actually send her, and when" is a question organizers and maintainers ask, and today nobody can answer it.
+The activity log records that an invitation was sent, and the reminder log records that a digest went out, but neither keeps what the message said. "What did we actually send her, and when" is a question organizers and maintainers ask, and today nobody can answer it. The person it was sent to has the same question, from the other side: "did the portal ever tell me about the schedule?"
 
-Every email the portal sends a speaker leaves a record: the address as sent, the subject, the template that identifies the kind, the rendered Markdown body (which is the source of both parts, so the HTML need not be stored), the ids it was about, the time, and whether it failed with its error. Presenter and session are nullable, so a record outlives what it was about.
+Every email the portal sends a person leaves a record: the address as sent, the subject, the template that identifies the kind, the rendered Markdown body (which is the source of both parts, so the HTML need not be stored), the ids it was about, the time, and whether it failed with its error. The account and the presenter it concerns are nullable, so a record outlives what it was about.
 
-One place writes it. The speakers app already funnels every send through one helper, so the record is written there rather than in the shared mail code, and the other apps are untouched until they ask for the same thing.
+One place writes it: the shared send helper every app already calls, so a volunteer's or a sponsor contact's trail is as whole as a speaker's. Account emails are the exception, and deliberately: sign-in codes, password resets and address verification go through the account adapter rather than that helper, never reach the record, and a trail is not where a live reset link belongs.
 
-The trail is a **Maintenance** page, beside Accounts, gated on `is_maintainer` rather than on organizer status, because it holds message bodies for everyone. Newest first, filtered by edition, presenter and kind, searchable by subject and address, and a row expands to the body.
+The trail has two readers. A **Maintenance** page, beside Accounts, gated on `is_maintainer` rather than on organizer status, because it holds message bodies for everyone: newest first, filtered by edition, presenter and kind, searchable by subject and address, and a row expands to the body. And a personal page under **Manage account**, "Emails we sent you", where anyone signed in reads exactly what the portal sent them: the record's account is theirs, or the presenter it concerns is, which is what lets a speaker see the invitation that arrived before their account existed. Never by address alone, since an organizer can type an address into a presenter row before anyone has proven it is theirs.
 
-Bodies are personal data: they are kept for the edition plus a year and pruned nightly, which the page says. Delivery receipts, opens and bounces are not part of this: they need the mail provider's webhooks, and the record's job is to say what the portal sent, not what the recipient's server did with it.
+Bodies are personal data: they are kept for the edition plus a year and pruned nightly, which both pages say. Delivery receipts, opens and bounces are not part of this: they need the mail provider's webhooks, and the record's job is to say what the portal sent, not what the recipient's server did with it.
 
 ---
 
