@@ -97,6 +97,7 @@ INSTALLED_APPS = [
     "captcha",
     "django_celery_beat",
     "storages",
+    "common",
     "portal",
     "volunteer",
     "portal_account",
@@ -294,6 +295,11 @@ ACCOUNT_ADAPTER = "portal.adapter.PortalAccountAdapter"
 UNVERIFIED_ACCOUNT_RETENTION_DAYS = int(
     os.getenv("UNVERIFIED_ACCOUNT_RETENTION_DAYS", "7")
 )
+
+# How long the record of a sent email outlives its edition (design §13.1).
+# Bodies are personal data; the nightly "Prune email records" task deletes
+# what is past this, and both trail pages say so.
+EMAIL_RECORD_RETENTION_DAYS = int(os.getenv("EMAIL_RECORD_RETENTION_DAYS", "365"))
 
 # Signup rate limits, merged over allauth's defaults. Defence in depth behind
 # the CAPTCHA; see docs/architecture/signup-abuse-protection.md before changing.

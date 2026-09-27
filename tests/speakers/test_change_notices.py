@@ -4,6 +4,7 @@ import pytest
 from django.contrib.auth.models import User
 from django.core import mail
 
+from common.models import SentEmail
 from speakers.checklists import add_adhoc_item
 from speakers.constants import ItemOwner, NoticeKind
 from speakers.models import ChecklistItem
@@ -67,6 +68,10 @@ class TestChangeNotices:
         add_adhoc_item(conference, "Nobody's", ItemOwner.ORGANIZER, presenter=ada)
         mail.outbox.clear()
         assert send_checklist_change_notices(conference) == 2
+        # Lena's notice is hers to read on "Emails we sent you"; Ada's is
+        # hers through the presenter row.
+        assert SentEmail.objects.get(to="lena@example.com").user == lena
+        assert SentEmail.objects.get(to="ada@example.com").presenter == ada
         by_to = {tuple(m.to): m for m in mail.outbox}
         speaker_mail = by_to[("ada@example.com",)]
         assert speaker_mail.subject.endswith(

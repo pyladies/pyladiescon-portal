@@ -2,7 +2,7 @@
 {% comment %}
 Account settings rail (Stage E). Expects:
     profile        — the user's PortalProfile, or None
-    account_active — current section: "profile_edit" / "profile_view" / "profile_new"
+    account_active — current section: "profile_edit" / "profile_view" / "profile_new" / "emails"
 The Account-and-security entries link to the allauth manage pages, which keep
 their own layout (and their own back-link to Account).
 {% endcomment %}
@@ -33,3 +33,12 @@ their own layout (and their own back-link to Account).
 {% include "portal/_sidebar_item.html" with url=email_url label=_("Email addresses") icon="fa-envelope" only %}
 {% url 'account_change_password' as password_url %}
 {% include "portal/_sidebar_item.html" with url=password_url label=_("Password") icon="fa-lock" only %}
+<div class="text-uppercase text-secondary small fw-semibold mb-1 mt-3">
+    {% trans "History" %}
+</div>
+{% url 'portal_account:my_emails' as my_emails_url %}
+{% if account_active == "emails" %}
+    {% include "portal/_sidebar_item.html" with url=my_emails_url label=_("Emails we sent you") icon="fa-envelope-open" active=True only %}
+{% else %}
+    {% include "portal/_sidebar_item.html" with url=my_emails_url label=_("Emails we sent you") icon="fa-envelope-open" only %}
+{% endif %}

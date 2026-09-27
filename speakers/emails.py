@@ -77,7 +77,12 @@ def invitation_context(invitation, *, conference, accept_url, expires_at):
 
 
 def send_invitation_email(invitation):
-    """Render and send the invitation email, text and HTML parts."""
+    """Render and send the invitation email, text and HTML parts.
+
+    The accept link is the presenter's credential (opening it signs them
+    in), so it is withheld from the sent-email record that maintainers read.
+    """
+    accept_url = invitation_url(invitation)
     send_email(
         invitation_subject(invitation, invitation.conference),
         [invitation.presenter.email],
@@ -85,9 +90,10 @@ def send_invitation_email(invitation):
         context=invitation_context(
             invitation,
             conference=invitation.conference,
-            accept_url=invitation_url(invitation),
+            accept_url=accept_url,
             expires_at=invitation.expires_at,
         ),
+        secrets=[accept_url],
     )
 
 

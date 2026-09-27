@@ -437,6 +437,7 @@ def _send_internal_email(
             [recipient.email],
             markdown_template=markdown_template,
             context=context,
+            user=recipient,
         )
 
 

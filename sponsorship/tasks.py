@@ -40,6 +40,7 @@ def send_internal_email_task(self, subject, markdown_template, context):
             [recipient.email],
             markdown_template=markdown_template,
             context=context,
+            user=recipient,
         )
         sent_count += 1
 

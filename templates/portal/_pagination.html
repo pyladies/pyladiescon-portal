@@ -1,0 +1,22 @@
+{% load i18n %}
+{% comment %}
+Previous / next for a paginated ListView. Expects page_obj; keeps the other
+query parameters (filters) by reading them from request.GET.
+{% endcomment %}
+{% if page_obj.paginator.num_pages > 1 %}
+    {% trans "Pages" as pages_label %}
+    <nav aria-label="{{ pages_label }}"
+         class="d-flex align-items-center gap-3 mt-3">
+        {% if page_obj.has_previous %}
+            <a class="btn btn-sm btn-outline-secondary"
+               href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key|urlencode }}={{ value|urlencode }}&amp;{% endif %}{% endfor %}page={{ page_obj.previous_page_number }}">{% trans "Newer" %}</a>
+        {% endif %}
+        <span class="text-secondary small">
+            {% blocktranslate with number=page_obj.number total=page_obj.paginator.num_pages %}Page {{ number }} of {{ total }}{% endblocktranslate %}
+        </span>
+        {% if page_obj.has_next %}
+            <a class="btn btn-sm btn-outline-secondary"
+               href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key|urlencode }}={{ value|urlencode }}&amp;{% endif %}{% endfor %}page={{ page_obj.next_page_number }}">{% trans "Older" %}</a>
+        {% endif %}
+    </nav>
+{% endif %}

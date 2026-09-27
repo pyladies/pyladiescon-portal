@@ -5,7 +5,7 @@ converting them to both HTML and plain text formats for email delivery.
 """
 
 import re
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Tuple
 
 import bleach
 import markdown
@@ -133,6 +133,38 @@ class MarkdownEmailRenderer:
         return text.strip()
 
 
+def render_markdown_email(
+    markdown_template: str, context: Dict[str, Any]
+) -> Tuple[str, str, str]:
+    """Render the template once; return the Markdown, the HTML and the text.
+
+    The Markdown is the source of both parts, which is why the sent-email
+    record keeps it and nothing else.
+    """
+    context["current_site"] = Site.objects.get_current()
+    renderer = MarkdownEmailRenderer()
+    markdown_content = renderer.render_template(markdown_template, context)
+    return (
+        markdown_content,
+        renderer.markdown_to_html(markdown_content),
+        renderer.markdown_to_text(markdown_content),
+    )
+
+
+def deliver_markdown_email(
+    subject: str, recipient_list: list, html_content: str, text_content: str
+) -> None:
+    """Hand the rendered parts to the mail backend."""
+    msg = EmailMultiAlternatives(
+        subject,
+        text_content,
+        settings.DEFAULT_FROM_EMAIL,
+        recipient_list,
+    )
+    msg.attach_alternative(html_content, "text/html")
+    msg.send()
+
+
 def send_markdown_email(
     subject: str,
     recipient_list: list,
@@ -140,10 +172,11 @@ def send_markdown_email(
     markdown_template: str,
     context: Optional[Dict[str, Any]] = None,
 ) -> None:
-    """Send an email using a Markdown template.
+    """Send an email using a Markdown template, with no record kept.
 
     Converts the Markdown template to both HTML and plain text versions
-    for optimal email client compatibility.
+    for optimal email client compatibility. ``common.send_emails.send_email``
+    is the door the portal's own mail goes through, because it records.
 
     Args:
         subject: Email subject line
@@ -151,26 +184,10 @@ def send_markdown_email(
         markdown_template: Path to Markdown template (required)
         context: Template context dictionary
     """
-    context = context or {}
-    context["current_site"] = Site.objects.get_current()
-
-    renderer = MarkdownEmailRenderer()
-
-    # Render Markdown template and convert to HTML and text
-    markdown_content = renderer.render_template(markdown_template, context)
-    html_content = renderer.markdown_to_html(markdown_content)
-    text_content = renderer.markdown_to_text(markdown_content)
-
-    # Create and send the email
-    msg = EmailMultiAlternatives(
-        subject,
-        text_content,
-        settings.DEFAULT_FROM_EMAIL,
-        recipient_list,
+    _, html_content, text_content = render_markdown_email(
+        markdown_template, context or {}
     )
-
-    msg.attach_alternative(html_content, "text/html")
-    msg.send()
+    deliver_markdown_email(subject, recipient_list, html_content, text_content)
 
 
 # Backward compatibility alias

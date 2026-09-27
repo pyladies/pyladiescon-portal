@@ -1,14 +1,18 @@
 from allauth.account.views import EmailView, PasswordChangeView
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.shortcuts import redirect, render
 from django.urls import reverse_lazy
-from django.views.generic import DetailView, TemplateView
+from django.views.generic import DetailView, ListView, TemplateView
 from django.views.generic.edit import CreateView, FormView, UpdateView
+from django_filters.views import FilterView
 
 from common.mixins import MaintainerRequiredMixin
+from common.models import SentEmail, kind_of
 
+from .filters import SentEmailFilter
 from .forms import PortalProfileForm
 from .forms_agreements import AgreementsForm
 from .models import PortalProfile
@@ -127,6 +131,72 @@ class MaintenanceAccountsView(MaintainerRequiredMixin, TemplateView):
         context["daily_ranges"] = DAILY_RANGES
         # One axis label a week on the 30-day view, one a fortnight on 90.
         context["label_every"] = 7 if days <= 31 else 15
+        return context
+
+
+class MaintenanceEmailsView(MaintainerRequiredMixin, FilterView):
+    """Maintenance > Emails: the record of every email the portal sent.
+
+    Maintainer-only because it holds message bodies for everyone. Newest
+    first, filtered by edition, presenter, kind and outcome, searched by
+    subject or address; a row expands to the body. Reading is the point:
+    there is no resend, which is a different decision with its own consent
+    questions (design §13.1).
+    """
+
+    template_name = "portal_account/maintenance_emails.html"
+    filterset_class = SentEmailFilter
+    paginate_by = 50
+
+    def get_queryset(self):
+        return SentEmail.objects.select_related(
+            "conference", "user", "presenter", "session"
+        )
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["retention_days"] = settings.EMAIL_RECORD_RETENTION_DAYS
+        return context
+
+
+class MyEmailsView(LoginRequiredMixin, ListView):
+    """Manage account > Emails we sent you.
+
+    Exactly the records that are theirs by ``SentEmailQuerySet.owned_by``:
+    sent to their account, or to a presenter row their account is linked
+    to, which is how a speaker sees the invitation that arrived before they
+    had an account. No filter beyond the kind; a person's own trail is short.
+    """
+
+    template_name = "portal_account/my_emails.html"
+    paginate_by = 50
+
+    def get_queryset(self):
+        queryset = SentEmail.objects.owned_by(self.request.user).select_related(
+            "conference", "session"
+        )
+        kind = self.request.GET.get("kind")
+        if kind:
+            queryset = queryset.filter(template=kind)
+        return queryset
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        templates = (
+            SentEmail.objects.owned_by(self.request.user)
+            .order_by("template")
+            .values_list("template", flat=True)
+            .distinct()
+        )
+        context.update(
+            {
+                "profile": PortalProfile.objects.filter(user=self.request.user).first(),
+                "account_active": "emails",
+                "retention_days": settings.EMAIL_RECORD_RETENTION_DAYS,
+                "kinds": [(template, kind_of(template)) for template in templates],
+                "kind": self.request.GET.get("kind", ""),
+            }
+        )
         return context
 
 

@@ -2,6 +2,7 @@ import pytest
 from django.contrib.auth.models import User
 from django.core import mail
 
+from common.models import SentEmail
 from sponsorship.constants import PSF_ACCOUNTING_EMAIL, SPONSORSHIP_COMMITTEE_EMAIL
 from sponsorship.emails import (
     send_psf_invoice_request_email,
@@ -79,8 +80,12 @@ class TestSponsorshipEmails:
         # Send the email
         send_psf_invoice_request_email(profile)
 
-        # Check that one email was sent
+        # Check that one email was sent, and recorded like every other
         assert len(mail.outbox) == 1
+        record = SentEmail.objects.get()
+        assert record.conference == conference
+        assert record.context_digest == {"profile": profile.pk}
+        assert "Test Corp" in record.body_md
 
         email = mail.outbox[0]
 

@@ -469,6 +469,54 @@ sent as both text and bleach-sanitized HTML. Backend is SMTP when
 `DJANGO_EMAIL_HOST` is set, console otherwise; subjects use
 `settings.ACCOUNT_EMAIL_SUBJECT_PREFIX`. Guide: `docs/developer/markdown-emails.md`.
 
+Every send through `send_email` leaves a `common.SentEmail` row (design
+§13.1, task 2.23): the addresses as sent, the subject, the template (which
+is the kind), the rendered Markdown body, the ids of what it was about, and
+whether it failed, with the error and no body. Whose it is comes from the
+send context only where the address proves it (`common.send_emails.describe`):
+a `presenter` or `user` in the context is the recipient when the email went
+to exactly their address, so the organizers' copy of a proposal names the
+proposer in its digest without ever showing in the proposer's own trail.
+Failing both, an address that allauth has verified as exactly one active
+account's is that account's (`_verified_owner`): an assignee's digest
+carries items in its context, not the assignee. Callers pass `user`,
+`presenter`, `session` and `conference` explicitly when they know more than
+the context says (the change notices and the organizer digests pass the
+assignee), and name in `secrets` any string that
+must not be stored: the invitation's accept link signs its reader in as the
+presenter (`InvitationView.post` logs the current user out and the
+presenter in), so `send_invitation_email` withholds it and the record shows
+`common.send_emails.WITHHELD` in its place. The same link is also withheld
+by shape: `speakers.apps` registers its URL pattern with
+`common.send_emails.register_credential_pattern`, and every stored body is
+scrubbed against the registered shapes whatever the sender passed, because
+on the first day a Celery worker still running the previous code recorded a
+live link. A trail read by maintainers must never hold a credential; that
+is the same reason account emails are not recorded at all. Two readers:
+Maintenance > Emails
+(`portal_account.views.MaintenanceEmailsView`, maintainers only, filtered
+by edition, presenter, kind and outcome, searched by subject or address)
+and "Emails we sent you" under Manage account (`MyEmailsView`, scoped by
+`SentEmailQuerySet.owned_by`: the record's account, or the presenter row
+linked to it, never the address alone). Account emails go through the
+allauth adapter and are not recorded. Records are kept for the edition plus
+`EMAIL_RECORD_RETENTION_DAYS` (365) and pruned nightly by the "Prune email
+records" periodic task (`manage.py prune_email_records` by hand). Two limits
+to know: a send that raises inside a caller's `transaction.atomic()` (the
+checklist change notices) rolls its FAILED record back with everything
+else, so that failure is in the log and not in the trail; and a process
+that dies between the backend accepting the message and the row being
+saved leaves a delivered email with no record. The trail reads ownership
+from the live links (`user`, `presenter.user`), so re-pointing a presenter
+row at another account moves its stored bodies with it; `link_presenter_user`
+only ever links a verified address to a row with no account, so that takes
+a staff edit, and is worth knowing before making one. The Maintenance page
+shows a failed send's backend error; the personal page says only that it
+failed. Bodies render through the email's own bleach allowlist with image
+sources dropped (`SentEmail.body_html`), so reading a trail never fetches
+from a third party. The sponsorship contract request to the PSF goes
+through `send_email` too, so account emails are the only exception.
+
 ### Previewing an invitation
 
 Both invite forms show the email the Send button would produce: recipient,
