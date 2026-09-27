@@ -36,12 +36,13 @@ def register_credential_pattern(regex):
 def withhold(text, pattern):
     """``text`` with every match of ``pattern`` (compiled) replaced.
 
-    A Markdown link or autolink built around the match goes with it, so the
-    reader sees the sentence it was, not a link to the placeholder.
+    A Markdown link or autolink built around the match goes with it, title
+    and all, so the reader sees the sentence it was, not a link to the
+    placeholder.
     """
     inner = f"(?:{pattern.pattern})"
     text = re.sub(
-        r"\[([^\]]*)\]\(<?" + inner + r">?\)",
+        r"\[([^\]]*)\]\(<?" + inner + r'>?(?:\s+"[^"]*")?\)',
         lambda match: f"{match.group(1)} {WITHHELD}",
         text,
     )

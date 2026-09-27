@@ -257,14 +257,18 @@ class TestRecording:
             r"https?://[^\s<>()\[\]]+/speakers/invitations/[^\s<>()\[\]]+"
         )
         text = (
+            '[Go](https://x.org/speakers/invitations/abc:1/ "titled") and '
             "[Accept](https://x.org/speakers/invitations/abc:1/) or "
             "<https://x.org/speakers/invitations/abc:1/> or "
             "https://x.org/speakers/invitations/abc:1/ but not https://x.org/speakers/me/"
         )
         scrubbed = withhold_credentials(text)
         assert "invitations/abc" not in scrubbed
-        assert scrubbed.count(WITHHELD) == 3 and "/speakers/me/" in scrubbed
-        assert scrubbed.startswith("Accept " + WITHHELD + " or " + WITHHELD + " or ")
+        assert scrubbed.count(WITHHELD) == 4 and "/speakers/me/" in scrubbed
+        assert scrubbed.startswith(
+            "Go " + WITHHELD + " and Accept " + WITHHELD + " or " + WITHHELD + " or "
+        )
+        assert '"titled"' not in scrubbed
 
     def test_failed_send_keeps_the_error_and_not_the_body(self):
         with patch(
