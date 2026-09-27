@@ -72,10 +72,8 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "to",
-                    models.CharField(
-                        help_text="The addresses as sent.",
-                        max_length=500,
-                        verbose_name="to",
+                    models.TextField(
+                        help_text="The addresses as sent.", verbose_name="to"
                     ),
                 ),
                 ("subject", models.CharField(max_length=500)),

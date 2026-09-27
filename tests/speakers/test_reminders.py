@@ -6,6 +6,7 @@ from django.contrib.auth.models import User
 from django.core import mail
 from django.urls import reverse
 
+from common.models import SentEmail
 from speakers.checklists import add_adhoc_item, complete_item
 from speakers.constants import ItemOwner
 from speakers.models import ReminderLog
@@ -202,6 +203,9 @@ class TestOrganizerDigest:
         )
         mail.outbox.clear()
         assert send_checklist_digests(conference, now=NOW) == 2
+        # The assignee's digest is hers to read; the team's is nobody's.
+        assert SentEmail.objects.get(to="lena@example.com").user == lena
+        assert SentEmail.objects.get(to="team@example.com").user is None
         by_to = {tuple(m.to): m for m in mail.outbox}
         assert "Promo" in by_to[("lena@example.com",)].body
         assert "for Ada" in by_to[("lena@example.com",)].body

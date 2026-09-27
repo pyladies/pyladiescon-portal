@@ -82,7 +82,9 @@ The trail of sent emails, one row each, expanding to the body. Expects:
                             {% if email.failed %}
                                 <div class="alert alert-danger m-3" role="alert">
                                     {% trans "The send failed, so no body was kept." %}
-                                    <code>{{ email.error }}</code>
+                                    {% if full %}
+                                        <code>{{ email.error }}</code>
+                                    {% endif %}
                                 </div>
                             {% else %}
                                 <div class="m-3 p-3 bg-body-tertiary rounded small">

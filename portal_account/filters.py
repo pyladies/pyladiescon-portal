@@ -1,11 +1,23 @@
 """Filters for the Maintenance > Emails trail."""
 
 import django_filters
+from django import forms
 from django.db.models import Q
 
 from common.models import SentEmail, SentEmailStatus, kind_of
 from portal.models import Conference
 from speakers.models import Presenter
+
+
+class PresenterChoiceField(forms.ModelChoiceField):
+    """A presenter with their edition: the list spans every year."""
+
+    def label_from_instance(self, presenter):
+        return f"{presenter.display_name} ({presenter.conference.year})"
+
+
+class PresenterFilter(django_filters.ModelChoiceFilter):
+    field_class = PresenterChoiceField
 
 
 class SentEmailFilter(django_filters.FilterSet):
@@ -16,8 +28,10 @@ class SentEmailFilter(django_filters.FilterSet):
         empty_label="Any edition",
         label="Edition",
     )
-    presenter = django_filters.ModelChoiceFilter(
-        queryset=Presenter.objects.order_by("display_name", "-conference__year"),
+    presenter = PresenterFilter(
+        queryset=Presenter.objects.select_related("conference").order_by(
+            "display_name", "-conference__year"
+        ),
         method="filter_presenter",
         empty_label="Anyone",
         label="Presenter",

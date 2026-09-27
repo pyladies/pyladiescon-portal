@@ -125,6 +125,8 @@ def _organizer_digests(conference, items, now, sent, settings_row):
     tzinfo = settings_row.tzinfo if settings_row else timezone.get_default_timezone()
     today = now.astimezone(tzinfo).date()
     by_recipient = defaultdict(list)
+    # The account behind a one-address digest, so the record is theirs.
+    accounts = {}
     fallback = None
     for item in items:
         if item.owner != ItemOwner.ORGANIZER:
@@ -134,6 +136,7 @@ def _organizer_digests(conference, items, now, sent, settings_row):
             continue
         if item.assignee is not None and item.assignee.email:
             by_recipient[(item.assignee.email,)].append((item, thresholds))
+            accounts[(item.assignee.email,)] = item.assignee
             continue
         members = _team_emails(item.team) if item.team is not None else []
         if members:
@@ -161,6 +164,7 @@ def _organizer_digests(conference, items, now, sent, settings_row):
             due,
             subject=f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} {conference.name}: "
             f"{len(due)} team todo(s) with deadlines coming up",
+            user=accounts.get(recipients),
         ):
             emails.failed += 1
             continue
@@ -180,11 +184,11 @@ class DigestCount(int):
         return result
 
 
-def _try_deliver(conference, recipients, template, context, due, subject):
+def _try_deliver(conference, recipients, template, context, due, subject, user=None):
     """Deliver one digest; a failure is logged and reported, never raised,
     so one bad mailbox does not stop everyone after it in the loop."""
     try:
-        _deliver(conference, recipients, template, context, due, subject)
+        _deliver(conference, recipients, template, context, due, subject, user)
     except Exception:  # noqa: BLE001 - anything the mail backend raises
         logger.exception("Digest to %s failed", recipients)
         return False
@@ -204,7 +208,7 @@ def _team_emails(team):
     )
 
 
-def _deliver(conference, recipients, template, context, due, subject):
+def _deliver(conference, recipients, template, context, due, subject, user=None):
     """Send one digest and log every (item, threshold) it covered, atomically
     so a crash mid-way never leaves a reminder half-recorded."""
     with transaction.atomic():
@@ -213,4 +217,6 @@ def _deliver(conference, recipients, template, context, due, subject):
                 ReminderLog.objects.create(
                     item=item, threshold_days=threshold, recipient=recipients[0]
                 )
-        send_email(subject, recipients, markdown_template=template, context=context)
+        send_email(
+            subject, recipients, markdown_template=template, context=context, user=user
+        )

@@ -118,6 +118,29 @@ class TestRecording:
         assert record.conference == profile.conference
         assert record.context_digest == {"profile": profile.pk}
 
+    def test_verified_address_is_the_account_s(self, ada):
+        """An assignee's digest carries items in its context, not the
+        assignee; an address allauth verified for exactly one active account
+        is that account's."""
+        assert send([ada.email], {}).user is None
+        EmailAddress.objects.create(user=ada, email=ada.email, verified=True)
+        assert send([ada.email], {}).user == ada
+        assert send([ada.email, "x@example.com"], {}).user is None
+        # An inactive account is nobody's. (allauth keeps a verified address
+        # unique, so two accounts for one address cannot happen.)
+        ada.is_active = False
+        ada.save()
+        assert send([ada.email], {}).user is None
+
+    def test_unverified_address_proves_nothing(self, ada):
+        EmailAddress.objects.create(user=ada, email=ada.email, verified=False)
+        assert send([ada.email], {}).user is None
+
+    def test_long_recipient_lists_are_kept_whole(self):
+        team = [f"member{i}@example.com" for i in range(40)]
+        record = send(team)
+        assert record.to.split(", ") == team
+
     def test_address_must_match_exactly_one_recipient(self, ada, presenter):
         assert send(["other@example.com"], {"user": ada}).user is None
         assert (
@@ -211,6 +234,24 @@ class TestRecording:
         )
         assert WITHHELD in record.body_md
 
+    def test_withheld_link_is_a_sentence_not_a_link(self, conference, presenter):
+        invitation = make_invitation(presenter)
+        invitation.issue_token()
+        invitation.save()
+        send_invitation_email(invitation)
+        record = SentEmail.objects.get()
+        assert "Accept or decline the invitation " + WITHHELD in record.body_md
+        assert "](" + WITHHELD not in record.body_md
+        assert 'href="[link withheld' not in record.body_html
+        assert "Accept or decline the invitation" in record.body_html
+
+    def test_body_html_keeps_no_image_source(self):
+        record = SentEmail(
+            body_md='Hi ![tracker](https://evil.example/px.png) and <img src="https://evil.example/md.png" alt="x">'
+        )
+        html = record.body_html
+        assert "evil.example" not in html and "<img" in html and 'alt="x"' in html
+
     def test_credential_shapes_are_registered_once_and_scrub_every_form(self):
         register_credential_pattern(
             r"https?://[^\s<>()\[\]]+/speakers/invitations/[^\s<>()\[\]]+"
@@ -223,6 +264,7 @@ class TestRecording:
         scrubbed = withhold_credentials(text)
         assert "invitations/abc" not in scrubbed
         assert scrubbed.count(WITHHELD) == 3 and "/speakers/me/" in scrubbed
+        assert scrubbed.startswith("Accept " + WITHHELD + " or " + WITHHELD + " or ")
 
     def test_failed_send_keeps_the_error_and_not_the_body(self):
         with patch(

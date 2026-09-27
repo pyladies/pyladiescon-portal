@@ -93,6 +93,9 @@ def _try_send(conference, recipients, group, speaker_side):
                 list(recipients),
                 markdown_template="emails/speakers/checklist_changes.md",
                 context=context,
+                # An assignee's notice is theirs to read on "Emails we sent
+                # you"; the context carries the items, not the account.
+                user=None if speaker_side else group[0].assignee,
             )
             _clear(group)
     except Exception:  # noqa: BLE001 - anything the mail backend raises

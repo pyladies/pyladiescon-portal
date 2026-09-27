@@ -86,6 +86,7 @@ class TestMaintenanceEmails:
         assert subjects({"search": "ada"}) == ["About Ada", "To Ada"]
         content = client.get(TRAIL, {"search": "x"}).content.decode()
         assert "Reset" in content and "smtp down" in content
+        assert f"{presenter.display_name} ({conference.year})" in content
         assert elsewhere.pk and failed.pk and to_ada.pk and about_ada.pk
 
     def test_query_count_does_not_grow_with_rows(self, client, maintainer, presenter):
@@ -153,6 +154,20 @@ class TestMyEmails:
         assert f"mine-{by_account.pk}" in content
         # One kind only: nothing to filter by.
         assert 'name="kind"' not in content
+
+    def test_a_failed_send_shows_no_backend_error_to_the_person(self, client, ada):
+        SentEmail.objects.create(
+            to=ada.email,
+            user=ada,
+            subject="Broken",
+            template="emails/base_email.md",
+            status=SentEmailStatus.FAILED,
+            error="SMTPRecipientsRefused: {'ada@example.com': (550, b'no')}",
+        )
+        client.force_login(ada)
+        content = client.get(MINE).content.decode()
+        assert "The send failed, so no body was kept." in content
+        assert "SMTPRecipientsRefused" not in content
 
     def test_kind_filter(self, client, ada):
         send("Base", [ada.email], context={"user": ada})

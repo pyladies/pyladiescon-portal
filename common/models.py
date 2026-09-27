@@ -8,11 +8,15 @@ are deliberately not recorded: they carry secrets.
 
 from datetime import timedelta
 
+import bleach
 from django.conf import settings
 from django.db import models
 from django.utils import timezone
 
 from .markdown_emails import MarkdownEmailRenderer
+
+# The email's own allowlist with image sources dropped (``SentEmail.body_html``).
+TRAIL_ATTRIBUTES = {**MarkdownEmailRenderer.ALLOWED_ATTRIBUTES, "img": ["alt"]}
 
 
 class SentEmailStatus(models.TextChoices):
@@ -83,7 +87,7 @@ class SentEmail(models.Model):
         on_delete=models.SET_NULL,
         related_name="sent_emails",
     )
-    to = models.CharField("to", max_length=500, help_text="The addresses as sent.")
+    to = models.TextField("to", help_text="The addresses as sent.")
     subject = models.CharField(max_length=500)
     template = models.CharField(
         max_length=200, help_text="The Markdown template: what kind of email."
@@ -121,10 +125,18 @@ class SentEmail(models.Model):
 
     @property
     def body_html(self):
-        """The body as the HTML part was: the same renderer, and the same
-        bleach whitelist, so the trail shows what was sent and nothing a
-        template could not have."""
-        return MarkdownEmailRenderer().markdown_to_html(self.body_md)
+        """The body as the HTML part was, through the same renderer and the
+        same bleach whitelist, minus image sources: a presenter's title or
+        name can carry an image, and the trail is where a maintainer reads
+        other people's mail in bulk, so nothing here fetches from a third
+        party and reports who looked, and when."""
+        html = MarkdownEmailRenderer().markdown_to_html(self.body_md)
+        return bleach.clean(
+            html,
+            tags=MarkdownEmailRenderer.ALLOWED_TAGS,
+            attributes=TRAIL_ATTRIBUTES,
+            strip=True,
+        )
 
 
 def kind_of(template):

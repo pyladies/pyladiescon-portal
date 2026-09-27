@@ -9,6 +9,8 @@ line as a speaker's.
 
 import re
 
+from allauth.account.models import EmailAddress
+
 from .markdown_emails import deliver_markdown_email, render_markdown_email
 from .models import SentEmail, SentEmailStatus
 
@@ -31,10 +33,26 @@ def register_credential_pattern(regex):
         CREDENTIAL_PATTERNS.append(re.compile(regex))
 
 
+def withhold(text, pattern):
+    """``text`` with every match of ``pattern`` (compiled) replaced.
+
+    A Markdown link or autolink built around the match goes with it, so the
+    reader sees the sentence it was, not a link to the placeholder.
+    """
+    inner = f"(?:{pattern.pattern})"
+    text = re.sub(
+        r"\[([^\]]*)\]\(<?" + inner + r">?\)",
+        lambda match: f"{match.group(1)} {WITHHELD}",
+        text,
+    )
+    text = re.sub("<" + inner + ">", WITHHELD, text)
+    return pattern.sub(WITHHELD, text)
+
+
 def withhold_credentials(text):
     """``text`` with every registered credential shape replaced."""
     for pattern in CREDENTIAL_PATTERNS:
-        text = pattern.sub(WITHHELD, text)
+        text = withhold(text, pattern)
     return text
 
 
@@ -98,7 +116,7 @@ def send_email(
         raise
     for secret in secrets:
         if secret:
-            markdown_content = markdown_content.replace(secret, WITHHELD)
+            markdown_content = withhold(markdown_content, re.compile(re.escape(secret)))
     record.body_md = withhold_credentials(markdown_content)
     record.save()
     return record
@@ -121,8 +139,11 @@ def describe(
     ``presenter`` or ``user`` in the context is the recipient when the email
     went to exactly their address, and nobody's otherwise, because the
     organizers' notice about a proposal carries the proposer in its context
-    and must never show up in the proposer's own trail. The edition and the
-    session are about the email, not its reader, so they are taken as found.
+    and must never show up in the proposer's own trail. Failing that, an
+    address that allauth has verified as exactly one active account's is
+    that account's: an assignee's digest carries items in its context, not
+    the assignee. The edition and the session are about the email, not its
+    reader, so they are taken as found.
     """
     recipients = [address for address in recipient_list if address]
     sole = recipients[0].strip().lower() if len(recipients) == 1 else None
@@ -144,6 +165,8 @@ def describe(
         found = _model(getattr(profile, "user", None), "auth.User")
         if is_recipient(found):
             user = found
+    if user is None and sole is not None:
+        user = _verified_owner(sole)
     if session is None:
         session = _model(context.get("session"), "speakers.Session")
     if conference is None:
@@ -165,11 +188,26 @@ def describe(
         user=user,
         presenter=presenter,
         session=session,
-        to=", ".join(recipients)[:500],
+        to=", ".join(recipients),
         subject=subject[:500],
         template=markdown_template,
         context_digest=digest,
     )
+
+
+def _verified_owner(address):
+    """The one active account allauth has verified ``address`` for, or None.
+
+    The presenter row's address is never enough (an organizer types it in
+    before anyone has proven it), but a verified allauth address is proof.
+    Two accounts verified for the same address is nobody's.
+    """
+    owners = list(
+        EmailAddress.objects.filter(
+            email__iexact=address, verified=True, user__is_active=True
+        ).select_related("user")[:2]
+    )
+    return owners[0].user if len(owners) == 1 else None
 
 
 def _model(value, label):
