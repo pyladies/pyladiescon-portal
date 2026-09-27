@@ -113,6 +113,20 @@
         {# When allauth.mfa is added to INSTALLED_APPS, a "Two-factor #}
         {# authentication" row (reversing the mfa_index view) drops in here. #}
     </div>
+    <h2 class="h6 text-body-emphasis mb-2">
+        {% trans "History" %}
+    </h2>
+    <div class="list-group mb-4">
+        <a href="{% url 'portal_account:my_emails' %}"
+           class="list-group-item list-group-item-action d-flex align-items-center">
+            <i class="fa-solid fa-envelope-open fa-fw text-secondary me-3"></i>
+            <span class="flex-grow-1">
+                <span class="d-block">{% trans "Emails we sent you" %}</span>
+                <small class="text-secondary">{% trans "What the portal sent to you, and when" %}</small>
+            </span>
+            <i class="fa-solid fa-chevron-right text-secondary"></i>
+        </a>
+    </div>
     {# One intentional cross-link replaces the old scattered resource links: #}
     {# the volunteer application is the "profile" people come here looking for. #}
     <a href="{% url 'volunteer:index' %}"

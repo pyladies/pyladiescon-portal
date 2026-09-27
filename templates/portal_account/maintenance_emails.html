@@ -1,0 +1,37 @@
+{% extends "portal/base_sidebar.html" %}
+{% load i18n %}
+{% load django_bootstrap5 %}
+{% block head_title %}
+    {% trans "Maintenance: Emails" %}
+{% endblock head_title %}
+{% block sidebar_title %}
+    {% trans "Maintenance" %}
+{% endblock sidebar_title %}
+{% block sidebar_title_desktop %}
+    {% trans "Maintenance" %}
+{% endblock sidebar_title_desktop %}
+{% block sidebar %}
+    {% include "portal/_maintenance_rail.html" with active="emails" %}
+{% endblock sidebar %}
+{% block content %}
+    <div class="container px-0">
+        <h1 class="h3 mb-1">
+            {% trans "Emails" %}
+        </h1>
+        <p class="text-secondary mb-3">
+            {% trans "Every email the portal sent through its own templates, newest first. Sign-in codes, password resets and address verification are not recorded, and a link that signs its reader in, such as an invitation's accept link, is withheld from the body: they are credentials." %}
+            {% blocktranslate with days=retention_days %}Records are kept for the edition plus {{ days }} days, then pruned nightly. A failed send keeps its error and not the body.{% endblocktranslate %}
+        </p>
+        <form method="get" class="row row-cols-lg-auto g-2 align-items-end mb-3">
+            {% bootstrap_form filter.form layout="inline" %}
+            <div class="col-12">
+                {% bootstrap_button "Filter" button_type="submit" button_class="btn-secondary" %}
+                {% if filter.form.is_bound %}
+                    <a href="{% url 'maintenance_emails' %}" class="btn btn-link">{% trans "Reset" %}</a>
+                {% endif %}
+            </div>
+        </form>
+        {% include "portal_account/_sent_email_rows.html" with emails=object_list prefix="email" full=True %}
+        {% include "portal/_pagination.html" %}
+    </div>
+{% endblock content %}

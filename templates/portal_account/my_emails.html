@@ -1,0 +1,55 @@
+{% extends "portal/base_sidebar.html" %}
+{% load i18n %}
+{% block head_title %}
+    {% trans "Emails we sent you" %}
+{% endblock head_title %}
+{% block breadcrumb %}
+    {% url 'portal_account:index' as bc_url %}
+    {% trans "Account" as bc_section %}
+    {% trans "Emails we sent you" as bc_page %}
+    {% include "portal/_breadcrumbs.html" with section=bc_section section_url=bc_url page=bc_page %}
+{% endblock breadcrumb %}
+{% block sidebar_title %}
+    {% trans "Account" %}
+{% endblock sidebar_title %}
+{% block sidebar_title_desktop %}
+    {% trans "Account" %}
+{% endblock sidebar_title_desktop %}
+{% block sidebar %}
+    {% include "portal_account/_account_rail.html" %}
+{% endblock sidebar %}
+{% block content %}
+    <h1 class="h3 mb-1">
+        {% trans "Emails we sent you" %}
+    </h1>
+    <p class="text-secondary mb-3">
+        {% trans "What the portal sent to you, newest first, as it was sent. Sign-in codes, password resets and address verification are not kept, and a link that signs you in, such as an invitation's accept link, is withheld: they are credentials." %}
+        {% blocktranslate with days=retention_days %}We keep these for the edition plus {{ days }} days.{% endblocktranslate %}
+    </p>
+    {% if kinds|length > 1 %}
+        <form method="get" class="row row-cols-lg-auto g-2 align-items-center mb-3">
+            <div class="col-12">
+                <label class="visually-hidden" for="kind">
+                    {% trans "Kind" %}
+                </label>
+                <select class="form-select form-select-sm" id="kind" name="kind">
+                    <option value="">
+                        {% trans "Any kind" %}
+                    </option>
+                    {% for template, label in kinds %}
+                        <option value="{{ template }}" {% if template == kind %}selected{% endif %}>
+                            {{ label }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-12">
+                <button class="btn btn-sm btn-secondary" type="submit">
+                    {% trans "Show" %}
+                </button>
+            </div>
+        </form>
+    {% endif %}
+    {% include "portal_account/_sent_email_rows.html" with emails=object_list prefix="mine" full=False %}
+    {% include "portal/_pagination.html" %}
+{% endblock content %}

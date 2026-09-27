@@ -17,6 +17,7 @@ urlpatterns = [
         login_required(views.PortalProfileCreate.as_view()),
         name="portal_profile_new",
     ),
+    path("emails/", views.MyEmailsView.as_view(), name="my_emails"),
     path(
         "agreements/",
         login_required(views.AgreementsView.as_view()),

@@ -127,6 +127,8 @@ layout, as before.
     </div>
     {% url 'maintenance_accounts' as maintenance_accounts_url %}
     {% include "portal/_sidebar_item.html" with url=maintenance_accounts_url label=_("Accounts") icon="fa-user-shield" only %}
+    {% url 'maintenance_emails' as maintenance_emails_url %}
+    {% include "portal/_sidebar_item.html" with url=maintenance_emails_url label=_("Emails") icon="fa-envelope-open-text" only %}
 {% endif %}
 <hr class="my-2">
 {% url 'team_new' as team_new_url %}

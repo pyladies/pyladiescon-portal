@@ -166,11 +166,11 @@ class SendEmailCompatibilityTest(TestCase):
         self.subject = "Test Email"
         self.context = {"user_name": "Test User"}
 
-    @patch("common.send_emails.send_markdown_email")
-    def test_markdown_template_routing(self, mock_send_markdown):
-        """Test that send_email routes to markdown system."""
-        # Mock the return value
-        mock_send_markdown.return_value = True
+    @patch("common.send_emails.deliver_markdown_email")
+    @patch("common.send_emails.render_markdown_email")
+    def test_markdown_template_routing(self, mock_render, mock_deliver):
+        """send_email renders once, delivers the parts, and returns the record."""
+        mock_render.return_value = ("# Hi", "<h1>Hi</h1>", "Hi")
 
         result = send_email(
             self.subject,
@@ -179,13 +179,12 @@ class SendEmailCompatibilityTest(TestCase):
             context=self.context,
         )
 
-        mock_send_markdown.assert_called_once_with(
-            self.subject,
-            self.recipients,
-            markdown_template="test.md",
-            context=self.context,
+        mock_render.assert_called_once_with("test.md", self.context)
+        mock_deliver.assert_called_once_with(
+            self.subject, self.recipients, "<h1>Hi</h1>", "Hi"
         )
-        self.assertTrue(result)
+        self.assertEqual(result.body_md, "# Hi")
+        self.assertEqual(result.to, "recipient@example.com")
 
     def test_render_template_with_context(self):
         """Test render_template method with context."""

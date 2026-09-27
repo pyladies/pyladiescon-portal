@@ -1,8 +1,23 @@
 import logging
 
+from celery import shared_task
 from kombu.exceptions import OperationalError
 
+from .models import prune_sent_emails
+
 logger = logging.getLogger(__name__)
+
+
+@shared_task
+def prune_email_records_task():
+    """Delete email records past retention.
+
+    Scheduled through django-celery-beat (the "Prune email records" periodic
+    task seeded by common's first migration); the return value is what the
+    task result and the worker log record.
+    """
+    count = prune_sent_emails()
+    return f"Deleted {count} email record(s) past retention"
 
 
 def enqueue(task, *args, **kwargs):

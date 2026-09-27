@@ -50,6 +50,7 @@ SECTION_BY_NAME = {
     "team_edit": ORGANIZE,
     "team_delete": ORGANIZE,
     "maintenance_accounts": ORGANIZE,
+    "maintenance_emails": ORGANIZE,
     "my_teams": VOLUNTEER,
     "team_dashboard": VOLUNTEER,
     "team_detail": VOLUNTEER,

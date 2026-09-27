@@ -36,6 +36,11 @@ urlpatterns = [
         portal_account_views.MaintenanceAccountsView.as_view(),
         name="maintenance_accounts",
     ),
+    path(
+        "maintenance/emails/",
+        portal_account_views.MaintenanceEmailsView.as_view(),
+        name="maintenance_emails",
+    ),
     path("volunteer/", include("volunteer.urls", namespace="volunteer")),
     path("admin/", admin.site.urls),
     # Override two allauth views so finishing returns to the account page (the

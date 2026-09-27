@@ -591,7 +591,7 @@ Channel and role setup is manual in 2026: organizers create channels on Discord 
 
 ### 13.1 The record of what was sent
 
-> **Not built.** Decided on 24 September 2026 and widened on 25 September; the stage after open proposals (§2.5).
+> **Built** on 26 September 2026 (task 2.23), as written here, with three details settled at build time: whose an email is comes from the send context only where the address proves it, so the organizers' copy of a proposal never lands in the proposer's trail; the invitation's accept link, which signs its reader in as the presenter, is withheld from the stored body, because a trail read by maintainers must never hold a credential; and a send that fails inside a caller's transaction leaves no record, since the rollback takes it. `speakers/README.md` under Email is the tiebreaker.
 
 The activity log records that an invitation was sent, and the reminder log records that a digest went out, but neither keeps what the message said. "What did we actually send her, and when" is a question organizers and maintainers ask, and today nobody can answer it. The person it was sent to has the same question, from the other side: "did the portal ever tell me about the schedule?"
 
