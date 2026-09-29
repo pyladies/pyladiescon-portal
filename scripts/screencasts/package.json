@@ -1,0 +1,8 @@
+{
+  "name": "portal-screencasts",
+  "private": true,
+  "description": "Records the speaker and organizer walkthrough videos used in the user guides.",
+  "dependencies": {
+    "playwright-core": "^1.63.0"
+  }
+}

@@ -26,6 +26,7 @@ theme:
     - content.tabs.link
     - content.action.edit
 markdown_extensions:
+  - admonition
   - pymdownx.superfences
   - pymdownx.tabbed:
       alternate_style: true
@@ -51,6 +52,8 @@ nav:
     - Get started: user/get_started.md
     - Core Team: user/core_team.md
     - Volunteers: user/volunteer.md
+    - Speakers: user/speakers.md
+    - Inviting Speakers: user/organizer_invite_speakers.md
     - Sponsors: user/sponsor.md
   - Policies:
     - Terms of Service: policies/terms_of_use.md
