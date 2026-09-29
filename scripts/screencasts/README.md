@@ -1,6 +1,6 @@
 # Screencasts
 
-Records the walkthrough videos embedded in the user guides:
+Records the walkthrough videos shown in the user guides:
 
 | Video | Used in | Script |
 |---|---|---|
@@ -11,7 +11,10 @@ Records the walkthrough videos embedded in the user guides:
 The scripts drive the real portal in a headless browser (Playwright), against a
 throwaway database with the sample data, and draw a cursor, click ripples and a
 caption for each step into the video. Re-run them whenever a screen the guides
-show changes, then commit the new MP4s in `docs/assets/videos/`.
+show changes. The MP4s are written to `scripts/screencasts/out/videos/`, which
+git ignores. They are hosted on YouTube, not in this repository, so upload the
+new take and update the embed in the guide (or use "Replace video" on YouTube
+to keep the same address).
 
 ## What you need
 

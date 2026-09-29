@@ -14,7 +14,7 @@ set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$HERE/../.." && pwd)"
 OUT="$HERE/out"
-VIDEOS="$ROOT/docs/assets/videos"
+VIDEOS="$OUT/videos"
 PYTHON="${PYTHON:-python}"
 PORT="${PORT:-8002}"
 
@@ -70,7 +70,7 @@ fresh_server() {
 encode() { # <recording dir> <name>
   ffmpeg -v error -y -i "$OUT/$1"/*.webm -c:v libx264 -crf 30 -preset slow -pix_fmt yuv420p \
     -movflags +faststart -an "$VIDEOS/$2.mp4"
-  echo "wrote docs/assets/videos/$2.mp4"
+  echo "wrote scripts/screencasts/out/videos/$2.mp4"
 }
 
 record() {

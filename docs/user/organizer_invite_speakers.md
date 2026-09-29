@@ -10,12 +10,12 @@ and **Presenters** under **Speakers** in the **Organize** sidebar, ask the tech
 lead. **Proposals** only appears while the edition is taking proposals, see
 [Speakers who propose](#speakers-who-propose).
 
-<video controls preload="metadata" width="100%" src="/assets/videos/organizer-invite-speakers.mp4">
-  Your browser does not support embedded video. The steps are written out below.
-</video>
+<!-- TODO(video): embed the YouTube video "PyLadiesCon Portal: How Organizers Invite
+Speakers" here once it is uploaded (an organizer creates a workshop, adds a
+presenter and sends the invitation). -->
 
-*Recording: an organizer creates a workshop, adds a presenter and sends the
-invitation.*
+*A screen recording of this flow is coming soon. The steps below cover the same
+ground.*
 
 ## The idea
 
