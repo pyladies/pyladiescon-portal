@@ -34,7 +34,7 @@ from .models import (
     SessionPresenter,
     SessionType,
 )
-from .people import assignee_candidates, liaison_candidates, user_label
+from .people import assignee_candidates, liaison_candidates, picker_label
 from .services import proposable_types
 
 MARKDOWN_HELP = "Markdown supported: headings, lists, links, **bold**, *italics*."
@@ -222,7 +222,7 @@ class PresenterForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.conference = conference
         self.fields["liaison"].queryset = liaison_candidates(conference)
-        self.fields["liaison"].label_from_instance = user_label
+        self.fields["liaison"].label_from_instance = picker_label
 
     def clean_slug(self):
         return _clean_slug(self, Presenter, "presenter")
@@ -556,7 +556,7 @@ def team_candidates(conference):
 def owner_choices(conference):
     """Select options for handing an item to a person or a team."""
     people = [
-        (format_owner(user=u.pk), user_label(u))
+        (format_owner(user=u.pk), picker_label(u))
         for u in assignee_candidates(conference)
     ]
     teams = [
