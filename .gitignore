@@ -11,6 +11,8 @@ env/
 # Env files
 .envrc
 .env.dev
+# Local additions to the compose stack (Spaces keys for uploads, and so on).
+compose.override.yml
 .env.prod
 .env.prod.db
 .env

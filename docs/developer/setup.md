@@ -234,18 +234,78 @@ python manage.py runserver
 Performance videos go straight from the browser to a private bucket in
 presigned multipart chunks (design §8.8). With no bucket configured the
 upload endpoints answer 503 and everything else works, so most local work
-needs none of this. To try uploads locally, point the portal at any
-S3-compatible bucket, for instance a MinIO container:
+needs none of this.
 
-```bash
-SPEAKER_MEDIA_BUCKET=speaker-media
-AWS_S3_ENDPOINT_URL=http://localhost:9000
-AWS_ACCESS_KEY_ID=minioadmin
-AWS_SECRET_ACCESS_KEY=minioadmin
+### Against a DigitalOcean Space
+
+Production uses DigitalOcean Spaces, and a local server can upload to a
+Space of its own. Make one for development, separate from the public one
+the image fields use, and keep it **private**: the portal never sets an
+ACL on what it uploads, and reads it back only through presigned links.
+
+1. In the DigitalOcean console create a Space (for example
+   `pyladiescon-media-dev`) in a region such as `nyc3`, and turn *File
+   Listing* off. Do not enable the CDN on it.
+2. On the Space, add a CORS rule for the browser's direct uploads:
+   origin `http://localhost:8000`, methods `PUT` and `GET`, allowed headers
+   `*`, exposed header `ETag`.
+3. Create a Spaces access key (API, Spaces Keys) scoped to that Space.
+4. Give the `web`, `celery` and `beat` services the settings through a
+   `compose.override.yml` next to `compose.yml` (ignored by git, so the
+   keys stay on your machine):
+
+```yaml
+services:
+  web:
+    environment:
+      SPEAKER_MEDIA_BUCKET: pyladiescon-media-dev
+      AWS_S3_ENDPOINT_URL: https://nyc3.digitaloceanspaces.com
+      AWS_S3_REGION_NAME: nyc3
+      AWS_ACCESS_KEY_ID: <your Spaces key>
+      AWS_SECRET_ACCESS_KEY: <your Spaces secret>
+  celery:
+    environment:
+      SPEAKER_MEDIA_BUCKET: pyladiescon-media-dev
+      AWS_S3_ENDPOINT_URL: https://nyc3.digitaloceanspaces.com
+      AWS_S3_REGION_NAME: nyc3
+      AWS_ACCESS_KEY_ID: <your Spaces key>
+      AWS_SECRET_ACCESS_KEY: <your Spaces secret>
 ```
 
-The bucket must exist and be private. `SPEAKER_MEDIA_PART_SIZE`,
-`SPEAKER_MEDIA_MAX_BYTES`, `SPEAKER_MEDIA_URL_TTL` and
+   Then `docker compose up -d --force-recreate web celery beat`. Leave
+   `USE_SPACES` alone: it switches the image storage, which is a separate
+   matter.
+
+Until the upload panel (task 5.2) exists there is no browser path, so check
+the wiring from a shell, which plays the browser's part with boto3:
+
+```bash
+docker compose exec web python manage.py shell -c "
+from django.contrib.auth.models import User
+from speakers.media import MediaBucket, start_upload, complete_upload
+from speakers.models import Session
+session = Session.objects.filter(conference__is_active=True).first()
+user = User.objects.get(username='admin_user')
+upload = start_upload(session=session, kind='RAW_VIDEO', language='', filename='check.bin', size_bytes=3, content_type='application/octet-stream', user=user)
+bucket = MediaBucket.from_settings()
+part = bucket.client.upload_part(Bucket=bucket.bucket, Key=upload.storage_key, UploadId=upload.upload_id, PartNumber=1, Body=b'ok!')
+asset = complete_upload(upload, [{'number': 1, 'etag': part['ETag']}])
+print(asset, asset.size_bytes, asset.download_url())
+"
+```
+
+The printed link is presigned and opens the object for an hour; the same
+address without the signature is refused, which is the private Space doing
+its job.
+
+### Against any other S3-compatible bucket
+
+A MinIO container works the same way: `SPEAKER_MEDIA_BUCKET=speaker-media`,
+`AWS_S3_ENDPOINT_URL=http://localhost:9000` and MinIO's keys, with the
+bucket created and private.
+
+`SPEAKER_MEDIA_PART_SIZE`, `SPEAKER_MEDIA_MAX_BYTES`, `SPEAKER_MEDIA_URL_TTL`
+(how long a presigned link lives, 3600 seconds by default) and
 `SPEAKER_MEDIA_UPLOAD_TTL_HOURS` have sensible defaults in `portal/settings.py`.
 
 ## Generate Sample Data (Optional)
