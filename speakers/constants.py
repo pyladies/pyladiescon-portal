@@ -256,6 +256,21 @@ def parse_owner(value):
     return None, None
 
 
+class UploadStatus(models.TextChoices):
+    """Where an in-flight multipart upload stands (design §8.8)."""
+
+    STARTED = "STARTED", "Started"
+    COMPLETED = "COMPLETED", "Completed"
+    ABORTED = "ABORTED", "Aborted"
+    EXPIRED = "EXPIRED", "Expired"
+
+
+# Presigned part URLs are handed out in batches this size; the browser asks
+# for the next batch as it goes, so a 10,000-part upload never gets 10,000
+# URLs in one response.
+UPLOAD_PART_URL_BATCH = 50
+
+
 class NoticeKind(models.TextChoices):
     """What the daily checklist-update email has to say about an item."""
 

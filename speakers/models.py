@@ -54,6 +54,7 @@ from .constants import (
     ReadyRule,
     SessionLevel,
     SessionStatus,
+    UploadStatus,
     format_owner,
 )
 from .encryption import EncryptedTextField, usable
@@ -1868,6 +1869,21 @@ class MediaAsset(TimestampedModel):
         max_length=16, choices=MediaStatus.choices, default=MediaStatus.UPLOADING
     )
     file = models.FileField(upload_to="speakers/media/", blank=True)
+    # Multipart uploads land in the private media bucket under this key;
+    # ``file`` stays for anything attached through the admin.
+    # db_default as well as default: the release before this one keeps
+    # inserting assets during the rolling deploy (README, "Columns and the
+    # deploy window").
+    storage_key = models.CharField(
+        max_length=500, blank=True, default="", db_default=""
+    )
+    original_filename = models.CharField(
+        max_length=255, blank=True, default="", db_default=""
+    )
+    content_type = models.CharField(
+        max_length=100, blank=True, default="", db_default=""
+    )
+    size_bytes = models.BigIntegerField(null=True, blank=True)
     duration_seconds = models.PositiveIntegerField(null=True, blank=True)
     notes_md = models.TextField(blank=True, help_text="Reviewer notes. Markdown.")
     uploaded_by = models.ForeignKey(
@@ -1892,6 +1908,17 @@ class MediaAsset(TimestampedModel):
     def is_ready(self):
         return self.status == MediaStatus.READY
 
+    def download_url(self, ttl=None):
+        """A presigned link to the object, for whoever may see the asset; the
+        bucket is private so this is the only way at the file."""
+        from .media import MediaBucket
+
+        if not self.storage_key:
+            return self.file.url if self.file else ""
+        return MediaBucket.from_settings().download_url(
+            self.storage_key, self.original_filename or None, ttl=ttl
+        )
+
     @classmethod
     def latest_ready(cls, session, kind, language=None):
         """The newest READY asset of ``kind`` on ``session`` (and language)."""
@@ -1901,6 +1928,68 @@ class MediaAsset(TimestampedModel):
         if language:
             queryset = queryset.filter(language=language)
         return queryset.order_by("-version", "-id").first()
+
+
+class MediaUpload(TimestampedModel):
+    """A multipart upload in flight (design §8.8, task 5.1).
+
+    The browser uploads parts straight to the bucket with presigned URLs;
+    this row is what the portal knows about it: the object key, the
+    multipart id, how many parts to expect, who started it and when it
+    stops being worth waiting for. Completing it makes the ``MediaAsset``.
+    """
+
+    conference = models.ForeignKey(
+        "portal.Conference",
+        on_delete=models.PROTECT,
+        related_name="media_uploads",
+        editable=False,
+    )
+    session = models.ForeignKey(
+        Session, on_delete=models.CASCADE, related_name="media_uploads"
+    )
+    kind = models.CharField(max_length=16, choices=MediaKind.choices)
+    language = models.CharField(max_length=10, blank=True, default="")
+    filename = models.CharField(max_length=255)
+    content_type = models.CharField(max_length=100, default="application/octet-stream")
+    size_bytes = models.BigIntegerField()
+    part_size = models.PositiveIntegerField()
+    parts_total = models.PositiveIntegerField()
+    storage_key = models.CharField(max_length=500)
+    upload_id = models.CharField(max_length=1024)
+    status = models.CharField(
+        max_length=16, choices=UploadStatus.choices, default=UploadStatus.STARTED
+    )
+    expires_at = models.DateTimeField()
+    completed_at = models.DateTimeField(null=True, blank=True)
+    started_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="media_uploads",
+    )
+    asset = models.OneToOneField(
+        MediaAsset,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="upload",
+    )
+
+    class Meta:
+        ordering = ["-id"]
+
+    def __str__(self):
+        return f"Upload {self.pk}: {self.filename} for {self.session}"
+
+    def save(self, *args, **kwargs):
+        self.conference_id = self.session.conference_id
+        super().save(*args, **kwargs)
+
+    @property
+    def is_open(self):
+        return self.status == UploadStatus.STARTED
 
 
 class Handbook(TimestampedModel):

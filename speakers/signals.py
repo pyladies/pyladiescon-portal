@@ -11,3 +11,8 @@ invitation_accepted = Signal()
 # Sent by ``Session.confirm()`` after the status is saved, with ``session``.
 # The session-scope checklist (post-production) is instantiated here.
 session_confirmed = Signal()
+
+# Sent by ``speakers.media.complete_upload`` once a multipart upload has been
+# finalized and its ``MediaAsset`` is READY, with ``asset``. The asset rules
+# re-evaluate here; the duration probe (task 5.3) hooks in here too.
+asset_ready = Signal()

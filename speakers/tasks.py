@@ -14,6 +14,7 @@ from .emails import (
     send_proposal_received_email,
     send_proposal_rejected_email,
 )
+from .media import expire_abandoned_uploads
 from .models import (
     Invitation,
     Presenter,
@@ -209,3 +210,15 @@ def _proposal(proposal_id, decision=None):
     if decision is not None:
         proposals = proposals.filter(decision=decision)
     return proposals.first()
+
+
+@shared_task
+def expire_abandoned_uploads_task():
+    """Abort multipart uploads nobody finished (design §8.8).
+
+    Scheduled through django-celery-beat (the "Expire abandoned uploads"
+    periodic task seeded by migration 0012); the bucket's lifecycle rule is
+    the backstop.
+    """
+    count = expire_abandoned_uploads()
+    return f"Expired {count} abandoned upload(s)"

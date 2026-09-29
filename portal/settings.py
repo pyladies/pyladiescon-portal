@@ -296,6 +296,26 @@ UNVERIFIED_ACCOUNT_RETENTION_DAYS = int(
     os.getenv("UNVERIFIED_ACCOUNT_RETENTION_DAYS", "7")
 )
 
+# Speaker media (design §8.8): performance videos go straight from the
+# browser to a private bucket in presigned multipart chunks; the portal
+# starts, finalizes and records the upload. Empty bucket name = uploads off
+# (the endpoints answer 503). Credentials and endpoint are the AWS_* ones
+# the media storage uses; the bucket is its own, private, never public-read.
+SPEAKER_MEDIA_BUCKET = os.getenv("SPEAKER_MEDIA_BUCKET", "")
+SPEAKER_MEDIA_PREFIX = os.getenv("SPEAKER_MEDIA_PREFIX", "speaker-media/")
+SPEAKER_MEDIA_ENDPOINT_URL = os.getenv("AWS_S3_ENDPOINT_URL")
+SPEAKER_MEDIA_REGION = os.getenv("AWS_S3_REGION_NAME", "us-east-1")
+SPEAKER_MEDIA_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
+SPEAKER_MEDIA_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
+# 64 MiB parts: a 4 GiB video is 64 parts, well under S3's 10,000, and a
+# part is small enough to retry cheaply on a flaky connection.
+SPEAKER_MEDIA_PART_SIZE = int(
+    os.getenv("SPEAKER_MEDIA_PART_SIZE", str(64 * 1024 * 1024))
+)
+SPEAKER_MEDIA_MAX_BYTES = int(os.getenv("SPEAKER_MEDIA_MAX_BYTES", str(16 * 1024**3)))
+SPEAKER_MEDIA_URL_TTL = int(os.getenv("SPEAKER_MEDIA_URL_TTL", "3600"))
+SPEAKER_MEDIA_UPLOAD_TTL_HOURS = int(os.getenv("SPEAKER_MEDIA_UPLOAD_TTL_HOURS", "48"))
+
 # How long the record of a sent email outlives its edition (design §13.1).
 # Bodies are personal data; the nightly "Prune email records" task deletes
 # what is past this, and both trail pages say so.

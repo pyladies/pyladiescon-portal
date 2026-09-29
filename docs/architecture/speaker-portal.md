@@ -328,7 +328,7 @@ The speaker guide, versioned. Reading it records a `HandbookReadReceipt`; publis
 
 ### 8.8 MediaAsset
 
-> **Partly built** (M3b). The model exists and the video-length rule reads it; nothing uploads or probes a file yet.
+> **Being built** (M3b). Task 5.1 (29 September 2026): the multipart upload backend, `MediaUpload`, the JSON endpoints, versioning and `asset_ready`. The upload panel (5.2) and the duration probe (5.3) are next; nothing probes a file yet.
 
 For pre-recorded sessions, one row per file that moves through post-production:
 

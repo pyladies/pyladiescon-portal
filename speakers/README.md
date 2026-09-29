@@ -98,8 +98,26 @@ with `USE_SPACES=true` the default storage is
 django-storages `S3Boto3Storage`, `location="media"`, no overwrite) against
 Digital Ocean Spaces through the `AWS_*` env vars, with `AWS_DEFAULT_ACL =
 "public-read"` and unsigned URLs. Existing uploads are `ImageField`s
-(`PortalProfile.profile_picture`, `PyladiesChapter.logo`). There is no private
-bucket or presigned-URL code yet; Stage 1.5 and 4.1 add it.
+(`PortalProfile.profile_picture`, `PyladiesChapter.logo`).
+
+Speaker media is different (design §8.8, task 5.1): performance videos are
+gigabytes, so they never pass through the app. `speakers.media.MediaBucket`
+talks to a **private** bucket named by `SPEAKER_MEDIA_BUCKET` (empty means
+uploads are off and the endpoints answer 503), through the same `AWS_*`
+credentials and endpoint, with s3v4 signing. The browser starts an upload
+(`POST sessions/<slug>/uploads/`), gets presigned part URLs in batches of
+`UPLOAD_PART_URL_BATCH`, PUTs the parts itself, and asks the portal to
+complete or abort; `MediaUpload` is what the portal knows about an upload
+in flight, and completing it makes the `MediaAsset` (next version for the
+session, kind and language; the previous READY one becomes SUPERSEDED) and
+sends `asset_ready`, on which the asset rules re-evaluate. Who may upload
+what is `media.can_upload`: organizers any kind, a presenter on the session
+their raw video. Downloads are presigned too (`MediaAsset.download_url`).
+Uploads nobody finishes expire after `SPEAKER_MEDIA_UPLOAD_TTL_HOURS` (the
+"Expire abandoned uploads" task nightly, `manage.py expire_abandoned_uploads`
+by hand); the bucket needs its own lifecycle rule as the backstop
+(`AbortIncompleteMultipartUpload` after 7 days, see the deployment doc).
+Tests run against moto's S3.
 
 ### Secrets at rest
 

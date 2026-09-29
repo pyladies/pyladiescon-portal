@@ -31,7 +31,7 @@ from .rules import (
     items_for_presenter,
     items_for_session,
 )
-from .signals import invitation_accepted, session_confirmed
+from .signals import asset_ready, invitation_accepted, session_confirmed
 
 
 @receiver(invitation_accepted, dispatch_uid="speakers.checklists.on_accept")
@@ -173,5 +173,16 @@ def pretix_order_changed(sender, instance, **kwargs):
     evaluate_items(
         items_for_conference(instance.conference, [AutoRule.PRETIX_REGISTERED]).filter(
             presenter__in=presenters
+        )
+    )
+
+
+@receiver(asset_ready, dispatch_uid="speakers.rules.asset_ready")
+def on_asset_ready(sender, asset, **kwargs):
+    """A file arrived: the items that wait for one, and the length check,
+    are answered now rather than at the nightly pass."""
+    evaluate_items(
+        items_for_session(
+            asset.session, [AutoRule.ASSET_EXISTS, AutoRule.VIDEO_LENGTH_OK]
         )
     )

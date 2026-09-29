@@ -147,6 +147,17 @@ it, and tighten it in a later release.
 The same window applies to a column that is later removed: drop it from the
 model first, deploy, then delete the column in a follow-up migration.
 
+### Speaker media bucket
+
+Speaker media (design §8.8) lives in its own **private** bucket, named by
+`SPEAKER_MEDIA_BUCKET`, never the public-read one the image fields use. It
+needs a lifecycle rule that aborts incomplete multipart uploads after 7
+days (`AbortIncompleteMultipartUpload`): the portal's nightly "Expire
+abandoned uploads" task reclaims what it knows about, and the rule reclaims
+the rest. The bucket also needs a CORS rule allowing `PUT` from the portal's
+origin with the `ETag` header exposed, since the browser uploads the parts
+directly.
+
 ### One-time configuration
 
 Two things live outside the code and have to be set on a new environment:

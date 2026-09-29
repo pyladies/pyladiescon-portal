@@ -229,6 +229,25 @@ Then run the server:
 python manage.py runserver
 ```
 
+## Speaker media uploads (optional)
+
+Performance videos go straight from the browser to a private bucket in
+presigned multipart chunks (design §8.8). With no bucket configured the
+upload endpoints answer 503 and everything else works, so most local work
+needs none of this. To try uploads locally, point the portal at any
+S3-compatible bucket, for instance a MinIO container:
+
+```bash
+SPEAKER_MEDIA_BUCKET=speaker-media
+AWS_S3_ENDPOINT_URL=http://localhost:9000
+AWS_ACCESS_KEY_ID=minioadmin
+AWS_SECRET_ACCESS_KEY=minioadmin
+```
+
+The bucket must exist and be private. `SPEAKER_MEDIA_PART_SIZE`,
+`SPEAKER_MEDIA_MAX_BYTES`, `SPEAKER_MEDIA_URL_TTL` and
+`SPEAKER_MEDIA_UPLOAD_TTL_HOURS` have sensible defaults in `portal/settings.py`.
+
 ## Generate Sample Data (Optional)
 
 For local development and testing, you can generate sample data to populate your database with realistic test content. This command creates:
