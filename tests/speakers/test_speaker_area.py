@@ -204,6 +204,22 @@ class TestPortalIndexRouting:
             reverse("volunteer:index"),
             fetch_redirect_response=False,
         )
+        # The hub says they are speaking and the rail offers My speaking,
+        # so the second home is a click away and not only a top tab.
+        content = client.get(reverse("volunteer:index")).content.decode()
+        assert "You are speaking this year" in content
+        assert "My speaking" in content
+        assert content.count(DASHBOARD) >= 3
+
+    def test_hub_says_nothing_about_speaking_to_a_plain_volunteer(
+        self, client, portal_user, conference, enabled
+    ):
+        PortalProfile.objects.get_or_create(user=portal_user)
+        VolunteerProfile.objects.create(user=portal_user, conference=conference)
+        client.force_login(portal_user)
+        content = client.get(reverse("volunteer:index")).content.decode()
+        assert "You are speaking this year" not in content
+        assert "My speaking" not in content
 
 
 @pytest.mark.django_db

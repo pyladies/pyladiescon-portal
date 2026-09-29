@@ -65,6 +65,10 @@ and from speakers.context_processors.speaker_module:
         {% include "portal/_sidebar_item.html" with url=sponsors_url label=_("Sponsors") icon="fa-handshake" only %}
     {% endif %}
 {% endif %}
+{% if is_speaker_presenter %}
+    {% url 'speakers:my_dashboard' as my_speaking_url %}
+    {% include "portal/_sidebar_item.html" with url=my_speaking_url label=_("My speaking") icon="fa-microphone" only %}
+{% endif %}
 {% if has_speaker_proposals %}
     {% url 'speakers:my_proposals' as my_proposals_url %}
     {% if active == "proposals" %}
