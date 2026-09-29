@@ -190,9 +190,12 @@ tasks land:
 - `worker-media` is a new process, so it starts at zero replicas in
   cabotage and has to be scaled to one by hand (see "A new or renamed
   process" above); keep it at one replica with concurrency 1;
-- the first transcription downloads the Whisper model (about 500 MB for
-  `small`) to the worker's disk, again after every deploy unless the
-  model is baked into the image; give the process 2 GB of memory for
+- the Whisper model is part of the image (a Dockerfile layer downloads
+  the pinned model into `/opt/whisper` at build time, before the code is
+  copied, so a code-only deploy reuses the cached layer), and the worker
+  never downloads at run time; changing `SPEAKER_TRANSCRIBE_MODEL` is an
+  image rebuild, and a model missing from the image fails the job on the
+  page rather than fetching it; give the process 2 GB of memory for
   `small`, more for `medium`;
 - transcription runs entirely in this process; no audio leaves the
   portal's infrastructure, and there is no API key to manage.
@@ -205,7 +208,8 @@ loudly: media tasks sit in Redis until a `worker-media` picks them up,
 which is why the nightly watchdog marks a job queued for over twelve
 hours as failed on the page. It shares the image, so `ffmpeg` and the
 `faster-whisper` dependency are in every process's image whether or not
-they use them (about 250 MB more image). Everything else is unchanged:
+they use them (about 250 MB more image, plus about 500 MB for the
+Whisper model layer). Everything else is unchanged:
 `web`, `worker-beat` and `release` do not know it exists, and the default
 `worker` keeps consuming only its own queue.
 
