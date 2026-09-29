@@ -177,6 +177,27 @@ rclone sync do-media:pyladiescon-media/speaker-media/2026 ./pyladiescon-2026 \
     --progress --transfers 4
 ```
 
+### The media worker
+
+The duration probe (task 5.3) and machine transcription (task 5.7, design
+§8.8) run `ffmpeg` and, for the local engine, Whisper, for minutes at a
+time. They go on the `media` Celery queue, served by a `worker-media`
+process in the `Procfile` rather than the default `worker`, so a
+half-hour transcription never holds up an invitation email. Once those
+tasks land:
+
+- the image needs `ffmpeg` (which brings `ffprobe`);
+- `worker-media` is a new process, so it starts at zero replicas in
+  cabotage and has to be scaled to one by hand (see "A new or renamed
+  process" above); keep it at one replica with concurrency 1;
+- with `SPEAKER_TRANSCRIBE_ENGINE=local` the first run downloads the
+  Whisper model (about 500 MB for `small`) to the worker's disk, again
+  after every deploy unless the model is baked into the image; give the
+  process 2 GB of memory for `small`;
+- with `SPEAKER_TRANSCRIBE_ENGINE=openai`, `OPENAI_API_KEY` joins the
+  deployment secrets and the performer guide must say recordings are sent
+  to OpenAI for transcription.
+
 ### One-time configuration
 
 Two things live outside the code and have to be set on a new environment:
