@@ -21,7 +21,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from .constants import UPLOAD_PART_URL_BATCH, MediaKind, MediaStatus, UploadStatus
-from .models import MediaAsset, MediaUpload
+from .models import MediaAsset, MediaUpload, SpeakerSettings
 from .permissions import is_speaker_organizer
 from .signals import asset_ready
 
@@ -100,14 +100,23 @@ class MediaBucket:
         ]
 
     def received_parts(self, key, upload_id):
-        """The part numbers the bucket already holds, for a resumed upload."""
-        numbers = []
+        """The parts the bucket already holds, ``[{number, etag, size}]`` in
+        part order, for a browser resuming an upload: it skips those and
+        hands their ETags back when it completes."""
+        parts = []
         kwargs = {"Bucket": self.bucket, "Key": key, "UploadId": upload_id}
         while True:
             response = self.client.list_parts(**kwargs)
-            numbers.extend(part["PartNumber"] for part in response.get("Parts", []))
+            parts.extend(
+                {
+                    "number": part["PartNumber"],
+                    "etag": part.get("ETag", ""),
+                    "size": part.get("Size", 0),
+                }
+                for part in response.get("Parts", [])
+            )
             if not response.get("IsTruncated"):
-                return sorted(numbers)
+                return sorted(parts, key=lambda part: part["number"])
             kwargs["PartNumberMarker"] = response["NextPartNumberMarker"]
 
     def complete(self, key, upload_id, parts):
@@ -154,6 +163,97 @@ def can_upload(user, session, kind):
     if kind != MediaKind.RAW_VIDEO:
         return False
     return session.session_presenters.filter(presenter__user=user).exists()
+
+
+def can_download(user, session):
+    """Who may fetch a session's files: whoever may open the session, on
+    either side. Organizers and the session's liaisons see it on the
+    organizer side; a presenter on it sees it on theirs, and needs the
+    processed video to approve the final cut (design §4.1)."""
+    if not user.is_authenticated:
+        return False
+    if is_speaker_organizer(user):
+        return True
+    if session.session_presenters.filter(presenter__user=user).exists():
+        return True
+    return session.session_presenters.filter(presenter__liaison=user).exists()
+
+
+def video_limit_minutes(session):
+    """The session's own length limit, else the edition's default, else None."""
+    if session.video_length_limit_minutes:
+        return session.video_length_limit_minutes
+    settings_row = SpeakerSettings.objects.filter(
+        conference_id=session.conference_id
+    ).first()
+    return settings_row.default_video_length_limit_minutes if settings_row else None
+
+
+def session_assets(session):
+    """Every asset on the session, newest version first within each kind
+    and language, with the uploader for the history table."""
+    return list(
+        session.media_assets.select_related("uploaded_by").order_by(
+            "kind", "language", "-version", "-id"
+        )
+    )
+
+
+def asset_groups(assets):
+    """``[{kind, label, language, current, history}]`` for the organizer's
+    file list: one group per kind and language, the newest READY asset as
+    ``current`` and the rest as ``history``."""
+    groups = {}
+    for asset in assets:
+        group = groups.setdefault(
+            (asset.kind, asset.language),
+            {
+                "kind": asset.kind,
+                "label": asset.get_kind_display(),
+                "language": asset.language,
+                "current": None,
+                "history": [],
+            },
+        )
+        if group["current"] is None and asset.is_ready:
+            group["current"] = asset
+        else:
+            group["history"].append(asset)
+    return list(groups.values())
+
+
+def open_uploads(session, user):
+    """The caller's uploads on this session still in flight, newest first:
+    the page tells them which file to pick again to carry on."""
+    return list(
+        session.media_uploads.filter(
+            started_by=user, status=UploadStatus.STARTED, expires_at__gt=timezone.now()
+        ).order_by("-id")
+    )
+
+
+def video_panel(session, user):
+    """What the performer's video card shows (design §4.1): the current raw
+    video, its duration against the limit, the versions so far, and any
+    upload of theirs to resume."""
+    assets = [a for a in session_assets(session) if a.kind == MediaKind.RAW_VIDEO]
+    current = next((a for a in assets if a.is_ready), None)
+    limit = video_limit_minutes(session)
+    duration_pct = None
+    over_by = None
+    if current is not None and current.duration_seconds is not None and limit:
+        duration_pct = min(100, round(current.duration_seconds * 100 / (limit * 60)))
+        over_by = max(0, current.duration_seconds - limit * 60)
+    return {
+        "current": current,
+        "history": [a for a in assets if a is not current],
+        "limit_minutes": limit,
+        "duration_pct": duration_pct,
+        "over_by": over_by,
+        "open_uploads": [
+            u for u in open_uploads(session, user) if u.kind == MediaKind.RAW_VIDEO
+        ],
+    }
 
 
 def plan_parts(size_bytes):

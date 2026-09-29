@@ -14,6 +14,7 @@ from attendee.models import PretixOrder, PretixOrderstatus
 
 from .checklists import block_item, complete_item, reopen_item
 from .constants import AutoRule, ItemStatus, MediaKind
+from .media import video_limit_minutes
 from .models import (
     ChecklistItem,
     Handbook,
@@ -22,7 +23,6 @@ from .models import (
     MediaAsset,
     ScheduleSlot,
     SessionPresenter,
-    SpeakerSettings,
 )
 
 
@@ -128,22 +128,13 @@ def asset_exists(item):
     )
 
 
-def _video_limit_minutes(session):
-    if session.video_length_limit_minutes:
-        return session.video_length_limit_minutes
-    settings_row = SpeakerSettings.objects.filter(
-        conference_id=session.conference_id
-    ).first()
-    return settings_row.default_video_length_limit_minutes if settings_row else None
-
-
 @rule(AutoRule.VIDEO_LENGTH_OK)
 def video_length_ok(item):
     session = item.session
     video = MediaAsset.latest_ready(session, MediaKind.RAW_VIDEO)
     if video is None or video.duration_seconds is None:
         return False
-    limit = _video_limit_minutes(session)
+    limit = video_limit_minutes(session)
     if limit is None:
         return True
     overage = video.duration_seconds - limit * 60

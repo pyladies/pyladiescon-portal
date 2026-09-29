@@ -119,6 +119,24 @@ by hand); the bucket needs its own lifecycle rule as the backstop
 (`AbortIncompleteMultipartUpload` after 7 days, see the deployment doc).
 Tests run against moto's S3.
 
+The browser side (task 5.2) is `static/js/media-upload.js` driving
+`templates/speakers/_upload_panel.html`: it slices the file, PUTs three
+parts at a time with retries and backoff, and remembers the upload id in
+`localStorage` (per session, kind and user) so that coming back after a
+closed tab and choosing the same file again resumes: the detail endpoint
+says which parts the bucket holds (with their ETags), and only the rest go
+up. Choosing a different file aborts the remembered upload first. The
+performer's session page shows the card (`media.video_panel`: current raw
+video, its duration against `media.video_limit_minutes`, earlier versions,
+open uploads of theirs); the organizer's session page has a Files section
+(`media.asset_groups`, one block per kind and language, the newest READY
+version first) with a reviewer note per asset (`MediaNotesView`) and a
+panel for any kind. Downloads go through `MediaDownloadView`, which mints
+the presigned link on the click for whoever may open the session on either
+side (`media.can_download`: organizers, the session's liaisons, its
+presenters). The JavaScript has no unit tests; the 200 MB resume check is
+done by hand against a bucket (setup doc).
+
 ### Secrets at rest
 
 `speakers/encryption.py` provides `EncryptedTextField` (Fernet), used for the

@@ -298,11 +298,61 @@ The printed link is presigned and opens the object for an hour; the same
 address without the signature is refused, which is the private Space doing
 its job.
 
-### Against any other S3-compatible bucket
+### Against a MinIO container (no account needed)
 
-A MinIO container works the same way: `SPEAKER_MEDIA_BUCKET=speaker-media`,
-`AWS_S3_ENDPOINT_URL=http://localhost:9000` and MinIO's keys, with the
-bucket created and private.
+The presigned URLs sign the host they are for, so the portal and the
+browser have to reach the bucket at the same address. With the portal in
+Docker that means running MinIO inside the `web` container's network
+namespace, so both see it as `localhost:9000`. This `compose.override.yml`
+does it:
+
+```yaml
+services:
+  web:
+    ports:
+      - "9000:9000"
+    environment:
+      SPEAKER_MEDIA_BUCKET: speaker-media
+      AWS_S3_ENDPOINT_URL: http://localhost:9000
+      AWS_S3_REGION_NAME: us-east-1
+      AWS_ACCESS_KEY_ID: minioadmin
+      AWS_SECRET_ACCESS_KEY: minioadmin
+  celery:
+    environment:
+      SPEAKER_MEDIA_BUCKET: speaker-media
+      AWS_S3_ENDPOINT_URL: http://web:9000
+      AWS_S3_REGION_NAME: us-east-1
+      AWS_ACCESS_KEY_ID: minioadmin
+      AWS_SECRET_ACCESS_KEY: minioadmin
+  minio:
+    image: minio/minio
+    command: server /data
+    network_mode: "service:web"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    volumes:
+      - miniodata:/data
+volumes:
+  miniodata:
+```
+
+Then `docker compose up -d --force-recreate web celery minio` and create
+the bucket once:
+
+```bash
+docker compose exec web python -c "
+import boto3, os
+boto3.client('s3', endpoint_url=os.environ['AWS_S3_ENDPOINT_URL'],
+    aws_access_key_id='minioadmin', aws_secret_access_key='minioadmin',
+    region_name='us-east-1').create_bucket(Bucket='speaker-media')"
+```
+
+MinIO answers browser uploads from any origin and exposes the `ETag`
+header, so no CORS rule is needed. Log in as a performer (the sample data's
+`volunteer2` is on the PyJam session) and upload from the session page;
+leaving the page mid-upload and choosing the same file again should
+continue from the parts that already landed.
 
 `SPEAKER_MEDIA_PART_SIZE`, `SPEAKER_MEDIA_MAX_BYTES`, `SPEAKER_MEDIA_URL_TTL`
 (how long a presigned link lives, 3600 seconds by default) and

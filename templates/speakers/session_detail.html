@@ -1,9 +1,15 @@
 {% extends "speakers/_organize_shell.html" %}
-{% load i18n %}
+{% load i18n static %}
 {% load portal_extras speakers_extras %}
 {% block head_title %}
     {{ session.title }}
 {% endblock head_title %}
+{% block extra_head %}
+    {{ block.super }}
+    {% if can_upload_media %}
+        <script src="{% static 'js/media-upload.js' %}" defer></script>
+    {% endif %}
+{% endblock extra_head %}
 {% block breadcrumb %}
     {% url 'speakers:session_list' as bc_url %}
     {% trans "Sessions" as bc_section %}
@@ -402,5 +408,19 @@
                 </div>
             </form>
         </details>
+    {% endif %}
+    <h2 class="h5 mt-4 mb-3" id="files">
+        {% trans "Files" %}
+    </h2>
+    {% include "speakers/_media_files.html" with session=session media_groups=media_groups can_edit=can_upload_media %}
+    {% if can_upload_media %}
+        <div class="card mb-4">
+            <div class="card-header">
+                <i class="fa-solid fa-cloud-arrow-up"></i> {% trans "Add a file" %}
+            </div>
+            <div class="card-body">
+                {% include "speakers/_upload_panel.html" with session=session kinds=media_kinds with_language=True open_uploads=open_uploads panel_id="files" %}
+            </div>
+        </div>
     {% endif %}
 {% endblock content %}

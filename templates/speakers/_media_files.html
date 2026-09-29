@@ -1,0 +1,49 @@
+{% load i18n %}
+{% comment %}
+The organizer's file list for one session (design §8.8, task 5.2): one
+block per kind and language, the newest READY version first with a
+download link and the reviewer's note, older versions folded underneath.
+Params:
+    session       the Session
+    media_groups  media.asset_groups(...)
+    can_edit      whether the note form is offered (organizers)
+{% endcomment %}
+{% for group in media_groups %}
+    <div class="card mb-3"
+         id="files-{{ group.kind|lower }}{% if group.language %}-{{ group.language }}{% endif %}">
+        <div class="card-header d-flex flex-wrap align-items-center gap-2">
+            <span class="fw-semibold">{{ group.label }}</span>
+            {% if group.language %}
+                <span class="badge text-bg-light border">{{ group.language }}</span>
+            {% endif %}
+            {% if group.current %}
+                <span class="badge text-bg-success">v{{ group.current.version }}</span>
+            {% else %}
+                <span class="badge text-bg-secondary">{% trans "No current version" %}</span>
+            {% endif %}
+        </div>
+        {% if group.current %}
+            <div class="card-body">
+                {% include "speakers/_media_asset_row.html" with asset=group.current session=session can_edit=can_edit current=True %}
+            </div>
+        {% endif %}
+        {% if group.history %}
+            <details class="card-body border-top pt-2">
+                <summary class="small">
+                    {% blocktranslate count counter=group.history|length %}{{ counter }} earlier version{% plural %}{{ counter }} earlier versions{% endblocktranslate %}
+                </summary>
+                <ul class="list-unstyled mt-2 mb-0 d-grid gap-2">
+                    {% for asset in group.history %}
+                        <li>
+                            {% include "speakers/_media_asset_row.html" with asset=asset session=session can_edit=can_edit %}
+                        </li>
+                    {% endfor %}
+                </ul>
+            </details>
+        {% endif %}
+    </div>
+{% empty %}
+    <p class="text-secondary">
+        {% trans "No files yet. A performer's raw video lands here, and so does everything post-production adds." %}
+    </p>
+{% endfor %}

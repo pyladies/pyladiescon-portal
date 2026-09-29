@@ -305,3 +305,11 @@ button.checklist-box-done:hover {
 .accordion-button:focus {
     box-shadow: 0 0 0 0.2rem rgba(var(--bs-primary-rgb), 0.25);
 }
+
+
+/* Upload panel (templates/speakers/_upload_panel.html) and the video
+   length bar on the performer's session page: tall enough to read the
+   percentage inside. */
+.upload-progress {
+    height: 1.25rem;
+}

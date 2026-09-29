@@ -9,10 +9,11 @@ presenter on the session their raw video.
 
 import json
 
+from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import PermissionDenied
-from django.http import Http404, JsonResponse
-from django.shortcuts import get_object_or_404
+from django.http import Http404, HttpResponseRedirect, JsonResponse
+from django.shortcuts import get_object_or_404, redirect
 from django.utils.decorators import method_decorator
 from django.views import View
 from django.views.decorators.http import require_POST
@@ -22,6 +23,7 @@ from .media import (
     MediaStorageNotConfigured,
     UploadError,
     abort_upload,
+    can_download,
     can_upload,
     complete_upload,
     part_urls,
@@ -29,7 +31,7 @@ from .media import (
     start_upload,
 )
 from .mixins import SpeakerModuleRequiredMixin
-from .models import MediaUpload, Session
+from .models import MediaAsset, MediaUpload, Session
 from .permissions import is_speaker_organizer
 
 
@@ -176,3 +178,48 @@ class UploadAbortView(UploadEndpoint):
     def post(self, request, slug, pk):
         upload = self.get_upload(self.get_session())
         return JsonResponse(_upload_json(abort_upload(upload)))
+
+
+class MediaDownloadView(LoginRequiredMixin, SpeakerModuleRequiredMixin, View):
+    """GET: send the caller to a fresh presigned link for the asset.
+
+    Links are minted on the click rather than rendered into the page, so
+    a page left open does not hand out stale ones, and the file list
+    costs no signing at all to render.
+    """
+
+    def get(self, request, slug, pk):
+        session = get_object_or_404(
+            Session, conference=self.conference, slug=self.kwargs["slug"]
+        )
+        if not can_download(request.user, session):
+            raise PermissionDenied("You may not fetch this session's files.")
+        asset = get_object_or_404(MediaAsset, pk=pk, session=session)
+        try:
+            url = asset.download_url()
+        except MediaStorageNotConfigured:
+            raise Http404("Object storage is not configured on this portal.")
+        if not url:
+            raise Http404("This asset has no file.")
+        return HttpResponseRedirect(url)
+
+
+class MediaNotesView(LoginRequiredMixin, SpeakerModuleRequiredMixin, View):
+    """POST notes_md: the reviewer's note on an asset ("audio clips at
+    4:10"); organizers only."""
+
+    @method_decorator(require_POST)
+    def dispatch(self, request, *args, **kwargs):
+        return super().dispatch(request, *args, **kwargs)
+
+    def post(self, request, slug, pk):
+        session = get_object_or_404(
+            Session, conference=self.conference, slug=self.kwargs["slug"]
+        )
+        if not is_speaker_organizer(request.user):
+            raise PermissionDenied("Only organizers annotate files.")
+        asset = get_object_or_404(MediaAsset, pk=pk, session=session)
+        asset.notes_md = request.POST.get("notes_md", "").strip()
+        asset.save(update_fields=["notes_md", "modified_date"])
+        messages.success(request, "Note saved.")
+        return redirect(f"{session.get_absolute_url()}#files")

@@ -45,6 +45,7 @@ from .constants import (
     ChecklistScope,
     ItemOwner,
     ItemStatus,
+    MediaKind,
     ProposalDecision,
     ReadyOverride,
     SessionStatus,
@@ -78,6 +79,7 @@ from .forms import (
     owner_choices,
 )
 from .lifecycle import waiting_on_labels
+from .media import asset_groups, open_uploads, session_assets, video_panel
 from .mixins import (
     PresenterRequiredMixin,
     SpeakerModuleRequiredMixin,
@@ -370,6 +372,16 @@ class SessionDetailView(SessionScopedMixin, DetailView):
         context["can_assign"] = is_speaker_organizer(self.request.user)
         context["adhoc_form"] = AdhocItemForm(
             initial={"owner_kind": ItemOwner.ORGANIZER}, conference=self.conference
+        )
+        # The session's files (design §8.8): every kind and version, the
+        # newest READY one first in each group, and the panel to add more.
+        context["media_groups"] = asset_groups(session_assets(self.object))
+        context["media_kinds"] = MediaKind.choices
+        context["can_upload_media"] = context["can_assign"]
+        context["open_uploads"] = (
+            open_uploads(self.object, self.request.user)
+            if context["can_assign"]
+            else []
         )
         return context
 
@@ -1343,6 +1355,13 @@ class SpeakerSessionDetailView(SpeakerSessionMixin, TemplateView):
                 "video_items": [
                     i for i in checklist["video"] if i.session_id == session.pk
                 ],
+                # The performer's video card (design §4.1); nothing for a
+                # live session.
+                "video": (
+                    video_panel(session, self.request.user)
+                    if session.is_pre_recorded
+                    else None
+                ),
             }
         )
         return context

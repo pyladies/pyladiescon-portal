@@ -1,0 +1,95 @@
+{% load i18n %}
+{% comment %}
+The chunked upload panel (design §8.8, task 5.2), driven by
+static/js/media-upload.js. Params:
+    session         the Session the file belongs to
+    kind            a fixed MediaKind value (performer panel), or omit and pass
+    kinds           MediaKind.choices for a select (organizer panel)
+    with_language   show the language field (transcripts, translations)
+    open_uploads    the caller's unfinished uploads here, for the note
+    accept          the file input's accept attribute (optional)
+    panel_id        unique suffix for element ids on the page
+{% endcomment %}
+<div data-upload-panel
+     data-kind="{{ kind|default:'' }}"
+     data-start-url="{% url 'speakers:upload_start' session.slug %}"
+     data-upload-url="{% url 'speakers:upload_detail' session.slug 0 %}"
+     data-storage-key="pyladiescon-upload:{{ session.conference_id }}:{{ session.slug }}:{{ request.user.pk }}"
+     data-csrf="{{ csrf_token }}">
+    <div class="alert alert-warning small py-2" data-role="resume" hidden>
+        <i class="fa-solid fa-rotate-left"></i>
+        {% trans "You have an unfinished upload of" %} <strong data-role="resume-name"></strong>.
+        {% trans "Choose the same file again and it continues from where it stopped." %}
+    </div>
+    {% if open_uploads %}
+        <div class="small text-secondary mb-2">
+            {% blocktranslate count counter=open_uploads|length %}One upload of yours is still open on this session; it is dropped after two days if nothing finishes it.{% plural %}{{ counter }} uploads of yours are still open on this session; they are dropped after two days if nothing finishes them.{% endblocktranslate %}
+        </div>
+    {% endif %}
+    <div class="row g-2 align-items-end">
+        {% if kinds %}
+            <div class="col-md-4">
+                <label class="form-label small mb-1" for="upload-kind-{{ panel_id }}">
+                    {% trans "Kind" %}
+                </label>
+                <select class="form-select form-select-sm"
+                        id="upload-kind-{{ panel_id }}"
+                        data-role="kind">
+                    {% for value, label in kinds %}
+                        <option value="{{ value }}">
+                            {{ label }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+        {% endif %}
+        {% if with_language %}
+            <div class="col-md-2">
+                <label class="form-label small mb-1" for="upload-language-{{ panel_id }}">
+                    {% trans "Language" %}
+                </label>
+                <input class="form-control form-control-sm"
+                       id="upload-language-{{ panel_id }}"
+                       data-role="language"
+                       maxlength="10"
+                       placeholder="en">
+            </div>
+        {% endif %}
+        <div class="col">
+            <label class="form-label small mb-1" for="upload-file-{{ panel_id }}">
+                {% trans "File" %}
+            </label>
+            <input class="form-control form-control-sm"
+                   type="file"
+                   id="upload-file-{{ panel_id }}"
+                   data-role="file"
+                   {% if accept %}accept="{{ accept }}"{% endif %}>
+        </div>
+        <div class="col-auto">
+            <button class="btn btn-sm btn-primary" type="button" data-role="start">
+                <i class="fa-solid fa-cloud-arrow-up"></i> {% trans "Upload" %}
+            </button>
+            <button class="btn btn-sm btn-outline-secondary"
+                    type="button"
+                    data-role="cancel"
+                    hidden>
+                {% trans "Cancel" %}
+            </button>
+        </div>
+    </div>
+    <div class="progress mt-2 upload-progress"
+         role="progressbar"
+         aria-valuemin="0"
+         aria-valuemax="100"
+         hidden>
+        <div class="progress-bar progress-bar-striped progress-bar-animated"
+             data-role="progress">
+            0%
+        </div>
+    </div>
+    <div class="small mt-2 text-secondary"
+         data-role="status"
+         aria-live="polite">
+        {% trans "Large files go up in pieces, a few at a time, and carry on after a dropped connection." %}
+    </div>
+</div>

@@ -80,6 +80,16 @@ urlpatterns = [
         upload_views.UploadAbortView.as_view(),
         name="upload_abort",
     ),
+    path(
+        "sessions/<slug:slug>/media/<int:pk>/download/",
+        upload_views.MediaDownloadView.as_view(),
+        name="media_download",
+    ),
+    path(
+        "sessions/<slug:slug>/media/<int:pk>/notes/",
+        upload_views.MediaNotesView.as_view(),
+        name="media_notes",
+    ),
     path("presenters/", views.PresenterListView.as_view(), name="presenter_list"),
     path(
         "presenters/new/",

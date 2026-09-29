@@ -203,7 +203,10 @@ class TestLifecycle:
         # The browser drops after part 1; coming back, it learns what landed.
         parts = upload_parts(bucket, upload, [5 * MIB])
         detail = client.get(url("detail", session, upload)).json()
-        assert detail["received"] == [1] and detail["status"] == UploadStatus.STARTED
+        assert detail["status"] == UploadStatus.STARTED
+        # What landed, with the ETag the browser hands back on completion.
+        assert [(p["number"], p["size"]) for p in detail["received"]] == [(1, 5 * MIB)]
+        assert detail["received"][0]["etag"] == parts[0]["etag"]
         batch = client.get(url("parts", session, upload), {"from": 2}).json()["parts"]
         assert [p["number"] for p in batch] == [2]
         parts += [
@@ -465,14 +468,20 @@ class TestBucket:
     def test_received_parts_follows_pages(self, bucket):
         pages = [
             {
-                "Parts": [{"PartNumber": 1}],
+                "Parts": [{"PartNumber": 2, "ETag": '"b"', "Size": 5}],
                 "IsTruncated": True,
-                "NextPartNumberMarker": 1,
+                "NextPartNumberMarker": 2,
             },
-            {"Parts": [{"PartNumber": 2}], "IsTruncated": False},
+            {
+                "Parts": [{"PartNumber": 1, "ETag": '"a"', "Size": 5}],
+                "IsTruncated": False,
+            },
         ]
         with patch.object(bucket.client, "list_parts", side_effect=pages):
-            assert bucket.received_parts("k", "u") == [1, 2]
+            assert bucket.received_parts("k", "u") == [
+                {"number": 1, "etag": '"a"', "size": 5},
+                {"number": 2, "etag": '"b"', "size": 5},
+            ]
 
     def test_download_url_without_a_key(self, session):
         asset = MediaAsset(session=session, kind="OTHER")

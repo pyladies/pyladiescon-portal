@@ -127,7 +127,7 @@ PyJam sessions are pre-recorded. The performer uploads the video; the team post-
 
 ### 4.1 The performer
 
-> **Not built** (M3b). The upload panel and the post-production lists below are the proposal; today a performer sees their checklist and nothing uploads.
+> **Being built** (M3b). Task 5.2 (29 September 2026): the upload panel on the performer's session page, with resume, the current version and the length bar, and the organizer's per-session file list with download links and reviewer notes. The duration probe (5.3) is next, so the length bar reads "not checked yet" until it lands; the post-production lists are still the proposal.
 
 Same dashboard as any speaker, plus an upload panel: the video goes straight to storage in chunks and resumes if the connection drops, and the panel shows the duration against the length limit. The performer's second list is "what we're doing with your video", so they can watch it move through transcription, translation, and the final cut. When the final cut is ready, an "approve the final cut" item opens for them.
 
@@ -328,7 +328,7 @@ The speaker guide, versioned. Reading it records a `HandbookReadReceipt`; publis
 
 ### 8.8 MediaAsset
 
-> **Being built** (M3b). Task 5.1 (29 September 2026): the multipart upload backend, `MediaUpload`, the JSON endpoints, versioning and `asset_ready`. The upload panel (5.2) and the duration probe (5.3) are next; nothing probes a file yet.
+> **Being built** (M3b). Task 5.1 (29 September 2026): the multipart upload backend, `MediaUpload`, the JSON endpoints, versioning and `asset_ready`. Task 5.2 (same day): the browser panel with resume, the performer's video card, the organizer's file list with notes and downloads. The duration probe (5.3) is next; nothing probes a file yet.
 
 For pre-recorded sessions, one row per file that moves through post-production:
 
