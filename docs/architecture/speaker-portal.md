@@ -378,7 +378,7 @@ pyladiescon-2026/manifest.csv
 
 **Links and their lifetime.** A presigned link is a bearer credential: anyone holding it can fetch the object until it expires. Bulk links live longer than the one-hour page links (`SPEAKER_MEDIA_BULK_URL_TTL`, 12 hours by default, enough for a 100 GB pull on a home connection) and the export page says so. The script and the manifest are therefore treated like a credential: the page warns not to share them, and every export is recorded as a `MediaExport` row (who, when, scope, file count, total bytes, expiry) so the Maintenance section can answer "who pulled the 2026 videos, and when". The links in any email the portal sends about an export are withheld from the email record the same way invitation links are (§2.23).
 
-**Who.** Organizers, the same rule as uploading any kind; presenters never bulk download. With Stage 3 this becomes `speakers.view_mediaasset` (task 3.7), which is what puts the Design and Communication teams on the export page without making them program managers.
+**Who.** Organizers, the same rule as uploading any kind; presenters never bulk download. Once the permissions catalogue lands (task 3.7) this becomes `speakers.view_mediaasset`, which is what puts the Design and Communication teams on the export page without making them program managers.
 
 **The other direction.** Editors bring processed videos, transcripts and title cards back. That stays per file through the upload panel for now; a "bulk upload from a folder" would read the same layout and manifest in reverse and is not designed here.
 
