@@ -6,7 +6,7 @@ If you're interested in volunteering, speaking or sponsoring the conference, you
 
 If you're part of the PyLadiesCon Core team, you'll also need to create an account. This will allow you to access the Django admin area and other features.
 
-If you're a speaker, you need an account too. It is the same account you would use to volunteer, so if you volunteered with us in a previous year you already have one. You can create it yourself when you propose a session, or, if we invite you, accepting the invitation creates it for you. See the [speaker guide](/user/speakers/) for both routes.
+If you're a speaker, you need an account too. It is the same account you would use to volunteer, so if you volunteered with us in a previous year you already have one. You can create it yourself when you propose a session, or, if we invite you, accepting the invitation creates it for you. See the [speaker guide](speakers.md) for both routes.
 
 If you're a conference attendee, you don't need to create an account. (TBD)
 

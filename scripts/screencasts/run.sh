@@ -7,8 +7,8 @@
 #   scripts/screencasts/run.sh organizer  record one: organizer, invited or volunteer
 #
 # See scripts/screencasts/README.md. Settings come from the environment:
-# PYTHON, PORT, DATABASE_URL, MAILDEV_URL, PLAYWRIGHT_CHROME, VIEWPORT_WIDTH,
-# VIEWPORT_HEIGHT, SAMPLE_PASSWORD.
+# PYTHON, PORT, SCREENCAST_DATABASE_URL, MAILDEV_URL, PLAYWRIGHT_CHROME,
+# VIEWPORT_WIDTH, VIEWPORT_HEIGHT, SAMPLE_PASSWORD.
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -19,7 +19,10 @@ PYTHON="${PYTHON:-python}"
 PORT="${PORT:-8002}"
 
 export SECRET_KEY="${SECRET_KEY:-screencasts}"
-export DATABASE_URL="${DATABASE_URL:-postgresql://pyladiescon:pyladiescon@localhost:5433/pyladiescon_screencasts}"
+# Deliberately not DATABASE_URL: the compose setup exports that for the development
+# database, and every take drops and recreates the database it points at. Only
+# SCREENCAST_DATABASE_URL, whose name must end in _screencasts, can steer this.
+export DATABASE_URL="${SCREENCAST_DATABASE_URL:-postgresql://pyladiescon:pyladiescon@localhost:5433/pyladiescon_screencasts}"
 export DJANGO_ALLOWED_HOSTS="${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1}"
 export DEBUG=1
 export DJANGO_SETTINGS_MODULE=screencast_settings
@@ -88,6 +91,16 @@ record() {
       fresh_server
       node "$HERE/rec-volunteer.js" "$OUT/volunteer"
       encode volunteer speaker-propose-returning-volunteer
+      ;;
+    shots)
+      # Screenshots for the announcement post (see shoot-blog.js).
+      fresh_server
+      node "$HERE/shoot-blog.js"
+      # A grey border, so a screenshot is clearly a picture of a page and not part of the post.
+      for shot in "$OUT"/shots/*.png; do
+        ffmpeg -v error -y -i "$shot" -vf "pad=iw+8:ih+8:4:4:color=0xaeb4bd" "$shot.bordered.png"
+        mv "$shot.bordered.png" "$shot"
+      done
       ;;
     script)
       # Debugging: run any script from this folder on a fresh database and server.

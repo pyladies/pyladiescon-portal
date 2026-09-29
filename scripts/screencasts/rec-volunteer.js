@@ -33,9 +33,9 @@ const ctxRef = {};
   await L.choose(page, 'select[name="you-timezone"]', "America/Toronto");
 
   await cap("4. Your session: pick the kind of session, then give it a title and a summary");
-  await L.click(page, 'label:has-text("Talk ·")', { pause: 900 });
-  await L.type(page, 'input[name="session-title"]', "Your First Data Pipeline in 30 Minutes");
-  await L.type(page, 'textarea[name="session-summary_md"]', "A gentle tour of building a small, testable data pipeline with plain Python and pandas, aimed at people who have never shipped one.");
+  await L.click(page, 'label:has-text("Workshop ·")', { pause: 900 });
+  await L.type(page, 'input[name="session-title"]', "Build Your First Data Pipeline");
+  await L.type(page, 'textarea[name="session-summary_md"]', "A hands-on workshop: build a small, testable data pipeline with plain Python and pandas, aimed at people who have never shipped one.");
   await cap("The outline, prerequisites and audience are optional: a title and two sentences is enough to start");
   await L.type(page, 'textarea[name="session-outline_md"]', "Five minutes on why pipelines break, then three worked examples, then questions.");
   await L.click(page, 'label:has-text("Beginner")', { pause: 900 });

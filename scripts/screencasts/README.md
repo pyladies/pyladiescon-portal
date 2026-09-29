@@ -35,7 +35,10 @@ scripts/screencasts/run.sh volunteer  # or one take: organizer, invited, volunte
 `--setup` creates the `pyladiescon_screencasts` database, migrates it, loads the
 sample data and runs `seed.py`, then snapshots it. Every take starts by
 restoring that snapshot and starting a server on port 8002, so a take that
-uses up an invitation or a proposal can be re-run. Nothing touches your
+uses up an invitation or a proposal can be re-run. Every take drops and
+recreates that database, so the scripts read `SCREENCAST_DATABASE_URL`, never
+the `DATABASE_URL` your development setup exports, and `db.py` refuses any
+database whose name does not end in `_screencasts`. Nothing touches your
 development database or the server on port 8000.
 
 The `organizer` and `invited` takes always run together, in that order: the
@@ -47,7 +50,7 @@ Settings, all optional environment variables:
 |---|---|---|
 | `PYTHON` | `python` | The interpreter with the portal's requirements. |
 | `PORT` | `8002` | Port for the recording server. |
-| `DATABASE_URL` | compose Postgres, `pyladiescon_screencasts` | The throwaway database. |
+| `SCREENCAST_DATABASE_URL` | compose Postgres, `pyladiescon_screencasts` | The throwaway database. The name must end in `_screencasts`, or the scripts refuse to run. |
 | `MAILDEV_URL` | `http://localhost:1080` | Where the emails arrive. |
 | `PLAYWRIGHT_CHROME` | Playwright's own | Path to a Chrome binary. |
 | `VIEWPORT_WIDTH`, `VIEWPORT_HEIGHT` | `1024`, `640` | See below. |

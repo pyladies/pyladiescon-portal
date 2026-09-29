@@ -4,7 +4,7 @@ Run after ``generate_sample_data`` and ``generate_speaker_sample_data``, with
 ``python manage.py shell < scripts/screencasts/seed.py``. It:
 
 - makes 2026 the active edition, with the speaker module on and proposals open,
-- offers Talk, Workshop and PyJam performance for proposals,
+- offers only Workshop and PyJam performance for proposals,
 - marks every sample account's email verified (a returning volunteer has
   verified theirs), and
 - points the Site at the local server, so emailed links open it.
@@ -50,8 +50,9 @@ settings_row.proposals_intro_md = (
 )
 settings_row.save()
 
+SessionType.objects.filter(conference=conference).update(open_for_proposals=False)
 SessionType.objects.filter(
-    conference=conference, name__in=["Talk", "Workshop", "PyJam performance"]
+    conference=conference, name__in=["Workshop", "PyJam performance"]
 ).update(open_for_proposals=True)
 seed_checklists(conference)
 

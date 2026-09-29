@@ -74,8 +74,8 @@ sends a proposal.*
       will be asked to confirm your email address.
 3. After signing in, the proposal form opens. Fill in the **About you** part:
     - **Display name** (required): how your name should appear on the schedule.
-    - **Pronouns**, **Location**, and **Timezone** (required). We use your
-      timezone to show you times in yours and to know when to reach you.
+    - **Pronouns** and **Location** are optional. **Timezone** is required: we
+      use it to show you times in yours and to know when to reach you.
     - **Bio** (required): a couple of sentences is plenty. Markdown is
       supported.
     - **Headshot**: optional now, and you can add one later.
@@ -96,8 +96,9 @@ sends a proposal.*
    review**. From there you can **Edit** it or **Withdraw** it while nobody has
    answered yet. We also email you a confirmation.
 
-!!! tip "Already speaking this year?"
-    If you are already on the program, the form skips the **About you** half,
+!!! tip "Already have a speaker profile this year?"
+    If you already have a profile with us for this edition, because you sent a
+    proposal earlier or we added you, the form skips the **About you** half,
     because we already have those details. Proposing another session is one
     form.
 
@@ -105,10 +106,12 @@ sends a proposal.*
 
 The organizers review proposals and answer each one by email.
 
-- **Approved:** you become a speaker on the program. The **Speaking** menu
-  appears in the portal, your checklist is created, and you get a welcome
-  email. Carry on with [your speaker dashboard](#your-speaker-dashboard).
-- **Not this time:** you get a short note. Slots sometimes open up later, so
+- **Approved:** you are on the program. The **Speaking** menu appears in the
+  portal and your checklist is created. You get an email titled "Your session
+  is in", with links to your session page and your checklist. You sign in with
+  the account you proposed with. Carry on with
+  [your speaker dashboard](#your-speaker-dashboard).
+- **Not accepted:** you get a short note. Slots sometimes open up later, so
   an answered proposal can still be approved afterwards, and you would hear
   from us again.
 - **Withdrawn:** if you withdraw, your writing is kept. You can edit it and
@@ -116,9 +119,10 @@ The organizers review proposals and answer each one by email.
 
 ## Flow 2: we invite you
 
-Use this flow if an organizer invited you to speak. You will get an email
-whose subject starts with "You're invited to PyLadiesCon", usually with a
-personal note from the organizer who invited you.
+Use this flow if an organizer invited you. You will get an email whose subject
+contains "You're invited to PyLadiesCon", usually with a personal note from the
+organizer who invited you. The subject can start with a bracketed prefix, so
+search for the words rather than the start of the line.
 
 <video controls preload="metadata" width="100%" src="/assets/videos/speaker-invited.mp4">
   Your browser does not support embedded video. The steps are written out below.
@@ -151,8 +155,8 @@ account, fills in her profile and looks at her checklist.*
 4. Your [speaker dashboard](#your-speaker-dashboard) opens. Your first jobs
    are to fill in your speaker profile and read your checklist.
 
-You also get a "Welcome aboard" email that repeats your username and how to sign
-in again.
+After you accept, you also get a "Welcome aboard" email that repeats your
+username and how to sign in again.
 
 ### Signing in later
 
@@ -173,23 +177,27 @@ Once you are on the program, the **Speaking** menu opens your speaker area.
 - **My speaker profile:** your display name, bio, headshot, location, timezone
   and links. You can untick **Show my bio, photo and links on the public site**;
   your name still appears on your sessions.
-- **My sessions:** your sessions, where you can check and edit the title and
-  summary.
+- **My sessions:** your sessions, where you can check and edit the title,
+  summary and other details. Once your session is scheduled, the title, its web
+  address and your display name are locked, because they are on the schedule
+  by then. Ask your liaison if one needs to change.
 - **My proposals:** proposals you sent and where they stand.
-- **Speaker guide:** the guide for your kind of session. Open it and tick
-  **I have read the guide** when you have.
+- **Speaker guide:** the guide for your kind of session. Open it, then tick the
+  "I have read" box at the end when you have. If you have more than one kind of
+  session there is a guide for each.
 - **Schedule:** your slot, once we have scheduled you, shown in your timezone.
 
 ### Your checklist
 
-The checklist has two lists.
+The checklist has two lists, and a third if you are giving a pre-recorded
+session such as a PyJam performance.
 
 **Your to-dos** are the things we need from you, each with a due date shown in
 your timezone. Typical items are:
 
 - check your session title and summary;
 - update your bio and headshot;
-- read the speaker guide;
+- read the guide for your kind of session;
 - join the PyLadiesCon Discord;
 - confirm your scheduled slot;
 - share a link to your slides;
@@ -200,6 +208,9 @@ your timezone. Typical items are:
 channel and role, promo materials, scheduling, the schedule confirmation, and
 day-of reminders. You see who is on each item and when it is due, so you can
 tell what is waiting on us.
+
+**What we're preparing for your video** is the third list, for pre-recorded
+sessions. It follows the team's work on your recording once you have sent it.
 
 A few labels you will see:
 
@@ -217,15 +228,17 @@ you do not have to keep the checklist open.
 
 ## Your information
 
-- The portal asks for what we need to run your session: your name, email,
-  bio, optional photo, timezone and links, and your session details.
-- Your bio, photo and links are only shown on the public site if you leave
-  **Show my bio, photo and links on the public site** ticked.
+- The portal stores what you give us: your name and email, bio, optional photo,
+  timezone and links, and your session details, along with how your checklist
+  is going.
+- Your profile has a setting, **Show my bio, photo and links on the public
+  site**. It is on by default, and you can turn it off. The public site does not
+  read it yet, so for now it only records your choice.
 - The portal does not use advertising or analytics trackers, and we do not
   share your details with third-party analytics services.
 - Video uploads for pre-recorded sessions, such as PyJam performances, are not
-  open yet. We will email everyone who needs to upload when they are, and the
-  upload item on your checklist will open then.
+  open yet, so there is nothing to upload for now. We will email everyone who
+  needs to upload when it opens.
 
 ## Getting help
 
