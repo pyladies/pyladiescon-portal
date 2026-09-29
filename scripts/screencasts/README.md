@@ -65,6 +65,32 @@ The videos are the size of the browser viewport. A smaller viewport makes the
 text larger in the frame. Lower `VIEWPORT_WIDTH`, but keep it at 992 or more:
 below that the portal switches to its mobile layout.
 
+## Narrated takes
+
+The three `rec-*.js` scripts follow a timeline: each step waits for `clock.at(t)`,
+the second at which the narrator says it, and typing is paced to finish by a set
+time. The times come from the speakers' own recordings, so the video matches
+the voice. The audio the current times were made for:
+
+| Script | Narration | Length |
+|---|---|---|
+| `rec-volunteer.js` | proposing a session | 83.7 s |
+| `rec-invited.js` | accepting an invitation | 86.9 s |
+| `rec-organizer.js` | inviting a speaker | 79.2 s |
+
+To re-time a script for new audio, transcribe the recording with word times
+(faster-whisper works locally), then set each `clock.at(...)` to when that step
+is spoken. A step that runs later than its time prints `late by ...`, which
+tells you where to leave more room. Set `VOLUNTEER_END`, `INVITED_END` or
+`ORGANIZER_END` (seconds) to make a video slightly longer than its audio.
+
+Then add the audio to the video, for example:
+
+```
+ffmpeg -i out/videos/speaker-invited.mp4 -i narration.m4a -map 0:v -map 1:a \
+  -c:v copy -c:a aac out/videos/speaker-invited-narrated.mp4
+```
+
 ## When a script fails
 
 Each step waits for its element and stops with the selector it could not find.

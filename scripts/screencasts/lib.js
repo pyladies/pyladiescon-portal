@@ -122,4 +122,26 @@ async function shot(page, file) {
   await page.screenshot({ path: file });
 }
 
-module.exports = { CONFIG, launch, sleep, caption, click, type, choose, login, moveTo, shot, path };
+// A timeline for narrated takes: `at(t)` waits until t seconds after the clock
+// started (call it right after `launch`, which is when the video starts), and
+// `type(..., endAt)` paces the typing so it finishes by `endAt`. A step that
+// runs late is logged, so the times in a script can be tuned against the audio.
+function startClock() {
+  const t0 = Date.now();
+  const now = () => (Date.now() - t0) / 1000;
+  return {
+    now,
+    async at(t, label = "") {
+      const wait = t - now();
+      if (wait > 0) await sleep(wait * 1000);
+      else if (wait < -0.7) console.log(`late by ${(-wait).toFixed(1)}s at ${t}s ${label}`);
+    },
+    async type(page, target, text, endAt) {
+      const remaining = endAt - now() - 0.4;
+      const delay = Math.max(6, Math.min(35, (remaining * 1000) / text.length));
+      await type(page, target, text, { delay });
+    },
+  };
+}
+
+module.exports = { startClock, CONFIG, launch, sleep, caption, click, type, choose, login, moveTo, shot, path };

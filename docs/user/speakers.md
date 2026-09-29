@@ -42,12 +42,10 @@ Use this flow if you found the propose link on our website, in a blog post or
 in a message from us. It works the same whether you are brand new or you
 volunteered with PyLadiesCon in a previous year.
 
-<!-- TODO(video): embed the YouTube video "PyLadiesCon Portal: Propose a Workshop or
-PyJam Performance" here once it is uploaded (a volunteer from last year signs in
-with her existing account and sends a proposal). -->
+<iframe width="100%" height="480" src="https://www.youtube-nocookie.com/embed/qAFuOJ81wCY" title="PyLadiesCon Portal: Propose a Workshop or PyJam Performance" frameborder="0" allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
 
-*A screen recording of this flow is coming soon. The steps below cover the same
-ground.*
+*Recording: a volunteer from last year signs in with her existing account and
+sends a proposal. [Watch it on YouTube](https://youtu.be/qAFuOJ81wCY).*
 
 ### Before you start
 
@@ -124,12 +122,11 @@ contains "You're invited to PyLadiesCon", usually with a personal note from the
 organizer who invited you. The subject can start with a bracketed prefix, so
 search for the words rather than the start of the line.
 
-<!-- TODO(video): embed the YouTube video "PyLadiesCon Portal: Accept Your Speaker
-Invitation and Set Up Your Profile" here once it is uploaded (an invited speaker
-accepts, sets up her account, fills in her profile and looks at her checklist). -->
+<iframe width="100%" height="480" src="https://www.youtube-nocookie.com/embed/XGQU_o4SrvQ" title="PyLadiesCon Portal: Accept Your Speaker Invitation and Set Up Your Profile" frameborder="0" allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
 
-*A screen recording of this flow is coming soon. The steps below cover the same
-ground.*
+*Recording: an invited speaker accepts the invitation, finishes setting up her
+account, fills in her profile and looks at her checklist.
+[Watch it on YouTube](https://youtu.be/XGQU_o4SrvQ).*
 
 ### Steps
 
