@@ -156,7 +156,26 @@ days (`AbortIncompleteMultipartUpload`): the portal's nightly "Expire
 abandoned uploads" task reclaims what it knows about, and the rule reclaims
 the rest. The bucket also needs a CORS rule allowing `PUT` from the portal's
 origin with the `ETag` header exposed, since the browser uploads the parts
-directly.
+directly. Once bulk download exists (design §8.8, task 5.6) the same
+rule needs `GET` as well, and a second lifecycle rule should expire the
+`exports/` prefix after 7 days, since zip bundles are built there.
+
+**Read-only key for a post-production lead.** The bulk-download design
+names one escape hatch that needs no portal code: a Spaces key with
+read-only access to the media bucket, so one trusted person can pull an
+edition with `rclone`. Create it under API, Spaces Keys, scoped to the
+media bucket only with *Read* permission, and hand it over through the
+password manager, never by email or chat. Revoke it when the edition's
+post-production is done; nothing in the portal records what such a key
+fetches.
+
+```sh
+rclone config create do-media s3 provider=DigitalOcean \
+    endpoint=nyc3.digitaloceanspaces.com \
+    access_key_id=<key> secret_access_key=<secret>
+rclone sync do-media:pyladiescon-media/speaker-media/2026 ./pyladiescon-2026 \
+    --progress --transfers 4
+```
 
 ### One-time configuration
 

@@ -343,6 +343,49 @@ For pre-recorded sessions, one row per file that moves through post-production:
 
 Performance videos are routinely several gigabytes, so the browser uploads directly to object storage in chunks using presigned multipart URLs, with per-part retry and resume. The portal finalizes the upload and records the asset. Performers can upload raw video for their own sessions; organizers upload any kind.
 
+#### Where files live in the bucket
+
+Every object is keyed by edition, session and kind, so the bucket itself reads like a folder tree:
+
+```
+speaker-media/2026/<session-slug>/raw_video/<upload id>/<original filename>
+speaker-media/2026/<session-slug>/transcript/<upload id>/<original filename>
+```
+
+The upload id segment is what makes a re-upload a new object instead of an overwrite; the version number is assigned when the upload completes and lives on the row, not in the key. The row is the source of truth for everything else too: a session's slug can change after its first upload, and old objects keep the old slug. Nothing reads the bucket by listing it.
+
+#### Bulk download (post-production)
+
+> **Designed, not built.** Task 5.6.
+
+The people who edit the videos, design the title cards and cut the final versions work on their own machines, in their own tools, and they want *everything* for the edition on local disk, not one file at a time from a web page. A pull of an edition's raw video is tens of gigabytes across dozens of files, which rules out the two obvious shapes: a zip built on the server doubles the storage and ties up a worker and its disk for an hour, and a zip streamed through Django holds a web worker for the whole transfer and cannot resume when the connection drops. The bucket already knows how to serve large files with range requests and resume; the portal's job is to hand out the list of what to fetch and where to put it.
+
+**The export.** An organizer picks a scope on the sessions list or the post-production board (§4.2): the edition (the active one by default), the kinds (raw video by default), an optional language, the sessions currently filtered, and whether to include superseded versions (latest `READY` only by default) or only files newer than their last export. The portal answers with one presigned download link per asset and a local path for each, laid out the same way as the bucket, without the upload id and with the version in the file name so two versions can sit side by side:
+
+```
+pyladiescon-2026/<session-slug>/raw_video/v2-<original filename>
+pyladiescon-2026/<session-slug>/transcript/v1-en-<original filename>
+pyladiescon-2026/manifest.csv
+```
+
+`manifest.csv` carries what the file names cannot: session title, presenters, kind, language, version, duration, size, when it was uploaded and by whom, and the reviewer notes. Editors sort and search that in a spreadsheet; the folders stay predictable for scripts and for the editing software's media bins.
+
+**Three ways to fetch it**, all from the same export:
+
+1. *Download to a folder*, in the browser. On Chromium browsers the page asks for a local folder (the File System Access API), then streams each object straight from the bucket into that folder with the layout above, with per-file progress, retry, and skip-if-already-complete so a second run only picks up what is missing. No tooling to install; this is the button most people will use. Other browsers do not offer a folder picker and get option 2.
+2. *A download script*. A shell script with one resumable `curl` line per file (`-C -`, `--create-dirs`) and the manifest embedded, for anyone on a terminal, plus an `aria2c` input file for parallel transfers. Runs unattended and resumes after an interruption.
+3. *A zip*, only for small bundles. Transcripts, title cards and thumbnails for an edition are a few hundred megabytes at most, and a designer expects a zip. When the selection is under `SPEAKER_MEDIA_ZIP_MAX_BYTES` (1 GiB by default) the portal offers to build one: a worker task streams the objects into a zip stored under `speaker-media/exports/`, and the person gets a link when it is ready. A lifecycle rule deletes exports after 7 days. Above the cap the option is not shown.
+
+**Links and their lifetime.** A presigned link is a bearer credential: anyone holding it can fetch the object until it expires. Bulk links live longer than the one-hour page links (`SPEAKER_MEDIA_BULK_URL_TTL`, 12 hours by default, enough for a 100 GB pull on a home connection) and the export page says so. The script and the manifest are therefore treated like a credential: the page warns not to share them, and every export is recorded as a `MediaExport` row (who, when, scope, file count, total bytes, expiry) so the Maintenance section can answer "who pulled the 2026 videos, and when". The links in any email the portal sends about an export are withheld from the email record the same way invitation links are (§2.23).
+
+**Who.** Organizers, the same rule as uploading any kind; presenters never bulk download. With Stage 3 this becomes `speakers.view_mediaasset` (task 3.7), which is what puts the Design and Communication teams on the export page without making them program managers.
+
+**The other direction.** Editors bring processed videos, transcripts and title cards back. That stays per file through the upload panel for now; a "bulk upload from a folder" would read the same layout and manifest in reverse and is not designed here.
+
+**The escape hatch.** For a post-production lead who wants to `rclone sync` the whole edition and keep it in sync as new uploads arrive, DigitalOcean can issue a Spaces key with read-only access to just the media bucket. That works today, needs no portal code, and is the most efficient way to move 100 GB, but the key sees every edition and every kind and nothing in the portal records what it fetched, so it is an operations procedure for one trusted person (documented in the deployment guide), not a feature.
+
+**Cost.** Spaces includes 1 TiB of outbound transfer a month and charges a cent per GiB beyond it, so a handful of full pulls of an edition costs nothing extra. The export page shows the total size of the selection before anyone starts.
+
 ---
 
 ### 8.9 Proposal
