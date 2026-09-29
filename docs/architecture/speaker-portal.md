@@ -404,23 +404,23 @@ The "Transcribe" item on the post-production checklist completes when a transcri
 4. Writes the VTT, uploads it, records the asset, marks the job `DONE`.
 5. On any failure marks the job `FAILED` with the error, logs it to the session's activity, and leaves the checklist item open. Never silent: a missing `ffmpeg`, a missing model, an exhausted API quota all show on the page.
 
-**Two engines behind one interface** (`speakers/transcription.py`, `SPEAKER_TRANSCRIBE_ENGINE`):
+**The engine: Whisper in the worker, nothing hosted.** Decided 29 September 2026: transcription runs inside the portal's own worker with [faster-whisper](https://github.com/SYSTRAN/faster-whisper) (Whisper on CTranslate2, CPU, int8), and no audio leaves the portal's infrastructure. A hosted API was considered and set aside: it would be faster and better at hard audio, but it sends performers' recordings to a third party, needs a paid key, and would have to be disclosed in the performer guide. The engine sits behind a small interface (`speakers/transcription.py`: `transcribe(audio_path, language) -> segments`) so a different engine could be added later without touching the pipeline, but none is planned. `SPEAKER_TRANSCRIBE_MODEL` picks the Whisper model; the settings switch is off until the worker exists.
 
-| | `local` (faster-whisper, CPU) | `openai` (Whisper API) |
-|---|---|---|
-| What it is | Whisper running in the worker, CTranslate2 int8 | OpenAI's hosted `whisper-1` (or its successor) |
-| 30-minute set, roughly | `base`: a few minutes · `small`: 10 to 20 minutes · `medium`: an hour, on two vCPUs | about a minute |
-| Memory | `base` 0.5 GB · `small` 1 GB · `medium` 2.5 GB, plus the model download on first run | none to speak of |
-| Cost | worker time only | $0.006 a minute of audio: about 20 cents a set, under $10 an edition |
-| Where the audio goes | nowhere | to OpenAI, so the performer guide has to say so |
-| Quality | `small` is fine for English and the major languages; `medium` is noticeably better for accented speech and music-heavy audio | `whisper-1` is `large-v2`, the best of these |
-| Operations | `faster-whisper` in the image, model cached on the worker's disk (about 500 MB for `small`, re-downloaded after each deploy unless baked in), `SPEAKER_TRANSCRIBE_MODEL` | `OPENAI_API_KEY`, files over 25 MB split on silence and joined |
+What to expect from the worker, for a 30-minute set on two vCPUs (measure on the real worker before choosing):
 
-The interface is small (`transcribe(audio_path, language) -> segments`) and the rest of the pipeline is identical, so the choice is per deployment, not per edition. The trade is plain: the local engine keeps the performer's recording in-house and costs nothing, but a 30-minute set takes a quarter of an hour of a whole worker; the API is fast and better at hard audio, but sends the audio out and needs a paid key. The recommendation is to build both and run **`local` with `small`** on a dedicated worker first, because it needs no new account or consent language, and switch to the API if the queue proves too slow for the number of PyJam sets.
+| Model | Time | Memory | Notes |
+|---|---|---|---|
+| `base` | a few minutes | about 0.5 GB | rough; fine for a first pass on clear English speech |
+| `small` | 10 to 20 minutes | about 1 GB | the default: good for English and the major languages |
+| `medium` | about an hour | about 2.5 GB | noticeably better for accented speech and music-heavy audio |
 
-**The worker.** Either engine ties up a worker for minutes, and the default worker also sends every email and reminder, so transcription goes on a separate Celery queue (`media`) served by its own process (`worker-media` in the Procfile, one replica, concurrency 1, a two-hour hard time limit, `acks_late` so a killed worker's job is retried once). The duration probe (task 5.3) uses the same queue and the same `ffmpeg` install. Cabotage starts a new process at zero replicas; the deployment guide covers scaling it up.
+The model is downloaded from Hugging Face on first use (about 500 MB for `small`) into the worker's disk, which is ephemeral, so it is fetched again after every deploy unless it is baked into the image. Whisper detects the language when the session has none.
 
-**What people see.** Organizers: the job's state on the video's row, the machine draft with a "machine draft" badge and its engine, a download, and "Transcribe this" and "Retry" where they apply. The reviewer downloads the draft, fixes it, uploads it as the next version: that is "Review transcript". Performers: "Transcribe: done" in "What we're doing with your video", as for any other item. The performer guide and the upload panel say that recordings are machine-transcribed by the team's tooling, and name the service when the API engine is on.
+**The worker.** A transcription ties up a worker for a quarter of an hour, and the default worker also sends every email and reminder, so media jobs go on a separate Celery queue (`media`) served by their own process (`worker-media` in the Procfile, one replica, concurrency 1, a two-hour hard time limit, `acks_late` so a job a killed worker was running is delivered again; the job row notices it was already `RUNNING` and marks itself `FAILED` rather than looping). The duration probe (task 5.3) uses the same queue and the same `ffmpeg` install. The default worker never consumes `media`, so with the process at zero replicas jobs simply wait: a nightly watchdog marks any job still `QUEUED` after twelve hours `FAILED` with "no media worker picked this up", which is how a forgotten replica count shows on the page. In development one worker serves both queues (`-Q celery,media`), so the compose stack gains no container. What a second process costs, and the single-worker alternative, are weighed in the deployment guide.
+
+**What people see.** Organizers: the job's state on the video's row, the machine draft with a "machine draft" badge and its model, a download, and "Transcribe this" and "Retry" where they apply. The reviewer downloads the draft, fixes it, uploads it as the next version: that is "Review transcript". Performers: "Transcribe: done" in "What we're doing with your video", as for any other item. The performer guide and the upload panel say that recordings are transcribed by the portal's own tooling and reviewed by the team, and that nothing is sent to an outside service.
+
+**Documentation that changes when this is built** (the task lists them so none is missed): the developer setup guide (ffmpeg, the model cache, one worker for both queues), the deployment guide (the `worker-media` process, its memory, scaling it up, the watchdog), the speakers module README (the transcription module and the job row), the speaker settings help text, and the performer guide wording above. The status note at the top of this section flips from "designed" to "built".
 
 ---
 

@@ -190,13 +190,32 @@ tasks land:
 - `worker-media` is a new process, so it starts at zero replicas in
   cabotage and has to be scaled to one by hand (see "A new or renamed
   process" above); keep it at one replica with concurrency 1;
-- with `SPEAKER_TRANSCRIBE_ENGINE=local` the first run downloads the
-  Whisper model (about 500 MB for `small`) to the worker's disk, again
-  after every deploy unless the model is baked into the image; give the
-  process 2 GB of memory for `small`;
-- with `SPEAKER_TRANSCRIBE_ENGINE=openai`, `OPENAI_API_KEY` joins the
-  deployment secrets and the performer guide must say recordings are sent
-  to OpenAI for transcription.
+- the first transcription downloads the Whisper model (about 500 MB for
+  `small`) to the worker's disk, again after every deploy unless the
+  model is baked into the image; give the process 2 GB of memory for
+  `small`, more for `medium`;
+- transcription runs entirely in this process; no audio leaves the
+  portal's infrastructure, and there is no API key to manage.
+
+**What a second worker process costs.** It is one more container on the
+PSF-hosted cabotage cluster with its own memory reservation (the Whisper
+model is what sets it), one more line to scale by hand after the deploy,
+and one more thing that can be at zero replicas without anything failing
+loudly: media tasks sit in Redis until a `worker-media` picks them up,
+which is why the nightly watchdog marks a job queued for over twelve
+hours as failed on the page. It shares the image, so `ffmpeg` and the
+`faster-whisper` dependency are in every process's image whether or not
+they use them (about 250 MB more image). Everything else is unchanged:
+`web`, `worker-beat` and `release` do not know it exists, and the default
+`worker` keeps consuming only its own queue.
+
+The alternative is one worker consuming both queues with two child
+processes. It saves the container and the manual scale-up, but the whole
+worker then needs the model's memory, a transcription and an email share
+the same limits, and two slow transcriptions would hold every email until
+one finishes. The separate process is the recommended shape; the single
+worker is the fallback if the cluster cannot spare a container, and it is
+a Procfile and settings change, not a code change.
 
 ### One-time configuration
 
