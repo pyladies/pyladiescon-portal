@@ -532,9 +532,9 @@ class TestDeciding:
         url = reverse("speakers:proposal_decide", args=[proposal.pk])
         client.force_login(organizer)
         client.post(url, {"decision": "REJECTED"})
-        # The answered list offers it, and the queue says so.
+        # The answered list still offers Approve.
         queue = client.get(QUEUE).content.decode()
-        assert "Approve after all" in queue
+        assert 'value="APPROVED"' in queue and "Approve" in queue
         mail.outbox.clear()
         response = client.post(url, {"decision": "APPROVED"}, follow=True)
         assert "is in after all" in response.content.decode()

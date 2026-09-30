@@ -95,11 +95,7 @@ open the tab their target lives in.
                                         name="decision"
                                         value="APPROVED"
                                         type="submit">
-                                    {% if proposal.is_pending %}
-                                        {% trans "Approve" %}
-                                    {% else %}
-                                        {% trans "Approve after all" %}
-                                    {% endif %}
+                                    {% trans "Approve" %}
                                 </button>
                             </form>
                         {% endif %}
