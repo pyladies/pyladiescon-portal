@@ -89,6 +89,7 @@ from .lifecycle import waiting_on_labels
 from .media import (
     asset_groups,
     can_download,
+    line_titles,
     open_uploads,
     session_assets,
     team_files,
@@ -398,6 +399,7 @@ class SessionDetailView(SessionScopedMixin, DetailView):
         # fail, and the team gathers recordings as before (README).
         media_on = bool(settings.SPEAKER_MEDIA_BUCKET)
         context["media_on"] = media_on
+        context["line_titles"] = line_titles(self.object, assets)
         context["can_upload_media"] = context["can_assign"]
         context["can_download_media"] = can_download(self.request.user, self.object)
         context["open_uploads"] = (
@@ -1427,6 +1429,7 @@ class SpeakerSessionDetailView(SpeakerSessionMixin, TemplateView):
                 # What the team made for this session: the poster, the
                 # final cut, the transcript (design §8.6 and §4.1).
                 "team_files": team_files(session),
+                "line_titles": line_titles(session),
             }
         )
         # The strip under the title: their to-dos, counted from the list

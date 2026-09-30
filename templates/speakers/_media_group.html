@@ -1,0 +1,83 @@
+{% load i18n %}
+{% comment %}
+One file group (a kind, language and variant on the session): the line's
+title with its edit form, the newest READY version with its row, older
+versions folded underneath. Its id is what the title form swaps.
+Params: group (media.asset_groups), session, can_edit
+{% endcomment %}
+<div class="card mb-3" id="{{ group.id }}">
+    <div class="card-header">
+        <div class="d-flex flex-wrap align-items-center gap-2">
+            {% if group.title %}
+                <span class="fw-semibold">{{ group.title }}</span>
+                <span class="badge text-bg-light border">{{ group.label }}</span>
+            {% else %}
+                <span class="fw-semibold">{{ group.label }}</span>
+            {% endif %}
+            {% if group.language %}
+                <span class="badge text-bg-light border">{{ group.language }}</span>
+            {% endif %}
+            {% if group.variant %}
+                <span class="badge text-bg-light border">{{ group.variant }}</span>
+            {% endif %}
+            {% if group.current %}
+                <span class="badge text-bg-success">v{{ group.current.version }}</span>
+            {% else %}
+                <span class="badge text-bg-secondary">{% trans "No current version" %}</span>
+            {% endif %}
+        </div>
+        {% if can_edit %}
+            <details class="mt-1">
+                <summary class="small text-secondary">
+                    {% if group.title %}
+                        {% trans "Edit the title" %}
+                    {% else %}
+                        {% trans "Add a title" %}
+                    {% endif %}
+                </summary>
+                {% trans "What this file is about, for every version and format of it" as title_placeholder %}
+                <form method="post"
+                      class="mt-2"
+                      action="{% url 'speakers:media_title' session.slug group.target.pk %}"
+                      hx-post="{% url 'speakers:media_title' session.slug group.target.pk %}"
+                      hx-target="#{{ group.id }}"
+                      hx-swap="outerHTML">
+                    {% csrf_token %}
+                    <label class="visually-hidden" for="title-{{ group.id }}">
+                        {% trans "Title" %}
+                    </label>
+                    <div class="input-group input-group-sm">
+                        <input class="form-control"
+                               id="title-{{ group.id }}"
+                               name="title"
+                               maxlength="200"
+                               value="{{ group.title }}"
+                               placeholder="{{ title_placeholder }}">
+                        <button class="btn btn-outline-secondary" type="submit">
+                            {% trans "Save title" %}
+                        </button>
+                    </div>
+                </form>
+            </details>
+        {% endif %}
+    </div>
+    {% if group.current %}
+        <div class="card-body">
+            {% include "speakers/_media_asset_row.html" with asset=group.current session=session can_edit=can_edit show_notes=True current=True %}
+        </div>
+    {% endif %}
+    {% if group.history %}
+        <details class="card-body border-top pt-2">
+            <summary class="small">
+                {% blocktranslate count counter=group.history|length %}{{ counter }} earlier version{% plural %}{{ counter }} earlier versions{% endblocktranslate %}
+            </summary>
+            <ul class="list-unstyled mt-2 mb-0 d-grid gap-2">
+                {% for asset in group.history %}
+                    <li>
+                        {% include "speakers/_media_asset_row.html" with asset=asset session=session can_edit=can_edit show_notes=True %}
+                    </li>
+                {% endfor %}
+            </ul>
+        </details>
+    {% endif %}
+</div>

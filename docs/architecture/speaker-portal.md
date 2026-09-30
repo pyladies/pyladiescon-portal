@@ -353,7 +353,7 @@ Performance videos are routinely several gigabytes, so the browser uploads direc
 
 #### A title for each file
 
-> **Designed, not built.** Task 5.9.
+> **Built** (30 September 2026, task 5.9).
 
 A file is named by its kind, language and variant ("Promo material (square)", "Transcript (en)"), which says what it is but not what it is about. Organizers want to write "Poster for the panel, from the Canva template" or "Final cut with the new intro" once, and not again for every version or format of the same thing.
 

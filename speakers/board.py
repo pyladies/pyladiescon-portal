@@ -244,10 +244,13 @@ POST_PRODUCTION_CSV_NOTE = (
 def _video_cell(asset):
     if asset is None:
         return ""
-    if asset.duration_seconds is None:
-        return f"v{asset.version}"
-    minutes, seconds = divmod(asset.duration_seconds, 60)
-    return f"v{asset.version} ({minutes}:{seconds:02d})"
+    text = f"v{asset.version}"
+    if asset.duration_seconds is not None:
+        minutes, seconds = divmod(asset.duration_seconds, 60)
+        text += f" ({minutes}:{seconds:02d})"
+    if asset.title:
+        text += f" {asset.title}"
+    return text
 
 
 def write_post_production_csv(board, stream):

@@ -96,6 +96,11 @@ urlpatterns = [
         name="media_notes",
     ),
     path(
+        "sessions/<slug:slug>/media/<int:pk>/title/",
+        upload_views.MediaTitleView.as_view(),
+        name="media_title",
+    ),
+    path(
         "sessions/<slug:slug>/media/<int:pk>/share/",
         upload_views.MediaShareView.as_view(),
         name="media_share",

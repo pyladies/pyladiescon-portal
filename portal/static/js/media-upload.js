@@ -19,6 +19,9 @@
  *   [data-role=language]         optional <input> (organizer panel)
  *   [data-role=variant]          optional <input> (organizer panel): which of
  *                                several files of one kind (square, gif...)
+ *   [data-role=title]            optional <input>: what the file is about;
+ *                                prefilled from #upload-titles-<panel> (a JSON
+ *                                map "KIND|language" -> title) until typed in
  *   [data-role=start]            the upload button
  *   [data-role=cancel]           cancel/abort
  *   [data-role=progress]         .progress-bar
@@ -53,6 +56,13 @@
         this.kind = root.querySelector("[data-role=kind]");
         this.language = root.querySelector("[data-role=language]");
         this.variant = root.querySelector("[data-role=variant]");
+        this.title = root.querySelector("[data-role=title]");
+        this.lineTitles = {};
+        var titlesNode = this.title && root.querySelector('script[id^="upload-titles-"]');
+        if (titlesNode) {
+            try { this.lineTitles = JSON.parse(titlesNode.textContent) || {}; } catch (e) { this.lineTitles = {}; }
+        }
+        this.titleTyped = false;
         this.startButton = root.querySelector("[data-role=start]");
         this.cancelButton = root.querySelector("[data-role=cancel]");
         this.bar = root.querySelector("[data-role=progress]");
@@ -65,9 +75,16 @@
         this.startButton.addEventListener("click", function () { self.begin(); });
         this.cancelButton.addEventListener("click", function () { self.cancel(); });
         if (this.kind) {
-            this.kind.addEventListener("change", function () { self.showResume(); });
+            this.kind.addEventListener("change", function () { self.showResume(); self.prefillTitle(); });
+        }
+        if (this.language) {
+            this.language.addEventListener("input", function () { self.prefillTitle(); });
+        }
+        if (this.title) {
+            this.title.addEventListener("input", function () { self.titleTyped = self.title.value.trim() !== ""; });
         }
         this.showResume();
+        this.prefillTitle();
     }
 
     Panel.prototype.currentKind = function () {
@@ -80,6 +97,18 @@
 
     Panel.prototype.currentVariant = function () {
         return this.variant ? this.variant.value.trim() : "";
+    };
+
+    Panel.prototype.currentTitle = function () {
+        return this.title ? this.title.value.trim() : "";
+    };
+
+    /* The line (kind and language) may already have a title: offer it,
+     * and stop offering once the person has typed their own. */
+    Panel.prototype.prefillTitle = function () {
+        if (!this.title || this.titleTyped) { return; }
+        var known = this.lineTitles[this.currentKind() + "|" + this.currentLanguage()] || "";
+        this.title.value = known;
     };
 
     Panel.prototype.storageKey = function () {
@@ -145,6 +174,7 @@
         if (this.kind) { this.kind.disabled = on; }
         if (this.language) { this.language.disabled = on; }
         if (this.variant) { this.variant.disabled = on; }
+        if (this.title) { this.title.disabled = on; }
         this.cancelButton.hidden = !on;
         this.bar.parentElement.hidden = !on;
     };
@@ -235,6 +265,7 @@
             kind: this.currentKind(),
             language: this.currentLanguage(),
             variant: this.currentVariant(),
+            title: this.currentTitle(),
             filename: file.name,
             size_bytes: file.size,
             content_type: file.type || "application/octet-stream"

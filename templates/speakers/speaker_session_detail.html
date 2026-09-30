@@ -381,7 +381,7 @@ upload action open the tab their target lives in.
                                     {% trans "No video yet. Upload your performance here; it goes straight to storage and the team takes it from there." %}
                                 </p>
                             {% endif %}
-                            {% include "speakers/_upload_panel.html" with session=session kind="RAW_VIDEO" open_uploads=video.open_uploads accept="video/*" panel_id="video" %}
+                            {% include "speakers/_upload_panel.html" with session=session kind="RAW_VIDEO" open_uploads=video.open_uploads accept="video/*" line_titles=line_titles panel_id="video" %}
                         </div>
                         {% if video.history %}
                             <details class="card-body border-top pt-2">
@@ -407,7 +407,10 @@ upload action open the tab their target lives in.
                         <ul class="list-group list-group-flush">
                             {% for asset in team_files %}
                                 <li class="list-group-item d-flex flex-wrap align-items-center gap-2 small">
-                                    <span class="fw-semibold">{{ asset.label }}</span>
+                                    <span class="fw-semibold">{{ asset.display_title }}</span>
+                                    {% if asset.title %}
+                                        <span class="badge text-bg-light border">{{ asset.label }}</span>
+                                    {% endif %}
                                     <span class="badge text-bg-light border">v{{ asset.version }}</span>
                                     <span class="text-secondary text-break">{{ asset.original_filename|default:asset.file.name }}</span>
                                     {% if asset.size_bytes %}

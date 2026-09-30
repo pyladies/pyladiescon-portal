@@ -137,7 +137,13 @@ and the earlier raw versions without the reviewer notes, which are the
 team's (`show_notes` on the row partial). Promo materials are `PROMO` assets with a free `variant`
 ("square", "gif"); versions count per kind, language and variant, and the
 seeded promo lines tick on the first file and the first share
-(`AutoRule.ASSET_SHARED`). A few bitmap types, video and audio
+(`AutoRule.ASSET_SHARED`). A file line (kind and language on the
+session) has a title (`MediaAsset.title`, "Poster for the panel"): asked
+once in the upload panel, prefilled there from `media.line_titles`,
+inherited by later versions and variants in `complete_upload`
+(`media.line_title`), and edited for the whole line at once
+(`media.set_line_title`, `MediaTitleView`, which swaps the group
+`_media_group.html` in place). A few bitmap types, video and audio
 (`MediaAsset.preview_kind`, an allowlist of concrete types from the
 content type or the name; SVG, which carries script, only downloads) get
 a closed "Preview" fold on their rows (`_media_preview.html`) that loads

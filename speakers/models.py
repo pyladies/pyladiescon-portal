@@ -1868,6 +1868,10 @@ class MediaAsset(TimestampedModel):
     # Which of several files of one kind this is: promo materials come as
     # square, landscape, vertical, video, gif. Versions count per variant.
     variant = models.CharField(max_length=40, blank=True, default="", db_default="")
+    # What the file is about, in a line ("Poster for the panel"). It belongs
+    # to the line (kind and language on the session): asked once, copied
+    # onto every later version and variant, edited everywhere at once.
+    title = models.CharField(max_length=200, blank=True, default="", db_default="")
     # The team's files are theirs until they say otherwise: a shared file
     # shows on the speaker's session page and can be fetched by them.
     shared_with_speaker = models.BooleanField(default=False, db_default=False)
@@ -1998,6 +2002,11 @@ class MediaAsset(TimestampedModel):
         base = self.get_kind_display()
         return f"{base} ({qualifier})" if qualifier else base
 
+    @property
+    def display_title(self):
+        """The title when there is one, else the label."""
+        return self.title or self.label
+
 
 class MediaUpload(TimestampedModel):
     """A multipart upload in flight (design §8.8, task 5.1).
@@ -2020,6 +2029,7 @@ class MediaUpload(TimestampedModel):
     kind = models.CharField(max_length=16, choices=MediaKind.choices)
     language = models.CharField(max_length=10, blank=True, default="")
     variant = models.CharField(max_length=40, blank=True, default="", db_default="")
+    title = models.CharField(max_length=200, blank=True, default="", db_default="")
     filename = models.CharField(max_length=255)
     content_type = models.CharField(max_length=100, default="application/octet-stream")
     size_bytes = models.BigIntegerField()

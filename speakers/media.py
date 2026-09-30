@@ -276,15 +276,79 @@ def asset_groups(assets):
                 "label": asset.get_kind_display(),
                 "language": asset.language,
                 "variant": asset.variant,
+                "title": "",
+                "id": group_id(asset),
                 "current": None,
                 "history": [],
             },
         )
+        if not group["title"] and asset.title:
+            group["title"] = asset.title
         if group["current"] is None and asset.is_ready:
             group["current"] = asset
         else:
             group["history"].append(asset)
+    for group in groups.values():
+        # The row the title form posts to: any row of the line will do.
+        group["target"] = group["current"] or group["history"][0]
     return list(groups.values())
+
+
+def group_id(asset):
+    """The element id of the file group an asset belongs to, for the page
+    and for the htmx swap after an edit."""
+    parts = [asset.kind.lower()]
+    if asset.language:
+        parts.append(asset.language)
+    if asset.variant:
+        parts.append(re.sub(r"[^a-z0-9]+", "-", asset.variant.lower()).strip("-"))
+    return "files-" + "-".join(parts)
+
+
+def asset_group(asset):
+    """The one group this asset belongs to, rebuilt for an htmx swap."""
+    same = [
+        a
+        for a in session_assets(asset.session)
+        if (a.kind, a.language, a.variant)
+        == (asset.kind, asset.language, asset.variant)
+    ]
+    return asset_groups(same)[0]
+
+
+def line_title(session, kind, language):
+    """The newest title on a line (kind and language on the session, any
+    variant), or empty: what a new version or variant inherits."""
+    titled = (
+        MediaAsset.objects.filter(session=session, kind=kind, language=language)
+        .exclude(title="")
+        .order_by("-id")
+        .values_list("title", flat=True)
+    )
+    return titled.first() or ""
+
+
+def line_titles(session, assets=None):
+    """``{"KIND|language": title}`` for every titled line on the session:
+    what the upload panel prefills when a kind and language are chosen."""
+    if assets is None:
+        assets = session_assets(session)
+    titles = {}
+    for asset in sorted(assets, key=lambda a: a.pk, reverse=True):
+        if asset.title:
+            titles.setdefault(f"{asset.kind}|{asset.language}", asset.title)
+    return titles
+
+
+def set_line_title(asset, title):
+    """Give the whole line the title: every version and variant of this
+    kind and language on the session, so old rows read like the new."""
+    title = (title or "").strip()[:200]
+    MediaAsset.objects.filter(
+        session_id=asset.session_id, kind=asset.kind, language=asset.language
+    ).update(title=title)
+    asset.title = title
+    return title
 
 
 def team_files(session, assets=None):
@@ -398,7 +462,16 @@ def clean_content_type(kind, filename, content_type):
 
 
 def start_upload(
-    *, session, kind, language, filename, size_bytes, content_type, user, variant=""
+    *,
+    session,
+    kind,
+    language,
+    filename,
+    size_bytes,
+    content_type,
+    user,
+    variant="",
+    title="",
 ):
     """Open a multipart upload and record it; returns the ``MediaUpload``."""
     if kind not in MediaKind.values:
@@ -419,6 +492,7 @@ def start_upload(
             kind=kind,
             language=language,
             variant=(variant or "")[:40],
+            title=(title or "").strip()[:200],
             filename=filename[:255],
             content_type=content_type,
             size_bytes=size_bytes,
@@ -461,7 +535,9 @@ def complete_upload(upload, parts):
     """Finalize the object and record the asset.
 
     The new asset takes the next version for its session, kind, language
-    and variant, the previous READY one becomes SUPERSEDED, and
+    and variant, the line's title when the upload brought none (design
+    §8.8, "A title for each file"), the previous READY one becomes
+    SUPERSEDED, and
     ``asset_ready`` is sent once everything is saved.
     """
     if not upload.is_open:
@@ -496,11 +572,13 @@ def complete_upload(upload, parts):
         version = (
             previous.order_by("-version").first() or MediaAsset(version=0)
         ).version + 1
+        title = upload.title or line_title(upload.session, upload.kind, upload.language)
         asset = MediaAsset.objects.create(
             session=upload.session,
             kind=upload.kind,
             language=upload.language,
             variant=upload.variant,
+            title=title,
             version=version,
             status=MediaStatus.READY,
             storage_key=upload.storage_key,

@@ -22,11 +22,13 @@ from .media import (
     MediaStorageNotConfigured,
     UploadError,
     abort_upload,
+    asset_group,
     can_download,
     can_upload,
     complete_upload,
     part_urls,
     received_parts,
+    set_line_title,
     start_upload,
 )
 from .mixins import SpeakerModuleRequiredMixin
@@ -51,6 +53,7 @@ def _upload_json(upload, **extra):
         "kind": upload.kind,
         "language": upload.language,
         "variant": upload.variant,
+        "title": upload.title,
         "filename": upload.filename,
         "size_bytes": upload.size_bytes,
         "part_size": upload.part_size,
@@ -122,6 +125,7 @@ class UploadStartView(UploadEndpoint):
             kind=kind,
             language=str(data.get("language", "") or "")[:10],
             variant=str(data.get("variant", "") or "").strip()[:40],
+            title=str(data.get("title", "") or ""),
             filename=str(data.get("filename", "") or ""),
             size_bytes=size_bytes,
             content_type=str(data.get("content_type", "") or "")[:100],
@@ -303,3 +307,28 @@ class MediaShareView(LoginRequiredMixin, SpeakerModuleRequiredMixin, View):
                 else "No longer shared with the speaker."
             ),
         )
+
+
+class MediaTitleView(LoginRequiredMixin, SpeakerModuleRequiredMixin, View):
+    """POST title: what the file line is about, on every version and
+    variant of it (design §8.8, "A title for each file"); organizers only.
+    An htmx request gets the whole group back, since every row changed."""
+
+    http_method_names = ["post"]
+
+    def post(self, request, slug, pk):
+        session = get_object_or_404(
+            Session, conference=self.conference, slug=self.kwargs["slug"]
+        )
+        if not is_speaker_organizer(request.user):
+            raise PermissionDenied("Only organizers title files.")
+        asset = get_object_or_404(MediaAsset, pk=pk, session=session)
+        set_line_title(asset, request.POST.get("title", ""))
+        if request.headers.get("HX-Request"):
+            return render(
+                request,
+                "speakers/_media_group.html",
+                {"group": asset_group(asset), "session": session, "can_edit": True},
+            )
+        messages.success(request, "Title saved.")
+        return redirect(f"{session.get_absolute_url()}#files")
