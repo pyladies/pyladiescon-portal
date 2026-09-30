@@ -1,5 +1,9 @@
 {% extends "speakers/_organize_shell.html" %}
-{% load i18n %}
+{% load i18n static %}
+{% block extra_head %}
+    {{ block.super }}
+    <script src="{% static 'js/media-export.js' %}" defer></script>
+{% endblock extra_head %}
 {% block head_title %}
     {% trans "Download files" %}
 {% endblock head_title %}
@@ -16,11 +20,34 @@
     <p class="text-secondary mb-3">
         {% trans "Pick what to fetch; the count and size update when you apply the selection. An export then gives you the files as a folder in the browser, as a script for a terminal, or as a zip when the selection is small." %}
     </p>
-    <form method="get" class="card mb-3">
+    <form method="get" class="card mb-3" id="export-scope">
+        <div class="card-header d-flex flex-wrap align-items-center gap-3 small">
+            <span class="fw-semibold">{% trans "Selection" %}</span>
+            <span>
+                <button class="btn btn-link btn-sm p-0" type="button" data-select="all:all">
+                    {% trans "Check everything" %}
+                </button>
+                ·
+                <button class="btn btn-link btn-sm p-0" type="button" data-select="all:none">
+                    {% trans "Clear everything" %}
+                </button>
+            </span>
+        </div>
         <div class="card-body row g-3">
             <div class="col-md-4">
-                <div class="form-label small mb-1">
-                    {% trans "Kinds" %}
+                <div class="form-label small mb-1 d-flex justify-content-between">
+                    <span>{% trans "Kinds" %}</span>
+                    <span>
+                        <button class="btn btn-link btn-sm p-0" type="button" data-select="kinds:all">
+                            {% trans "all" %}
+                        </button>
+                        ·
+                        <button class="btn btn-link btn-sm p-0"
+                                type="button"
+                                data-select="kinds:none">
+                            {% trans "none" %}
+                        </button>
+                    </span>
                 </div>
                 {% for value, label in kinds %}
                     <div class="form-check">
@@ -37,9 +64,24 @@
                 {% endfor %}
             </div>
             <div class="col-md-4">
-                <label class="form-label small mb-1" for="export-sessions">
-                    {% trans "Sessions" %}
-                </label>
+                <div class="form-label small mb-1 d-flex justify-content-between">
+                    <label class="mb-0" for="export-sessions">
+                        {% trans "Sessions" %}
+                    </label>
+                    <span>
+                        <button class="btn btn-link btn-sm p-0"
+                                type="button"
+                                data-select="sessions:all">
+                            {% trans "all" %}
+                        </button>
+                        ·
+                        <button class="btn btn-link btn-sm p-0"
+                                type="button"
+                                data-select="sessions:none">
+                            {% trans "none" %}
+                        </button>
+                    </span>
+                </div>
                 <select class="form-select form-select-sm"
                         name="sessions"
                         id="export-sessions"

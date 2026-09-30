@@ -248,6 +248,17 @@ class TestExport:
         assert response.status_code == 200
         html = response.content.decode()
         assert "<strong>3</strong> files" in html and "55" in html
+        # Check-all and clear-all for each group and for everything.
+        for target in (
+            "kinds:all",
+            "kinds:none",
+            "sessions:all",
+            "sessions:none",
+            "all:all",
+            "all:none",
+        ):
+            assert f'data-select="{target}"' in html
+        assert "js/media-export" in html
         response = client.post(
             EXPORT, {"kinds": ["RAW_VIDEO", "TRANSCRIPT"], "versions": "all"}
         )

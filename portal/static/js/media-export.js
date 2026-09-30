@@ -164,3 +164,42 @@
         main();
     }
 })();
+
+/* The scope form on the export page (templates/speakers/media_export.html):
+ * check or clear a whole group at once. data-select="<group>:<all|none>"
+ * with group "kinds" (the checkboxes), "sessions" (the multi-select) or
+ * "all" (both). The count still updates on "Apply selection". */
+(function () {
+    "use strict";
+
+    function apply(form, group, on) {
+        if (group === "kinds" || group === "all") {
+            form.querySelectorAll('input[type=checkbox][name=kinds]').forEach(function (box) {
+                box.checked = on;
+            });
+        }
+        if (group === "sessions" || group === "all") {
+            form.querySelectorAll('select[name=sessions] option').forEach(function (option) {
+                option.selected = on;
+            });
+        }
+    }
+
+    function main() {
+        var form = document.getElementById("export-scope");
+        if (!form) { return; }
+        form.addEventListener("click", function (event) {
+            var button = event.target.closest("[data-select]");
+            if (!button) { return; }
+            event.preventDefault();
+            var parts = button.dataset.select.split(":");
+            apply(form, parts[0], parts[1] === "all");
+        });
+    }
+
+    if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", main);
+    } else {
+        main();
+    }
+})();
