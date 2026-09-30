@@ -1,13 +1,14 @@
 from datetime import date
 
 import pytest
+from django.conf import settings
 from django.contrib.auth.models import User
 from django.core import mail
 
 from common.models import SentEmail
 from speakers.checklists import add_adhoc_item
 from speakers.constants import ItemOwner, NoticeKind
-from speakers.models import ChecklistItem
+from speakers.models import ChecklistItem, SpeakerSettings
 from speakers.notices import send_checklist_change_notices
 from speakers.tasks import send_checklist_change_notices_task
 from volunteer.constants import ApplicationStatus
@@ -107,6 +108,24 @@ class TestChangeNotices:
         mail.outbox.clear()
         assert send_checklist_change_notices(conference) == 0
         assert mail.outbox == []
+
+    def test_speaker_notice_replies_to_the_team_not_the_organizer_one(
+        self, conference, enabled
+    ):
+        SpeakerSettings.objects.filter(conference=conference).update(
+            organizers_email="team@example.com"
+        )
+        ada = make_presenter(conference, display_name="Ada", email="ada@example.com")
+        add_adhoc_item(conference, "Send slides", ItemOwner.SPEAKER, presenter=ada)
+        lena = User.objects.create_user(username="lena", email="lena@example.com")
+        add_adhoc_item(
+            conference, "Promo", ItemOwner.ORGANIZER, presenter=ada, assignee=lena
+        )
+        mail.outbox.clear()
+        send_checklist_change_notices(conference)
+        by_to = {tuple(m.to): m for m in mail.outbox}
+        assert by_to[("ada@example.com",)].reply_to == ["team@example.com"]
+        assert by_to[("lena@example.com",)].reply_to == [settings.DEFAULT_FROM_EMAIL]
 
     def test_team_items_go_to_approved_members(self, conference, enabled):
         team = Team.objects.create(

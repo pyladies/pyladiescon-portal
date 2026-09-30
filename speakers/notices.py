@@ -17,7 +17,7 @@ from django.utils import timezone
 from common.send_emails import send_email
 
 from .constants import ItemOwner, NoticeKind
-from .emails import absolute_url, presenter_email_context
+from .emails import absolute_url, presenter_email_context, team_reply_to
 from .models import ChecklistItem
 from .reminders import DigestCount, _team_emails
 
@@ -96,6 +96,7 @@ def _try_send(conference, recipients, group, speaker_side):
                 # An assignee's notice is theirs to read on "Emails we sent
                 # you"; the context carries the items, not the account.
                 user=None if speaker_side else group[0].assignee,
+                reply_to=team_reply_to(conference) if speaker_side else None,
             )
             _clear(group)
     except Exception:  # noqa: BLE001 - anything the mail backend raises

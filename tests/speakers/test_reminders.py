@@ -2,6 +2,7 @@ from datetime import date, datetime, timedelta, timezone
 from unittest import mock
 
 import pytest
+from django.conf import settings
 from django.contrib.auth.models import User
 from django.core import mail
 from django.urls import reverse
@@ -9,7 +10,7 @@ from django.urls import reverse
 from common.models import SentEmail
 from speakers.checklists import add_adhoc_item, complete_item
 from speakers.constants import ItemOwner
-from speakers.models import ReminderLog
+from speakers.models import ReminderLog, SpeakerSettings
 from speakers.reminders import send_checklist_digests
 from speakers.tasks import send_checklist_digests_task
 from volunteer.constants import ApplicationStatus
@@ -87,6 +88,29 @@ class TestSpeakerDigest:
         )
         assert str(logs[0]) == "Read the guide (3d) to ada@example.com"
         assert later.reminders.count() == 0 and undated.reminders.count() == 0
+
+    def test_the_digest_replies_to_the_team_address(self, conference, enabled):
+        SpeakerSettings.objects.filter(conference=conference).update(
+            organizers_email="team@example.com"
+        )
+        ada = make_presenter(conference, display_name="Ada", email="ada@example.com")
+        add_adhoc_item(
+            conference, "Read", ItemOwner.SPEAKER, presenter=ada, due_date=days(3)
+        )
+        lena = User.objects.create_user(username="lena", email="lena@example.com")
+        add_adhoc_item(
+            conference,
+            "Promo",
+            ItemOwner.ORGANIZER,
+            presenter=ada,
+            due_date=days(1),
+            assignee=lena,
+        )
+        mail.outbox.clear()
+        send_checklist_digests(conference, now=NOW)
+        by_to = {tuple(m.to): m for m in mail.outbox}
+        assert by_to[("ada@example.com",)].reply_to == ["team@example.com"]
+        assert by_to[("lena@example.com",)].reply_to == [settings.DEFAULT_FROM_EMAIL]
 
     def test_preface_names_the_role_and_scheduled_time(self, conference, enabled):
         ada = make_presenter(conference, timezone="Europe/Lisbon")

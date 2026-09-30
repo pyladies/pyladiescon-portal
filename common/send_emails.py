@@ -113,12 +113,9 @@ def send_email(
         session=session,
     )
     try:
-        if reply_to:
-            deliver_markdown_email(
-                subject, recipient_list, html_content, text_content, reply_to=reply_to
-            )
-        else:
-            deliver_markdown_email(subject, recipient_list, html_content, text_content)
+        deliver_markdown_email(
+            subject, recipient_list, html_content, text_content, reply_to=reply_to
+        )
     except Exception as exc:
         record.status = SentEmailStatus.FAILED
         record.error = f"{type(exc).__name__}: {exc}"[:2000]

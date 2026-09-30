@@ -19,7 +19,12 @@ from common.send_emails import send_email
 from volunteer.constants import ApplicationStatus
 
 from .constants import OPEN_ITEM_STATUSES, ItemOwner
-from .emails import absolute_url, organizer_inbox, presenter_email_context
+from .emails import (
+    absolute_url,
+    organizer_inbox,
+    presenter_email_context,
+    team_reply_to,
+)
 from .models import ChecklistItem, ReminderLog, SpeakerSettings
 
 THRESHOLDS = (7, 3, 1)
@@ -114,6 +119,7 @@ def _speaker_digests(conference, items, now, sent):
             due,
             subject=f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} {conference.name}: "
             f"{len(due)} todo(s) with deadlines coming up",
+            reply_to=team_reply_to(conference),
         ):
             emails.failed += 1
             continue
@@ -184,11 +190,15 @@ class DigestCount(int):
         return result
 
 
-def _try_deliver(conference, recipients, template, context, due, subject, user=None):
+def _try_deliver(
+    conference, recipients, template, context, due, subject, user=None, reply_to=None
+):
     """Deliver one digest; a failure is logged and reported, never raised,
     so one bad mailbox does not stop everyone after it in the loop."""
     try:
-        _deliver(conference, recipients, template, context, due, subject, user)
+        _deliver(
+            conference, recipients, template, context, due, subject, user, reply_to
+        )
     except Exception:  # noqa: BLE001 - anything the mail backend raises
         logger.exception("Digest to %s failed", recipients)
         return False
@@ -208,7 +218,9 @@ def _team_emails(team):
     )
 
 
-def _deliver(conference, recipients, template, context, due, subject, user=None):
+def _deliver(
+    conference, recipients, template, context, due, subject, user=None, reply_to=None
+):
     """Send one digest and log every (item, threshold) it covered, atomically
     so a crash mid-way never leaves a reminder half-recorded."""
     with transaction.atomic():
@@ -218,5 +230,10 @@ def _deliver(conference, recipients, template, context, due, subject, user=None)
                     item=item, threshold_days=threshold, recipient=recipients[0]
                 )
         send_email(
-            subject, recipients, markdown_template=template, context=context, user=user
+            subject,
+            recipients,
+            markdown_template=template,
+            context=context,
+            user=user,
+            reply_to=reply_to,
         )
