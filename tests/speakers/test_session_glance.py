@@ -100,7 +100,11 @@ class TestOrganizerStrip:
         # The description is folded below the work, and the sections keep
         # the headings people know.
         assert 'id="description"' in html
-        assert html.index('id="checklist"') < html.index('id="description"')
+        assert (
+            html.index('id="glance"')
+            < html.index('id="description"')
+            < html.index('id="checklist"')
+        )
         assert "Checklists for this session" in html
 
     def test_invite_action_only_when_someone_is_uninvited(
@@ -199,7 +203,11 @@ class TestSpeakerStrip:
         assert "Not scheduled yet" in html and "Not yet public" in html
         # Work first, description after, headings people know kept.
         assert html.index('id="video"') < html.index('id="checklist"')
-        assert html.index('id="checklist"') < html.index('id="description"')
+        assert (
+            html.index('id="glance"')
+            < html.index('id="description"')
+            < html.index('id="checklist"')
+        )
         assert "Checklist for this session" in html and "No description yet" in html
 
     def test_next_due_and_all_done(self, client, session, performer):

@@ -233,6 +233,59 @@ jump to the forms.
             </a>
         </div>
     </div>
+    {# The description sits under the strip, above the work: title and words first, then what to do. #}
+    <div class="mb-4" id="description">
+        <h2 class="h5 mb-3">
+            {% trans "Description" %}
+        </h2>
+        <div>
+            {% if session.summary_md %}
+                <h3 class="h6 text-uppercase text-secondary">
+                    {% trans "Summary" %}
+                </h3>
+                <div class="mb-3">
+                    {{ session.summary_md|speaker_md }}
+                </div>
+            {% endif %}
+            {% if session.outline_md %}
+                <h3 class="h6 text-uppercase text-secondary">
+                    {% trans "Outline" %}
+                </h3>
+                <div class="mb-3">
+                    {{ session.outline_md|speaker_md }}
+                </div>
+            {% endif %}
+            {% if session.prerequisites_md %}
+                <h3 class="h6 text-uppercase text-secondary">
+                    {% trans "Prerequisites" %}
+                </h3>
+                <div class="mb-3">
+                    {{ session.prerequisites_md|speaker_md }}
+                </div>
+            {% endif %}
+            {% if session.audience_md %}
+                <h3 class="h6 text-uppercase text-secondary">
+                    {% trans "Audience" %}
+                </h3>
+                <div class="mb-3">
+                    {{ session.audience_md|speaker_md }}
+                </div>
+            {% endif %}
+            {% if session.notes_md %}
+                <h3 class="h6 text-uppercase text-secondary">
+                    {% trans "Internal notes" %}
+                </h3>
+                <div class="mb-3 text-secondary">
+                    {{ session.notes_md|speaker_md }}
+                </div>
+            {% endif %}
+            {% if not session.summary_md and not session.outline_md %}
+                <p class="text-secondary">
+                    {% trans "No description yet." %}
+                </p>
+            {% endif %}
+        </div>
+    </div>
     <div class="row g-4">
         <div class="col-lg-8">
             <h2 class="h5 mb-3" id="checklist">
@@ -572,57 +625,4 @@ jump to the forms.
             </details>
         </div>
     </div>
-    {# The description is read once at approval; it lives below the work. #}
-    <details class="mt-4" id="description">
-        <summary class="h5">
-            {% trans "Description" %}
-        </summary>
-        <div class="mt-3">
-            {% if session.summary_md %}
-                <h2 class="h6 text-uppercase text-secondary">
-                    {% trans "Summary" %}
-                </h2>
-                <div class="mb-3">
-                    {{ session.summary_md|speaker_md }}
-                </div>
-            {% endif %}
-            {% if session.outline_md %}
-                <h2 class="h6 text-uppercase text-secondary">
-                    {% trans "Outline" %}
-                </h2>
-                <div class="mb-3">
-                    {{ session.outline_md|speaker_md }}
-                </div>
-            {% endif %}
-            {% if session.prerequisites_md %}
-                <h2 class="h6 text-uppercase text-secondary">
-                    {% trans "Prerequisites" %}
-                </h2>
-                <div class="mb-3">
-                    {{ session.prerequisites_md|speaker_md }}
-                </div>
-            {% endif %}
-            {% if session.audience_md %}
-                <h2 class="h6 text-uppercase text-secondary">
-                    {% trans "Audience" %}
-                </h2>
-                <div class="mb-3">
-                    {{ session.audience_md|speaker_md }}
-                </div>
-            {% endif %}
-            {% if session.notes_md %}
-                <h2 class="h6 text-uppercase text-secondary">
-                    {% trans "Internal notes" %}
-                </h2>
-                <div class="mb-3 text-secondary">
-                    {{ session.notes_md|speaker_md }}
-                </div>
-            {% endif %}
-            {% if not session.summary_md and not session.outline_md %}
-                <p class="text-secondary">
-                    {% trans "No description yet." %}
-                </p>
-            {% endif %}
-        </div>
-    </details>
 {% endblock content %}

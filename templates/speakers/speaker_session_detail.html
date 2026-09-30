@@ -148,6 +148,49 @@ and the checklist, and the description with the facts below.
             </a>
         </div>
     </div>
+    <div class="mb-4" id="description">
+        <h2 class="h5 mb-3">
+            {% trans "Description" %}
+        </h2>
+        {% if session.summary_md %}
+            <h3 class="h6 text-uppercase text-secondary">
+                {% trans "Summary" %}
+            </h3>
+            <div class="mb-3">
+                {{ session.summary_md|speaker_md }}
+            </div>
+        {% endif %}
+        {% if session.outline_md %}
+            <h3 class="h6 text-uppercase text-secondary">
+                {% trans "Outline" %}
+            </h3>
+            <div class="mb-3">
+                {{ session.outline_md|speaker_md }}
+            </div>
+        {% endif %}
+        {% if session.prerequisites_md %}
+            <h3 class="h6 text-uppercase text-secondary">
+                {% trans "Prerequisites" %}
+            </h3>
+            <div class="mb-3">
+                {{ session.prerequisites_md|speaker_md }}
+            </div>
+        {% endif %}
+        {% if session.audience_md %}
+            <h3 class="h6 text-uppercase text-secondary">
+                {% trans "Audience" %}
+            </h3>
+            <div class="mb-3">
+                {{ session.audience_md|speaker_md }}
+            </div>
+        {% endif %}
+        {% if not session.summary_md and not session.outline_md %}
+            <p class="text-secondary">
+                {% trans "No description yet. A title and two sentences is a complete listing." %}
+                <a href="{% url 'speakers:my_session_edit' session.slug %}">{% trans "Add one" %}</a>
+            </p>
+        {% endif %}
+    </div>
     {% if video %}
         <div class="card mb-4" id="video">
             <div class="card-header d-flex flex-wrap align-items-center gap-2">
@@ -241,52 +284,9 @@ and the checklist, and the description with the facts below.
         {% endif %}
     </h2>
     {% include "speakers/_speaker_checklist_lists.html" with speaker_items=speaker_items organizer_items=organizer_items video_items=video_items %}
-    <div class="row g-4 mt-2" id="description">
-        <div class="col-lg-8">
-            <h2 class="h5 mb-3">
-                {% trans "Description" %}
-            </h2>
-            {% if session.summary_md %}
-                <h3 class="h6 text-uppercase text-secondary">
-                    {% trans "Summary" %}
-                </h3>
-                <div class="mb-3">
-                    {{ session.summary_md|speaker_md }}
-                </div>
-            {% endif %}
-            {% if session.outline_md %}
-                <h3 class="h6 text-uppercase text-secondary">
-                    {% trans "Outline" %}
-                </h3>
-                <div class="mb-3">
-                    {{ session.outline_md|speaker_md }}
-                </div>
-            {% endif %}
-            {% if session.prerequisites_md %}
-                <h3 class="h6 text-uppercase text-secondary">
-                    {% trans "Prerequisites" %}
-                </h3>
-                <div class="mb-3">
-                    {{ session.prerequisites_md|speaker_md }}
-                </div>
-            {% endif %}
-            {% if session.audience_md %}
-                <h3 class="h6 text-uppercase text-secondary">
-                    {% trans "Audience" %}
-                </h3>
-                <div class="mb-3">
-                    {{ session.audience_md|speaker_md }}
-                </div>
-            {% endif %}
-            {% if not session.summary_md and not session.outline_md %}
-                <p class="text-secondary">
-                    {% trans "No description yet. A title and two sentences is a complete listing." %}
-                    <a href="{% url 'speakers:my_session_edit' session.slug %}">{% trans "Add one" %}</a>
-                </p>
-            {% endif %}
-        </div>
-        <div class="col-lg-4">
-            <div class="card mb-3" id="details">
+    <div class="row g-4 mt-2" id="details-row">
+        <div class="col-lg-6">
+            <div class="card" id="details">
                 <div class="card-header">
                     {% trans "Details" %}
                 </div>
@@ -307,6 +307,8 @@ and the checklist, and the description with the facts below.
                     </div>
                 </div>
             </div>
+        </div>
+        <div class="col-lg-6">
             <div class="card">
                 <div class="card-header">
                     {% trans "Co-presenters" %}
