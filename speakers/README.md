@@ -166,7 +166,29 @@ picker (`static/js/media-export.js`) is an explicit "every session" or
 "only these" choice over a filtered checkbox list grouped by type. Every path
 lays files out as `pyladiescon-<year>/<slug>/<kind>/v<n>[-<lang>][-<variant>]-<name>`
 with `manifest.csv`. Links live `SPEAKER_MEDIA_BULK_URL_TTL` (12 h);
-Maintenance > File exports lists every export. Thumbnails (task 5.8) are
+Maintenance > File exports lists every export. Machine transcription (task 5.7) is
+`speakers/transcription.py`: with `SPEAKER_TRANSCRIBE_ENGINE=local` the
+portal has an engine (`FasterWhisperEngine`, the one implementation of
+the small `Engine` interface; `get_engine`), and an edition with
+`SpeakerSettings.auto_transcribe` on gets a draft for every raw video
+that lands (`should_transcribe`: READY, the switch, and no reviewed
+transcript on the line; `start_job` from `on_asset_ready`). Organizers
+start or retry one from a video's row (`MediaTranscribeView`). A
+`TranscriptionJob` row carries the state the row shows; the task
+(`transcribe_asset_task`, media queue, `acks_late`) extracts the audio
+with ffmpeg from the presigned link into a temp file of raw 16 kHz
+samples (so the engine never decodes a container itself), hands it to
+the engine, writes WebVTT, puts it in the bucket and records it through
+`media.record_asset` with `generated_by` set, which the rows show as
+"machine draft"; the "Transcribe" item ticks, "Review transcript" stays
+open, and a person's next version supersedes the draft. Failures land on
+the job row and in the activity log; a job still queued after
+`SPEAKER_TRANSCRIBE_STALE_HOURS` is failed by the nightly "Fail stale
+transcription jobs" task, which is how a missing media worker shows on
+the page. The library is in `requirements-media.txt` and the model in
+`/opt/whisper`, both baked into the image only when it is built with
+`WHISPER_MODEL`; tests never import the library (`_load_model` is
+patched). Thumbnails (task 5.8) are
 `speakers/thumbnails.py`: `on_asset_ready` queues `make_thumbnail_task`
 on the `media` queue for images and videos, Pillow scales an image and
 ffmpeg takes a frame of a video (three seconds in, the first frame for a

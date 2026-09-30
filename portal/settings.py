@@ -332,6 +332,13 @@ SPEAKER_MEDIA_BULK_URL_TTL = int(
 SPEAKER_MEDIA_ZIP_MAX_BYTES = int(
     os.getenv("SPEAKER_MEDIA_ZIP_MAX_BYTES", str(1024**3))
 )
+# Machine transcription (design §8.8): "" means no engine, and the per-edition
+# switch cannot turn it on; "local" is Whisper in the media worker
+# (faster-whisper), reading the model from the image, never the network.
+SPEAKER_TRANSCRIBE_ENGINE = os.getenv("SPEAKER_TRANSCRIBE_ENGINE", "")
+SPEAKER_TRANSCRIBE_MODEL = os.getenv("SPEAKER_TRANSCRIBE_MODEL", "small")
+SPEAKER_TRANSCRIBE_MODEL_DIR = os.getenv("SPEAKER_TRANSCRIBE_MODEL_DIR", "/opt/whisper")
+SPEAKER_TRANSCRIBE_STALE_HOURS = int(os.getenv("SPEAKER_TRANSCRIBE_STALE_HOURS", "12"))
 
 # How long the record of a sent email outlives its edition (design §13.1).
 # Bodies are personal data; the nightly "Prune email records" task deletes
@@ -463,6 +470,7 @@ CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
 CELERY_TASK_ROUTES = {
     "speakers.tasks.probe_asset_task": {"queue": "media"},
     "speakers.tasks.make_thumbnail_task": {"queue": "media"},
+    "speakers.tasks.transcribe_asset_task": {"queue": "media"},
     "speakers.tasks.build_export_zip_task": {"queue": "media"},
 }
 

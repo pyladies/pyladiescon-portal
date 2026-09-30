@@ -36,6 +36,7 @@ from .readiness import refresh_for_conference
 from .reminders import send_checklist_digests
 from .rules import reevaluate_all
 from .thumbnails import make_thumbnail
+from .transcription import fail_stale_jobs, transcribe
 
 logger = logging.getLogger(__name__)
 
@@ -286,6 +287,22 @@ def build_export_zip_task(export_id):
             secrets=[link],
         )
     return f"Export {export_id} zip ready"
+
+
+@shared_task(acks_late=True, time_limit=2 * 3600)
+def transcribe_asset_task(job_id):
+    """Run one transcription job (design §8.8) on the media queue.
+    ``acks_late`` so a job a killed worker was running is delivered again,
+    where the row, already RUNNING, marks itself FAILED rather than
+    running twice."""
+    return transcribe(job_id)
+
+
+@shared_task
+def fail_stale_transcription_jobs_task():
+    """Nightly: jobs nobody picked up say so on the page."""
+    count = fail_stale_jobs()
+    return f"Failed {count} stale transcription job(s)"
 
 
 @shared_task(time_limit=600)

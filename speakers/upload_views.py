@@ -9,6 +9,7 @@ presenter on the session their raw video.
 
 import json
 
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import PermissionDenied
@@ -16,7 +17,7 @@ from django.http import Http404, HttpResponseRedirect, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views import View
 
-from .constants import UPLOAD_PART_URL_BATCH
+from .constants import UPLOAD_PART_URL_BATCH, VIDEO_KINDS, TranscriptionStatus
 from .media import (
     DOWNLOAD_LINK_TTL,
     MediaStorageNotConfigured,
@@ -34,6 +35,7 @@ from .media import (
 from .mixins import SpeakerModuleRequiredMixin
 from .models import MediaAsset, MediaUpload, Session
 from .permissions import is_speaker_organizer
+from .transcription import get_engine, start_job
 
 
 def _payload(request):
@@ -257,6 +259,8 @@ def _row_or_files(request, session, asset, message):
                 # Derived, not asserted: the row offers the same controls
                 # the full page would, whoever the view's gate let in.
                 "can_edit": is_speaker_organizer(request.user),
+                "transcribe_offered": bool(settings.SPEAKER_TRANSCRIBE_ENGINE),
+                "video_kinds": VIDEO_KINDS,
             },
         )
     messages.success(request, message)
@@ -329,7 +333,13 @@ class MediaTitleView(LoginRequiredMixin, SpeakerModuleRequiredMixin, View):
             return render(
                 request,
                 "speakers/_media_group.html",
-                {"group": asset_group(asset), "session": session, "can_edit": True},
+                {
+                    "group": asset_group(asset),
+                    "session": session,
+                    "can_edit": True,
+                    "transcribe_offered": bool(settings.SPEAKER_TRANSCRIBE_ENGINE),
+                    "video_kinds": VIDEO_KINDS,
+                },
             )
         messages.success(request, "Title saved.")
         return redirect(f"{session.get_absolute_url()}#files")
@@ -352,3 +362,31 @@ class MediaThumbnailView(LoginRequiredMixin, SpeakerModuleRequiredMixin, View):
             return HttpResponseRedirect(asset.thumbnail_url())
         except MediaStorageNotConfigured:
             raise Http404("Object storage is not configured on this portal.")
+
+
+class MediaTranscribeView(LoginRequiredMixin, SpeakerModuleRequiredMixin, View):
+    """POST: ask the media worker for a draft transcript of this video
+    (design §8.8); also what "Retry" posts. Organizers only, videos only,
+    and never while a job on it is still open."""
+
+    http_method_names = ["post"]
+
+    def post(self, request, slug, pk):
+        session = get_object_or_404(
+            Session, conference=self.conference, slug=self.kwargs["slug"]
+        )
+        if not is_speaker_organizer(request.user):
+            raise PermissionDenied("Only organizers start transcriptions.")
+        asset = get_object_or_404(MediaAsset, pk=pk, session=session)
+        if asset.kind not in VIDEO_KINDS or not asset.is_ready or not asset.storage_key:
+            raise Http404("Only a ready video can be transcribed.")
+        if asset.transcription_jobs.filter(
+            status__in=[TranscriptionStatus.QUEUED, TranscriptionStatus.RUNNING]
+        ).exists():
+            message = "A transcription of this video is already under way."
+        elif get_engine() is None:
+            message = "This portal has no transcription engine set up."
+        else:
+            start_job(asset, user=request.user)
+            message = "Transcribing; the draft appears here when it is done."
+        return _row_or_files(request, session, asset, message)

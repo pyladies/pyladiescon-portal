@@ -47,6 +47,7 @@ from .constants import (
     DEFAULT_GUIDE_KEY,
     MAX_PENDING_PROPOSALS,
     OPEN_ITEM_STATUSES,
+    VIDEO_KINDS,
     AssigneeDefault,
     AutoRule,
     ChecklistScope,
@@ -156,6 +157,7 @@ from .services import (
 )
 from .tables import PresenterTable, SessionTable
 from .tasks import send_copresenter_suggestion_task
+from .transcription import auto_transcribe
 
 
 class SpeakerPortalIndexView(
@@ -401,6 +403,10 @@ class SessionDetailView(SessionScopedMixin, DetailView):
         media_on = bool(settings.SPEAKER_MEDIA_BUCKET)
         context["media_on"] = media_on
         context["line_titles"] = line_titles(self.object, assets)
+        # "Transcribe this" is offered when the portal has an engine; the
+        # edition's switch only governs the automatic run.
+        context["transcribe_offered"] = bool(settings.SPEAKER_TRANSCRIBE_ENGINE)
+        context["video_kinds"] = VIDEO_KINDS
         context["can_upload_media"] = context["can_assign"]
         context["can_download_media"] = can_download(self.request.user, self.object)
         context["open_uploads"] = (
@@ -1437,6 +1443,7 @@ class SpeakerSessionDetailView(SpeakerSessionMixin, TemplateView):
                 # final cut, the transcript (design §8.6 and §4.1).
                 "team_files": team_files(session) if media_on else [],
                 "line_titles": line_titles(session) if media_on else {},
+                "auto_transcribe": media_on and auto_transcribe(self.conference),
             }
         )
         # The strip under the title: their to-dos, counted from the list

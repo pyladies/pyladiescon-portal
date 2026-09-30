@@ -107,6 +107,15 @@ class MediaKind(models.TextChoices):
     OTHER = "OTHER", "Other"
 
 
+class TranscriptionStatus(models.TextChoices):
+    """Where a transcription job stands (design §8.8, machine transcription)."""
+
+    QUEUED = "QUEUED", "Queued"
+    RUNNING = "RUNNING", "Transcribing"
+    DONE = "DONE", "Done"
+    FAILED = "FAILED", "Failed"
+
+
 class ZipStatus(models.TextChoices):
     """Where an export's zip stands (design §8.8, bulk download)."""
 

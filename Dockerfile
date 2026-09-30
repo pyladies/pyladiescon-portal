@@ -11,8 +11,22 @@ COPY requirements-app.txt /code/
 RUN --mount=type=cache,target=/root/.cache/pip \
     pip install -r requirements-app.txt
 
-# ffmpeg brings ffprobe, which the media worker uses to measure videos.
+# ffmpeg brings ffprobe, which the media worker uses to measure videos and
+# take thumbnail frames, and pulls the audio out for transcription.
 RUN apt-get update && apt-get install -y gettext flite sox ffmpeg
+
+# Machine transcription (design §8.8): with WHISPER_MODEL set (say "small"),
+# the library goes in and the model is downloaded into /opt/whisper in this
+# layer, before the code is copied, so a code-only build reuses it and the
+# worker never downloads at run time. Empty (the default, and what CI builds)
+# means no transcription in this image.
+ARG WHISPER_MODEL=""
+COPY requirements-media.txt /code/
+RUN --mount=type=cache,target=/root/.cache/pip \
+    if [ -n "$WHISPER_MODEL" ]; then \
+        pip install -r requirements-media.txt && \
+        python -c "from faster_whisper import download_model; download_model('$WHISPER_MODEL', '/opt/whisper/$WHISPER_MODEL')"; \
+    fi
 
 
 ###############################################################################

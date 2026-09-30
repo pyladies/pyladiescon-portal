@@ -86,6 +86,11 @@ urlpatterns = [
         name="media_download",
     ),
     path(
+        "sessions/<slug:slug>/media/<int:pk>/transcribe/",
+        upload_views.MediaTranscribeView.as_view(),
+        name="media_transcribe",
+    ),
+    path(
         "sessions/<slug:slug>/media/<int:pk>/thumbnail/",
         upload_views.MediaThumbnailView.as_view(),
         name="media_thumbnail",

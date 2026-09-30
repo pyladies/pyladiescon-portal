@@ -364,7 +364,17 @@ boto3.client('s3', endpoint_url=os.environ['AWS_S3_ENDPOINT_URL'],
 MinIO answers browser uploads from any origin and exposes the `ETag`
 header, so no CORS rule is needed. Speakers see none of this until *Media
 for speakers* is switched on in the admin under Speaker settings;
-organizers see it all regardless. Bulk download works against it too:
+organizers see it all regardless.
+
+Transcription needs the Whisper library and a model in the image: build
+with `docker compose build --build-arg WHISPER_MODEL=small web celery`
+(about 500 MB more, once), put `SPEAKER_TRANSCRIBE_ENGINE: local` in the
+override's `environment` for `web` and `celery`, restart both, and switch
+*Auto transcribe* on under Speaker settings. A short clip uploaded as a
+raw video then gets a "machine draft" transcript on the session's Files
+tab within a minute or two; "Transcribe this" on any video row starts one
+by hand. Without the build argument the button says the portal has no
+engine. Bulk download works against it too:
 "Download files" on the sessions list, make an export, then run its
 `download.sh` in an empty folder or ask for the zip (the worker builds it
 and maildev at http://localhost:1080 gets the email). After pulling code

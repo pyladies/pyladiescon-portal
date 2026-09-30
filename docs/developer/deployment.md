@@ -208,15 +208,22 @@ transcription never holds up an invitation email.
   ffprobe is not installed on the worker", for instance), which the file
   rows show, and logs an error; the asset itself stays usable.
 
-When transcription lands:
+Transcription (task 5.7, built):
 
-- the Whisper model is part of the image (a Dockerfile layer downloads
-  the pinned model into `/opt/whisper` at build time, before the code is
-  copied, so a code-only deploy reuses the cached layer), and the worker
-  never downloads at run time; changing `SPEAKER_TRANSCRIBE_MODEL` is an
-  image rebuild, and a model missing from the image fails the job on the
-  page rather than fetching it; give the process 2 GB of memory for
-  `small`, more for `medium`;
+- the library and the Whisper model are part of the image **only when it
+  is built with `--build-arg WHISPER_MODEL=small`** (the Dockerfile layer
+  installs `requirements-media.txt` and downloads the model into
+  `/opt/whisper` before the code is copied, so a code-only deploy reuses
+  the cached layer); an image built without the argument, which is what
+  CI builds, has no engine, and the job says so on the page. If the
+  platform cannot pass build arguments, set the default in the
+  Dockerfile. The worker never downloads at run time; changing the model
+  is an image rebuild; give the process 2 GB of memory for `small`, more
+  for `medium`;
+- set `SPEAKER_TRANSCRIBE_ENGINE=local` (and `SPEAKER_TRANSCRIBE_MODEL`
+  to the model that was baked in) on every process, since the web
+  process reads the first to offer "Transcribe this"; then switch *Auto
+  transcribe* on per edition under Speaker settings for automatic drafts;
 - transcription runs entirely in this process; no audio leaves the
   portal's infrastructure, and there is no API key to manage.
 

@@ -385,6 +385,12 @@ upload action open the tab their target lives in.
                                     </p>
                                 {% endif %}
                                 {% include "speakers/_upload_panel.html" with session=session kind="RAW_VIDEO" open_uploads=video.open_uploads accept="video/*" line_titles=line_titles panel_id="video" %}
+                                {% if auto_transcribe %}
+                                    <div class="small text-secondary mt-2">
+                                        <i class="fa-solid fa-closed-captioning"></i>
+                                        {% trans "Your recording is transcribed by the portal's own tooling and reviewed by the team; nothing is sent to an outside service." %}
+                                    </div>
+                                {% endif %}
                             </div>
                             {% if video.history %}
                                 <details class="card-body border-top pt-2">
@@ -414,6 +420,9 @@ upload action open the tab their target lives in.
                                         <span class="fw-semibold">{{ asset.display_title }}</span>
                                         {% if asset.title %}
                                             <span class="badge text-bg-light border">{{ asset.label }}</span>
+                                        {% endif %}
+                                        {% if asset.is_machine_made %}
+                                            <span class="badge text-bg-warning">{% trans "machine draft" %}</span>
                                         {% endif %}
                                         <span class="badge text-bg-light border">v{{ asset.version }}</span>
                                         <span class="text-secondary text-break">{{ asset.original_filename|default:asset.file.name }}</span>

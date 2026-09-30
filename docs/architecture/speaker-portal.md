@@ -419,7 +419,7 @@ pyladiescon-2026/manifest.csv
 
 #### Machine transcription
 
-> **Designed, not built.** Task 5.7.
+> **Built** (30 September 2026, task 5.7), as designed below. The library and the model enter the image only when it is built with `WHISPER_MODEL` set, so the web process and CI carry neither; an image built without it offers no transcription and says so.
 
 The "Transcribe" item on the post-production checklist completes when a transcript asset exists for the session's language (§9.7), so a worker job that writes one is the whole feature from the checklist's point of view: the item ticks itself, "Review transcript" stays a person's job, and the reviewer's corrected file goes up as the next version through the ordinary panel. The job is a draft-maker, never the last word.
 
@@ -430,7 +430,7 @@ The "Transcribe" item on the post-production checklist completes when a transcri
 **How it runs.** A Celery task, `transcribe_asset_task`, on its own queue:
 
 1. Records a `TranscriptionJob` row (video asset, engine, `QUEUED`), which is what the Files section shows while it runs ("Transcribing, started 4 minutes ago") and what "Retry" acts on.
-2. Extracts the audio without touching the video on disk: `ffmpeg` reads the presigned video URL and writes 16 kHz mono Opus at 32 kbit/s to a temporary file, about 7 MB for a 30-minute set.
+2. Extracts the audio without touching the video on disk: `ffmpeg` reads the presigned video URL and writes raw 16 kHz mono 16-bit samples to a temporary file (about 57 MB for a 30-minute set, gone with the job). Raw samples rather than a compressed file so the engine decodes nothing itself: on trying it, the engine's own decoder (PyAV) turned out to be the one piece whose versions drift under it.
 3. Hands the audio to the configured engine and gets back timed segments.
 4. Writes the VTT, uploads it, records the asset, marks the job `DONE`.
 5. On any failure marks the job `FAILED` with the error, logs it to the session's activity, and leaves the checklist item open. Never silent: a missing `ffmpeg`, a missing model, an exhausted API quota all show on the page.
@@ -578,7 +578,7 @@ PyJam sessions are performances recorded by the performer, post-produced by the 
 | Record intro and outro video (MC) | intro and outro assets exist |
 | Review audio and video quality | manual, with notes on the asset |
 | Check video length is within limit | automatic; blocks with the overage |
-| Transcribe | transcript asset exists for the session language |
+| Transcribe | transcript asset exists for the session language; the media worker drafts one when the edition asks (§8.8, "Machine transcription") |
 | Review transcript | manual |
 | Translate | translation asset exists — one item per target language configured in the edition's speaker settings |
 | Add title card and assemble final video | processed video asset exists |

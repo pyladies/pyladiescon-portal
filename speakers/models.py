@@ -55,6 +55,7 @@ from .constants import (
     ReadyRule,
     SessionLevel,
     SessionStatus,
+    TranscriptionStatus,
     UploadStatus,
     ZipStatus,
     format_owner,
@@ -180,6 +181,17 @@ class SpeakerSettings(TimestampedModel):
         "page and see the files the team shares with them. Off, the team "
         "gathers videos by other means and uploads them; organizers see "
         "everything either way.",
+    )
+    # Machine transcription (design §8.8): a raw video that lands gets a
+    # draft transcript from Whisper in the portal's own worker. Needs the
+    # portal to have an engine configured; the switch alone does nothing.
+    auto_transcribe = models.BooleanField(
+        default=False,
+        db_default=False,
+        help_text="While on, a performance video that lands is transcribed "
+        "by the portal's own worker into a draft the team reviews; nothing "
+        "is sent to an outside service. Organizers can also start one from "
+        "a video's row. Needs the portal's transcription engine set up.",
     )
     proposals_intro_md = models.TextField(
         blank=True,
@@ -1924,6 +1936,12 @@ class MediaAsset(TimestampedModel):
     probe_error = models.CharField(
         max_length=500, blank=True, default="", db_default=""
     )
+    # Who or what made the file: empty for a person's upload, the engine
+    # and model ("faster-whisper/small") for a machine draft, so the pages
+    # never pass a draft off as reviewed work (transcription.py).
+    generated_by = models.CharField(
+        max_length=60, blank=True, default="", db_default=""
+    )
     # A small JPEG of an image or a frame of a video, made by the media
     # worker next to the original (thumbnails.py); or why there is none.
     thumbnail_key = models.CharField(
@@ -1996,6 +2014,10 @@ class MediaAsset(TimestampedModel):
             return "image"
         prefix = media_type.split("/")[0]
         return prefix if prefix in ("video", "audio") else ""
+
+    @property
+    def is_machine_made(self):
+        return bool(self.generated_by)
 
     @property
     def has_thumbnail(self):
@@ -2116,6 +2138,63 @@ class MediaUpload(TimestampedModel):
     @property
     def is_open(self):
         return self.status == UploadStatus.STARTED
+
+
+class TranscriptionJob(TimestampedModel):
+    """One run of the transcription engine on a video (design §8.8).
+
+    The row is what the Files section shows while it runs and what
+    "Retry" acts on; a failure keeps its reason here rather than in a
+    log nobody reads. The transcript it made, when it did, is ``output``.
+    """
+
+    conference = models.ForeignKey(
+        "portal.Conference",
+        on_delete=models.PROTECT,
+        related_name="transcription_jobs",
+        editable=False,
+    )
+    asset = models.ForeignKey(
+        MediaAsset, on_delete=models.CASCADE, related_name="transcription_jobs"
+    )
+    engine = models.CharField(max_length=60, blank=True, default="")
+    language = models.CharField(max_length=10, blank=True, default="")
+    status = models.CharField(
+        max_length=16,
+        choices=TranscriptionStatus.choices,
+        default=TranscriptionStatus.QUEUED,
+    )
+    error = models.CharField(max_length=500, blank=True, default="")
+    started_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="transcription_jobs",
+    )
+    started_at = models.DateTimeField(null=True, blank=True)
+    finished_at = models.DateTimeField(null=True, blank=True)
+    output = models.ForeignKey(
+        MediaAsset,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="made_by_jobs",
+    )
+
+    class Meta:
+        ordering = ["-id"]
+
+    def __str__(self):
+        return f"Transcription {self.pk} of {self.asset}"
+
+    def save(self, *args, **kwargs):
+        self.conference_id = self.asset.session.conference_id
+        super().save(*args, **kwargs)
+
+    @property
+    def is_open(self):
+        return self.status in (TranscriptionStatus.QUEUED, TranscriptionStatus.RUNNING)
 
 
 class MediaExport(TimestampedModel):

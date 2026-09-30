@@ -39,6 +39,7 @@ from .rules import (
     items_for_session,
 )
 from .signals import asset_ready, invitation_accepted, session_confirmed
+from .transcription import should_transcribe, start_job
 
 logger = logging.getLogger(__name__)
 
@@ -209,6 +210,10 @@ def on_asset_ready(sender, asset, **kwargs):
         from .tasks import make_thumbnail_task
 
         transaction.on_commit(lambda: make_thumbnail_task.delay(asset.pk))
+    # A raw video gets a draft transcript when the edition asked for one
+    # and no reviewed transcript is in the way (transcription.py).
+    if should_transcribe(asset):
+        start_job(asset)
 
 
 @receiver(post_delete, sender=MediaAsset, dispatch_uid="speakers.media.on_delete")

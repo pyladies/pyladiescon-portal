@@ -65,6 +65,7 @@ class SpeakerSettingsAdmin(admin.ModelAdmin):
         "speaker_module_enabled",
         "proposals_open",
         "media_for_speakers",
+        "auto_transcribe",
         "default_premiere_location",
         "translation_languages",
         "pretix_organizer",
@@ -108,7 +109,7 @@ class SpeakerSettingsAdmin(admin.ModelAdmin):
                 "a session, the post-production board, exports) is always on. "
                 "This switch opens the speaker side: their upload panel and "
                 "the files shared with them.",
-                "fields": ("media_for_speakers",),
+                "fields": ("media_for_speakers", "auto_transcribe"),
             },
         ),
         (
