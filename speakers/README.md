@@ -124,7 +124,15 @@ deleted and the upload refused. The raw video is filed under no language
 other and the length rule reads one line; other kinds take a well-formed
 tag. A video kind must look like a video, by type or extension
 (`media.clean_content_type`). Downloads are presigned too
-(`MediaAsset.download_url`). Uploads nobody finishes expire after
+(`MediaAsset.download_url`), behind `media.can_download`: organizers and
+the session's liaisons fetch anything, a presenter on an accepted session
+their own raw video and whatever the team has marked `shared_with_speaker`
+(`MediaShareView`, a button on the file row; design §8.6). The speaker's
+session page lists the shared files (`media.team_files`) without the
+reviewer notes. Promo materials are `PROMO` assets with a free `variant`
+("square", "gif"); versions count per kind, language and variant, and the
+seeded promo lines tick on the first file and the first share
+(`AutoRule.ASSET_SHARED`). Uploads nobody finishes expire after
 `SPEAKER_MEDIA_UPLOAD_TTL_HOURS` (the "Expire abandoned uploads" task
 nightly, `manage.py expire_abandoned_uploads` by hand); the bucket needs its
 own lifecycle rule as the backstop (`AbortIncompleteMultipartUpload` after
@@ -175,11 +183,8 @@ open uploads of theirs); the organizer's session page has a Files section
 (`media.asset_groups`, one block per kind and language, the newest READY
 version first) with a reviewer note per asset (`MediaNotesView`) and a
 panel for any kind. Downloads go through `MediaDownloadView`, which mints
-the presigned link on the click. `media.can_download` says who: organizers
-and the session's liaisons any file; a presenter on an accepted session
-their own raw video and the processed video they approve
-(`media.PRESENTER_KINDS`), not the intro, outro or the team's working
-files. The link lives a minute (`media.DOWNLOAD_LINK_TTL`): the browser
+the presigned link on the click for whoever `media.can_download` admits
+(above). The link lives a minute (`media.DOWNLOAD_LINK_TTL`): the browser
 follows it at once, and what the address bar and any proxy log keep has
 expired by the time anyone reads it. The JavaScript has no unit tests and
 no linter runs on it; the server is the authority on size and type and

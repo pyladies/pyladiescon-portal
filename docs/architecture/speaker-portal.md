@@ -318,11 +318,15 @@ Validation: no two slots overlap on one channel (an all-channel slot conflicts w
 
 All times are stored in UTC. `SpeakerSettings.conference_timezone` (one row per conference) is only the organizer's default display; the conference itself has no timezone.
 
-### 8.6 PromoAsset
+### 8.6 Promo materials, and what the team shares with the speaker
 
-> **Not built** (M5). No such model exists yet.
+> **Built** (M3b, 30 September 2026), as part of `MediaAsset` rather than a model of its own. The `PromoAsset` model this section once proposed is not needed.
 
-Speaker cards, posters, and social images, attached to a session or a presenter, stored privately, downloadable by the speaker from their dashboard. Organizers upload them (the team's existing Canva workflow produces them; the presenter list exports directly to Canva's bulk-create CSV). Generating cards in the portal is a possible later addition.
+Promo materials belong to a **session**, not a person: a speaker on a panel and a workshop gets a poster for each. And there are several per session: square, landscape and vertical images, a video, a gif. So they are `MediaAsset` rows of kind `PROMO` with a free **`variant`** label ("square", "landscape", "vertical", "video", "gif", or whatever next year's formats are; the upload panel suggests those five). Versions count per kind, language and variant, so re-uploading the square poster supersedes the old square poster and nothing else. Organizers upload them on the session's Files section like any other file (the team's Canva workflow produces them; the presenter list exports to Canva's bulk-create CSV); the design team's bulk download (5.6) collects them.
+
+**Sharing is a flag, not a kind.** Every file the team uploads is the team's until an organizer marks it **shared with the speaker** (`MediaAsset.shared_with_speaker`, a button on the file's row). A shared file appears on the speaker's session page under "Files from the team", with the newest shared version of each kind, language and variant, a download link, and no reviewer notes: those stay with the team. Unsharing takes it back. A presenter may fetch their own raw video and whatever is shared; nothing else, however they got the link. Two seeded organizer lines follow the flag: "Promo materials prepared" completes when the first promo file is on the session, "Promo materials shared with presenter" when the first one is shared. The performer's "Approve the final cut" waits until the processed video is not only in but shared, since that is when they can watch it.
+
+Generating cards in the portal is a possible later addition.
 
 ### 8.7 Handbook
 
@@ -336,10 +340,12 @@ For pre-recorded sessions, one row per file that moves through post-production:
 
 | Field | Notes |
 |---|---|
-| `kind` | `RAW_VIDEO` (performer upload) · `INTRO` · `OUTRO` (MC recordings) · `PROCESSED_VIDEO` (final cut) · `TRANSCRIPT` · `TRANSLATION` · `TITLE_CARD` · `THUMBNAIL` · `OTHER` |
+| `kind` | `RAW_VIDEO` (performer upload) · `INTRO` · `OUTRO` (MC recordings) · `PROCESSED_VIDEO` (final cut) · `TRANSCRIPT` · `TRANSLATION` · `TITLE_CARD` · `THUMBNAIL` · `PROMO` (§8.6) · `OTHER` |
 | `file` | Digital Ocean Spaces, private; presigned upload and download |
 | `language` | for transcripts and translations, one row per language |
-| `version` | increments on re-upload; old versions kept until deleted |
+| `variant` | which of several files of one kind: promo materials come as square, landscape, vertical, video, gif (§8.6) |
+| `shared_with_speaker` | the team's flag that puts the file on the speaker's session page and lets them fetch it (§8.6) |
+| `version` | increments on re-upload, per kind, language and variant; old versions kept until deleted |
 | `duration_seconds`, `probe_error` | probed server-side after upload (`ffprobe` over a presigned link, on the media queue); drives the length-limit check. When the probe cannot answer, the reason is on the asset and on the page |
 | `status`, `notes_md` | `UPLOADING` · `READY` · `FAILED` · `SUPERSEDED`; reviewer notes ("audio clips at 4:10") |
 
@@ -367,6 +373,7 @@ The people who edit the videos, design the title cards and cut the final version
 ```
 pyladiescon-2026/<session-slug>/raw_video/v2-<original filename>
 pyladiescon-2026/<session-slug>/transcript/v1-en-<original filename>
+pyladiescon-2026/<session-slug>/promo/v1-square-<original filename>
 pyladiescon-2026/manifest.csv
 ```
 
@@ -472,7 +479,7 @@ Templates exist for content kinds and for hosted program kinds (opening, closing
 
 **Default speaker items (workshop presenter):** update bio and headshot · confirm session title and summary · read the speaker guide · register for the conference · join Discord · confirm scheduled slot · share a link to workshop materials · tech check.
 
-**Default organizer items (per presenter):** invitation sent · presenter in portal · onboarding email sent · registration info sent · promo materials prepared · promo materials shared with presenter · session scheduled · schedule confirmation sent · Discord channel and speaker role assigned · day-of reminder sent.
+**Default organizer items (per presenter):** invitation sent · presenter in portal · onboarding email sent · registration info sent · promo materials prepared (ticks when a promo file is on the session) · promo materials shared with presenter (ticks when one is shared, §8.6) · session scheduled · schedule confirmation sent · Discord channel and speaker role assigned · day-of reminder sent.
 
 Panelist and moderator templates are lighter (no materials, no outline). The PyJam templates are in §9.7.
 
@@ -540,7 +547,7 @@ PyJam sessions are performances recorded by the performer, post-produced by the 
 5. When the final cut is ready, the performer's "approve the final cut" item opens.
 6. The organizer publishes to YouTube by hand, pastes the URL and publish time into the session, and the last item completes.
 
-**Performer checklist** (seed): update bio and headshot · confirm title and description · read the performer guide · upload your performance video · approve the final cut (waits, "we are still editing your video", until a processed video is in) · register · join Discord.
+**Performer checklist** (seed): update bio and headshot · confirm title and description · read the performer guide · upload your performance video · approve the final cut (waits, "we are still editing your video", until a processed video is in and shared with them) · register · join Discord.
 
 **Post-production checklist** (seed; session-scoped, organizer-owned, fully editable):
 

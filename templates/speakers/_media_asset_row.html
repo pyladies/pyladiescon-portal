@@ -26,11 +26,34 @@ link, and the reviewer's note (editable when can_edit). Params:
             · {{ asset.uploaded_by.get_full_name|default:asset.uploaded_by.username }}
         {% endif %}
     </span>
+    {% if asset.shared_with_speaker %}
+        {% trans "The speaker sees this file on their session page" as shared_title %}
+        <span class="badge text-bg-info" title="{{ shared_title }}">
+            <i class="fa-solid fa-share-nodes"></i> {% trans "Shared with speaker" %}
+        </span>
+    {% endif %}
     {% if asset.storage_key or asset.file %}
         <a class="btn btn-sm btn-outline-primary ms-auto"
            href="{% url 'speakers:media_download' session.slug asset.pk %}">
             <i class="fa-solid fa-download"></i> {% trans "Download" %}
         </a>
+    {% endif %}
+    {% if can_edit and asset.is_ready and asset.kind != "RAW_VIDEO" %}
+        <form method="post"
+              action="{% url 'speakers:media_share' session.slug asset.pk %}">
+            {% csrf_token %}
+            {% if asset.shared_with_speaker %}
+                <input type="hidden" name="shared" value="0">
+                <button class="btn btn-sm btn-outline-secondary" type="submit">
+                    {% trans "Unshare" %}
+                </button>
+            {% else %}
+                <input type="hidden" name="shared" value="1">
+                <button class="btn btn-sm btn-outline-info" type="submit">
+                    <i class="fa-solid fa-share-nodes"></i> {% trans "Share with speaker" %}
+                </button>
+            {% endif %}
+        </form>
     {% endif %}
 </div>
 {% if can_edit %}

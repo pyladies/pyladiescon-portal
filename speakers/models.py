@@ -1864,6 +1864,12 @@ class MediaAsset(TimestampedModel):
     language = models.CharField(
         max_length=10, blank=True, help_text="Transcripts and translations."
     )
+    # Which of several files of one kind this is: promo materials come as
+    # square, landscape, vertical, video, gif. Versions count per variant.
+    variant = models.CharField(max_length=40, blank=True, default="", db_default="")
+    # The team's files are theirs until they say otherwise: a shared file
+    # shows on the speaker's session page and can be fetched by them.
+    shared_with_speaker = models.BooleanField(default=False, db_default=False)
     version = models.PositiveIntegerField(default=1)
     status = models.CharField(
         max_length=16, choices=MediaStatus.choices, default=MediaStatus.UPLOADING
@@ -1925,14 +1931,27 @@ class MediaAsset(TimestampedModel):
         )
 
     @classmethod
-    def latest_ready(cls, session, kind, language=None):
-        """The newest READY asset of ``kind`` on ``session`` (and language)."""
+    def latest_ready(cls, session, kind, language=None, variant=None, shared=None):
+        """The newest READY asset of ``kind`` on ``session`` (and language,
+        variant, and whether it is shared with the speaker, when given)."""
         queryset = cls.objects.filter(
             session=session, kind=kind, status=MediaStatus.READY
         )
         if language:
             queryset = queryset.filter(language=language)
+        if variant:
+            queryset = queryset.filter(variant=variant)
+        if shared is not None:
+            queryset = queryset.filter(shared_with_speaker=shared)
         return queryset.order_by("-version", "-id").first()
+
+    @property
+    def label(self):
+        """Kind, then the language or variant that tells it from its kin:
+        "Transcript (en)", "Promo material (square)"."""
+        qualifier = self.language or self.variant
+        base = self.get_kind_display()
+        return f"{base} ({qualifier})" if qualifier else base
 
 
 class MediaUpload(TimestampedModel):
@@ -1955,6 +1974,7 @@ class MediaUpload(TimestampedModel):
     )
     kind = models.CharField(max_length=16, choices=MediaKind.choices)
     language = models.CharField(max_length=10, blank=True, default="")
+    variant = models.CharField(max_length=40, blank=True, default="")
     filename = models.CharField(max_length=255)
     content_type = models.CharField(max_length=100, default="application/octet-stream")
     size_bytes = models.BigIntegerField()

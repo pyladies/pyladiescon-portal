@@ -68,14 +68,16 @@ def registration_open(item):
 
 @ready_rule(ReadyRule.FINAL_CUT_READY)
 def final_cut_ready(item):
-    """The edited video is in, so there is something to approve (design
-    §9.7 step 5). Re-checked whenever an asset lands or changes."""
+    """The edited video is in and shared with the speaker, so there is
+    something they can watch and approve (design §9.7 step 5). Re-checked
+    whenever an asset lands, changes or is shared."""
     if item.session_id is None:
         return False
     return MediaAsset.objects.filter(
         session_id=item.session_id,
         kind=MediaKind.PROCESSED_VIDEO,
         status=MediaStatus.READY,
+        shared_with_speaker=True,
     ).exists()
 
 

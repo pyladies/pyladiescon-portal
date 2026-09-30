@@ -90,6 +90,11 @@ urlpatterns = [
         upload_views.MediaNotesView.as_view(),
         name="media_notes",
     ),
+    path(
+        "sessions/<slug:slug>/media/<int:pk>/share/",
+        upload_views.MediaShareView.as_view(),
+        name="media_share",
+    ),
     path("presenters/", views.PresenterListView.as_view(), name="presenter_list"),
     path(
         "presenters/new/",

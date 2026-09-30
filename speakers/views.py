@@ -91,6 +91,7 @@ from .media import (
     can_download,
     open_uploads,
     session_assets,
+    team_files,
     video_panel,
 )
 from .mixins import (
@@ -1423,6 +1424,9 @@ class SpeakerSessionDetailView(SpeakerSessionMixin, TemplateView):
                     if session.is_pre_recorded and settings.SPEAKER_MEDIA_BUCKET
                     else None
                 ),
+                # What the team made for this session: the poster, the
+                # final cut, the transcript (design §8.6 and §4.1).
+                "team_files": team_files(session),
             }
         )
         # The strip under the title: their to-dos, counted from the list

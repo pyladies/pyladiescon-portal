@@ -10,11 +10,14 @@ Params:
 {% endcomment %}
 {% for group in media_groups %}
     <div class="card mb-3"
-         id="files-{{ group.kind|lower }}{% if group.language %}-{{ group.language }}{% endif %}">
+         id="files-{{ group.kind|lower }}{% if group.language %}-{{ group.language }}{% endif %}{% if group.variant %}-{{ group.variant|slugify }}{% endif %}">
         <div class="card-header d-flex flex-wrap align-items-center gap-2">
             <span class="fw-semibold">{{ group.label }}</span>
             {% if group.language %}
                 <span class="badge text-bg-light border">{{ group.language }}</span>
+            {% endif %}
+            {% if group.variant %}
+                <span class="badge text-bg-light border">{{ group.variant }}</span>
             {% endif %}
             {% if group.current %}
                 <span class="badge text-bg-success">v{{ group.current.version }}</span>

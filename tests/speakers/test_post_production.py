@@ -113,6 +113,11 @@ class TestFinalCutApproval:
         organizer = User.objects.create_user("org", email="o@x.org", is_staff=True)
         final = upload(bucket, session, organizer, MediaKind.PROCESSED_VIDEO)
         item.refresh_from_db()
+        # In, but the team has not released it: nothing to watch yet.
+        assert item.is_waiting
+        final.shared_with_speaker = True
+        final.save()
+        item.refresh_from_db()
         assert not item.is_waiting and item.status == ItemStatus.TODO
         assert final_cut_ready(item)
         # The team pulls the cut back: the approval waits again.
@@ -125,7 +130,10 @@ class TestFinalCutApproval:
         item = by_title(session, "Approve the final cut")
         assert item.is_waiting
         MediaAsset.objects.create(
-            session=session, kind=MediaKind.PROCESSED_VIDEO, status=MediaStatus.READY
+            session=session,
+            kind=MediaKind.PROCESSED_VIDEO,
+            status=MediaStatus.READY,
+            shared_with_speaker=True,
         )
         item.refresh_from_db()
         assert not item.is_waiting

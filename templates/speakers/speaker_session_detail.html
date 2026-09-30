@@ -277,6 +277,32 @@ and the checklist, and the description with the facts below.
             {% endif %}
         </div>
     {% endif %}
+    {% if team_files %}
+        <div class="card mb-4" id="team-files">
+            <div class="card-header">
+                <i class="fa-solid fa-folder-open"></i> {% trans "Files from the team" %}
+            </div>
+            <ul class="list-group list-group-flush">
+                {% for asset in team_files %}
+                    <li class="list-group-item d-flex flex-wrap align-items-center gap-2 small">
+                        <span class="fw-semibold">{{ asset.label }}</span>
+                        <span class="badge text-bg-light border">v{{ asset.version }}</span>
+                        <span class="text-secondary text-break">{{ asset.original_filename|default:asset.file.name }}</span>
+                        {% if asset.size_bytes %}
+                            <span class="text-secondary">{{ asset.size_bytes|filesizeformat }}</span>
+                        {% endif %}
+                        <span class="text-secondary">{{ asset.creation_date|date:"j M" }}</span>
+                        {% if asset.storage_key or asset.file %}
+                            <a class="btn btn-sm btn-outline-primary ms-auto"
+                               href="{% url 'speakers:media_download' session.slug asset.pk %}">
+                                <i class="fa-solid fa-download"></i> {% trans "Download" %}
+                            </a>
+                        {% endif %}
+                    </li>
+                {% endfor %}
+            </ul>
+        </div>
+    {% endif %}
     <h2 class="h5 mb-3" id="checklist">
         {% trans "Checklist for this session" %}
         {% if glance.open %}

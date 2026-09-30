@@ -374,7 +374,7 @@ jump to the forms.
                         <i class="fa-solid fa-cloud-arrow-up"></i> {% trans "Add a file" %}
                     </div>
                     <div class="card-body">
-                        {% include "speakers/_upload_panel.html" with session=session kinds=media_kinds with_language=True open_uploads=open_uploads panel_id="files" %}
+                        {% include "speakers/_upload_panel.html" with session=session kinds=media_kinds with_language=True with_variant=True open_uploads=open_uploads panel_id="files" %}
                     </div>
                 </div>
             {% endif %}

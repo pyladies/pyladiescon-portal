@@ -50,6 +50,7 @@ def _upload_json(upload, **extra):
         "status": upload.status,
         "kind": upload.kind,
         "language": upload.language,
+        "variant": upload.variant,
         "filename": upload.filename,
         "size_bytes": upload.size_bytes,
         "part_size": upload.part_size,
@@ -101,8 +102,8 @@ class UploadEndpoint(LoginRequiredMixin, SpeakerModuleRequiredMixin, View):
 
 
 class UploadStartView(UploadEndpoint):
-    """POST {kind, language?, filename, size_bytes, content_type?}: open an
-    upload and return its first batch of part URLs."""
+    """POST {kind, language?, variant?, filename, size_bytes, content_type?}:
+    open an upload and return its first batch of part URLs."""
 
     http_method_names = ["post"]
 
@@ -120,6 +121,7 @@ class UploadStartView(UploadEndpoint):
             session=session,
             kind=kind,
             language=str(data.get("language", "") or "")[:10],
+            variant=str(data.get("variant", "") or "").strip()[:40],
             filename=str(data.get("filename", "") or ""),
             size_bytes=size_bytes,
             content_type=str(data.get("content_type", "") or "")[:100],
@@ -200,8 +202,6 @@ class MediaDownloadView(LoginRequiredMixin, SpeakerModuleRequiredMixin, View):
         session = get_object_or_404(
             Session, conference=self.conference, slug=self.kwargs["slug"]
         )
-        if not can_download(request.user, session):
-            raise PermissionDenied("You may not fetch this session's files.")
         asset = get_object_or_404(MediaAsset, pk=pk, session=session)
         if not can_download(request.user, session, asset):
             raise PermissionDenied("You may not fetch this file.")
@@ -230,4 +230,34 @@ class MediaNotesView(LoginRequiredMixin, SpeakerModuleRequiredMixin, View):
         asset.notes_md = request.POST.get("notes_md", "").strip()
         asset.save(update_fields=["notes_md", "modified_date"])
         messages.success(request, "Note saved.")
+        return redirect(f"{session.get_absolute_url()}#files")
+
+
+class MediaShareView(LoginRequiredMixin, SpeakerModuleRequiredMixin, View):
+    """POST shared=1|0: show the file on the speaker's session page, or take
+    it back; organizers only (design §8.6). Saving re-runs the rules, so
+    "promo materials shared with presenter" and the final-cut approval
+    follow the flag."""
+
+    @method_decorator(require_POST)
+    def dispatch(self, request, *args, **kwargs):
+        return super().dispatch(request, *args, **kwargs)
+
+    def post(self, request, slug, pk):
+        session = get_object_or_404(
+            Session, conference=self.conference, slug=self.kwargs["slug"]
+        )
+        if not is_speaker_organizer(request.user):
+            raise PermissionDenied("Only organizers share files with speakers.")
+        asset = get_object_or_404(MediaAsset, pk=pk, session=session)
+        asset.shared_with_speaker = request.POST.get("shared") == "1"
+        asset.save(update_fields=["shared_with_speaker", "modified_date"])
+        messages.success(
+            request,
+            (
+                "Shared with the speaker."
+                if asset.shared_with_speaker
+                else "No longer shared with the speaker."
+            ),
+        )
         return redirect(f"{session.get_absolute_url()}#files")

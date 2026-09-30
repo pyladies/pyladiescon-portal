@@ -100,6 +100,10 @@ class MediaKind(models.TextChoices):
     TRANSLATION = "TRANSLATION", "Translation"
     TITLE_CARD = "TITLE_CARD", "Title card"
     THUMBNAIL = "THUMBNAIL", "Thumbnail"
+    # Promo materials (design §8.6): made per session, since a speaker on a
+    # panel and a workshop gets a poster for each, and several per session
+    # (square, landscape, vertical, video, gif), told apart by ``variant``.
+    PROMO = "PROMO", "Promo material"
     OTHER = "OTHER", "Other"
 
 
@@ -143,6 +147,10 @@ class AutoRule(models.TextChoices):
     SESSION_SCHEDULED = "session_scheduled", "Session has a slot"
     PRETIX_REGISTERED = "pretix_registered", "Registered on pretix"
     ASSET_EXISTS = "asset_exists", "A ready asset of the required kind exists"
+    ASSET_SHARED = (
+        "asset_shared",
+        "A ready asset of the required kind is shared with the speaker",
+    )
     VIDEO_LENGTH_OK = "video_length_ok", "Video length within the limit"
     YOUTUBE_PUBLISHED = "youtube_published", "YouTube URL and publish time set"
 

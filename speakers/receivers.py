@@ -142,7 +142,10 @@ def _asset_moved(session):
     length check are answered, and the items that cannot start until a file
     is in (the performer's final-cut approval) are re-read."""
     evaluate_items(
-        items_for_session(session, [AutoRule.ASSET_EXISTS, AutoRule.VIDEO_LENGTH_OK])
+        items_for_session(
+            session,
+            [AutoRule.ASSET_EXISTS, AutoRule.ASSET_SHARED, AutoRule.VIDEO_LENGTH_OK],
+        )
     )
     refresh_readiness(ChecklistItem.objects.filter(session=session))
 

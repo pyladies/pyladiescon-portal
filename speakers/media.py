@@ -52,10 +52,6 @@ VIDEO_EXTENSIONS = frozenset(
     {".mp4", ".m4v", ".mov", ".webm", ".mkv", ".avi", ".mpg", ".mpeg", ".mts", ".m2ts"}
 )
 CONTROL_CHARS = re.compile(r"[\x00-\x1f\x7f]")
-# What a presenter may fetch from their session: their own recording and
-# the edit they approve (design §4.1). Intros, outros and the team's working
-# files stay on the organizer side.
-PRESENTER_KINDS = frozenset({MediaKind.RAW_VIDEO, MediaKind.PROCESSED_VIDEO})
 
 
 class MediaStorageNotConfigured(Exception):
@@ -216,10 +212,10 @@ def can_upload(user, session, kind):
 
 def can_download(user, session, asset=None):
     """Who may fetch a session's files. Organizers and the session's
-    liaisons any of them, on the organizer side; a presenter on an
-    accepted session their own recording and the processed video they
-    approve (``PRESENTER_KINDS``, design §4.1). With no ``asset`` the
-    answer is whether they may fetch anything here at all."""
+    liaisons: everything. A presenter on an accepted session (a proposal
+    has no files for them): their own raw video, and whatever the team
+    has shared with them (design §8.6); with no ``asset`` given, whether
+    they may fetch anything at all."""
     if not user.is_authenticated:
         return False
     if is_speaker_organizer(user):
@@ -228,9 +224,11 @@ def can_download(user, session, asset=None):
         return True
     if session.is_a_proposal:
         return False
-    if asset is not None and asset.kind not in PRESENTER_KINDS:
+    if not session.session_presenters.filter(presenter__user=user).exists():
         return False
-    return session.session_presenters.filter(presenter__user=user).exists()
+    if asset is None:
+        return True
+    return asset.kind == MediaKind.RAW_VIDEO or asset.shared_with_speaker
 
 
 def video_limit_minutes(session):
@@ -248,23 +246,24 @@ def session_assets(session):
     and language, with the uploader for the history table."""
     return list(
         session.media_assets.select_related("uploaded_by").order_by(
-            "kind", "language", "-version", "-id"
+            "kind", "language", "variant", "-version", "-id"
         )
     )
 
 
 def asset_groups(assets):
-    """``[{kind, label, language, current, history}]`` for the organizer's
-    file list: one group per kind and language, the newest READY asset as
-    ``current`` and the rest as ``history``."""
+    """``[{kind, label, language, variant, current, history}]`` for the
+    organizer's file list: one group per kind, language and variant, the
+    newest READY asset as ``current`` and the rest as ``history``."""
     groups = {}
     for asset in assets:
         group = groups.setdefault(
-            (asset.kind, asset.language),
+            (asset.kind, asset.language, asset.variant),
             {
                 "kind": asset.kind,
                 "label": asset.get_kind_display(),
                 "language": asset.language,
+                "variant": asset.variant,
                 "current": None,
                 "history": [],
             },
@@ -274,6 +273,25 @@ def asset_groups(assets):
         else:
             group["history"].append(asset)
     return list(groups.values())
+
+
+def team_files(session, assets=None):
+    """What the team has shared with the speaker, for their session page:
+    the newest READY asset of every kind, language and variant that is
+    marked shared (the final cut, each promo format, the transcript),
+    newest first. Unshared files and reviewer notes stay with the team."""
+    if assets is None:
+        assets = session_assets(session)
+    newest = {}
+    for asset in assets:
+        if (
+            asset.kind == MediaKind.RAW_VIDEO
+            or not asset.is_ready
+            or not asset.shared_with_speaker
+        ):
+            continue
+        newest.setdefault((asset.kind, asset.language, asset.variant), asset)
+    return sorted(newest.values(), key=lambda a: (a.creation_date, a.pk), reverse=True)
 
 
 def open_uploads(session, user):
@@ -359,7 +377,9 @@ def clean_content_type(kind, filename, content_type):
     return content_type
 
 
-def start_upload(*, session, kind, language, filename, size_bytes, content_type, user):
+def start_upload(
+    *, session, kind, language, filename, size_bytes, content_type, user, variant=""
+):
     """Open a multipart upload and record it; returns the ``MediaUpload``."""
     if kind not in MediaKind.values:
         raise UploadError("Unknown kind of file.")
@@ -378,6 +398,7 @@ def start_upload(*, session, kind, language, filename, size_bytes, content_type,
             session=session,
             kind=kind,
             language=language,
+            variant=(variant or "")[:40],
             filename=filename[:255],
             content_type=content_type,
             size_bytes=size_bytes,
@@ -419,8 +440,8 @@ def received_parts(upload):
 def complete_upload(upload, parts):
     """Finalize the object and record the asset.
 
-    The new asset takes the next version for its session, kind and
-    language, the previous READY one becomes SUPERSEDED, and
+    The new asset takes the next version for its session, kind, language
+    and variant, the previous READY one becomes SUPERSEDED, and
     ``asset_ready`` is sent once everything is saved.
     """
     if not upload.is_open:
@@ -447,7 +468,10 @@ def complete_upload(upload, parts):
         )
     with transaction.atomic():
         previous = MediaAsset.objects.filter(
-            session=upload.session, kind=upload.kind, language=upload.language
+            session=upload.session,
+            kind=upload.kind,
+            language=upload.language,
+            variant=upload.variant,
         )
         version = (
             previous.order_by("-version").first() or MediaAsset(version=0)
@@ -456,6 +480,7 @@ def complete_upload(upload, parts):
             session=upload.session,
             kind=upload.kind,
             language=upload.language,
+            variant=upload.variant,
             version=version,
             status=MediaStatus.READY,
             storage_key=upload.storage_key,
