@@ -157,12 +157,13 @@ inherited by later versions and variants in `complete_upload`
 `speakers/exports.py` and `speakers/export_views.py`: an organizer picks
 a scope (kinds, language, sessions, latest or every version, newer than
 a moment), `create_export` records a `MediaExport` (count, bytes, links
-until), and the export's page offers the same set three ways: the
-browser's folder download (`static/js/media-export.js`, File System
-Access API, from `entries.json`), `download.sh` with resumable curl and
-the manifest embedded (plus an aria2 input file), and a zip the media
+until), and the export's page offers the same set two ways: a zip the media
 worker builds under `SPEAKER_MEDIA_ZIP_MAX_BYTES` (`build_export_zip_task`,
-emailed through the recorded sender with the link withheld). Every path
+emailed through the recorded sender with the link withheld), first, and
+`download.sh` with resumable curl and the manifest embedded (plus an
+aria2 input file) as the advanced route. The scope form's session
+picker (`static/js/media-export.js`) is an explicit "every session" or
+"only these" choice over a filtered checkbox list grouped by type. Every path
 lays files out as `pyladiescon-<year>/<slug>/<kind>/v<n>[-<lang>][-<variant>]-<name>`
 with `manifest.csv`. Links live `SPEAKER_MEDIA_BULK_URL_TTL` (12 h);
 Maintenance > File exports lists every export. A few bitmap types, video and audio

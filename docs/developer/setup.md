@@ -328,9 +328,12 @@ services:
       AWS_ACCESS_KEY_ID: minioadmin
       AWS_SECRET_ACCESS_KEY: minioadmin
   celery:
+    # In the web container's network too, so the links the worker signs
+    # (the zip email) say localhost:9000 like the browser's.
+    network_mode: "service:web"
     environment:
       SPEAKER_MEDIA_BUCKET: speaker-media
-      AWS_S3_ENDPOINT_URL: http://web:9000
+      AWS_S3_ENDPOINT_URL: http://localhost:9000
       AWS_S3_REGION_NAME: us-east-1
       AWS_ACCESS_KEY_ID: minioadmin
       AWS_SECRET_ACCESS_KEY: minioadmin

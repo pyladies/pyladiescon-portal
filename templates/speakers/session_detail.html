@@ -648,7 +648,7 @@ open the tab their target lives in.
                 </h2>
                 {% if is_organizer and media_groups %}
                     <a class="btn btn-sm btn-outline-secondary"
-                       href="{% url 'speakers:media_export' %}?sessions={{ session.slug }}&kinds=RAW_VIDEO&kinds=INTRO&kinds=OUTRO&kinds=PROCESSED_VIDEO&kinds=TRANSCRIPT&kinds=TRANSLATION&kinds=TITLE_CARD&kinds=THUMBNAIL&kinds=PROMO&kinds=OTHER">
+                       href="{% url 'speakers:media_export' %}?sessions_mode=some&sessions={{ session.slug }}&kinds=RAW_VIDEO&kinds=INTRO&kinds=OUTRO&kinds=PROCESSED_VIDEO&kinds=TRANSCRIPT&kinds=TRANSLATION&kinds=TITLE_CARD&kinds=THUMBNAIL&kinds=PROMO&kinds=OTHER">
                         <i class="fa-solid fa-download"></i> {% trans "Download all files of this session" %}
                     </a>
                 {% endif %}

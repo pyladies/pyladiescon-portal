@@ -378,3 +378,13 @@ details.card[open] > summary.card-header::before {
 .media-table .media-group-more > td {
     border-top: 0;
 }
+
+/* The session picker on the export page (templates/speakers/media_export.html):
+   a scrollable list with the type headings inside it. */
+.session-picker-list {
+    max-height: 18rem;
+    overflow-y: auto;
+}
+.session-picker:disabled {
+    opacity: 0.5;
+}

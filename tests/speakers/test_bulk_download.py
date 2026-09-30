@@ -271,7 +271,6 @@ class TestExport:
             and "download.sh" in html
             and "Build the zip" in html
         )
-        assert "js/media-export" in html
         for name, marker in (
             ("download.sh", "#!/bin/sh"),
             ("aria2.txt", "  out=pyladiescon-"),
@@ -283,13 +282,6 @@ class TestExport:
             assert response.status_code == 200, name
             assert marker in response.content.decode()
             assert name in response["Content-Disposition"]
-        data = client.get(
-            reverse("speakers:media_export_file", args=[export.pk, "entries.json"])
-        ).json()
-        assert len(data["files"]) == 4 and data["files"][0]["url"].startswith(
-            "https://"
-        )
-        assert data["manifest_path"].endswith("/manifest.csv")
         assert (
             client.get(
                 reverse("speakers:media_export_file", args=[export.pk, "x"])
@@ -305,9 +297,34 @@ class TestExport:
         )
         assert EXPORT in client.get(reverse("speakers:session_list")).content.decode()
         assert (
-            f"{EXPORT}?sessions=loud"
+            f"{EXPORT}?sessions_mode=some&sessions=loud"
             in client.get(world["loud"].get_absolute_url()).content.decode()
         )
+
+    def test_sessions_narrow_only_when_asked(self, client, world, organizer):
+        """A checked session with the mode still on "every session" narrows
+        nothing: the radio is the decision, not a stray click."""
+        client.force_login(organizer)
+        every = client.get(EXPORT, {"kinds": ["RAW_VIDEO"], "sessions": ["quiet"]})
+        assert (
+            every.context["scope"]["sessions"] == []
+            and every.context["file_count"] == 2
+        )
+        some = client.get(
+            EXPORT,
+            {"kinds": ["RAW_VIDEO"], "sessions": ["quiet"], "sessions_mode": "some"},
+        )
+        assert (
+            some.context["scope"]["sessions"] == ["quiet"]
+            and some.context["file_count"] == 1
+        )
+        html = some.content.decode()
+        assert 'id="sessions-mode-some"' in html and 'data-select="group:1:all"' in html
+        assert "PyJam performance (2)" in html and 'data-title="quiet set"' in html
+        assert "1 session chosen" in html
+        groups = some.context["sessions"]
+        assert [g["kind"] for g in groups] == ["PyJam performance"]
+        assert [s.slug for s in groups[0]["sessions"]] == ["loud", "quiet"]
 
     def test_expired_export_says_so(self, client, world, organizer, conference):
         client.force_login(organizer)
@@ -448,7 +465,7 @@ class TestZip:
             conference, organizer, clean_scope({"kinds": ["RAW_VIDEO"]})
         )
         html = client.get(export.get_absolute_url()).content.decode()
-        assert "too large for a zip" in html and "Build the zip" not in html
+        assert "zip limit" in html and "Build the zip" not in html
         response = client.post(
             reverse("speakers:media_export_zip", args=[export.pk]), follow=True
         )

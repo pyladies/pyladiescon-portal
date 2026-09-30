@@ -338,11 +338,19 @@ def scope_summary(scope):
 
 def sessions_with_files(conference, user):
     """The sessions the scope form offers: those with a READY file, that
-    ``user`` may see."""
-    return (
+    ``user`` may see, grouped by session type for the picker:
+    ``[{"kind": name, "sessions": [...]}]`` in the type's own order."""
+    sessions = (
         Session.objects.for_conference(conference)
         .visible_to(user)
         .filter(Q(media_assets__status=MediaStatus.READY))
         .distinct()
-        .order_by("title")
+        .select_related("kind")
+        .order_by("kind__sort_order", "kind__name", "title")
     )
+    groups = []
+    for session in sessions:
+        if not groups or groups[-1]["kind"] != session.kind.name:
+            groups.append({"kind": session.kind.name, "sessions": []})
+        groups[-1]["sessions"].append(session)
+    return groups

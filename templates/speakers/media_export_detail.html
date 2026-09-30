@@ -1,12 +1,8 @@
 {% extends "speakers/_organize_shell.html" %}
-{% load i18n static %}
+{% load i18n %}
 {% block head_title %}
     {% trans "Export" %} {{ export.pk }}
 {% endblock head_title %}
-{% block extra_head %}
-    {{ block.super }}
-    <script src="{% static 'js/media-export.js' %}" defer></script>
-{% endblock extra_head %}
 {% block breadcrumb %}
     {% url 'speakers:media_export' as bc_url %}
     {% trans "Download files" as bc_section %}
@@ -42,39 +38,56 @@
             {% trans "Every link in this export fetches the file it names for whoever has it, until it expires. Keep the script and the manifest to yourself." %}
         </div>
         <div class="row g-3">
-            <div class="col-lg-4">
-                <div class="card h-100">
+            <div class="col-lg-6">
+                <div class="card h-100 border-primary-subtle">
                     <div class="card-header">
-                        <i class="fa-solid fa-folder-open"></i> {% trans "Download to a folder" %}
+                        <i class="fa-solid fa-file-zipper"></i> {% trans "Download as one zip" %}
                     </div>
-                    <div class="card-body small"
-                         id="folder-download"
-                         data-entries-url="{% url 'speakers:media_export_file' export.pk 'entries.json' %}">
-                        <p>
-                            {% trans "Pick a folder on this computer and the files stream into it, laid out by session and kind, with the manifest. Run it again later and only what is missing is fetched." %}
-                        </p>
-                        <button class="btn btn-primary" type="button" data-role="start" disabled>
-                            <i class="fa-solid fa-folder-open"></i> {% trans "Choose a folder and start" %}
-                        </button>
-                        <div class="progress mt-3 upload-progress" role="progressbar" hidden>
-                            <div class="progress-bar" data-role="progress">
-                                0%
-                            </div>
-                        </div>
-                        <div class="mt-2 text-secondary" data-role="status">
-                            {% trans "Needs a Chromium browser (Chrome, Edge, Brave); elsewhere use the script." %}
-                        </div>
+                    <div class="card-body small">
+                        {% if not zip_allowed %}
+                            <p class="text-secondary mb-0">
+                                {% blocktranslate with limit=zip_max_bytes|filesizeformat %}This selection is over the {{ limit }} zip limit. Use the script on the right, or narrow the selection.{% endblocktranslate %}
+                            </p>
+                        {% elif export.zip_status == "DONE" and zip_link %}
+                            <p>
+                                {% blocktranslate with when=export.zip_built_at|date:"j M H:i" %}Built {{ when }} UTC, with the manifest inside.{% endblocktranslate %}
+                            </p>
+                            <a class="btn btn-primary" href="{{ zip_link }}">
+                                <i class="fa-solid fa-download"></i> {% trans "Download the zip" %}
+                            </a>
+                        {% elif export.zip_status == "QUEUED" or export.zip_status == "RUNNING" %}
+                            <p class="mb-0">
+                                <i class="fa-solid fa-hourglass-half"></i>
+                                {% trans "Being built; you will get an email with the link. Reload this page to check." %}
+                            </p>
+                        {% else %}
+                            {% if export.zip_status == "FAILED" %}
+                                <p class="text-danger">
+                                    {% trans "The last attempt failed:" %} {{ export.zip_error }}
+                                </p>
+                            {% endif %}
+                            <p>
+                                {% trans "The portal packs the files into one zip and emails you a link when it is ready, usually within minutes." %}
+                            </p>
+                            <form method="post"
+                                  action="{% url 'speakers:media_export_zip' export.pk %}">
+                                {% csrf_token %}
+                                <button class="btn btn-primary" type="submit">
+                                    <i class="fa-solid fa-file-zipper"></i> {% trans "Build the zip" %}
+                                </button>
+                            </form>
+                        {% endif %}
                     </div>
                 </div>
             </div>
-            <div class="col-lg-4">
+            <div class="col-lg-6">
                 <div class="card h-100">
                     <div class="card-header">
-                        <i class="fa-solid fa-terminal"></i> {% trans "Script for a terminal" %}
+                        <i class="fa-solid fa-terminal"></i> {% trans "Advanced: a script for the terminal" %}
                     </div>
                     <div class="card-body small">
                         <p>
-                            {% trans "One resumable curl per file, the manifest included. Runs unattended and continues where it stopped after an interruption." %}
+                            {% trans "For large pulls, or anything over the zip limit: one resumable curl per file, the manifest included. It runs unattended and continues where it stopped after an interruption." %}
                         </p>
                         <a class="btn btn-outline-primary btn-sm"
                            href="{% url 'speakers:media_export_file' export.pk 'download.sh' %}">
@@ -87,48 +100,6 @@
                         <pre class="mt-3 mb-0 bg-body-tertiary p-2 rounded"><code>sh download.sh
 # or, in parallel:
 aria2c -i aria2.txt -j 4 -c</code></pre>
-                    </div>
-                </div>
-            </div>
-            <div class="col-lg-4">
-                <div class="card h-100">
-                    <div class="card-header">
-                        <i class="fa-solid fa-file-zipper"></i> {% trans "One zip" %}
-                    </div>
-                    <div class="card-body small">
-                        {% if not zip_allowed %}
-                            <p class="text-secondary mb-0">
-                                {% trans "This selection is too large for a zip. Use the folder download or the script." %}
-                            </p>
-                        {% elif export.zip_status == "DONE" and zip_link %}
-                            <p>
-                                {% blocktranslate with when=export.zip_built_at|date:"j M H:i" %}Built {{ when }} UTC, with the manifest inside.{% endblocktranslate %}
-                            </p>
-                            <a class="btn btn-primary btn-sm" href="{{ zip_link }}">
-                                <i class="fa-solid fa-download"></i> {% trans "Download the zip" %}
-                            </a>
-                        {% elif export.zip_status == "QUEUED" or export.zip_status == "RUNNING" %}
-                            <p class="mb-0">
-                                <i class="fa-solid fa-hourglass-half"></i>
-                                {% trans "Being built; you will get an email with the link. Reload to check." %}
-                            </p>
-                        {% else %}
-                            {% if export.zip_status == "FAILED" %}
-                                <p class="text-danger">
-                                    {% trans "The last attempt failed:" %} {{ export.zip_error }}
-                                </p>
-                            {% endif %}
-                            <p>
-                                {% trans "The worker packs the files and emails you a link. Best for transcripts, title cards and posters." %}
-                            </p>
-                            <form method="post"
-                                  action="{% url 'speakers:media_export_zip' export.pk %}">
-                                {% csrf_token %}
-                                <button class="btn btn-outline-primary btn-sm" type="submit">
-                                    <i class="fa-solid fa-file-zipper"></i> {% trans "Build the zip" %}
-                                </button>
-                            </form>
-                        {% endif %}
                     </div>
                 </div>
             </div>

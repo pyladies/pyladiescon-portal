@@ -7,12 +7,10 @@ file and the manifest), and the zip when the selection is small enough.
 Organizers only; the Maintenance list shows who exported what.
 """
 
-import io
-
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.http import Http404, HttpResponse, JsonResponse
+from django.http import Http404, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils.decorators import method_decorator
 from django.views import View
@@ -28,7 +26,6 @@ from .exports import (
     create_export,
     export_entries,
     exports_for_maintenance,
-    manifest_path,
     scope_summary,
     select_assets,
     sessions_with_files,
@@ -45,17 +42,19 @@ FILES = {
     "download.sh": ("application/x-sh", "download.sh"),
     "aria2.txt": ("text/plain", "aria2.txt"),
     "manifest.csv": ("text/csv", "manifest.csv"),
-    "entries.json": ("application/json", None),
 }
 
 
 def scope_from_query(query):
     """The scope a page's query string or form describes."""
+    # "Only these sessions" is a choice of its own: a checked box with the
+    # mode still on "every session" narrows nothing, so a stray click cannot.
+    only_these = query.get("sessions_mode") == "some"
     return clean_scope(
         {
             "kinds": query.getlist("kinds"),
             "language": query.get("language", ""),
-            "sessions": query.getlist("sessions"),
+            "sessions": query.getlist("sessions") if only_these else [],
             "versions": query.get("versions", "latest"),
             "since": query.get("since", ""),
         }
@@ -84,6 +83,10 @@ class MediaExportView(LoginRequiredMixin, SpeakerOrganizerRequiredMixin, View):
                 "scope": scope,
                 "kinds": MediaKind.choices,
                 "sessions": sessions_with_files(self.conference, request.user),
+                "session_count": sum(
+                    len(g["sessions"])
+                    for g in sessions_with_files(self.conference, request.user)
+                ),
                 "file_count": len(assets),
                 "total_bytes": sum(a.size_bytes or 0 for a in assets),
                 "zip_max_bytes": settings.SPEAKER_MEDIA_ZIP_MAX_BYTES,
@@ -115,7 +118,8 @@ class ExportScopedMixin(LoginRequiredMixin, SpeakerOrganizerRequiredMixin):
 
 
 class MediaExportDetailView(ExportScopedMixin, View):
-    """The export's page: what it holds and the three ways to fetch it."""
+    """The export's page: what it holds, the zip first and the script for
+    the terminal."""
 
     def get(self, request, pk):
         export = self.get_export()
@@ -125,6 +129,7 @@ class MediaExportDetailView(ExportScopedMixin, View):
             "export": export,
             "summary": scope_summary(export.scope),
             "zip_allowed": export.total_bytes <= settings.SPEAKER_MEDIA_ZIP_MAX_BYTES,
+            "zip_max_bytes": settings.SPEAKER_MEDIA_ZIP_MAX_BYTES,
             "zip_link": "",
             "storage_ready": True,
         }
@@ -138,8 +143,8 @@ class MediaExportDetailView(ExportScopedMixin, View):
 
 
 class MediaExportFileView(ExportScopedMixin, View):
-    """GET download.sh, aria2.txt, manifest.csv or entries.json: built on
-    the request with links living until the export expires."""
+    """GET download.sh, aria2.txt or manifest.csv: built on the request
+    with links living until the export expires."""
 
     def get(self, request, pk, name):
         if name not in FILES:
@@ -154,19 +159,6 @@ class MediaExportFileView(ExportScopedMixin, View):
         except MediaStorageNotConfigured:
             raise Http404("Object storage is not configured on this portal.")
         content_type, filename = FILES[name]
-        if name == "entries.json":
-            return JsonResponse(
-                {
-                    "export": export.pk,
-                    "expires_at": export.expires_at.isoformat(),
-                    "manifest_path": manifest_path(export),
-                    "manifest": write_manifest(entries, io.StringIO()).getvalue(),
-                    "files": [
-                        {"path": e["path"], "url": e["url"], "size": e["size"]}
-                        for e in entries
-                    ],
-                }
-            )
         response = HttpResponse(content_type=f"{content_type}; charset=utf-8")
         response["Content-Disposition"] = f'attachment; filename="{filename}"'
         if name == "download.sh":
