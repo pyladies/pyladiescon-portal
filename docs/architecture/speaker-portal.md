@@ -127,7 +127,7 @@ PyJam sessions are pre-recorded. The performer uploads the video; the team post-
 
 ### 4.1 The performer
 
-> **Being built** (M3b). Task 5.2 (29 September 2026): the upload panel on the performer's session page, with resume, the current version and the length bar, and the organizer's per-session file list with download links and reviewer notes. The duration probe (5.3) is next, so the length bar reads "not checked yet" until it lands; the post-production lists are still the proposal.
+> **Being built** (M3b). Task 5.2 (29 September 2026): the upload panel on the performer's session page, with resume, the current version and the length bar, and the organizer's per-session file list with download links and reviewer notes. The duration probe (5.3, same day) fills the length bar within seconds of an upload; the post-production lists are still the proposal.
 
 Same dashboard as any speaker, plus an upload panel: the video goes straight to storage in chunks and resumes if the connection drops, and the panel shows the duration against the length limit. The performer's second list is "what we're doing with your video", so they can watch it move through transcription, translation, and the final cut. When the final cut is ready, an "approve the final cut" item opens for them.
 
@@ -328,7 +328,7 @@ The speaker guide, versioned. Reading it records a `HandbookReadReceipt`; publis
 
 ### 8.8 MediaAsset
 
-> **Being built** (M3b). Task 5.1 (29 September 2026): the multipart upload backend, `MediaUpload`, the JSON endpoints, versioning and `asset_ready`. Task 5.2 (same day): the browser panel with resume, the performer's video card, the organizer's file list with notes and downloads. The duration probe (5.3) is next; nothing probes a file yet.
+> **Being built** (M3b). Task 5.1 (29 September 2026): the multipart upload backend, `MediaUpload`, the JSON endpoints, versioning and `asset_ready`. Task 5.2 (same day): the browser panel with resume, the performer's video card, the organizer's file list with notes and downloads. Task 5.3 (same day): the duration probe on the `media` queue, with the failure written on the asset. Session-scoped checklists and seeds (5.4) are next.
 
 For pre-recorded sessions, one row per file that moves through post-production:
 
@@ -338,7 +338,7 @@ For pre-recorded sessions, one row per file that moves through post-production:
 | `file` | Digital Ocean Spaces, private; presigned upload and download |
 | `language` | for transcripts and translations, one row per language |
 | `version` | increments on re-upload; old versions kept until deleted |
-| `duration_seconds` | probed server-side after upload; drives the length-limit check |
+| `duration_seconds`, `probe_error` | probed server-side after upload (`ffprobe` over a presigned link, on the media queue); drives the length-limit check. When the probe cannot answer, the reason is on the asset and on the page |
 | `status`, `notes_md` | `UPLOADING` · `READY` · `FAILED` · `SUPERSEDED`; reviewer notes ("audio clips at 4:10") |
 
 Performance videos are routinely several gigabytes, so the browser uploads directly to object storage in chunks using presigned multipart URLs, with per-part retry and resume. The portal finalizes the upload and records the asset. Performers can upload raw video for their own sessions; organizers upload any kind.

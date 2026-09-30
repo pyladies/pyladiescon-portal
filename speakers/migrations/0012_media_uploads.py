@@ -71,6 +71,13 @@ class Migration(migrations.Migration):
         ),
         migrations.AddField(
             model_name="mediaasset",
+            name="probe_error",
+            field=models.CharField(
+                blank=True, default="", db_default="", max_length=500
+            ),
+        ),
+        migrations.AddField(
+            model_name="mediaasset",
             name="storage_key",
             field=models.CharField(
                 blank=True, default="", db_default="", max_length=500

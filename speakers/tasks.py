@@ -17,6 +17,7 @@ from .emails import (
 from .media import expire_abandoned_uploads
 from .models import (
     Invitation,
+    MediaAsset,
     Presenter,
     Proposal,
     Session,
@@ -25,6 +26,7 @@ from .models import (
 )
 from .notices import send_checklist_change_notices
 from .pretix import PretixError, reconcile, sync_order_by_code
+from .probe import probe_asset
 from .readiness import refresh_for_conference
 from .reminders import send_checklist_digests
 from .rules import reevaluate_all
@@ -222,3 +224,20 @@ def expire_abandoned_uploads_task():
     """
     count = expire_abandoned_uploads()
     return f"Expired {count} abandoned upload(s)"
+
+
+@shared_task(queue="media")
+def probe_asset_task(asset_id):
+    """Measure a video that just landed (design §8.8, task 5.3).
+
+    Routed to the ``media`` queue (settings ``CELERY_TASK_ROUTES``), served
+    by the ``worker-media`` process, so a probe over a slow link never
+    holds up an email. Saving the duration re-runs the length rule.
+    """
+    asset = MediaAsset.objects.filter(pk=asset_id).first()
+    if asset is None:
+        return "No such asset"
+    duration = probe_asset(asset)
+    if duration is None:
+        return f"Probe failed for asset {asset_id}: {asset.probe_error}"
+    return f"Asset {asset_id} runs {duration} s"

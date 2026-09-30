@@ -179,17 +179,26 @@ rclone sync do-media:pyladiescon-media/speaker-media/2026 ./pyladiescon-2026 \
 
 ### The media worker
 
-The duration probe (task 5.3) and machine transcription (task 5.7, design
-§8.8) run `ffmpeg` and, for the local engine, Whisper, for minutes at a
-time. They go on the `media` Celery queue, served by a `worker-media`
-process in the `Procfile` rather than the default `worker`, so a
-half-hour transcription never holds up an invitation email. Once those
-tasks land:
+Media jobs run for minutes at a time: the duration probe (task 5.3, built)
+measures every video that lands with `ffprobe`, and machine transcription
+(task 5.7, designed) will run Whisper. They go on the `media` Celery queue
+(`CELERY_TASK_ROUTES` in settings), served by the `worker-media` process
+in the `Procfile` rather than the default `worker`, so a half-hour
+transcription never holds up an invitation email.
 
-- the image needs `ffmpeg` (which brings `ffprobe`);
-- `worker-media` is a new process, so it starts at zero replicas in
-  cabotage and has to be scaled to one by hand (see "A new or renamed
-  process" above); keep it at one replica with concurrency 1;
+- The image installs `ffmpeg`, which brings `ffprobe`.
+- **`worker-media` is a new process, so it starts at zero replicas in
+  cabotage** and has to be scaled to one by hand after the deploy that
+  adds it (see "A new or renamed process" above); keep it at one replica,
+  and it runs with concurrency 1. Until it is scaled up, every uploaded
+  video shows "Length not checked yet" for good: the probe is queued and
+  nobody is consuming the queue.
+- A probe that fails records why on the asset ("Length not measured:
+  ffprobe is not installed on the worker", for instance), which the file
+  rows show, and logs an error; the asset itself stays usable.
+
+When transcription lands:
+
 - the Whisper model is part of the image (a Dockerfile layer downloads
   the pinned model into `/opt/whisper` at build time, before the code is
   copied, so a code-only deploy reuses the cached layer), and the worker

@@ -119,6 +119,19 @@ by hand); the bucket needs its own lifecycle rule as the backstop
 (`AbortIncompleteMultipartUpload` after 7 days, see the deployment doc).
 Tests run against moto's S3.
 
+The duration probe (task 5.3) is `speakers/probe.py`: `on_asset_ready`
+queues `probe_asset_task` for the video kinds (`constants.VIDEO_KINDS`)
+once the row is committed, routed to the `media` queue and the
+`worker-media` process (`CELERY_TASK_ROUTES`, `Procfile`); the compose
+worker consumes both queues. `ffprobe` reads the object's headers over a
+presigned link and the answer lands in `MediaAsset.duration_seconds`,
+whose save re-runs `VIDEO_LENGTH_OK`. A probe that cannot answer (no
+`ffprobe`, unreadable file, no bucket) writes the reason to
+`MediaAsset.probe_error`, logs an error and leaves the asset READY; the
+file rows and the performer's card show it. Tests stub `probe.run_ffprobe`
+through an autouse fixture in `tests/speakers/conftest.py`, and one test
+runs the real binary on a two-second fixture when it is installed.
+
 The browser side (task 5.2) is `static/js/media-upload.js` driving
 `templates/speakers/_upload_panel.html`: it slices the file, PUTs three
 parts at a time with retries and backoff, and remembers the upload id in

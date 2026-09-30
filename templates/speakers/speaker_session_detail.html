@@ -146,7 +146,11 @@
                                href="{% url 'speakers:media_download' session.slug video.current.pk %}">{% trans "Download" %}</a>
                         {% endif %}
                     </div>
-                    {% if video.current.duration_seconds is None %}
+                    {% if video.current.duration_seconds is None and video.current.probe_error %}
+                        <div class="small text-secondary mb-3">
+                            <i class="fa-solid fa-triangle-exclamation"></i> {% trans "The length could not be checked automatically; the team will look." %}
+                        </div>
+                    {% elif video.current.duration_seconds is None %}
                         <div class="small text-secondary mb-3">
                             <i class="fa-regular fa-clock"></i> {% trans "Length not checked yet." %}
                         </div>

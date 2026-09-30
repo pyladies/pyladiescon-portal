@@ -1,9 +1,21 @@
 """Fixtures shared by the speakers tests."""
 
+from unittest.mock import MagicMock
+
 import pytest
 from django.test import Client, TestCase
 
 from speakers.services import send_invitation
+
+
+@pytest.fixture(autouse=True)
+def ffprobe(monkeypatch):
+    """No test shells out to ffprobe unless it asks: the probe answers
+    120 seconds. A video that becomes READY queues a probe (eager in
+    tests), so this keeps every upload test off the real binary."""
+    mock = MagicMock(return_value='{"format": {"duration": "120.0"}}')
+    monkeypatch.setattr("speakers.probe.run_ffprobe", mock)
+    return mock
 
 
 class CommittingClient(Client):

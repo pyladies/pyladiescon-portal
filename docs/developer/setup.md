@@ -236,6 +236,16 @@ presigned multipart chunks (design §8.8). With no bucket configured the
 upload endpoints answer 503 and everything else works, so most local work
 needs none of this.
 
+Once a video lands, a worker task measures it with `ffprobe` (the image
+installs `ffmpeg`; rebuild it with `make` after pulling this change) on
+the `media` Celery queue. The compose worker consumes both queues, so no
+extra container is needed locally; production runs a separate
+`worker-media` process (deployment guide). Without `ffprobe` the file row
+says so and the video is still there. The tests never call the binary
+unless they ask to: `tests/speakers/conftest.py` stubs it, and the one
+test on a real fixture video (`tests/speakers/fixtures/two-seconds.mp4`)
+is skipped when `ffprobe` is not installed.
+
 ### Against a DigitalOcean Space
 
 Production uses DigitalOcean Spaces, and a local server can upload to a

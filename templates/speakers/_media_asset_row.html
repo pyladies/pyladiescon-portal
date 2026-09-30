@@ -18,6 +18,10 @@ link, and the reviewer's note (editable when can_edit). Params:
             {% widthratio asset.duration_seconds 60 1 as minutes %}
             {{ minutes }} {% trans "min" %}
         </span>
+    {% elif asset.probe_error %}
+        <span class="text-danger" title="{{ asset.probe_error }}">
+            <i class="fa-solid fa-triangle-exclamation"></i> {% trans "Length not measured" %}: {{ asset.probe_error }}
+        </span>
     {% endif %}
     <span class="text-secondary">
         {{ asset.creation_date|date:"j M H:i" }} UTC

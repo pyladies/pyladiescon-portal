@@ -1885,6 +1885,11 @@ class MediaAsset(TimestampedModel):
     )
     size_bytes = models.BigIntegerField(null=True, blank=True)
     duration_seconds = models.PositiveIntegerField(null=True, blank=True)
+    # Why the probe could not measure the file, shown on the file rows;
+    # empty once it has (probe.py).
+    probe_error = models.CharField(
+        max_length=500, blank=True, default="", db_default=""
+    )
     notes_md = models.TextField(blank=True, help_text="Reviewer notes. Markdown.")
     uploaded_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,

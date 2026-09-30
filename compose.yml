@@ -63,7 +63,8 @@ services:
         USER_ID: ${USER_ID:-1000}
         GROUP_ID: ${GROUP_ID:-1000}
     image: pyladiescon-portal-celery:docker-compose
-    command: celery -A portal worker --loglevel=info
+    # One worker for both queues in development (production has worker-media).
+    command: celery -A portal worker -Q celery,media --loglevel=info
     working_dir: /code
     volumes:
       - .:/code

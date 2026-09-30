@@ -103,6 +103,12 @@ class MediaKind(models.TextChoices):
     OTHER = "OTHER", "Other"
 
 
+# The kinds the duration probe runs on (design §8.8, task 5.3).
+VIDEO_KINDS = frozenset(
+    {MediaKind.RAW_VIDEO, MediaKind.INTRO, MediaKind.OUTRO, MediaKind.PROCESSED_VIDEO}
+)
+
+
 class ChecklistScope(models.TextChoices):
     GENERAL = "GENERAL", "Every presenter (once per edition)"
     PRESENTER = "PRESENTER", "Per presenter per session (keyed by kind and role)"

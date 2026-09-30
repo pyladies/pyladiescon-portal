@@ -3,6 +3,7 @@
 Registered from ``SpeakersConfig.ready()``.
 """
 
+from django.db import transaction
 from django.db.models import Q
 from django.db.models.signals import post_delete, post_save
 from django.dispatch import receiver
@@ -14,7 +15,7 @@ from .checklists import (
     instantiate_presenter_checklist,
     instantiate_session_checklist,
 )
-from .constants import AutoRule
+from .constants import VIDEO_KINDS, AutoRule
 from .models import (
     Handbook,
     HandbookReadReceipt,
@@ -180,9 +181,14 @@ def pretix_order_changed(sender, instance, **kwargs):
 @receiver(asset_ready, dispatch_uid="speakers.rules.asset_ready")
 def on_asset_ready(sender, asset, **kwargs):
     """A file arrived: the items that wait for one, and the length check,
-    are answered now rather than at the nightly pass."""
+    are answered now rather than at the nightly pass. A video is also
+    measured, once the row is committed, by the media worker."""
     evaluate_items(
         items_for_session(
             asset.session, [AutoRule.ASSET_EXISTS, AutoRule.VIDEO_LENGTH_OK]
         )
     )
+    if asset.kind in VIDEO_KINDS:
+        from .tasks import probe_asset_task
+
+        transaction.on_commit(lambda: probe_asset_task.delay(asset.pk))

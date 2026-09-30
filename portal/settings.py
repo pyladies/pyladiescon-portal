@@ -440,6 +440,13 @@ CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL") or os.environ.get("REDIS
 # portal_account migration 0004 and runs daily at 03:00 UTC.
 CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
 
+# Media jobs (the duration probe, later transcription) run for minutes and
+# go to their own queue, served by the `worker-media` process, so they never
+# hold up an email. The default worker consumes only the default queue.
+CELERY_TASK_ROUTES = {
+    "speakers.tasks.probe_asset_task": {"queue": "media"},
+}
+
 # This makes Celery run tasks synchronously during tests
 if "test" in sys.argv or "pytest" in sys.modules:
     CELERY_TASK_ALWAYS_EAGER = True
