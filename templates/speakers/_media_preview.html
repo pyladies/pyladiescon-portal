@@ -1,0 +1,36 @@
+{% load i18n %}
+{% comment %}
+A closed fold that shows the file itself when opened (design §8.8,
+previews): images lazily, video and audio without preloading, so nothing
+is fetched until someone asks. The source is the preview endpoint, which
+redirects to an inline presigned link; the elements load it cross-origin
+without a CORS rule. Rendered only when asset.preview_kind is set, and only for the current
+version of a file: earlier versions download but do not preview.
+Params: asset, session
+{% endcomment %}
+{% if asset.preview_kind %}
+    {% url 'speakers:media_preview' session.slug asset.pk as preview_url %}
+    <details class="media-preview mt-2">
+        <summary class="small">
+            <i class="fa-regular fa-eye"></i> {% trans "Preview" %}
+        </summary>
+        <div class="mt-2">
+            {% if asset.preview_kind == "image" %}
+                <img src="{{ preview_url }}"
+                     alt="{{ asset.original_filename|default:asset.label }}"
+                     loading="lazy"
+                     width="480"
+                     height="270"
+                     class="media-preview-image rounded border">
+            {% elif asset.preview_kind == "video" %}
+                <video src="{{ preview_url }}"
+                       controls
+                       preload="none"
+                       class="media-preview-video rounded border">
+                </video>
+            {% else %}
+                <audio src="{{ preview_url }}" controls preload="none" class="w-100"></audio>
+            {% endif %}
+        </div>
+    </details>
+{% endif %}

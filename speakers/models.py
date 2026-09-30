@@ -5,6 +5,7 @@ Every row is scoped to a ``portal.Conference`` (the design document calls it a
 new Conference row with the same code. See ``speakers/README.md``.
 """
 
+import mimetypes
 import secrets
 import zoneinfo
 from datetime import timedelta
@@ -1928,6 +1929,39 @@ class MediaAsset(TimestampedModel):
             return self.file.url if self.file else ""
         return MediaBucket.from_settings().download_url(
             self.storage_key, self.original_filename or None, ttl=ttl
+        )
+
+    @property
+    def media_type(self):
+        """The file's type as best known: what the upload said, else what
+        the name suggests."""
+        if self.content_type and self.content_type != "application/octet-stream":
+            return self.content_type
+        guessed, _ = mimetypes.guess_type(
+            self.original_filename or self.file.name or ""
+        )
+        return guessed or ""
+
+    @property
+    def preview_kind(self):
+        """``"image"``, ``"video"`` or ``"audio"`` when the browser can show
+        the file itself (design §8.8, previews); empty otherwise. An
+        allowlist: anything else, an HTML file uploaded as "other" say, is
+        only ever downloaded."""
+        prefix = self.media_type.split("/")[0]
+        return prefix if prefix in ("image", "video", "audio") else ""
+
+    def preview_url(self, ttl=None):
+        """A presigned link the browser shows inline, for the preview fold;
+        empty when the file is not one it can show."""
+        from .media import MediaBucket
+
+        if not self.preview_kind:
+            return ""
+        if not self.storage_key:
+            return self.file.url if self.file else ""
+        return MediaBucket.from_settings().download_url(
+            self.storage_key, ttl=ttl, inline=True, content_type=self.media_type
         )
 
     @classmethod

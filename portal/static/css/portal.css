@@ -361,3 +361,14 @@ details.card > summary.card-header::before {
 details.card[open] > summary.card-header::before {
     content: "\25BE";
 }
+
+/* Preview fold on file rows (templates/speakers/_media_preview.html): the
+   file at a readable size, never wider than the row. The width and height
+   attributes on the image are hints for layout; the real size is the file's. */
+.media-preview-image,
+.media-preview-video {
+    width: auto;
+    height: auto;
+    max-width: 100%;
+    max-height: 24rem;
+}

@@ -173,9 +173,18 @@ class MediaBucket:
             if exc.response.get("Error", {}).get("Code") != "NoSuchUpload":
                 raise
 
-    def download_url(self, key, filename=None, ttl=None):
+    def download_url(
+        self, key, filename=None, ttl=None, inline=False, content_type=None
+    ):
+        """A presigned GET. As an attachment named ``filename`` by default;
+        ``inline`` (with the file's ``content_type``) for a preview the
+        browser shows rather than saves."""
         params = {"Bucket": self.bucket, "Key": key}
-        if filename:
+        if inline:
+            params["ResponseContentDisposition"] = "inline"
+            if content_type:
+                params["ResponseContentType"] = content_type
+        elif filename:
             params["ResponseContentDisposition"] = content_disposition(filename)
         return self.client.generate_presigned_url(
             "get_object", Params=params, ExpiresIn=ttl or settings.SPEAKER_MEDIA_URL_TTL

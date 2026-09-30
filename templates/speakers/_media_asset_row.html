@@ -1,8 +1,9 @@
 {% load i18n speakers_extras %}
 {% comment %}
 One asset: version, file, size, who and when, duration, the download
-link, the share button and the reviewer's note (the last two when
-can_edit). The share and note forms swap this block in place through
+link, a preview fold (current version only: past versions are for the
+record, not for watching), the share button and the reviewer's note (the
+last two when can_edit). The share and note forms swap this block in place through
 htmx (the organizer shell sets the CSRF header on <body>), so the page
 neither reloads nor jumps; without JavaScript they post and come back.
 Params:
@@ -64,6 +65,9 @@ Params:
             </form>
         {% endif %}
     </div>
+    {% if current %}
+        {% include "speakers/_media_preview.html" with asset=asset session=session %}
+    {% endif %}
     {% if can_edit %}
         <form method="post"
               class="mt-2"

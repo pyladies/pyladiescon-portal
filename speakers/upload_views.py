@@ -214,6 +214,29 @@ class MediaDownloadView(LoginRequiredMixin, SpeakerModuleRequiredMixin, View):
         return HttpResponseRedirect(url)
 
 
+class MediaPreviewView(LoginRequiredMixin, SpeakerModuleRequiredMixin, View):
+    """GET: a fresh presigned link the browser shows inline, for the preview
+    fold on the file rows. Same rule as the download; only for the kinds a
+    browser can show (``MediaAsset.preview_kind``)."""
+
+    def get(self, request, slug, pk):
+        session = get_object_or_404(
+            Session, conference=self.conference, slug=self.kwargs["slug"]
+        )
+        asset = get_object_or_404(MediaAsset, pk=pk, session=session)
+        if not can_download(request.user, session, asset):
+            raise PermissionDenied("You may not fetch this file.")
+        if not asset.preview_kind:
+            raise Http404("This file has no preview; download it instead.")
+        try:
+            url = asset.preview_url()
+        except MediaStorageNotConfigured:
+            raise Http404("Object storage is not configured on this portal.")
+        if not url:
+            raise Http404("This asset has no file.")
+        return HttpResponseRedirect(url)
+
+
 def _row_or_files(request, session, asset, message):
     """An htmx request gets the refreshed file row swapped in place (no
     reload, no jump to the anchor); a plain form post goes back to the

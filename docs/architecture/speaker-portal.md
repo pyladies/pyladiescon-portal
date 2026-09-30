@@ -351,6 +351,10 @@ For pre-recorded sessions, one row per file that moves through post-production:
 
 Performance videos are routinely several gigabytes, so the browser uploads directly to object storage in chunks using presigned multipart URLs, with per-part retry and resume. The portal finalizes the upload and records the asset. Performers can upload raw video for their own sessions; organizers upload any kind.
 
+#### Previews
+
+A file row, and the speaker's "Files from the team" card, carry a closed "Preview" fold for the files a browser can show itself: images, video and audio, decided from the upload's content type with the file name as a fallback. Opening it loads the file from the bucket through a second presigned link that says *inline* rather than *attachment* and carries the file's type; images load lazily, video and audio not until play, and a multi-gigabyte video then streams by range requests, so nothing is fetched in full. Everything else, including an HTML file uploaded as "other", only downloads. A poster previews at full size scaled by the page, which is fine on a session page and would not be on the board; thumbnails made by the worker are queued as task 5.8.
+
 #### Where files live in the bucket
 
 Every object is keyed by edition, session and kind, so the bucket itself reads like a folder tree:

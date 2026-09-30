@@ -132,7 +132,12 @@ session page lists the shared files (`media.team_files`) without the
 reviewer notes. Promo materials are `PROMO` assets with a free `variant`
 ("square", "gif"); versions count per kind, language and variant, and the
 seeded promo lines tick on the first file and the first share
-(`AutoRule.ASSET_SHARED`). Uploads nobody finishes expire after
+(`AutoRule.ASSET_SHARED`). Images, video and audio
+(`MediaAsset.preview_kind`, from the content type or the name) get a
+closed "Preview" fold on their rows (`_media_preview.html`) that loads the
+file through `MediaPreviewView`, an inline presigned link; nothing is
+fetched until the fold is opened, and video streams by range requests.
+Uploads nobody finishes expire after
 `SPEAKER_MEDIA_UPLOAD_TTL_HOURS` (the "Expire abandoned uploads" task
 nightly, `manage.py expire_abandoned_uploads` by hand); the bucket needs its
 own lifecycle rule as the backstop (`AbortIncompleteMultipartUpload` after
