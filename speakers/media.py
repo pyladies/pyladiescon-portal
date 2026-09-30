@@ -286,11 +286,14 @@ def open_uploads(session, user):
     )
 
 
-def video_panel(session, user):
+def video_panel(session, user, assets=None):
     """What the performer's video card shows (design §4.1): the current raw
     video, its duration against the limit, the versions so far, and any
-    upload of theirs to resume."""
-    assets = [a for a in session_assets(session) if a.kind == MediaKind.RAW_VIDEO]
+    upload of theirs to resume. Pass ``assets`` (``session_assets``) when
+    the page already loaded them."""
+    if assets is None:
+        assets = session_assets(session)
+    assets = [a for a in assets if a.kind == MediaKind.RAW_VIDEO]
     current = next((a for a in assets if a.is_ready), None)
     limit = video_limit_minutes(session)
     duration_pct = None

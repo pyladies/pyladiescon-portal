@@ -376,7 +376,8 @@ class SessionDetailView(SessionScopedMixin, DetailView):
         )
         # The session's files (design §8.8): every kind and version, the
         # newest READY one first in each group, and the panel to add more.
-        context["media_groups"] = asset_groups(session_assets(self.object))
+        assets = session_assets(self.object)
+        context["media_groups"] = asset_groups(assets)
         context["media_kinds"] = MediaKind.choices
         context["can_upload_media"] = context["can_assign"]
         context["open_uploads"] = (
@@ -384,6 +385,39 @@ class SessionDetailView(SessionScopedMixin, DetailView):
             if context["can_assign"]
             else []
         )
+        # The strip under the title: what needs a person, counted from what
+        # the page already loaded, each tile linking to its section.
+        context["video"] = (
+            video_panel(self.object, self.request.user, assets)
+            if self.object.is_pre_recorded
+            else None
+        )
+        context["processed"] = next(
+            (a for a in assets if a.kind == MediaKind.PROCESSED_VIDEO and a.is_ready),
+            None,
+        )
+        open_items = [i for i in items if i.is_open]
+        unsent = [
+            link
+            for link in self.object.presenter_links
+            if not link.is_confirmed
+            and (
+                latest.get(link.presenter_id) is None
+                or latest[link.presenter_id].sent_at is None
+            )
+        ]
+        context["glance"] = {
+            "presenters_total": len(self.object.presenter_links),
+            "presenters_confirmed": sum(
+                1 for link in self.object.presenter_links if link.is_confirmed
+            ),
+            "invites_unsent": len(unsent),
+            "open": len(open_items),
+            "overdue": sum(1 for i in open_items if i.overdue),
+            "blocked": sum(1 for i in open_items if i.status == ItemStatus.BLOCKED),
+            "waiting": sum(1 for i in open_items if i.is_waiting),
+            "slot": getattr(self.object, "slot", None),
+        }
         return context
 
 
@@ -1368,6 +1402,20 @@ class SpeakerSessionDetailView(SpeakerSessionMixin, TemplateView):
                 ),
             }
         )
+        # The strip under the title: their to-dos, counted from the list
+        # the page already has (sorted by due date, undated last).
+        mine = context["speaker_items"]
+        open_items = [i for i in mine if i.is_open]
+        context["glance"] = {
+            "open": len(open_items),
+            "overdue": sum(1 for i in open_items if i.overdue),
+            "waiting": sum(1 for i in open_items if i.is_waiting),
+            "next_due": next(
+                (i for i in open_items if i.due_date and not i.is_waiting), None
+            ),
+            "done": len(mine) - len(open_items),
+            "total": len(mine),
+        }
         return context
 
 

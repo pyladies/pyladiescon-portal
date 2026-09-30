@@ -1,6 +1,11 @@
 {% extends "speakers/_speaker_shell.html" %}
 {% load i18n static %}
 {% load speakers_extras %}
+{% comment %}
+The speaker's session page puts what they came to do first: a strip of
+their to-dos and (for a performance) their video, then the video card
+and the checklist, and the description with the facts below.
+{% endcomment %}
 {% block head_title %}
     {{ session.title }}
 {% endblock head_title %}
@@ -31,91 +36,116 @@
                 <span class="badge text-bg-secondary">{% trans "Not yet public" %}</span>
             {% endif %}
         </div>
-        <a class="btn btn-outline-primary"
-           href="{% url 'speakers:my_session_edit' session.slug %}">
-            <i class="fa-solid fa-pen"></i> {% trans "Edit details" %}
-        </a>
-    </div>
-    <div class="row g-4 mb-4">
-        <div class="col-lg-8">
-            {% if session.summary_md %}
-                <h2 class="h6 text-uppercase text-secondary">
-                    {% trans "Summary" %}
-                </h2>
-                <div class="mb-3">
-                    {{ session.summary_md|speaker_md }}
-                </div>
+        <div class="d-flex flex-wrap gap-2" id="quick-actions">
+            {% if video %}
+                <a class="btn {% if video.current %}btn-outline-primary{% else %}btn-primary{% endif %}"
+                   href="#video">
+                    <i class="fa-solid fa-cloud-arrow-up"></i>
+                    {% if video.current %}
+                        {% trans "Replace video" %}
+                    {% else %}
+                        {% trans "Upload video" %}
+                    {% endif %}
+                </a>
             {% endif %}
-            {% if session.outline_md %}
-                <h2 class="h6 text-uppercase text-secondary">
-                    {% trans "Outline" %}
-                </h2>
-                <div class="mb-3">
-                    {{ session.outline_md|speaker_md }}
-                </div>
-            {% endif %}
-            {% if session.prerequisites_md %}
-                <h2 class="h6 text-uppercase text-secondary">
-                    {% trans "Prerequisites" %}
-                </h2>
-                <div class="mb-3">
-                    {{ session.prerequisites_md|speaker_md }}
-                </div>
-            {% endif %}
-            {% if session.audience_md %}
-                <h2 class="h6 text-uppercase text-secondary">
-                    {% trans "Audience" %}
-                </h2>
-                <div class="mb-3">
-                    {{ session.audience_md|speaker_md }}
-                </div>
-            {% endif %}
-            {% if not session.summary_md and not session.outline_md %}
-                <p class="text-secondary">
-                    {% trans "No description yet. A title and two sentences is a complete listing." %}
-                    <a href="{% url 'speakers:my_session_edit' session.slug %}">{% trans "Add one" %}</a>
-                </p>
-            {% endif %}
+            <a class="btn btn-outline-primary"
+               href="{% url 'speakers:my_session_edit' session.slug %}">
+                <i class="fa-solid fa-pen"></i> {% trans "Edit details" %}
+            </a>
         </div>
-        <div class="col-lg-4">
-            <div class="card mb-3">
-                <div class="card-header">
-                    {% trans "Details" %}
+    </div>
+    {# At a glance: what is theirs to do, each tile a link to its section. #}
+    <div class="row g-2 mb-4" id="glance">
+        <div class="col-6 col-lg">
+            <a class="card glance-tile h-100 {% if glance.overdue %}glance-bad{% elif not glance.open and glance.total %}glance-ok{% endif %}"
+               href="#checklist">
+                <div class="card-body py-2">
+                    <div class="glance-label">
+                        {% trans "Your to-dos" %}
+                    </div>
+                    <div class="glance-value">
+                        {% if glance.open %}
+                            {% blocktranslate count counter=glance.open %}{{ counter }} open{% plural %}{{ counter }} open{% endblocktranslate %}
+                        {% elif glance.total %}
+                            {% trans "All done" %}
+                        {% else %}
+                            {% trans "Nothing yet" %}
+                        {% endif %}
+                    </div>
+                    <div class="glance-detail">
+                        {% if glance.overdue %}
+                            {{ glance.overdue }} {% trans "overdue" %}
+                        {% elif glance.next_due %}
+                            {% blocktranslate with date=glance.next_due.due_date|date:"j M" title=glance.next_due.title %}Next: {{ title }}, {{ date }}{% endblocktranslate %}
+                        {% elif glance.waiting %}
+                            {% blocktranslate count counter=glance.waiting %}{{ counter }} waiting on us{% plural %}{{ counter }} waiting on us{% endblocktranslate %}
+                        {% elif glance.total %}
+                            {% blocktranslate with done=glance.done total=glance.total %}{{ done }} of {{ total }} done{% endblocktranslate %}
+                        {% else %}
+                            {% trans "Your list appears once the team sets it up" %}
+                        {% endif %}
+                    </div>
                 </div>
-                <div class="card-body small">
-                    <div>
-                        <strong>{% trans "Level" %}:</strong> {{ session.get_level_display|default:"—" }}
+            </a>
+        </div>
+        {% if video %}
+            <div class="col-6 col-lg">
+                <a class="card glance-tile h-100 {% if not video.current or video.over_by %}glance-warn{% elif video.current.duration_seconds is not None %}glance-ok{% endif %}"
+                   href="#video">
+                    <div class="card-body py-2">
+                        <div class="glance-label">
+                            {% trans "Your video" %}
+                        </div>
+                        <div class="glance-value">
+                            {% if video.current %}
+                                v{{ video.current.version }}
+                                {% if video.current.duration_seconds is not None %}
+                                    · {{ video.current.duration_seconds|duration }}
+                                {% endif %}
+                            {% else %}
+                                {% trans "Not uploaded yet" %}
+                            {% endif %}
+                        </div>
+                        <div class="glance-detail">
+                            {% if not video.current %}
+                                {% trans "Upload it when it is ready" %}
+                            {% elif video.over_by %}
+                                {% blocktranslate with limit=video.limit_minutes %}Over the {{ limit }}-minute limit{% endblocktranslate %}
+                            {% elif video.current.duration_seconds is None %}
+                                {% trans "Length not checked yet" %}
+                            {% elif video.limit_minutes %}
+                                {% trans "Within the limit" %}
+                            {% else %}
+                                {% trans "Received" %}
+                            {% endif %}
+                        </div>
                     </div>
-                    <div>
-                        <strong>{% trans "Language" %}:</strong> {{ session.language|default:"—" }}
+                </a>
+            </div>
+        {% endif %}
+        <div class="col-6 col-lg">
+            <a class="card glance-tile h-100 {% if slot %}glance-ok{% endif %}"
+               href="#details">
+                <div class="card-body py-2">
+                    <div class="glance-label">
+                        {% trans "Session" %}
                     </div>
-                    <div>
-                        <strong>{% trans "When" %}:</strong>
+                    <div class="glance-value">
                         {% if slot %}
                             {{ slot.start_utc|date:"D j M H:i" }} UTC
                         {% else %}
                             {% trans "Not scheduled yet" %}
                         {% endif %}
                     </div>
+                    <div class="glance-detail">
+                        {% if session.is_public %}
+                            {% trans "Public" %}
+                        {% else %}
+                            {% trans "Not yet public" %}
+                        {% endif %}
+                    </div>
                 </div>
-            </div>
-            <div class="card">
-                <div class="card-header">
-                    {% trans "Co-presenters" %}
-                </div>
-                <ul class="list-group list-group-flush">
-                    {% for other in co_presenters %}
-                        <li class="list-group-item">
-                            {{ other.presenter.display_name }}
-                            <span class="badge text-bg-light border">{{ other.get_role_display }}</span>
-                        </li>
-                    {% empty %}
-                        <li class="list-group-item text-secondary">
-                            {% trans "Just you so far." %}
-                        </li>
-                    {% endfor %}
-                </ul>
-            </div>
+            </a>
         </div>
     </div>
     {% if video %}
@@ -206,6 +236,94 @@
     {% endif %}
     <h2 class="h5 mb-3" id="checklist">
         {% trans "Checklist for this session" %}
+        {% if glance.open %}
+            <span class="badge text-bg-light border align-middle">{{ glance.open }} {% trans "open" %}</span>
+        {% endif %}
     </h2>
     {% include "speakers/_speaker_checklist_lists.html" with speaker_items=speaker_items organizer_items=organizer_items video_items=video_items %}
+    <div class="row g-4 mt-2" id="description">
+        <div class="col-lg-8">
+            <h2 class="h5 mb-3">
+                {% trans "Description" %}
+            </h2>
+            {% if session.summary_md %}
+                <h3 class="h6 text-uppercase text-secondary">
+                    {% trans "Summary" %}
+                </h3>
+                <div class="mb-3">
+                    {{ session.summary_md|speaker_md }}
+                </div>
+            {% endif %}
+            {% if session.outline_md %}
+                <h3 class="h6 text-uppercase text-secondary">
+                    {% trans "Outline" %}
+                </h3>
+                <div class="mb-3">
+                    {{ session.outline_md|speaker_md }}
+                </div>
+            {% endif %}
+            {% if session.prerequisites_md %}
+                <h3 class="h6 text-uppercase text-secondary">
+                    {% trans "Prerequisites" %}
+                </h3>
+                <div class="mb-3">
+                    {{ session.prerequisites_md|speaker_md }}
+                </div>
+            {% endif %}
+            {% if session.audience_md %}
+                <h3 class="h6 text-uppercase text-secondary">
+                    {% trans "Audience" %}
+                </h3>
+                <div class="mb-3">
+                    {{ session.audience_md|speaker_md }}
+                </div>
+            {% endif %}
+            {% if not session.summary_md and not session.outline_md %}
+                <p class="text-secondary">
+                    {% trans "No description yet. A title and two sentences is a complete listing." %}
+                    <a href="{% url 'speakers:my_session_edit' session.slug %}">{% trans "Add one" %}</a>
+                </p>
+            {% endif %}
+        </div>
+        <div class="col-lg-4">
+            <div class="card mb-3" id="details">
+                <div class="card-header">
+                    {% trans "Details" %}
+                </div>
+                <div class="card-body small">
+                    <div>
+                        <strong>{% trans "Level" %}:</strong> {{ session.get_level_display|default:"—" }}
+                    </div>
+                    <div>
+                        <strong>{% trans "Language" %}:</strong> {{ session.language|default:"—" }}
+                    </div>
+                    <div>
+                        <strong>{% trans "When" %}:</strong>
+                        {% if slot %}
+                            {{ slot.start_utc|date:"D j M H:i" }} UTC
+                        {% else %}
+                            {% trans "Not scheduled yet" %}
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-header">
+                    {% trans "Co-presenters" %}
+                </div>
+                <ul class="list-group list-group-flush">
+                    {% for other in co_presenters %}
+                        <li class="list-group-item">
+                            {{ other.presenter.display_name }}
+                            <span class="badge text-bg-light border">{{ other.get_role_display }}</span>
+                        </li>
+                    {% empty %}
+                        <li class="list-group-item text-secondary">
+                            {% trans "Just you so far." %}
+                        </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+    </div>
 {% endblock content %}
