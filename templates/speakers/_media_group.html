@@ -2,8 +2,9 @@
 {% comment %}
 One file group (a kind, language and variant on the session) as a table
 body: a row for the current version, and a collapsed row underneath
-with the preview, the reviewer's note, sharing, the title and the
-earlier versions. Its id is what the note, share and title forms swap.
+with the preview, the reviewer's note, the title and the earlier
+versions; sharing is the button in the Speaker column. Its id is what
+the note, share and title forms swap.
 Params: group (media.asset_groups), session, can_edit
 {% endcomment %}
 {% with asset=group.current|default:group.target %}
@@ -66,11 +67,34 @@ Params: group (media.asset_groups), session, can_edit
                 {% endif %}
             </td>
             <td class="text-nowrap small">
-                {% if asset.shared_with_speaker %}
-                    {% trans "The speaker sees this file on their session page" as shared_title %}
+                {% trans "The speaker sees this file on their session page" as shared_title %}
+                {% if can_edit and asset.is_ready and asset.kind != "RAW_VIDEO" %}
+                    <form method="post"
+                          action="{% url 'speakers:media_share' session.slug asset.pk %}"
+                          hx-post="{% url 'speakers:media_share' session.slug asset.pk %}"
+                          hx-target="#{{ group.id }}"
+                          hx-swap="outerHTML">
+                        {% csrf_token %}
+                        {% if asset.shared_with_speaker %}
+                            <input type="hidden" name="shared" value="0">
+                            {% trans "Shared; click to take it back" as unshare_title %}
+                            <button class="btn btn-sm btn-info" type="submit" title="{{ unshare_title }}">
+                                <i class="fa-solid fa-share-nodes"></i> {% trans "Shared" %}
+                            </button>
+                        {% else %}
+                            <input type="hidden" name="shared" value="1">
+                            <button class="btn btn-sm btn-outline-secondary" type="submit">
+                                <i class="fa-solid fa-share-nodes"></i> {% trans "Share" %}
+                            </button>
+                        {% endif %}
+                    </form>
+                {% elif asset.shared_with_speaker %}
                     <span class="badge text-bg-info" title="{{ shared_title }}">
                         <i class="fa-solid fa-share-nodes"></i> {% trans "Shared" %}
                     </span>
+                {% elif asset.kind == "RAW_VIDEO" %}
+                    {% trans "The speaker's own file" as own_title %}
+                    <span class="text-secondary" title="{{ own_title }}">{% trans "theirs" %}</span>
                 {% else %}
                     <span class="text-secondary">—</span>
                 {% endif %}
@@ -163,26 +187,6 @@ Params: group (media.asset_groups), session, can_edit
                                     </button>
                                 </div>
                             </form>
-                            {% if asset.is_ready and asset.kind != "RAW_VIDEO" %}
-                                <form method="post"
-                                      action="{% url 'speakers:media_share' session.slug asset.pk %}"
-                                      hx-post="{% url 'speakers:media_share' session.slug asset.pk %}"
-                                      hx-target="#{{ group.id }}"
-                                      hx-swap="outerHTML">
-                                    {% csrf_token %}
-                                    {% if asset.shared_with_speaker %}
-                                        <input type="hidden" name="shared" value="0">
-                                        <button class="btn btn-sm btn-outline-secondary" type="submit">
-                                            {% trans "Unshare" %}
-                                        </button>
-                                    {% else %}
-                                        <input type="hidden" name="shared" value="1">
-                                        <button class="btn btn-sm btn-outline-info" type="submit">
-                                            <i class="fa-solid fa-share-nodes"></i> {% trans "Share with speaker" %}
-                                        </button>
-                                    {% endif %}
-                                </form>
-                            {% endif %}
                         </div>
                     {% endif %}
                 </div>
