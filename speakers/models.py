@@ -56,6 +56,7 @@ from .constants import (
     SessionLevel,
     SessionStatus,
     UploadStatus,
+    ZipStatus,
     format_owner,
 )
 from .encryption import EncryptedTextField, usable
@@ -2092,6 +2093,54 @@ class MediaUpload(TimestampedModel):
     @property
     def is_open(self):
         return self.status == UploadStatus.STARTED
+
+
+class MediaExport(TimestampedModel):
+    """One bulk download of an edition's files (design §8.8, task 5.6).
+
+    The row is the scope a person chose and the audit of it: who, when,
+    how many files, how many bytes, until when the links live. The links
+    themselves are minted when the script, manifest or folder download
+    asks for them, within ``expires_at``. A zip, when the selection is
+    small enough, is built by the media worker into the bucket and its
+    key kept here.
+    """
+
+    conference = models.ForeignKey(
+        "portal.Conference", on_delete=models.PROTECT, related_name="media_exports"
+    )
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="media_exports",
+    )
+    # {"kinds": [...], "language": "", "sessions": [slugs], "versions":
+    # "latest"|"all", "since": iso or ""}
+    scope = models.JSONField(default=dict, blank=True)
+    file_count = models.PositiveIntegerField(default=0)
+    total_bytes = models.BigIntegerField(default=0)
+    expires_at = models.DateTimeField()
+    zip_status = models.CharField(
+        max_length=16, choices=ZipStatus.choices, blank=True, default=""
+    )
+    zip_key = models.CharField(max_length=500, blank=True, default="")
+    zip_error = models.CharField(max_length=500, blank=True, default="")
+    zip_built_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-id"]
+
+    def __str__(self):
+        return f"Export {self.pk} of {self.conference}"
+
+    @property
+    def is_expired(self):
+        return self.expires_at <= timezone.now()
+
+    def get_absolute_url(self):
+        return reverse("speakers:media_export_detail", kwargs={"pk": self.pk})
 
 
 class Handbook(TimestampedModel):

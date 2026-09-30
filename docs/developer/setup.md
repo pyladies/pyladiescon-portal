@@ -361,7 +361,13 @@ boto3.client('s3', endpoint_url=os.environ['AWS_S3_ENDPOINT_URL'],
 MinIO answers browser uploads from any origin and exposes the `ETag`
 header, so no CORS rule is needed. Speakers see none of this until *Media
 for speakers* is switched on in the admin under Speaker settings;
-organizers see it all regardless. Log in as a performer (the sample data's
+organizers see it all regardless. Bulk download works against it too:
+"Download files" on the sessions list, make an export, then run its
+`download.sh` in an empty folder or ask for the zip (the worker builds it
+and maildev at http://localhost:1080 gets the email). After pulling code
+that adds a Celery task, restart the worker (`docker compose restart
+celery`): a running worker only knows the tasks it started with and drops
+a message for one it does not know. Log in as a performer (the sample data's
 `volunteer2` is on the PyJam session) and upload from the session page;
 leaving the page mid-upload and choosing the same file again should
 continue from the parts that already landed.

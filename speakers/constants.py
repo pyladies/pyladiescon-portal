@@ -107,6 +107,16 @@ class MediaKind(models.TextChoices):
     OTHER = "OTHER", "Other"
 
 
+class ZipStatus(models.TextChoices):
+    """Where an export's zip stands (design §8.8, bulk download)."""
+
+    NONE = "", "Not requested"
+    QUEUED = "QUEUED", "Queued"
+    RUNNING = "RUNNING", "Building"
+    DONE = "DONE", "Ready"
+    FAILED = "FAILED", "Failed"
+
+
 # The kinds the duration probe runs on (design §8.8, task 5.3).
 VIDEO_KINDS = frozenset(
     {MediaKind.RAW_VIDEO, MediaKind.INTRO, MediaKind.OUTRO, MediaKind.PROCESSED_VIDEO}

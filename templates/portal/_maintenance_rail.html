@@ -5,7 +5,7 @@ portal itself rather than the conference. Gated on is_maintainer, never on
 is_organizer; the two are independent.
 
 Expects:
-    active: one of: "accounts", "emails". Anything else = no item highlighted.
+    active: one of: "accounts", "emails", "exports". Anything else = no item highlighted.
 {% endcomment %}
 {% url 'maintenance_accounts' as accounts_url %}
 {% if active == "accounts" %}
@@ -18,4 +18,10 @@ Expects:
     {% include "portal/_sidebar_item.html" with url=emails_url label=_("Emails") icon="fa-envelope-open-text" active=True only %}
 {% else %}
     {% include "portal/_sidebar_item.html" with url=emails_url label=_("Emails") icon="fa-envelope-open-text" only %}
+{% endif %}
+{% url 'maintenance_exports' as exports_url %}
+{% if active == "exports" %}
+    {% include "portal/_sidebar_item.html" with url=exports_url label=_("File exports") icon="fa-file-zipper" active=True only %}
+{% else %}
+    {% include "portal/_sidebar_item.html" with url=exports_url label=_("File exports") icon="fa-file-zipper" only %}
 {% endif %}

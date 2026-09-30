@@ -639,12 +639,20 @@ open the tab their target lives in.
                 </div>
                 <hr class="my-4">
             {% endif %}
-            <h2 class="h5 mb-3" id="files">
-                {% trans "Uploaded files" %}
-                {% if media_groups %}
-                    <span class="badge text-bg-light border align-middle">{{ media_groups|length }}</span>
+            <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+                <h2 class="h5 mb-0" id="files">
+                    {% trans "Uploaded files" %}
+                    {% if media_groups %}
+                        <span class="badge text-bg-light border align-middle">{{ media_groups|length }}</span>
+                    {% endif %}
+                </h2>
+                {% if is_organizer and media_groups %}
+                    <a class="btn btn-sm btn-outline-secondary"
+                       href="{% url 'speakers:media_export' %}?sessions={{ session.slug }}&kinds=RAW_VIDEO&kinds=INTRO&kinds=OUTRO&kinds=PROCESSED_VIDEO&kinds=TRANSCRIPT&kinds=TRANSLATION&kinds=TITLE_CARD&kinds=THUMBNAIL&kinds=PROMO&kinds=OTHER">
+                        <i class="fa-solid fa-download"></i> {% trans "Download all files of this session" %}
+                    </a>
                 {% endif %}
-            </h2>
+            </div>
             {% include "speakers/_media_files.html" with session=session media_groups=media_groups can_edit=can_upload_media %}
         </div>
         <div class="tab-pane fade"

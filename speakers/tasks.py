@@ -1,10 +1,13 @@
 import logging
 
 from celery import shared_task
+from django.conf import settings
+from django.utils import timezone
 
+from common.send_emails import send_email
 from portal.models import Conference
 
-from .constants import ProposalDecision
+from .constants import ProposalDecision, ZipStatus
 from .emails import (
     send_acceptance_email,
     send_added_to_session_email,
@@ -14,10 +17,12 @@ from .emails import (
     send_proposal_received_email,
     send_proposal_rejected_email,
 )
-from .media import expire_abandoned_uploads
+from .exports import ExportError, build_zip, zip_url
+from .media import MediaStorageNotConfigured, expire_abandoned_uploads
 from .models import (
     Invitation,
     MediaAsset,
+    MediaExport,
     Presenter,
     Proposal,
     Session,
@@ -224,6 +229,62 @@ def expire_abandoned_uploads_task():
     """
     count = expire_abandoned_uploads()
     return f"Expired {count} abandoned upload(s)"
+
+
+@shared_task(time_limit=2 * 3600)
+def build_export_zip_task(export_id):
+    """Build an export's zip in the bucket and tell the person who asked
+    (design §8.8, bulk download). On the media queue: a zip of a few
+    hundred megabytes takes minutes. A failure is written on the export,
+    where the page shows it, and logged."""
+    export = (
+        MediaExport.objects.select_related("conference", "created_by")
+        .filter(pk=export_id)
+        .first()
+    )
+    if export is None or export.created_by is None:
+        return "No such export"
+    export.zip_status = ZipStatus.RUNNING
+    export.save(update_fields=["zip_status", "modified_date"])
+    try:
+        export.zip_key = build_zip(export, export.created_by)
+    except (ExportError, MediaStorageNotConfigured) as exc:
+        export.zip_status = ZipStatus.FAILED
+        export.zip_error = str(exc)[:500]
+        export.save(update_fields=["zip_status", "zip_error", "modified_date"])
+        logger.error("Export %s zip failed: %s", export.pk, exc)
+        return f"Export {export_id} zip failed: {exc}"
+    export.zip_status = ZipStatus.DONE
+    export.zip_built_at = timezone.now()
+    export.zip_error = ""
+    export.save(
+        update_fields=[
+            "zip_key",
+            "zip_status",
+            "zip_built_at",
+            "zip_error",
+            "modified_date",
+        ]
+    )
+    link = zip_url(export)
+    if export.created_by.email:
+        send_email(
+            f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} Your {export.conference.name} "
+            "file export is ready",
+            [export.created_by.email],
+            markdown_template="emails/speakers/export_ready.md",
+            context={
+                "export": export,
+                "link": link,
+                "expires_at": export.expires_at,
+                "conference": export.conference,
+                "user": export.created_by,
+            },
+            conference=export.conference,
+            user=export.created_by,
+            secrets=[link],
+        )
+    return f"Export {export_id} zip ready"
 
 
 # How many times a video is probed before its failure stands, and the

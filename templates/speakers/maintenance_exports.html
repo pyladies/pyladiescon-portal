@@ -1,0 +1,97 @@
+{% extends "portal/base_sidebar.html" %}
+{% load i18n %}
+{% block head_title %}
+    {% trans "Maintenance: File exports" %}
+{% endblock head_title %}
+{% block sidebar_title %}
+    {% trans "Maintenance" %}
+{% endblock sidebar_title %}
+{% block sidebar_title_desktop %}
+    {% trans "Maintenance" %}
+{% endblock sidebar_title_desktop %}
+{% block sidebar %}
+    {% include "portal/_maintenance_rail.html" with active="exports" %}
+{% endblock sidebar %}
+{% block content %}
+    <div class="container px-0">
+        <h1 class="h3 mb-1">
+            {% trans "File exports" %}
+        </h1>
+        <p class="text-secondary mb-3">
+            {% trans "Every bulk download of speaker media: who asked for what, how much, and until when its links worked. The links themselves are not kept; they are minted on request while the export lives." %}
+        </p>
+        {% if object_list %}
+            <div class="table-responsive">
+                <table class="table table-sm table-hover align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>
+                                {% trans "When" %}
+                            </th>
+                            <th>
+                                {% trans "Who" %}
+                            </th>
+                            <th>
+                                {% trans "Edition" %}
+                            </th>
+                            <th>
+                                {% trans "What" %}
+                            </th>
+                            <th class="text-end">
+                                {% trans "Files" %}
+                            </th>
+                            <th class="text-end">
+                                {% trans "Size" %}
+                            </th>
+                            <th>
+                                {% trans "Links until" %}
+                            </th>
+                            <th>
+                                {% trans "Zip" %}
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for export in object_list %}
+                            <tr>
+                                <td class="text-nowrap small">
+                                    {{ export.creation_date|date:"j M Y H:i" }} UTC
+                                </td>
+                                <td class="small">
+                                    {% if export.created_by %}
+                                        {{ export.created_by.get_full_name|default:export.created_by.username }}
+                                    {% else %}
+                                        <span class="text-secondary">{% trans "account removed" %}</span>
+                                    {% endif %}
+                                </td>
+                                <td class="small">
+                                    {{ export.conference.year }}
+                                </td>
+                                <td class="small">
+                                    {{ export.summary }}
+                                </td>
+                                <td class="text-end small">
+                                    {{ export.file_count }}
+                                </td>
+                                <td class="text-end small text-nowrap">
+                                    {{ export.total_bytes|filesizeformat }}
+                                </td>
+                                <td class="text-nowrap small {% if export.is_expired %}text-secondary{% endif %}">
+                                    {{ export.expires_at|date:"j M H:i" }} UTC
+                                </td>
+                                <td class="small">
+                                    {{ export.get_zip_status_display|default:"—" }}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% include "portal/_pagination.html" %}
+        {% else %}
+            <p class="text-secondary">
+                {% trans "No exports yet." %}
+            </p>
+        {% endif %}
+    </div>
+{% endblock content %}

@@ -156,9 +156,10 @@ days (`AbortIncompleteMultipartUpload`): the portal's nightly "Expire
 abandoned uploads" task reclaims what it knows about, and the rule reclaims
 the rest. The bucket also needs a CORS rule allowing `PUT` from the portal's
 origin with the `ETag` header exposed, since the browser uploads the parts
-directly. Once bulk download exists (design §8.8, task 5.6) the same
-rule needs `GET` as well, and a second lifecycle rule should expire the
-`exports/` prefix after 7 days, since zip bundles are built there.
+directly. Bulk download (design §8.8, task 5.6) needs `GET` in the same
+rule for the browser's folder download, and a second lifecycle rule that
+expires the `exports/` prefix after 7 days, since zip bundles are built
+there and their links die with the export after twelve hours.
 
 **Endpoint and region.** The media client reads `SPEAKER_MEDIA_ENDPOINT_URL`
 and `SPEAKER_MEDIA_REGION`, each falling back to `AWS_S3_ENDPOINT_URL` and

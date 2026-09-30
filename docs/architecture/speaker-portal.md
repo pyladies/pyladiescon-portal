@@ -386,7 +386,7 @@ The upload id segment is what makes a re-upload a new object instead of an overw
 
 #### Bulk download (post-production)
 
-> **Designed, not built.** Task 5.6.
+> **Built** (30 September 2026, task 5.6), as designed below, with one refinement: the "download to a folder" path works in Chromium browsers and the page says so where it is not available.
 
 The people who edit the videos, design the title cards and cut the final versions work on their own machines, in their own tools, and they want *everything* for the edition on local disk, not one file at a time from a web page. A pull of an edition's raw video is tens of gigabytes across dozens of files, which rules out the two obvious shapes: a zip built on the server doubles the storage and ties up a worker and its disk for an hour, and a zip streamed through Django holds a web worker for the whole transfer and cannot resume when the connection drops. The bucket already knows how to serve large files with range requests and resume; the portal's job is to hand out the list of what to fetch and where to put it.
 

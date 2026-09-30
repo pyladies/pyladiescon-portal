@@ -22,10 +22,18 @@
                 {% endif %}
             </p>
         </div>
-        <a class="btn btn-outline-secondary btn-sm"
-           href="{% url 'speakers:checklist_board_export' %}?tab={{ tab|lower }}">
-            <i class="fa-solid fa-file-csv"></i> {% trans "Export CSV" %}
-        </a>
+        <div class="d-flex gap-2">
+            {% if tab == "POST_PRODUCTION" and is_organizer %}
+                <a class="btn btn-outline-primary btn-sm"
+                   href="{% url 'speakers:media_export' %}">
+                    <i class="fa-solid fa-download"></i> {% trans "Download files" %}
+                </a>
+            {% endif %}
+            <a class="btn btn-outline-secondary btn-sm"
+               href="{% url 'speakers:checklist_board_export' %}?tab={{ tab|lower }}">
+                <i class="fa-solid fa-file-csv"></i> {% trans "Export CSV" %}
+            </a>
+        </div>
     </div>
     <ul class="nav nav-tabs mb-3">
         <li class="nav-item">

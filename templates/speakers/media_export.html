@@ -1,0 +1,155 @@
+{% extends "speakers/_organize_shell.html" %}
+{% load i18n %}
+{% block head_title %}
+    {% trans "Download files" %}
+{% endblock head_title %}
+{% block breadcrumb %}
+    {% url 'speakers:session_list' as bc_url %}
+    {% trans "Sessions" as bc_section %}
+    {% trans "Download files" as bc_page %}
+    {% include "portal/_breadcrumbs.html" with section=bc_section section_url=bc_url page=bc_page %}
+{% endblock breadcrumb %}
+{% block content %}
+    <h1 class="h3 mb-1">
+        {% trans "Download files" %}
+    </h1>
+    <p class="text-secondary mb-3">
+        {% trans "Pick what to fetch; the count and size update when you apply the selection. An export then gives you the files as a folder in the browser, as a script for a terminal, or as a zip when the selection is small." %}
+    </p>
+    <form method="get" class="card mb-3">
+        <div class="card-body row g-3">
+            <div class="col-md-4">
+                <div class="form-label small mb-1">
+                    {% trans "Kinds" %}
+                </div>
+                {% for value, label in kinds %}
+                    <div class="form-check">
+                        <input class="form-check-input"
+                               type="checkbox"
+                               name="kinds"
+                               value="{{ value }}"
+                               id="kind-{{ value }}"
+                               {% if value in scope.kinds %}checked{% endif %}>
+                        <label class="form-check-label small" for="kind-{{ value }}">
+                            {{ label }}
+                        </label>
+                    </div>
+                {% endfor %}
+            </div>
+            <div class="col-md-4">
+                <label class="form-label small mb-1" for="export-sessions">
+                    {% trans "Sessions" %}
+                </label>
+                <select class="form-select form-select-sm"
+                        name="sessions"
+                        id="export-sessions"
+                        multiple
+                        size="8">
+                    {% for session in sessions %}
+                        <option value="{{ session.slug }}"
+                                {% if session.slug in scope.sessions %}selected{% endif %}>
+                            {{ session.title }}
+                        </option>
+                    {% endfor %}
+                </select>
+                <div class="form-text">
+                    {% trans "None selected means every session with files." %}
+                </div>
+            </div>
+            <div class="col-md-4">
+                {% trans "any" as any_label %}
+                <label class="form-label small mb-1" for="export-language">
+                    {% trans "Language" %}
+                </label>
+                <input class="form-control form-control-sm mb-2"
+                       name="language"
+                       id="export-language"
+                       value="{{ scope.language }}"
+                       placeholder="{{ any_label }}"
+                       maxlength="10">
+                <div class="form-label small mb-1">
+                    {% trans "Versions" %}
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input"
+                           type="radio"
+                           name="versions"
+                           value="latest"
+                           id="versions-latest"
+                           {% if scope.versions == "latest" %}checked{% endif %}>
+                    <label class="form-check-label small" for="versions-latest">
+                        {% trans "Latest ready version of each file" %}
+                    </label>
+                </div>
+                <div class="form-check mb-2">
+                    <input class="form-check-input"
+                           type="radio"
+                           name="versions"
+                           value="all"
+                           id="versions-all"
+                           {% if scope.versions == "all" %}checked{% endif %}>
+                    <label class="form-check-label small" for="versions-all">
+                        {% trans "Every ready version" %}
+                    </label>
+                </div>
+                <label class="form-label small mb-1" for="export-since">
+                    {% trans "Only files newer than" %}
+                </label>
+                <input class="form-control form-control-sm"
+                       type="datetime-local"
+                       name="since"
+                       id="export-since"
+                       value="{{ scope.since|slice:':16' }}">
+            </div>
+            <div class="col-12 d-flex flex-wrap align-items-center gap-3">
+                <button class="btn btn-outline-secondary" type="submit">
+                    <i class="fa-solid fa-filter"></i> {% trans "Apply selection" %}
+                </button>
+                <span>
+                    {% blocktranslate count counter=file_count %}<strong>{{ counter }}</strong> file{% plural %}<strong>{{ counter }}</strong> files{% endblocktranslate %}
+                    · <strong>{{ total_bytes|filesizeformat }}</strong>
+                    {% if total_bytes > zip_max_bytes %}
+                        <span class="text-secondary small">({% trans "too large for a zip; folder download or script" %})</span>
+                    {% endif %}
+                </span>
+            </div>
+        </div>
+    </form>
+    <form method="post" action="{% url 'speakers:media_export' %}">
+        {% csrf_token %}
+        {% for value in scope.kinds %}
+            <input type="hidden" name="kinds" value="{{ value }}">
+        {% endfor %}
+        {% for slug in scope.sessions %}
+            <input type="hidden" name="sessions" value="{{ slug }}">
+        {% endfor %}
+        <input type="hidden" name="language" value="{{ scope.language }}">
+        <input type="hidden" name="versions" value="{{ scope.versions }}">
+        <input type="hidden" name="since" value="{{ scope.since }}">
+        <button class="btn btn-primary"
+                type="submit"
+                {% if not file_count %}disabled{% endif %}>
+            <i class="fa-solid fa-download"></i> {% trans "Make the export" %}
+        </button>
+        <span class="text-secondary small ms-2">
+            {% trans "Its links live for twelve hours and fetch the files for whoever has them." %}
+        </span>
+    </form>
+    {% if recent %}
+        <h2 class="h6 text-uppercase text-secondary mt-4">
+            {% trans "Your recent exports" %}
+        </h2>
+        <ul class="list-group">
+            {% for item in recent %}
+                <li class="list-group-item d-flex flex-wrap align-items-center gap-2 small">
+                    <a href="{{ item.get_absolute_url }}">{% trans "Export" %} {{ item.pk }}</a>
+                    <span class="text-secondary">{{ item.creation_date|date:"j M H:i" }} UTC</span>
+                    <span>{{ item.file_count }} {% trans "files" %} · {{ item.total_bytes|filesizeformat }}</span>
+                    {% if item.is_expired %}
+                        <span class="badge text-bg-secondary">{% trans "expired" %}</span>
+                    {% endif %}
+                </li>
+            {% endfor %}
+        </ul>
+    {% endif %}
+{% endblock content %}

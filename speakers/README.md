@@ -153,7 +153,19 @@ once in the upload panel, prefilled there from `media.line_titles`,
 inherited by later versions and variants in `complete_upload`
 (`media.line_title`), and edited for the whole line at once
 (`media.set_line_title`, `MediaTitleView`, which swaps the group
-`_media_group.html` in place). A few bitmap types, video and audio
+`_media_group.html` in place). Bulk download (task 5.6) is
+`speakers/exports.py` and `speakers/export_views.py`: an organizer picks
+a scope (kinds, language, sessions, latest or every version, newer than
+a moment), `create_export` records a `MediaExport` (count, bytes, links
+until), and the export's page offers the same set three ways: the
+browser's folder download (`static/js/media-export.js`, File System
+Access API, from `entries.json`), `download.sh` with resumable curl and
+the manifest embedded (plus an aria2 input file), and a zip the media
+worker builds under `SPEAKER_MEDIA_ZIP_MAX_BYTES` (`build_export_zip_task`,
+emailed through the recorded sender with the link withheld). Every path
+lays files out as `pyladiescon-<year>/<slug>/<kind>/v<n>[-<lang>][-<variant>]-<name>`
+with `manifest.csv`. Links live `SPEAKER_MEDIA_BULK_URL_TTL` (12 h);
+Maintenance > File exports lists every export. A few bitmap types, video and audio
 (`MediaAsset.preview_kind`, an allowlist of concrete types from the
 content type or the name; SVG, which carries script, only downloads) get
 a closed "Preview" fold on their rows (`_media_preview.html`) that loads
