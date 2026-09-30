@@ -9,6 +9,14 @@ from speakers.services import send_invitation
 
 
 @pytest.fixture(autouse=True)
+def media_root(settings, tmp_path):
+    """A file attached in the admin is written under ``MEDIA_ROOT``, which
+    in CI's container is a bind mount the test user cannot write. Every
+    test writes under its own temporary directory instead."""
+    settings.MEDIA_ROOT = tmp_path
+
+
+@pytest.fixture(autouse=True)
 def ffprobe(monkeypatch):
     """No test shells out to ffprobe unless it asks: the probe answers
     120 seconds. A video that becomes READY queues a probe (eager in
