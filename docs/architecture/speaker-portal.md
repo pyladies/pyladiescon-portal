@@ -351,6 +351,10 @@ For pre-recorded sessions, one row per file that moves through post-production:
 
 Performance videos are routinely several gigabytes, so the browser uploads directly to object storage in chunks using presigned multipart URLs, with per-part retry and resume. The portal finalizes the upload and records the asset. Performers can upload raw video for their own sessions; organizers upload any kind.
 
+#### The speaker side is a switch
+
+The organizer side of everything above (files on a session, the board's tab, exports, previews) is always on once the portal has a bucket. What speakers see is a per-edition switch on the speaker settings, **off by default**: with it off, a speaker's session page has no Files tab and no upload panel, a presenter may neither upload nor fetch, and the team gathers videos by other means and uploads them on the performer's behalf, which completes the same checklist lines. The switch lets the media series merge and run dark for speakers while the team tries it with real files.
+
 #### A title for each file
 
 > **Built** (30 September 2026, task 5.9).

@@ -100,6 +100,16 @@ Digital Ocean Spaces through the `AWS_*` env vars, with `AWS_DEFAULT_ACL =
 "public-read"` and unsigned URLs. Existing uploads are `ImageField`s
 (`PortalProfile.profile_picture`, `PyladiesChapter.logo`).
 
+The speaker side of the media pipeline is a per-edition switch,
+`SpeakerSettings.media_for_speakers` (off by default; "Media" fieldset on
+the Speaker settings admin form; `models.media_for_speakers`). Off, a
+speaker's session page has no Files tab, no video card and no upload
+action, `media.can_upload` refuses a presenter and `media.can_download`
+refuses them the shared files; organizers keep every page and can upload
+a performer's raw video on their behalf, so the checklist lines that key
+on files still complete. On, the performer uploads and sees what the team
+shared.
+
 Speaker media is different (design §8.8, task 5.1): performance videos are
 gigabytes, so they never pass through the app. `speakers.media.MediaBucket`
 talks to a **private** bucket named by `SPEAKER_MEDIA_BUCKET` (empty means

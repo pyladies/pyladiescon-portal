@@ -90,6 +90,7 @@ from .media import (
     asset_groups,
     can_download,
     line_titles,
+    media_for_speakers,
     open_uploads,
     session_assets,
     team_files,
@@ -1397,6 +1398,7 @@ class SpeakerSessionDetailView(SpeakerSessionMixin, TemplateView):
         today_here = today(self.presenter.tzinfo)
         checklist = _speaker_checklist(self.presenter, today_here)
         link = next(row for row in checklist["links"] if row.session_id == session.pk)
+        media_on = media_for_speakers(self.conference)
         context.update(
             {
                 "conference": self.conference,
@@ -1416,6 +1418,9 @@ class SpeakerSessionDetailView(SpeakerSessionMixin, TemplateView):
                 "video_items": [
                     i for i in checklist["video"] if i.session_id == session.pk
                 ],
+                # The speaker side of the media pipeline is a per-edition
+                # switch (design §8.8): off, the page has no Files tab.
+                "media_for_speakers": media_on,
                 # The performer's video card (design §4.1), for a
                 # pre-recorded session, appears once the portal has a
                 # bucket to upload to; without one the panel could only
@@ -1423,13 +1428,15 @@ class SpeakerSessionDetailView(SpeakerSessionMixin, TemplateView):
                 # gathers recordings as before.
                 "video": (
                     video_panel(session, self.request.user)
-                    if session.is_pre_recorded and settings.SPEAKER_MEDIA_BUCKET
+                    if media_on
+                    and session.is_pre_recorded
+                    and settings.SPEAKER_MEDIA_BUCKET
                     else None
                 ),
                 # What the team made for this session: the poster, the
                 # final cut, the transcript (design §8.6 and §4.1).
-                "team_files": team_files(session),
-                "line_titles": line_titles(session),
+                "team_files": team_files(session) if media_on else [],
+                "line_titles": line_titles(session) if media_on else {},
             }
         )
         # The strip under the title: their to-dos, counted from the list

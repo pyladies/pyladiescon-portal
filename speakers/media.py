@@ -30,7 +30,7 @@ from .constants import (
     MediaStatus,
     UploadStatus,
 )
-from .models import MediaAsset, MediaUpload, SpeakerSettings
+from .models import MediaAsset, MediaUpload, SpeakerSettings, media_for_speakers
 from .permissions import is_speaker_organizer
 from .signals import asset_ready
 
@@ -217,6 +217,8 @@ def can_upload(user, session, kind):
         return True
     if kind != MediaKind.RAW_VIDEO or session.is_a_proposal:
         return False
+    if not media_for_speakers(session.conference):
+        return False
     return session.session_presenters.filter(presenter__user=user).exists()
 
 
@@ -232,7 +234,7 @@ def can_download(user, session, asset=None):
         return True
     if session.session_presenters.filter(presenter__liaison=user).exists():
         return True
-    if session.is_a_proposal:
+    if session.is_a_proposal or not media_for_speakers(session.conference):
         return False
     if not session.session_presenters.filter(presenter__user=user).exists():
         return False

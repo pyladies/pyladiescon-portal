@@ -169,6 +169,17 @@ class SpeakerSettings(TimestampedModel):
         help_text="While on, anyone with a portal account may propose a "
         "session, speakers already on the program included.",
     )
+    # The speaker side of the media pipeline (design §8.8): off until the
+    # team is ready for speakers to upload and to see shared files. The
+    # organizer side is always there.
+    media_for_speakers = models.BooleanField(
+        default=False,
+        db_default=False,
+        help_text="While on, speakers upload their video from their session "
+        "page and see the files the team shares with them. Off, the team "
+        "gathers videos by other means and uploads them; organizers see "
+        "everything either way.",
+    )
     proposals_intro_md = models.TextField(
         blank=True,
         default="",
@@ -272,6 +283,17 @@ class SpeakerSettings(TimestampedModel):
             from .program_types import seed_program_types
 
             seed_program_types(self.conference)
+
+
+def media_for_speakers(conference):
+    """Whether speakers in ``conference`` upload and see shared files
+    (design §8.8); off with no conference, no settings row, or the switch
+    off. Organizers are not gated by this."""
+    if conference is None:
+        return False
+    return SpeakerSettings.objects.filter(
+        conference=conference, media_for_speakers=True
+    ).exists()
 
 
 def speaker_module_enabled(conference):
