@@ -35,11 +35,12 @@ class SessionTable(tables.Table):
     presenters = tables.Column(empty_values=(), orderable=False)
     status = tables.Column()
     slot = tables.Column(empty_values=(), orderable=False, verbose_name="Slot")
+    videos = tables.Column(empty_values=(), orderable=False, verbose_name="Videos")
     liaison = tables.Column(empty_values=(), orderable=False)
 
     class Meta:
         model = Session
-        fields = ("title", "kind", "presenters", "status", "slot", "liaison")
+        fields = ("title", "kind", "presenters", "status", "slot", "videos", "liaison")
         attrs = {
             "class": "table table-hover table-bordered table-sm",
             "thead": {"class": "table-light"},
@@ -78,6 +79,32 @@ class SessionTable(tables.Table):
             return ""
         channel = slot.channel.name if slot.channel else "all channels"
         return format_html("{} · {}", f"{slot.start_utc:%a %H:%M} UTC", channel)
+
+    def render_videos(self, record):
+        """Where a pre-recorded session's video stands: the raw upload and
+        the final cut, from the ``with_video_status`` annotations."""
+        if not record.is_pre_recorded:
+            return ""
+        raw = getattr(record, "raw_video_version", None)
+        if raw is None:
+            raw_text = format_html(
+                '<span class="text-warning-emphasis">{}</span>', "no raw video"
+            )
+        else:
+            seconds = getattr(record, "raw_video_seconds", None)
+            length = (
+                f" · {seconds // 60} min {seconds % 60:02d} s"
+                if seconds is not None
+                else ""
+            )
+            raw_text = format_html("raw v{}{}", raw, length)
+        final = getattr(record, "final_cut_version", None)
+        final_text = (
+            format_html("final cut v{}", final)
+            if final is not None
+            else format_html('<span class="text-secondary">{}</span>', "no final cut")
+        )
+        return format_html("{}<br>{}", raw_text, final_text)
 
     def render_liaison(self, record):
         liaisons = record.liaisons

@@ -127,11 +127,13 @@ PyJam sessions are pre-recorded. The performer uploads the video; the team post-
 
 ### 4.1 The performer
 
-> **Being built** (M3b). Task 5.2 (29 September 2026): the upload panel on the performer's session page, with resume, the current version and the length bar, and the organizer's per-session file list with download links and reviewer notes. The duration probe (5.3, same day) fills the length bar within seconds of an upload; the post-production lists are still the proposal.
+> **Being built** (M3b). Task 5.2 (29 September 2026): the upload panel on the performer's session page, with resume, the current version and the length bar, and the organizer's per-session file list with download links and reviewer notes. The duration probe (5.3, same day) fills the length bar within seconds of an upload, and the post-production board (5.5) tracks the pipeline; what remains of the proposal is the performer's own view of it, which today is their checklist's "What we're preparing for your video" list.
 
 Same dashboard as any speaker, plus an upload panel: the video goes straight to storage in chunks and resumes if the connection drops, and the panel shows the duration against the length limit. The performer's second list is "what we're doing with your video", so they can watch it move through transcription, translation, and the final cut. When the final cut is ready, an "approve the final cut" item opens for them.
 
 ### 4.2 Post-production
+
+> **Built** (M3b, task 5.5, 30 September 2026). Cells link to the item page, where the assignment happens; the board itself stays light.
 
 The third tab on the checklist board: sessions down the side, pipeline items across — MC intro and outro, quality review, length check, transcribe, review transcript, translate (one column per language), title card and final cut, publish to YouTube. Items backed by a file complete themselves when the file is uploaded. The length check turns red and blocks the row when a video is over the limit. Every item is assignable, and the template is editable like all the others.
 

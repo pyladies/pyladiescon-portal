@@ -18,6 +18,29 @@ class SessionQuerySet(models.QuerySet):
             return self
         return self.filter(session_presenters__presenter__liaison=user).distinct()
 
+    def with_video_status(self):
+        """Annotate the newest READY raw and processed video of each session
+        (version, and the raw one's length), for the list's Videos column."""
+        from .constants import MediaKind, MediaStatus
+        from .models import MediaAsset
+
+        def newest(kind, field):
+            return models.Subquery(
+                MediaAsset.objects.filter(
+                    session_id=models.OuterRef("pk"),
+                    kind=kind,
+                    status=MediaStatus.READY,
+                )
+                .order_by("-version", "-id")
+                .values(field)[:1]
+            )
+
+        return self.annotate(
+            raw_video_version=newest(MediaKind.RAW_VIDEO, "version"),
+            raw_video_seconds=newest(MediaKind.RAW_VIDEO, "duration_seconds"),
+            final_cut_version=newest(MediaKind.PROCESSED_VIDEO, "version"),
+        )
+
     def with_listing_data(self):
         """Everything the sessions list renders, in a fixed number of queries."""
         from .models import SessionPresenter

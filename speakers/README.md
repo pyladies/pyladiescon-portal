@@ -318,6 +318,17 @@ the looser `not_only_proposing()`: a presenter an organizer created, invited
 or not, is still their work, while someone whose every session is still a
 proposal or a refused one is not a row until an answer puts them on one.
 
+The board's third tab (`board.build_post_production_board`, design §4.2)
+has pre-recorded sessions down the side and the session-scope pipeline
+items across, with the newest READY raw and processed video per row,
+blocked rows first with the note (the overage), then the most overdue.
+Three queries whatever the size. A cell shows the status and who is on
+it and links to the item page, where it is assigned: a select per cell
+would put the whole assignee list on the page a few hundred times. The
+sessions list's Videos column reads the same facts from
+`SessionQuerySet.with_video_status` (three subquery annotations, so the
+list stays flat).
+
 Title and display name are collapsed to one line on the way in
 (`forms.one_line`): both reach email subject lines, and a newline in a
 header makes Django refuse the message, which would silently cost the

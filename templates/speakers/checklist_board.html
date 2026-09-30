@@ -1,5 +1,5 @@
 {% extends "speakers/_organize_shell.html" %}
-{% load i18n %}
+{% load i18n speakers_extras %}
 {% block head_title %}
     {% trans "Checklists" %}
 {% endblock head_title %}
@@ -14,8 +14,12 @@
                 {% trans "Checklist board" %}
             </h1>
             <p class="text-secondary mb-0">
-                {% trans "One row per presenter, one colour per item. Most overdue first, so the people who need a nudge float to the top." %}
-                {% trans "A presenter on two sessions shows the more urgent copy of a same-titled item; their page has the full list." %}
+                {% if tab == "POST_PRODUCTION" %}
+                    {% trans "One row per pre-recorded session, one colour per pipeline item. Blocked rows first, then most overdue. Open a cell to assign it." %}
+                {% else %}
+                    {% trans "One row per presenter, one colour per item. Most overdue first, so the people who need a nudge float to the top." %}
+                    {% trans "A presenter on two sessions shows the more urgent copy of a same-titled item; their page has the full list." %}
+                {% endif %}
             </p>
         </div>
         <a class="btn btn-outline-secondary btn-sm"
@@ -32,6 +36,10 @@
             <a class="nav-link {% if tab == 'ORGANIZER' %}active{% endif %}"
                href="?tab=organizer&sort={{ sort }}">{% trans "Organizer side" %}</a>
         </li>
+        <li class="nav-item">
+            <a class="nav-link {% if tab == 'POST_PRODUCTION' %}active{% endif %}"
+               href="?tab=post_production&sort={{ sort }}">{% trans "Post-production" %}</a>
+        </li>
     </ul>
     <div class="small text-secondary mb-2">
         {% trans "Sort:" %}
@@ -42,7 +50,9 @@
            {% if sort == "name" %}class="fw-semibold"{% endif %}>{% trans "name" %}</a>
     </div>
     {% trans "Overdue items" as overdue_label %}
-    {% if board.rows %}
+    {% if tab == "POST_PRODUCTION" %}
+        {% include "speakers/_post_production_board.html" with board=board %}
+    {% elif board.rows %}
         <div class="table-responsive">
             <table class="table table-sm table-bordered checklist-board">
                 <thead class="table-light">
