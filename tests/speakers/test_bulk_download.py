@@ -207,6 +207,9 @@ class TestScope:
         assert "every version" in scope_summary(
             {"kinds": [], "versions": "all", "sessions": ["a", "b"]}
         )
+        assert "newer than 2026-09-30 10:00" in scope_summary(
+            {"kinds": [], "since": "2026-09-30T10:00:00"}
+        )
 
 
 @pytest.mark.django_db
@@ -214,6 +217,7 @@ class TestExport:
     def test_entries_links_and_files(self, world, organizer, conference, settings):
         scope = clean_scope({"kinds": ["RAW_VIDEO", "TRANSCRIPT", "PROMO"]})
         export = create_export(conference, organizer, scope)
+        assert str(export) == f"Export {export.pk} of {conference}"
         assert export.file_count == 4 and export.total_bytes == 20 + 5 + 30 + 7
         assert export.expires_at > timezone.now() + timedelta(hours=11)
         entries = export_entries(export, organizer)

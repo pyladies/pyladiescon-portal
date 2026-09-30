@@ -273,6 +273,7 @@ class TestPipeline:
         session.save()
         engine.language = "pt"
         job = start_job(video(session))
+        assert str(job) == f"Transcription {job.pk} of {job.asset}"
         transcribe(job.pk)
         job.refresh_from_db()
         assert job.output.language == "pt" and job.output.original_filename.endswith(

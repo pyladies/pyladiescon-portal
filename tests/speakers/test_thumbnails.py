@@ -219,6 +219,18 @@ class TestOnAssets:
 
 @pytest.mark.django_db
 class TestOnThePages:
+    def test_no_storage_no_thumbnail(
+        self, client, bucket, session, organizer, settings
+    ):
+        video = put(
+            bucket, session, MediaKind.RAW_VIDEO, "take.mp4", b"mp4", "video/mp4"
+        )
+        make_thumbnail(video)
+        thumb = reverse("speakers:media_thumbnail", args=[session.slug, video.pk])
+        client.force_login(organizer)
+        settings.SPEAKER_MEDIA_BUCKET = ""
+        assert client.get(thumb).status_code == 404
+
     def test_rows_board_speaker_and_list_show_it(
         self, client, bucket, session, organizer, speaker, conference
     ):
