@@ -259,6 +259,18 @@ class TestLifecycle:
         link = asset.download_url()
         assert asset.storage_key in link and "my%20set" in link or "my set" in link
 
+    def test_the_admin_names_an_upload(self, bucket, session, performer):
+        upload = start_upload(
+            session=session,
+            kind="RAW_VIDEO",
+            language="",
+            filename="a.mp4",
+            size_bytes=3,
+            content_type="",
+            user=performer,
+        )
+        assert str(upload) == f"Upload {upload.pk}: a.mp4 for {session}"
+
     def test_a_new_version_supersedes_the_last(self, bucket, session, performer):
         first = start_upload(
             session=session,
