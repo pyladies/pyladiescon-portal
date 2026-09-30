@@ -159,6 +159,7 @@ class ReadyRule(models.TextChoices):
     SESSION_SCHEDULED = "session_scheduled", "The session has a slot"
     GUIDE_PUBLISHED = "guide_published", "The guide it points at is published"
     REGISTRATION_OPEN = "registration_open", "Registration is set up on pretix"
+    FINAL_CUT_READY = "final_cut_ready", "The final cut is in"
 
 
 class ReadyOverride(models.TextChoices):

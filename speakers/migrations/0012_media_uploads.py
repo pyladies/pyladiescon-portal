@@ -1,7 +1,10 @@
 # Multipart uploads (design §8.8, task 5.1): the MediaUpload row, the fields a
 # finished upload leaves on MediaAsset, and the nightly task that aborts
-# uploads nobody finished. Names are written literally: a data migration is a
-# historical record and must stay replayable.
+# uploads nobody finished. Task 5.3 adds the probe's error field; task 5.4
+# the "final cut is in" ready rule and its backfill onto the seeded
+# "Approve the final cut" lines and their items. Names are written
+# literally: a data migration is a historical record and must stay
+# replayable.
 
 import django.db.models.deletion
 from django.conf import settings
@@ -38,6 +41,38 @@ def seed_periodic_task(apps, schema_editor):
 def unseed_periodic_task(apps, schema_editor):
     PeriodicTask = apps.get_model("django_celery_beat", "PeriodicTask")
     PeriodicTask.objects.filter(name=TASK_NAME).delete()
+
+
+APPROVAL_TITLE = "Approve the final cut"
+FINAL_CUT_RULE = "final_cut_ready"
+FINAL_CUT_NOTE = "we are still editing your video"
+
+
+def wait_for_the_final_cut(apps, schema_editor):
+    """Editions seeded before the rule existed carry the approval line
+    with no wait source; give it, and the items made from it, the rule.
+    Only lines still without one: an organizer's own choice stands. The
+    items' waiting state follows at the next readiness pass."""
+    ChecklistTemplateItem = apps.get_model("speakers", "ChecklistTemplateItem")
+    ChecklistItem = apps.get_model("speakers", "ChecklistItem")
+    lines = ChecklistTemplateItem.objects.filter(
+        title=APPROVAL_TITLE, ready_rule="", ready_gate_code="", waits_for__isnull=True
+    )
+    ChecklistItem.objects.filter(
+        template_item__in=lines, ready_rule="", ready_gate_code=""
+    ).update(ready_rule=FINAL_CUT_RULE, template_waiting_note=FINAL_CUT_NOTE)
+    lines.update(ready_rule=FINAL_CUT_RULE, waiting_note=FINAL_CUT_NOTE)
+
+
+def stop_waiting_for_the_final_cut(apps, schema_editor):
+    ChecklistTemplateItem = apps.get_model("speakers", "ChecklistTemplateItem")
+    ChecklistItem = apps.get_model("speakers", "ChecklistItem")
+    ChecklistItem.objects.filter(ready_rule=FINAL_CUT_RULE).update(
+        ready_rule="", template_waiting_note="", is_waiting=False, waiting_reason=""
+    )
+    ChecklistTemplateItem.objects.filter(ready_rule=FINAL_CUT_RULE).update(
+        ready_rule="", waiting_note=""
+    )
 
 
 class Migration(migrations.Migration):
@@ -193,4 +228,38 @@ class Migration(migrations.Migration):
             },
         ),
         migrations.RunPython(seed_periodic_task, unseed_periodic_task),
+        migrations.AlterField(
+            model_name="checklistitem",
+            name="ready_rule",
+            field=models.CharField(
+                blank=True,
+                choices=[
+                    ("session_scheduled", "The session has a slot"),
+                    ("guide_published", "The guide it points at is published"),
+                    ("registration_open", "Registration is set up on pretix"),
+                    ("final_cut_ready", "The final cut is in"),
+                ],
+                db_default="",
+                default="",
+                max_length=32,
+            ),
+        ),
+        migrations.AlterField(
+            model_name="checklisttemplateitem",
+            name="ready_rule",
+            field=models.CharField(
+                blank=True,
+                choices=[
+                    ("session_scheduled", "The session has a slot"),
+                    ("guide_published", "The guide it points at is published"),
+                    ("registration_open", "Registration is set up on pretix"),
+                    ("final_cut_ready", "The final cut is in"),
+                ],
+                db_default="",
+                default="",
+                help_text="Wait for something the portal can check.",
+                max_length=32,
+            ),
+        ),
+        migrations.RunPython(wait_for_the_final_cut, stop_waiting_for_the_final_cut),
     ]

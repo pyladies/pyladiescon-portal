@@ -21,6 +21,7 @@ from .checklists import (
 from .constants import VIDEO_KINDS, AutoRule
 from .media import MediaBucket, MediaStorageNotConfigured
 from .models import (
+    ChecklistItem,
     Handbook,
     HandbookReadReceipt,
     Invitation,
@@ -30,6 +31,7 @@ from .models import (
     Session,
     SessionPresenter,
 )
+from .readiness import refresh_readiness
 from .rules import (
     evaluate_items,
     items_for_conference,
@@ -135,14 +137,20 @@ def session_changed(sender, instance, **kwargs):
     )
 
 
+def _asset_moved(session):
+    """A file arrived, changed or went: the items that wait for one and the
+    length check are answered, and the items that cannot start until a file
+    is in (the performer's final-cut approval) are re-read."""
+    evaluate_items(
+        items_for_session(session, [AutoRule.ASSET_EXISTS, AutoRule.VIDEO_LENGTH_OK])
+    )
+    refresh_readiness(ChecklistItem.objects.filter(session=session))
+
+
 @receiver(post_save, sender=MediaAsset, dispatch_uid="speakers.rules.asset_saved")
 @receiver(post_delete, sender=MediaAsset, dispatch_uid="speakers.rules.asset_deleted")
 def asset_changed(sender, instance, **kwargs):
-    evaluate_items(
-        items_for_session(
-            instance.session, [AutoRule.ASSET_EXISTS, AutoRule.VIDEO_LENGTH_OK]
-        )
-    )
+    _asset_moved(instance.session)
 
 
 @receiver(post_save, sender=HandbookReadReceipt, dispatch_uid="speakers.rules.receipt")
@@ -189,11 +197,7 @@ def on_asset_ready(sender, asset, **kwargs):
     """A file arrived: the items that wait for one, and the length check,
     are answered now rather than at the nightly pass. A video is also
     measured, once the row is committed, by the media worker."""
-    evaluate_items(
-        items_for_session(
-            asset.session, [AutoRule.ASSET_EXISTS, AutoRule.VIDEO_LENGTH_OK]
-        )
-    )
+    _asset_moved(asset.session)
     if asset.kind in VIDEO_KINDS:
         from .tasks import probe_asset_task
 

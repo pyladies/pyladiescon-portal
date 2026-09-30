@@ -346,8 +346,11 @@ A template line waits on any of three sources, and an organizer override
 outranks all of them (`speakers/readiness.py`):
 
 - **A rule** (`ready_rule`), for something the database can answer:
-  `session_scheduled`, `guide_published`, `registration_open`. Adding one is
-  a code change, because the predicate is code.
+  `session_scheduled`, `guide_published`, `registration_open`,
+  `final_cut_ready` (a READY processed video is on the session, which is
+  what holds the performer's "Approve the final cut" until there is
+  something to approve; re-read whenever an asset lands, changes or
+  goes). Adding one is a code change, because the predicate is code.
 - **A gate** (`ready_gate_code`), a switch organizers flip on the
   "Readiness gates" page, for work the portal cannot see: the tech check
   equipment, an upload feature that does not exist yet. One flip opens every

@@ -328,7 +328,7 @@ The speaker guide, versioned. Reading it records a `HandbookReadReceipt`; publis
 
 ### 8.8 MediaAsset
 
-> **Being built** (M3b). Task 5.1 (29 September 2026): the multipart upload backend, `MediaUpload`, the JSON endpoints, versioning and `asset_ready`. Task 5.2 (same day): the browser panel with resume, the performer's video card, the organizer's file list with notes and downloads. Task 5.3 (same day): the duration probe on the `media` queue, with the failure written on the asset. Session-scoped checklists and seeds (5.4) are next.
+> **Being built** (M3b). Task 5.1 (29 September 2026): the multipart upload backend, `MediaUpload`, the JSON endpoints, versioning and `asset_ready`. Task 5.2 (same day): the browser panel with resume, the performer's video card, the organizer's file list with notes and downloads. Task 5.3 (same day): the duration probe on the `media` queue, with the failure written on the asset. Task 5.4 (same day): the final-cut approval waits for the processed video; the rest of the session-scoped checklist was already in place from the checklist work. The post-production board (5.5) is next.
 
 For pre-recorded sessions, one row per file that moves through post-production:
 
@@ -538,7 +538,7 @@ PyJam sessions are performances recorded by the performer, post-produced by the 
 5. When the final cut is ready, the performer's "approve the final cut" item opens.
 6. The organizer publishes to YouTube by hand, pastes the URL and publish time into the session, and the last item completes.
 
-**Performer checklist** (seed): update bio and headshot · confirm title and description · read the performer guide · upload your performance video · approve the final cut · register · join Discord.
+**Performer checklist** (seed): update bio and headshot · confirm title and description · read the performer guide · upload your performance video · approve the final cut (waits, "we are still editing your video", until a processed video is in) · register · join Discord.
 
 **Post-production checklist** (seed; session-scoped, organizer-owned, fully editable):
 

@@ -288,7 +288,9 @@ PERFORMER = [
         "Approve the final cut",
         CONF,
         7,
-        description_md="We will send you the edited video; watch it and tick this when you are happy for it to go out.",
+        description_md="Watch the edited video from your session page and tick this when you are happy for it to go out.",
+        ready_rule=ReadyRule.FINAL_CUT_READY,
+        waiting_note="we are still editing your video",
     ),
 ]
 HOST = [
