@@ -1924,6 +1924,14 @@ class MediaAsset(TimestampedModel):
     probe_error = models.CharField(
         max_length=500, blank=True, default="", db_default=""
     )
+    # A small JPEG of an image or a frame of a video, made by the media
+    # worker next to the original (thumbnails.py); or why there is none.
+    thumbnail_key = models.CharField(
+        max_length=500, blank=True, default="", db_default=""
+    )
+    thumbnail_error = models.CharField(
+        max_length=500, blank=True, default="", db_default=""
+    )
     notes_md = models.TextField(blank=True, help_text="Reviewer notes. Markdown.")
     uploaded_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -1988,6 +1996,21 @@ class MediaAsset(TimestampedModel):
             return "image"
         prefix = media_type.split("/")[0]
         return prefix if prefix in ("video", "audio") else ""
+
+    @property
+    def has_thumbnail(self):
+        return bool(self.thumbnail_key)
+
+    def thumbnail_url(self, ttl=None):
+        """A presigned link the browser shows inline, for the small image;
+        empty when there is none yet."""
+        from .media import MediaBucket
+
+        if not self.thumbnail_key:
+            return ""
+        return MediaBucket.from_settings().download_url(
+            self.thumbnail_key, ttl=ttl, inline=True, content_type="image/jpeg"
+        )
 
     def preview_url(self, ttl=None):
         """A presigned link the browser shows inline, for the preview fold;

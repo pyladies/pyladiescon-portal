@@ -86,6 +86,11 @@ urlpatterns = [
         name="media_download",
     ),
     path(
+        "sessions/<slug:slug>/media/<int:pk>/thumbnail/",
+        upload_views.MediaThumbnailView.as_view(),
+        name="media_thumbnail",
+    ),
+    path(
         "sessions/<slug:slug>/media/<int:pk>/preview/",
         upload_views.MediaPreviewView.as_view(),
         name="media_preview",

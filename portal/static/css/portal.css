@@ -388,3 +388,20 @@ details.card[open] > summary.card-header::before {
 .session-picker:disabled {
     opacity: 0.5;
 }
+
+/* Thumbnails on file rows, the speaker's files and the board
+   (templates/speakers/_media_thumb.html). */
+.media-thumb {
+    object-fit: cover;
+    flex: none;
+}
+.media-thumb-icon {
+    display: inline-flex;
+    width: 64px;
+    height: 36px;
+    align-items: center;
+    justify-content: center;
+    background: var(--bs-tertiary-bg);
+    border-radius: 0.25rem;
+    flex: none;
+}

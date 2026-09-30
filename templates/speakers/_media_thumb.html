@@ -1,0 +1,22 @@
+{% load i18n %}
+{% comment %}
+The small image of a file when the worker has made one (design §8.8,
+task 5.8), an icon otherwise. Params: asset, session, size ("sm" for a
+row, else the board's)
+{% endcomment %}
+{% if asset.has_thumbnail %}
+    <img src="{% url 'speakers:media_thumbnail' session.slug asset.pk %}"
+         alt=""
+         loading="lazy"
+         width="{% if size == 'sm' %}64{% else %}96{% endif %}"
+         height="{% if size == 'sm' %}36{% else %}54{% endif %}"
+         class="media-thumb rounded border">
+{% elif asset.preview_kind == "audio" %}
+    <span class="media-thumb-icon text-secondary"><i class="fa-solid fa-music"></i></span>
+{% elif asset.preview_kind == "video" %}
+    <span class="media-thumb-icon text-secondary"><i class="fa-solid fa-film"></i></span>
+{% elif asset.preview_kind == "image" %}
+    <span class="media-thumb-icon text-secondary"><i class="fa-regular fa-image"></i></span>
+{% else %}
+    <span class="media-thumb-icon text-secondary"><i class="fa-regular fa-file"></i></span>
+{% endif %}

@@ -1,4 +1,5 @@
 import django_tables2 as tables
+from django.urls import reverse
 from django.utils.html import format_html, format_html_join
 
 from .constants import SessionStatus
@@ -104,7 +105,19 @@ class SessionTable(tables.Table):
             if final is not None
             else format_html('<span class="text-secondary">{}</span>', "no final cut")
         )
-        return format_html("{}<br>{}", raw_text, final_text)
+        text = format_html("{}<br>{}", raw_text, final_text)
+        if getattr(record, "raw_video_thumbnail", None):
+            url = reverse(
+                "speakers:media_thumbnail", args=[record.slug, record.raw_video_pk]
+            )
+            return format_html(
+                '<div class="d-flex align-items-center gap-2">'
+                '<img src="{}" alt="" loading="lazy" width="64" height="36" '
+                'class="media-thumb rounded"><div>{}</div></div>',
+                url,
+                text,
+            )
+        return text
 
     def render_liaison(self, record):
         liaisons = record.liaisons

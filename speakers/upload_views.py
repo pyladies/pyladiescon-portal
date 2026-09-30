@@ -333,3 +333,22 @@ class MediaTitleView(LoginRequiredMixin, SpeakerModuleRequiredMixin, View):
             )
         messages.success(request, "Title saved.")
         return redirect(f"{session.get_absolute_url()}#files")
+
+
+class MediaThumbnailView(LoginRequiredMixin, SpeakerModuleRequiredMixin, View):
+    """GET: a fresh inline link to the asset's thumbnail; same rule as the
+    download, 404 while there is none."""
+
+    def get(self, request, slug, pk):
+        session = get_object_or_404(
+            Session, conference=self.conference, slug=self.kwargs["slug"]
+        )
+        asset = get_object_or_404(MediaAsset, pk=pk, session=session)
+        if not can_download(request.user, session, asset):
+            raise PermissionDenied("You may not fetch this file.")
+        if not asset.thumbnail_key:
+            raise Http404("No thumbnail yet.")
+        try:
+            return HttpResponseRedirect(asset.thumbnail_url())
+        except MediaStorageNotConfigured:
+            raise Http404("Object storage is not configured on this portal.")

@@ -35,6 +35,7 @@ from .probe import probe_asset
 from .readiness import refresh_for_conference
 from .reminders import send_checklist_digests
 from .rules import reevaluate_all
+from .thumbnails import make_thumbnail
 
 logger = logging.getLogger(__name__)
 
@@ -285,6 +286,19 @@ def build_export_zip_task(export_id):
             secrets=[link],
         )
     return f"Export {export_id} zip ready"
+
+
+@shared_task(time_limit=600)
+def make_thumbnail_task(asset_id):
+    """A small image for a file that just landed (design §8.8, task 5.8),
+    on the media queue beside the probe."""
+    asset = MediaAsset.objects.filter(pk=asset_id).first()
+    if asset is None:
+        return "No such asset"
+    key = make_thumbnail(asset)
+    if key is None:
+        return f"No thumbnail for asset {asset_id}: {asset.thumbnail_error}"
+    return f"Thumbnail for asset {asset_id} at {key}"
 
 
 # How many times a video is probed before its failure stands, and the

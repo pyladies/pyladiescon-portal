@@ -7,6 +7,32 @@ from django.test import Client, TestCase
 
 from speakers.services import send_invitation
 
+TINY_JPEG = None
+
+
+def tiny_jpeg():
+    """A 2x2 JPEG, made once, for the ffmpeg stub."""
+    global TINY_JPEG
+    if TINY_JPEG is None:
+        from io import BytesIO
+
+        from PIL import Image
+
+        out = BytesIO()
+        Image.new("RGB", (2, 2), "red").save(out, "JPEG")
+        TINY_JPEG = out.getvalue()
+    return TINY_JPEG
+
+
+@pytest.fixture(autouse=True)
+def ffmpeg(monkeypatch):
+    """No test runs ffmpeg unless it asks: a video that becomes READY
+    queues a thumbnail (eager in tests), and the stub hands back a tiny
+    frame."""
+    mock = MagicMock(return_value=tiny_jpeg())
+    monkeypatch.setattr("speakers.thumbnails.run_ffmpeg", mock)
+    return mock
+
 
 @pytest.fixture(autouse=True)
 def media_root(settings, tmp_path):

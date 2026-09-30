@@ -47,6 +47,11 @@ Expects: board (board.build_post_production_board)
                             {% endif %}
                         </th>
                         <td class="small text-nowrap">
+                            {% if row.raw and row.raw.has_thumbnail %}
+                                <div class="mb-1">
+                                    {% include "speakers/_media_thumb.html" with asset=row.raw session=row.session %}
+                                </div>
+                            {% endif %}
                             {% if row.raw %}
                                 <a href="{% url 'speakers:media_download' row.session.slug row.raw.pk %}">{% trans "raw" %} v{{ row.raw.version }}</a>
                                 {% if row.raw.duration_seconds is not None %}

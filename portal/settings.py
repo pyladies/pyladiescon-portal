@@ -462,6 +462,7 @@ CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
 # hold up an email. The default worker consumes only the default queue.
 CELERY_TASK_ROUTES = {
     "speakers.tasks.probe_asset_task": {"queue": "media"},
+    "speakers.tasks.make_thumbnail_task": {"queue": "media"},
     "speakers.tasks.build_export_zip_task": {"queue": "media"},
 }
 

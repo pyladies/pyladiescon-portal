@@ -11,24 +11,32 @@ Params: group (media.asset_groups), session, can_edit
     <tbody id="{{ group.id }}" class="media-group">
         <tr>
             <td>
-                <div class="fw-semibold">
-                    {% if group.title %}
-                        {{ group.title }}
-                    {% else %}
-                        {{ group.label }}
-                    {% endif %}
-                </div>
-                <div class="small">
-                    {% if group.title %}
-                        <span class="badge text-bg-light border">{{ group.label }}</span>
-                    {% endif %}
-                    {% if group.language %}
-                        <span class="badge text-bg-light border">{{ group.language }}</span>
-                    {% endif %}
-                    {% if group.variant %}
-                        <span class="badge text-bg-light border">{{ group.variant }}</span>
-                    {% endif %}
-                    <span class="text-secondary text-break">{{ asset.original_filename|default:asset.file.name|default:"" }}</span>
+                <div class="d-flex align-items-start gap-2">
+                    {% include "speakers/_media_thumb.html" with asset=asset session=session size="sm" %}
+                    <div>
+                        <div class="fw-semibold">
+                            {% if group.title %}
+                                {{ group.title }}
+                            {% else %}
+                                {{ group.label }}
+                            {% endif %}
+                        </div>
+                        <div class="small">
+                            {% if group.title %}
+                                <span class="badge text-bg-light border">{{ group.label }}</span>
+                            {% endif %}
+                            {% if group.language %}
+                                <span class="badge text-bg-light border">{{ group.language }}</span>
+                            {% endif %}
+                            {% if group.variant %}
+                                <span class="badge text-bg-light border">{{ group.variant }}</span>
+                            {% endif %}
+                            <span class="text-secondary text-break">{{ asset.original_filename|default:asset.file.name|default:"" }}</span>
+                            {% if asset.thumbnail_error %}
+                                <span class="text-danger" title="{{ asset.thumbnail_error }}"><i class="fa-solid fa-triangle-exclamation"></i> {% trans "no thumbnail" %}</span>
+                            {% endif %}
+                        </div>
+                    </div>
                 </div>
             </td>
             <td class="text-nowrap">

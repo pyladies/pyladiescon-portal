@@ -166,7 +166,16 @@ picker (`static/js/media-export.js`) is an explicit "every session" or
 "only these" choice over a filtered checkbox list grouped by type. Every path
 lays files out as `pyladiescon-<year>/<slug>/<kind>/v<n>[-<lang>][-<variant>]-<name>`
 with `manifest.csv`. Links live `SPEAKER_MEDIA_BULK_URL_TTL` (12 h);
-Maintenance > File exports lists every export. A few bitmap types, video and audio
+Maintenance > File exports lists every export. Thumbnails (task 5.8) are
+`speakers/thumbnails.py`: `on_asset_ready` queues `make_thumbnail_task`
+on the `media` queue for images and videos, Pillow scales an image and
+ffmpeg takes a frame of a video (three seconds in, the first frame for a
+shorter clip) into `<storage_key>.thumb.jpg`, recorded in
+`MediaAsset.thumbnail_key` or explained in `thumbnail_error`;
+`MediaThumbnailView` redirects to an inline link, `_media_thumb.html`
+shows it or an icon, and `with_video_status` annotates the sessions list
+with the raw video's. Tests stub `thumbnails.run_ffmpeg` beside the
+ffprobe stub in `tests/speakers/conftest.py`. A few bitmap types, video and audio
 (`MediaAsset.preview_kind`, an allowlist of concrete types from the
 content type or the name; SVG, which carries script, only downloads) get
 a closed "Preview" fold on their rows (`_media_preview.html`) that loads

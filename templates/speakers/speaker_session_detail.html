@@ -410,6 +410,7 @@ upload action open the tab their target lives in.
                             <ul class="list-group list-group-flush">
                                 {% for asset in team_files %}
                                     <li class="list-group-item d-flex flex-wrap align-items-center gap-2 small">
+                                        {% include "speakers/_media_thumb.html" with asset=asset session=session size="sm" %}
                                         <span class="fw-semibold">{{ asset.display_title }}</span>
                                         {% if asset.title %}
                                             <span class="badge text-bg-light border">{{ asset.label }}</span>

@@ -205,6 +205,10 @@ def on_asset_ready(sender, asset, **kwargs):
         from .tasks import probe_asset_task
 
         transaction.on_commit(lambda: probe_asset_task.delay(asset.pk))
+    if asset.preview_kind in ("image", "video"):
+        from .tasks import make_thumbnail_task
+
+        transaction.on_commit(lambda: make_thumbnail_task.delay(asset.pk))
 
 
 @receiver(post_delete, sender=MediaAsset, dispatch_uid="speakers.media.on_delete")
