@@ -1,4 +1,5 @@
 from allauth.account.adapter import get_adapter as get_account_adapter
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import logout, update_session_auth_hash
 from django.contrib.auth.mixins import LoginRequiredMixin
@@ -1355,11 +1356,14 @@ class SpeakerSessionDetailView(SpeakerSessionMixin, TemplateView):
                 "video_items": [
                     i for i in checklist["video"] if i.session_id == session.pk
                 ],
-                # The performer's video card (design §4.1); nothing for a
-                # live session.
+                # The performer's video card (design §4.1), for a
+                # pre-recorded session, appears once the portal has a
+                # bucket to upload to; without one the panel could only
+                # fail, so the page says nothing about video and the team
+                # gathers recordings as before.
                 "video": (
                     video_panel(session, self.request.user)
-                    if session.is_pre_recorded
+                    if session.is_pre_recorded and settings.SPEAKER_MEDIA_BUCKET
                     else None
                 ),
             }

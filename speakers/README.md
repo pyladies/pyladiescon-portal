@@ -132,6 +132,10 @@ file rows and the performer's card show it. Tests stub `probe.run_ffprobe`
 through an autouse fixture in `tests/speakers/conftest.py`, and one test
 runs the real binary on a two-second fixture when it is installed.
 
+The performer's video card appears only once `SPEAKER_MEDIA_BUCKET` is
+set: without storage the panel could only fail, so a portal deployed
+ahead of its bucket shows speakers nothing about video.
+
 The browser side (task 5.2) is `static/js/media-upload.js` driving
 `templates/speakers/_upload_panel.html`: it slices the file, PUTs three
 parts at a time with retries and backoff, and remembers the upload id in

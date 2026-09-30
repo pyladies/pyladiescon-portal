@@ -192,7 +192,7 @@ class TestTaskAndTrigger:
 
 @pytest.mark.django_db
 class TestOnThePage:
-    def test_the_failure_shows_on_both_sides(self, client, session, conference):
+    def test_the_failure_shows_on_both_sides(self, client, session, conference, bucket):
         performer = User.objects.create_user("p", email="p@x.org")
         presenter = session.session_presenters.first().presenter
         presenter.user = performer

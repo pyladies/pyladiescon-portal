@@ -100,7 +100,19 @@ def notes(session, asset):
 
 @pytest.mark.django_db
 class TestPerformerCard:
-    def test_pre_recorded_session_gets_the_panel(self, client, session, performer):
+    def test_no_bucket_no_panel(self, client, session, performer, settings):
+        """Without storage the panel could only fail, so the page says
+        nothing about video until the portal has a bucket."""
+        settings.SPEAKER_MEDIA_BUCKET = ""
+        client.force_login(performer)
+        response = client.get(my_page(session))
+        assert response.status_code == 200
+        assert response.context["video"] is None
+        assert "data-upload-panel" not in response.content.decode()
+
+    def test_pre_recorded_session_gets_the_panel(
+        self, client, session, performer, bucket
+    ):
         client.force_login(performer)
         response = client.get(my_page(session))
         assert response.status_code == 200
@@ -122,7 +134,7 @@ class TestPerformerCard:
         assert "data-upload-panel" not in response.content.decode()
 
     def test_current_version_history_and_the_length_bar(
-        self, client, session, performer
+        self, client, session, performer, bucket
     ):
         old = make_asset(session, performer, version=1, status=MediaStatus.SUPERSEDED)
         current = make_asset(session, performer, version=2, duration_seconds=11 * 60)
@@ -157,7 +169,9 @@ class TestPerformerCard:
         conference.speaker_settings.delete()
         assert video_limit_minutes(session) is None
 
-    def test_open_uploads_are_mentioned(self, client, session, performer, organizer):
+    def test_open_uploads_are_mentioned(
+        self, client, session, performer, organizer, bucket
+    ):
         for user in (performer, organizer):
             MediaUpload.objects.create(
                 session=session,
