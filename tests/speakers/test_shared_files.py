@@ -208,6 +208,29 @@ class TestSharing:
         html = client.get(panel.get_absolute_url()).content.decode()
         assert "Shared with speaker" in html and "Unshare" in html
 
+    def test_htmx_swaps_the_row_in_place(self, client, bucket, world, organizer):
+        """From the page the buttons post through htmx and get the row back,
+        so nothing reloads or jumps; a plain post still redirects."""
+        panel = world["panel"]
+        cut = upload(bucket, panel, organizer, MediaKind.PROCESSED_VIDEO)
+        client.force_login(organizer)
+        response = client.post(
+            share_url(panel, cut), {"shared": "1"}, headers={"HX-Request": "true"}
+        )
+        assert response.status_code == 200
+        html = response.content.decode()
+        assert html.strip().startswith(f'<div id="asset-{cut.pk}"')
+        assert "Unshare" in html and "Shared with speaker" in html
+        assert "<html" not in html
+        response = client.post(
+            reverse("speakers:media_notes", args=[panel.slug, cut.pk]),
+            {"notes_md": "audio clips at 4:10"},
+            headers={"HX-Request": "true"},
+        )
+        assert response.status_code == 200
+        assert 'value="audio clips at 4:10"' in response.content.decode()
+        assert client.post(share_url(panel, cut), {"shared": "0"}).status_code == 302
+
     def test_the_share_forms_skip_the_raw_video(self, client, bucket, world, organizer):
         panel = world["panel"]
         raw = upload(bucket, panel, organizer, MediaKind.RAW_VIDEO)

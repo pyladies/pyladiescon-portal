@@ -13,7 +13,7 @@ from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import PermissionDenied
 from django.http import Http404, HttpResponseRedirect, JsonResponse
-from django.shortcuts import get_object_or_404, redirect
+from django.shortcuts import get_object_or_404, redirect, render
 from django.views import View
 
 from .constants import UPLOAD_PART_URL_BATCH
@@ -214,6 +214,20 @@ class MediaDownloadView(LoginRequiredMixin, SpeakerModuleRequiredMixin, View):
         return HttpResponseRedirect(url)
 
 
+def _row_or_files(request, session, asset, message):
+    """An htmx request gets the refreshed file row swapped in place (no
+    reload, no jump to the anchor); a plain form post goes back to the
+    Files section with the message."""
+    if request.headers.get("HX-Request"):
+        return render(
+            request,
+            "speakers/_media_asset_row.html",
+            {"asset": asset, "session": session, "can_edit": True},
+        )
+    messages.success(request, message)
+    return redirect(f"{session.get_absolute_url()}#files")
+
+
 class MediaNotesView(LoginRequiredMixin, SpeakerModuleRequiredMixin, View):
     """POST notes_md: the reviewer's note on an asset ("audio clips at
     4:10"); organizers only."""
@@ -229,8 +243,7 @@ class MediaNotesView(LoginRequiredMixin, SpeakerModuleRequiredMixin, View):
         asset = get_object_or_404(MediaAsset, pk=pk, session=session)
         asset.notes_md = request.POST.get("notes_md", "").strip()
         asset.save(update_fields=["notes_md", "modified_date"])
-        messages.success(request, "Note saved.")
-        return redirect(f"{session.get_absolute_url()}#files")
+        return _row_or_files(request, session, asset, "Note saved.")
 
 
 class MediaShareView(LoginRequiredMixin, SpeakerModuleRequiredMixin, View):
@@ -239,9 +252,7 @@ class MediaShareView(LoginRequiredMixin, SpeakerModuleRequiredMixin, View):
     "promo materials shared with presenter" and the final-cut approval
     follow the flag."""
 
-    @method_decorator(require_POST)
-    def dispatch(self, request, *args, **kwargs):
-        return super().dispatch(request, *args, **kwargs)
+    http_method_names = ["post"]
 
     def post(self, request, slug, pk):
         session = get_object_or_404(
@@ -252,12 +263,13 @@ class MediaShareView(LoginRequiredMixin, SpeakerModuleRequiredMixin, View):
         asset = get_object_or_404(MediaAsset, pk=pk, session=session)
         asset.shared_with_speaker = request.POST.get("shared") == "1"
         asset.save(update_fields=["shared_with_speaker", "modified_date"])
-        messages.success(
+        return _row_or_files(
             request,
+            session,
+            asset,
             (
                 "Shared with the speaker."
                 if asset.shared_with_speaker
                 else "No longer shared with the speaker."
             ),
         )
-        return redirect(f"{session.get_absolute_url()}#files")
