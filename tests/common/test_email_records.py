@@ -207,6 +207,26 @@ class TestRecording:
         assert record.presenter == presenter
         assert record.context_digest["invitation"] == invitation.pk
 
+    def test_invitation_replies_go_to_the_sender_address_only(
+        self, conference, presenter, settings
+    ):
+        """Reply-To is the conference's own address; nobody is copied, so
+        the accept link reaches no one but the presenter."""
+        settings.DEFAULT_FROM_EMAIL = "team@example.com"
+        invitation = make_invitation(presenter)
+        invitation.issue_token()
+        invitation.save()
+        send_invitation_email(invitation)
+        message = mail.outbox[0]
+        assert message.reply_to == ["team@example.com"]
+        assert message.to == [presenter.email]
+        assert not message.cc and not message.bcc
+
+    def test_every_email_replies_to_the_sender_address(self, settings):
+        settings.DEFAULT_FROM_EMAIL = "team@example.com"
+        send(["a@x.org"])
+        assert mail.outbox[0].reply_to == ["team@example.com"]
+
     def test_invitation_link_is_withheld_by_shape_when_the_sender_forgets(
         self, conference, presenter
     ):

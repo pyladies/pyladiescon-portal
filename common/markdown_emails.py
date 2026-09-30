@@ -154,12 +154,19 @@ def render_markdown_email(
 def deliver_markdown_email(
     subject: str, recipient_list: list, html_content: str, text_content: str
 ) -> None:
-    """Hand the rendered parts to the mail backend."""
+    """Hand the rendered parts to the mail backend.
+
+    Replies go to the sender address (the conference's own), set explicitly
+    so it holds whatever the backend or mail client would otherwise do. It
+    adds no recipient: nobody is copied on what is sent, because some of
+    it carries a personal sign-in link.
+    """
     msg = EmailMultiAlternatives(
         subject,
         text_content,
         settings.DEFAULT_FROM_EMAIL,
         recipient_list,
+        reply_to=[settings.DEFAULT_FROM_EMAIL],
     )
     msg.attach_alternative(html_content, "text/html")
     msg.send()
