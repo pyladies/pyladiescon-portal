@@ -509,7 +509,9 @@ class TestMaintenance:
         assert client.get(MAINTENANCE).status_code == 403
 
     def test_migration_creates_the_table(self):
-        migration = importlib.import_module("speakers.migrations.0012_media_uploads")
+        migration = importlib.import_module(
+            "speakers.migrations.0015_exports_thumbnails_transcription"
+        )
         assert any(
             getattr(op, "name", "") == "MediaExport"
             for op in migration.Migration.operations

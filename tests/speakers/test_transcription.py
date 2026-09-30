@@ -49,7 +49,9 @@ from speakers.transcription import (
 from .factories import add_presenter, make_presenter, make_session, make_settings
 
 BUCKET = "test-speaker-media"
-migration = importlib.import_module("speakers.migrations.0012_media_uploads")
+migration = importlib.import_module(
+    "speakers.migrations.0015_exports_thumbnails_transcription"
+)
 
 
 class FakeEngine(Engine):
