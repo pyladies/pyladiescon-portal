@@ -768,8 +768,12 @@ msgstr[1] ""
 msgid "No security keys have been added."
 msgstr ""
 
-#: templates/mfa/index.html:62
+#: templates/mfa/index.html:62 volunteer/views.py
 msgid "Manage"
+msgstr ""
+
+#: volunteer/views.py
+msgid "Review"
 msgstr ""
 
 #: templates/mfa/index.html:67 templates/mfa/webauthn/add_form.html:18

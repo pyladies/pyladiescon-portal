@@ -597,6 +597,8 @@ class TestManageVolunteers:
         assert (
             "fa-clipboard-list" in action_button and "</i> Review</a>" in action_button
         )
+        # The word is visible, so no title repeats it.
+        assert "title=" not in action_button
 
         another_profile.application_status = ApplicationStatus.APPROVED
         another_profile.save()

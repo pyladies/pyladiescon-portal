@@ -5,6 +5,7 @@ from django.contrib.admin.widgets import FilteredSelectMultiple
 from django.contrib.auth.admin import GroupAdmin as DjangoGroupAdmin
 from django.contrib.auth.models import Group, User
 from django.db.models import Count, Exists, OuterRef, Q
+from django.utils.html import format_html, format_html_join
 from import_export import resources, widgets
 from import_export.admin import ImportExportModelAdmin
 from import_export.fields import Field
@@ -112,40 +113,50 @@ admin.site.register(PortalProfile, PortalProfileAdmin)
 # need no group: the speaker side is relational.
 
 
+def approved_this_year(user_ref):
+    """The approved volunteer profiles of the active edition for the user
+    at ``user_ref``, and none at all when no edition is active: the one
+    spelling of "volunteering this year" that the form and the list share."""
+    profiles = VolunteerProfile.objects.filter(
+        user_id=OuterRef(user_ref), application_status=ApplicationStatus.APPROVED
+    )
+    conference = Conference.get_active()
+    if conference is None:
+        return profiles.none()
+    return profiles.filter(conference=conference)
+
+
 def with_standing(users):
     """Annotate what makes an account a candidate: verified, approved."""
-    conference = Conference.get_active()
-    approved = VolunteerProfile.objects.filter(
-        user_id=OuterRef("pk"), application_status=ApplicationStatus.APPROVED
-    )
-    if conference is None:
-        approved = approved.none()
-    else:
-        approved = approved.filter(conference=conference)
     return users.annotate(
         verified=Exists(
             EmailAddress.objects.filter(user_id=OuterRef("pk"), verified=True)
         ),
-        approved=Exists(approved),
+        approved=Exists(approved_this_year("pk")),
     )
 
 
 ELIGIBLE = Q(is_active=True, verified=True, approved=True)
 
 
+def standing_label(user):
+    """A member's name with their standing, so a roster reads as a review:
+    who no longer volunteers this year, whose address is unverified."""
+    label = f"{user.get_full_name() or user.username} ({user.username})"
+    if not user.is_active:
+        return f"{label}, account inactive"
+    if not user.verified:
+        return f"{label}, email unverified"
+    if not user.approved:
+        return f"{label}, not volunteering this year"
+    return label
+
+
 class MemberChoiceField(forms.ModelMultipleChoiceField):
-    """Members named with their standing, so the chosen box reads as a
-    review: who no longer volunteers this year, whose address is unverified."""
+    """Members named with their standing (``standing_label``)."""
 
     def label_from_instance(self, user):
-        label = f"{user.get_full_name() or user.username} ({user.username})"
-        if not user.is_active:
-            return f"{label}, account inactive"
-        if not user.verified:
-            return f"{label}, email unverified"
-        if not user.approved:
-            return f"{label}, not volunteering this year"
-        return label
+        return standing_label(user)
 
 
 class GroupForm(forms.ModelForm):
@@ -178,10 +189,15 @@ class GroupForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         current = Q(groups=self.instance) if self.instance.pk else Q(pk__in=[])
+        # ``groups=`` joins every group row a user has, and ORed with the
+        # eligibility test each of those rows matches, so a volunteer in
+        # three other groups came out three times: distinct, as the
+        # organizer-side candidates do (speakers/people.py).
         self.fields["users"].queryset = (
             with_standing(User.objects.all())
             .filter(ELIGIBLE | current)
             .order_by("first_name", "last_name", "username")
+            .distinct()
         )
         if self.instance.pk:
             self.initial["users"] = list(
@@ -195,15 +211,37 @@ class GroupAdmin(DjangoGroupAdmin):
     form = GroupForm
     list_display = ("name", "member_count", "stale_member_count")
 
+    # Someone who may view groups but not change them gets the roster as a
+    # read-only list: ``users`` is a form field, not a model field, so
+    # Django's read-only path has nothing to render it from, and the
+    # section would otherwise be silently absent.
+    def get_readonly_fields(self, request, obj=None):
+        if obj is not None and not self.has_change_permission(request, obj):
+            return ("members",)
+        return super().get_readonly_fields(request, obj)
+
+    def get_fields(self, request, obj=None):
+        if obj is not None and not self.has_change_permission(request, obj):
+            return ["name", "permissions", "members"]
+        return super().get_fields(request, obj)
+
+    @admin.display(description="members")
+    def members(self, group):
+        users = with_standing(group.user_set.all()).order_by(
+            "first_name", "last_name", "username"
+        )
+        if not users:
+            return "Nobody."
+        return format_html(
+            "<ul>{}</ul>",
+            format_html_join("", "<li>{}</li>", ((standing_label(u),) for u in users)),
+        )
+
     def get_queryset(self, request):
         verified = EmailAddress.objects.filter(
             user_id=OuterRef("user__pk"), verified=True
         )
-        approved = VolunteerProfile.objects.filter(
-            user_id=OuterRef("user__pk"),
-            application_status=ApplicationStatus.APPROVED,
-            conference=Conference.get_active(),
-        )
+        approved = approved_this_year("user__pk")
         stale = Q(user__is_active=False) | ~Exists(verified) | ~Exists(approved)
         return (
             super()

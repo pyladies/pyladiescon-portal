@@ -1,5 +1,7 @@
 """The group admin shows its members from the group's side."""
 
+import re
+
 import pytest
 from allauth.account.models import EmailAddress
 from django.contrib.auth.models import Group, Permission, User
@@ -94,6 +96,44 @@ class TestCandidates:
         field = client.get(change_url(group)).context["adminform"].form.fields["users"]
         assert {u.username for u in field.queryset} == {"stale"}
 
+    def test_a_member_of_other_groups_is_listed_once(
+        self, client, admin_user, conference, group, ada
+    ):
+        """``groups=`` joins every group row; the OR with eligibility made
+        a volunteer in three other groups appear three times, and four
+        once she was in this one too."""
+        for name in ("Alpha", "Beta", "Gamma"):
+            Group.objects.create(name=name).user_set.add(ada)
+        client.force_login(admin_user)
+        field = client.get(change_url(group)).context["adminform"].form.fields["users"]
+        assert [u.username for u in field.queryset] == ["ada"]
+        group.user_set.add(ada)
+        response = client.get(change_url(group))
+        field = response.context["adminform"].form.fields["users"]
+        assert [u.username for u in field.queryset] == ["ada"]
+        select = re.search(
+            r'<select name="users".*?</select>', response.content.decode(), re.S
+        ).group(0)
+        assert select.count(f'value="{ada.pk}"') == 1
+
+    def test_view_only_staff_read_the_roster(self, client, conference, group, ada):
+        """A form field has no read-only rendering, so without this the
+        page for someone with only ``view_group`` had no members at all."""
+        old = Conference.objects.create(year=2020, name="2020", slug="2020")
+        stale = account("stale", old, status=ApplicationStatus.APPROVED)
+        group.user_set.add(ada, stale)
+        reader = User.objects.create_user("reader", is_staff=True)
+        reader.user_permissions.add(Permission.objects.get(codename="view_group"))
+        client.force_login(reader)
+        response = client.get(change_url(group))
+        assert response.status_code == 200
+        content = response.content.decode()
+        assert 'name="users"' not in content
+        assert "<li>Ada (ada)</li>" in content
+        assert "<li>Stale (stale), not volunteering this year</li>" in content
+        empty = Group.objects.create(name="Empty")
+        assert "Nobody." in client.get(change_url(empty)).content.decode()
+
     def test_new_group_offers_candidates(self, client, admin_user, ada):
         client.force_login(admin_user)
         response = client.get(reverse("admin:auth_group_add"))
@@ -147,6 +187,18 @@ class TestChangelist:
             for g in client.get(CHANGELIST).context["cl"].result_list
         }
         assert rows == {"Infra maintainers": (3, 2), "Empty": (0, 0)}
+
+    def test_no_active_edition_counts_every_member_stale(
+        self, client, admin_user, conference, group, ada
+    ):
+        group.user_set.add(ada)
+        Conference.objects.update(is_active=False)
+        client.force_login(admin_user)
+        rows = {
+            g.name: (g.member_count, g.stale_member_count)
+            for g in client.get(CHANGELIST).context["cl"].result_list
+        }
+        assert rows == {"Infra maintainers": (1, 1)}
 
     def test_query_count_does_not_grow_with_members(
         self, client, admin_user, conference, group, ada

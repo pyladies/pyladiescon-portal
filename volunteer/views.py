@@ -9,6 +9,7 @@ from django.http import Http404
 from django.shortcuts import redirect, render
 from django.urls import reverse, reverse_lazy
 from django.utils.html import format_html
+from django.utils.translation import gettext as _
 from django.views import View
 from django.views.generic import DetailView, ListView
 from django.views.generic.edit import CreateView, DeleteView, UpdateView
@@ -177,15 +178,17 @@ class VolunteerProfileTable(tables.Table):
             ApplicationStatus.WAITLISTED,
         ]:
             render_html = format_html(
-                '<a href="{}" class="btn btn-sm btn-primary" title="Review">'
-                '<i class="fa-solid fa-clipboard-list"></i> Review</a> ',
+                '<a href="{}" class="btn btn-sm btn-primary">'
+                '<i class="fa-solid fa-clipboard-list"></i> {}</a> ',
                 url,
+                _("Review"),
             )
         elif application_status == ApplicationStatus.APPROVED:
             render_html = format_html(
-                '<a href="{}" class="btn btn-sm btn-info" title="Manage">'
-                '<i class="fa-solid fa-gear"></i> Manage</a> ',
+                '<a href="{}" class="btn btn-sm btn-info">'
+                '<i class="fa-solid fa-gear"></i> {}</a> ',
                 url,
+                _("Manage"),
             )
         return render_html
 
