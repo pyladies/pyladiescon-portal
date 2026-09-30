@@ -197,16 +197,18 @@ shorter clip) into `<storage_key>.thumb.jpg`, recorded in
 `MediaThumbnailView` redirects to an inline link, `_media_thumb.html`
 shows it or an icon, and `with_video_status` annotates the sessions list
 with the raw video's. Tests stub `thumbnails.run_ffmpeg` beside the
-ffprobe stub in `tests/speakers/conftest.py`. A few bitmap types, video and audio
-(`MediaAsset.preview_kind`, an allowlist of concrete types from the
-content type or the name; SVG, which carries script, only downloads) get
-a closed "Preview" fold on their rows (`_media_preview.html`) that loads
-the file through `MediaPreviewView`, an inline presigned link that lives
-a minute like a download's; nothing is fetched until the fold is opened,
-and video streams by range requests, each one through the endpoint for a
-fresh link. A video kind is stored with a `video/` type whatever the
-browser declared (`media.clean_content_type`), since the stored type is
-what the file is served back as.
+ffprobe stub in `tests/speakers/conftest.py`. A few bitmap types, video,
+audio and small text files such as transcripts (`MediaAsset.preview_kind`,
+an allowlist of concrete types from the content type or the name; SVG,
+which carries script, only downloads; text goes through `media.read_text`
+as plain text rather than a signed link) get a closed "Preview" fold on
+their rows (`_media_preview.html`) that loads the file through
+`MediaPreviewView`, an inline presigned link that lives a minute like a
+download's; nothing is fetched until the fold is opened, and video streams
+by range requests, each one through the endpoint for a fresh link. A video
+kind is stored with a `video/` type whatever the browser declared
+(`media.clean_content_type`), since the stored type is what the file is
+served back as.
 Uploads nobody finishes expire after
 `SPEAKER_MEDIA_UPLOAD_TTL_HOURS` (the "Expire abandoned uploads" task
 nightly, `manage.py expire_abandoned_uploads` by hand); the bucket needs its

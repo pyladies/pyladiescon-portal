@@ -75,7 +75,23 @@ class TestWhatPreviews:
             ({"content_type": "image/png"}, "image"),
             ({"content_type": "video/mp4"}, "video"),
             ({"content_type": "audio/mpeg"}, "audio"),
-            ({"content_type": "text/vtt", "original_filename": "t.vtt"}, ""),
+            ({"content_type": "text/vtt", "original_filename": "t.vtt"}, "text"),
+            (
+                {
+                    "content_type": "application/octet-stream",
+                    "original_filename": "t.srt",
+                },
+                "text",
+            ),
+            ({"content_type": "text/plain", "original_filename": "notes.txt"}, "text"),
+            (
+                {
+                    "content_type": "text/plain",
+                    "original_filename": "big.txt",
+                    "size_bytes": 3 * 1024 * 1024,
+                },
+                "",
+            ),
             ({"content_type": "text/html", "original_filename": "x.html"}, ""),
             (
                 {
@@ -122,15 +138,76 @@ class TestPreviewLink:
         private = asset(session, kind=MediaKind.TITLE_CARD)
         assert client.get(preview(session, private)).status_code == 403
 
+    def test_a_transcript_is_shown_as_plain_text(
+        self, client, bucket, session, organizer, speaker
+    ):
+        body = "WEBVTT\n\n1\n00:00:00.000 --> 00:00:02.000\nHello\n"
+        bucket.client.put_object(
+            Bucket=BUCKET, Key="speaker-media/x/t.vtt", Body=body.encode()
+        )
+        text = asset(
+            session,
+            kind=MediaKind.TRANSCRIPT,
+            language="en",
+            content_type="text/vtt",
+            original_filename="t.vtt",
+            storage_key="speaker-media/x/t.vtt",
+            size_bytes=len(body),
+            shared_with_speaker=True,
+        )
+        client.force_login(organizer)
+        response = client.get(preview(session, text))
+        assert response.status_code == 200
+        assert response["Content-Type"] == "text/plain; charset=utf-8"
+        assert response["Content-Disposition"] == "inline"
+        assert response.content.decode() == body
+        html = client.get(session.get_absolute_url()).content.decode()
+        assert f'<iframe src="{preview(session, text)}"' in html
+        assert "Open as text in a new tab" in html
+        client.force_login(speaker)
+        assert client.get(preview(session, text)).status_code == 200
+        html = client.get(
+            reverse("speakers:my_session_detail", args=[session.slug])
+        ).content.decode()
+        assert f'<iframe src="{preview(session, text)}"' in html
+        # Bytes that are not UTF-8 still show, replaced rather than refused.
+        bucket.client.put_object(
+            Bucket=BUCKET, Key="speaker-media/x/t.vtt", Body=b"caf\xe9"
+        )
+        assert client.get(preview(session, text)).content.decode() == "caf\ufffd"
+
     def test_a_file_the_browser_cannot_show_is_404_and_so_is_no_storage(
         self, client, bucket, session, organizer, settings
     ):
         client.force_login(organizer)
-        text = asset(session, content_type="text/vtt", original_filename="t.vtt")
-        assert client.get(preview(session, text)).status_code == 404
+        html = asset(session, content_type="text/html", original_filename="x.html")
+        assert client.get(preview(session, html)).status_code == 404
         image = asset(session)
+        text = asset(session, content_type="text/vtt", original_filename="t.vtt")
         settings.SPEAKER_MEDIA_BUCKET = ""
         assert client.get(preview(session, image)).status_code == 404
+        assert client.get(preview(session, text)).status_code == 404
+
+    def test_an_admin_attached_text_file_is_read_from_disk(
+        self, client, session, organizer
+    ):
+        note = MediaAsset.objects.create(
+            session=session,
+            kind=MediaKind.OTHER,
+            status=MediaStatus.READY,
+            file=SimpleUploadedFile("notes.txt", b"hello"),
+            original_filename="notes.txt",
+            size_bytes=5,
+        )
+        empty = asset(
+            session,
+            storage_key="",
+            content_type="text/plain",
+            original_filename="e.txt",
+        )
+        client.force_login(organizer)
+        assert client.get(preview(session, note)).content == b"hello"
+        assert client.get(preview(session, empty)).status_code == 404
 
     def test_an_asset_with_nothing_behind_it_is_404(
         self, client, bucket, session, organizer
@@ -227,7 +304,7 @@ class TestTheFold:
         client.force_login(organizer)
         html = client.get(session.get_absolute_url()).content.decode()
         assert "poster-old.png" in html and preview(session, old) not in html
-        assert html.count('<details class="media-preview') == 2
+        assert html.count('<details class="media-preview') == 3
         assert (
             f'<img src="{preview(session, image)}"' in html and 'loading="lazy"' in html
         )
@@ -235,10 +312,10 @@ class TestTheFold:
             f'<video src="{preview(session, video)}"' in html
             and 'preload="none"' in html
         )
-        assert preview(session, text) not in html
+        assert f'<iframe src="{preview(session, text)}"' in html
         client.force_login(speaker)
         html = client.get(
             reverse("speakers:my_session_detail", args=[session.slug])
         ).content.decode()
-        assert html.count('<details class="media-preview') == 2
-        assert preview(session, image) in html and preview(session, text) not in html
+        assert html.count('<details class="media-preview') == 3
+        assert preview(session, image) in html and preview(session, text) in html

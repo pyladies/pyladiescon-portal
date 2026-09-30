@@ -1883,6 +1883,15 @@ class ChecklistItem(TimestampedModel):
         )
 
 
+# What the preview shows as plain text (design §8.8): transcripts, captions,
+# notes. Small by nature; the cap keeps a mislabelled upload out of memory.
+TEXT_PREVIEW_TYPES = frozenset(
+    {"text/vtt", "text/plain", "application/x-subrip", "text/markdown", "text/csv"}
+)
+TEXT_PREVIEW_SUFFIXES = (".vtt", ".srt", ".txt", ".md", ".csv")
+TEXT_PREVIEW_MAX_BYTES = 2 * 1024 * 1024
+
+
 class MediaAsset(TimestampedModel):
     """A file moving through post-production (design §8.8). Shell for
     Stage 3b: the multipart upload and probing arrive with tasks 4.1-4.3."""
@@ -2005,15 +2014,24 @@ class MediaAsset(TimestampedModel):
     @property
     def preview_kind(self):
         """``"image"``, ``"video"`` or ``"audio"`` when the browser can show
-        the file itself (design §8.8, previews); empty otherwise. An
-        allowlist: a few bitmap types, video and audio. Anything else, an
-        HTML file uploaded as "other" or an SVG say, is only ever
-        downloaded."""
+        the file itself, ``"text"`` for a transcript or another small text
+        file the portal shows as plain text (design §8.8, previews); empty
+        otherwise. An allowlist: a few bitmap types, video, audio and the
+        text types below. Anything else, an HTML file uploaded as "other"
+        or an SVG say, is only ever downloaded."""
         media_type = self.media_type
         if media_type in self.PREVIEW_IMAGE_TYPES:
             return "image"
         prefix = media_type.split("/")[0]
-        return prefix if prefix in ("video", "audio") else ""
+        if prefix in ("video", "audio"):
+            return prefix
+        name = (self.original_filename or "").lower()
+        is_text = media_type in TEXT_PREVIEW_TYPES or name.endswith(
+            TEXT_PREVIEW_SUFFIXES
+        )
+        if is_text and (self.size_bytes or 0) <= TEXT_PREVIEW_MAX_BYTES:
+            return "text"
+        return ""
 
     @property
     def is_machine_made(self):
@@ -2039,7 +2057,7 @@ class MediaAsset(TimestampedModel):
         empty when the file is not one it can show."""
         from .media import MediaBucket
 
-        if not self.preview_kind:
+        if self.preview_kind in ("", "text"):
             return ""
         if not self.storage_key:
             return self.file.url if self.file else ""

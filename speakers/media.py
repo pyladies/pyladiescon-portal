@@ -32,7 +32,13 @@ from .constants import (
     MediaStatus,
     UploadStatus,
 )
-from .models import MediaAsset, MediaUpload, SpeakerSettings, media_for_speakers
+from .models import (
+    TEXT_PREVIEW_MAX_BYTES,
+    MediaAsset,
+    MediaUpload,
+    SpeakerSettings,
+    media_for_speakers,
+)
 from .permissions import is_speaker_organizer
 from .signals import asset_ready
 
@@ -385,6 +391,21 @@ def set_line_title(asset, title):
     ).update(title=title)
     asset.title = title
     return title
+
+
+def read_text(asset):
+    """A small text file's contents from the bucket (or the admin-attached
+    file), decoded leniently; None when there is no file."""
+    if asset.storage_key:
+        bucket = MediaBucket.from_settings()
+        body = bucket.client.get_object(Bucket=bucket.bucket, Key=asset.storage_key)
+        data = body["Body"].read(TEXT_PREVIEW_MAX_BYTES + 1)
+    elif asset.file:
+        with asset.file.open("rb") as handle:
+            data = handle.read(TEXT_PREVIEW_MAX_BYTES + 1)
+    else:
+        return None
+    return data[:TEXT_PREVIEW_MAX_BYTES].decode("utf-8", "replace")
 
 
 def team_files(session, assets=None):

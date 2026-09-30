@@ -13,7 +13,7 @@ from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import PermissionDenied
-from django.http import Http404, HttpResponseRedirect, JsonResponse
+from django.http import Http404, HttpResponse, HttpResponseRedirect, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views import View
 
@@ -28,6 +28,7 @@ from .media import (
     can_upload,
     complete_upload,
     part_urls,
+    read_text,
     received_parts,
     set_line_title,
     start_upload,
@@ -236,6 +237,19 @@ class MediaPreviewView(LoginRequiredMixin, SpeakerModuleRequiredMixin, View):
             raise PermissionDenied("You may not fetch this file.")
         if not asset.preview_kind:
             raise Http404("This file has no preview; download it instead.")
+        if asset.preview_kind == "text":
+            # Fetched by the portal and answered as plain text: the same
+            # permission check as everything else, no CORS rule on the
+            # bucket, and a transcript is a few kilobytes.
+            try:
+                body = read_text(asset)
+            except MediaStorageNotConfigured:
+                raise Http404("Object storage is not configured on this portal.")
+            if body is None:
+                raise Http404("This asset has no file.")
+            response = HttpResponse(body, content_type="text/plain; charset=utf-8")
+            response["Content-Disposition"] = "inline"
+            return response
         try:
             url = asset.preview_url(ttl=DOWNLOAD_LINK_TTL)
         except MediaStorageNotConfigured:

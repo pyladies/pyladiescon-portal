@@ -405,3 +405,8 @@ details.card[open] > summary.card-header::before {
     border-radius: 0.25rem;
     flex: none;
 }
+
+/* A transcript or another text file shown in its preview fold. */
+.media-preview-text {
+    height: 20rem;
+}

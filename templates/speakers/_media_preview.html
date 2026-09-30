@@ -28,6 +28,17 @@ Params: asset, session
                        preload="none"
                        class="media-preview-video rounded border">
                 </video>
+            {% elif asset.preview_kind == "text" %}
+                {% trans "The file as text" as text_title %}
+                <iframe src="{{ preview_url }}"
+                        title="{{ text_title }}"
+                        loading="lazy"
+                        class="media-preview-text w-100 rounded border bg-body"></iframe>
+                <div class="small mt-1">
+                    <a href="{{ preview_url }}" target="_blank" rel="noopener">
+                        <i class="fa-solid fa-arrow-up-right-from-square"></i> {% trans "Open as text in a new tab" %}
+                    </a>
+                </div>
             {% else %}
                 <audio src="{{ preview_url }}" controls preload="none" class="w-100"></audio>
             {% endif %}
