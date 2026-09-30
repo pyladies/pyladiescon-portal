@@ -94,6 +94,7 @@ def send_invitation_email(invitation):
             expires_at=invitation.expires_at,
         ),
         secrets=[accept_url],
+        reply_to=team_reply_to(invitation.conference),
     )
 
 
@@ -164,6 +165,20 @@ def organizer_inbox(conference, presenter=None):
     return organizer_recipients(presenter)
 
 
+def team_reply_to(conference):
+    """Where a speaker's reply to the portal goes: the team address set in
+    this edition's speaker settings (``organizers_email``).
+
+    Unlike ``organizer_inbox`` it never falls back to staff accounts, whose
+    addresses are personal: with the field blank it returns nothing and the
+    reply goes to ``DEFAULT_FROM_EMAIL``, as for any other portal email.
+    """
+    settings_row = SpeakerSettings.objects.filter(conference=conference).first()
+    if settings_row and settings_row.organizers_email:
+        return [settings_row.organizers_email]
+    return None
+
+
 def organizer_recipients(presenter=None):
     """Organizer inboxes: staff and superusers, plus the presenter's liaison."""
     users = get_user_model().objects.filter(
@@ -226,6 +241,7 @@ def send_acceptance_email(invitation):
             "password_url": absolute_url(reverse("account_set_password")),
             "dashboard_url": absolute_url(reverse("speakers:my_dashboard")),
         },
+        reply_to=team_reply_to(invitation.conference),
     )
 
 
@@ -252,6 +268,7 @@ def send_added_to_session_email(link):
             ),
             "dashboard_url": absolute_url(reverse("speakers:my_dashboard")),
         },
+        reply_to=team_reply_to(link.conference),
     )
 
 
@@ -303,6 +320,7 @@ def send_proposal_received_email(proposal):
         [presenter.email],
         markdown_template="emails/speakers/proposal_received.md",
         context=context,
+        reply_to=team_reply_to(proposal.conference),
     )
     # With the presenter: an edition's team address does not include this
     # proposer's liaison, and the liaison is their person.
@@ -342,6 +360,7 @@ def send_proposal_approved_email(proposal):
             "dashboard_url": absolute_url(reverse("speakers:my_dashboard")),
             "checklist_url": absolute_url(reverse("speakers:my_checklist")),
         },
+        reply_to=team_reply_to(proposal.conference),
     )
 
 
@@ -358,4 +377,5 @@ def send_proposal_rejected_email(proposal):
             "conference": proposal.conference,
             "session": proposal.session,
         },
+        reply_to=team_reply_to(proposal.conference),
     )

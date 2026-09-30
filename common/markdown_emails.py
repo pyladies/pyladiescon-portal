@@ -152,21 +152,27 @@ def render_markdown_email(
 
 
 def deliver_markdown_email(
-    subject: str, recipient_list: list, html_content: str, text_content: str
+    subject: str,
+    recipient_list: list,
+    html_content: str,
+    text_content: str,
+    reply_to: Optional[list] = None,
 ) -> None:
     """Hand the rendered parts to the mail backend.
 
-    Replies go to the sender address (the conference's own), set explicitly
-    so it holds whatever the backend or mail client would otherwise do. It
-    adds no recipient: nobody is copied on what is sent, because some of
-    it carries a personal sign-in link.
+    Replies go to ``reply_to`` when the caller has a team address for this
+    mail, else to ``settings.DEFAULT_FROM_EMAIL``, which is the From address
+    and so what a reply reaches anyway; naming it keeps replies from moving
+    if From ever changes. ``reply_to`` adds no recipient: nobody is copied on
+    what is sent, because some of it carries a personal sign-in link. Account
+    email (allauth) builds its own message and is outside this path.
     """
     msg = EmailMultiAlternatives(
         subject,
         text_content,
         settings.DEFAULT_FROM_EMAIL,
         recipient_list,
-        reply_to=[settings.DEFAULT_FROM_EMAIL],
+        reply_to=reply_to or [settings.DEFAULT_FROM_EMAIL],
     )
     msg.attach_alternative(html_content, "text/html")
     msg.send()
