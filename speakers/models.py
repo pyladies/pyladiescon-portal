@@ -2008,7 +2008,7 @@ class MediaUpload(TimestampedModel):
     )
     kind = models.CharField(max_length=16, choices=MediaKind.choices)
     language = models.CharField(max_length=10, blank=True, default="")
-    variant = models.CharField(max_length=40, blank=True, default="")
+    variant = models.CharField(max_length=40, blank=True, default="", db_default="")
     filename = models.CharField(max_length=255)
     content_type = models.CharField(max_length=100, default="application/octet-stream")
     size_bytes = models.BigIntegerField()

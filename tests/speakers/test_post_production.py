@@ -30,7 +30,7 @@ from speakers.seeds import seed_checklists
 
 from .factories import add_presenter, make_presenter, make_session, make_settings
 
-migration = importlib.import_module("speakers.migrations.0012_media_uploads")
+migration = importlib.import_module("speakers.migrations.0013_post_production")
 BUCKET = "test-speaker-media"
 
 
