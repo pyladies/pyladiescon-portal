@@ -471,6 +471,19 @@ sent as both text and bleach-sanitized HTML. Backend is SMTP when
 `DJANGO_EMAIL_HOST` is set, console otherwise; subjects use
 `settings.ACCOUNT_EMAIL_SUBJECT_PREFIX`. Guide: `docs/developer/markdown-emails.md`.
 
+Reply-To: `deliver_markdown_email` sets it to `DEFAULT_FROM_EMAIL` unless the
+caller passes `reply_to=`, and never adds a recipient (the invitation link is a
+sign-in credential, so nobody is copied). The speaker-facing emails (the
+invitation, the acceptance, added to a session, the three proposal replies, and
+the speaker side of the checklist digest and change notice) pass
+`emails.team_reply_to(conference)`: `SpeakerSettings.organizers_email`, or
+nothing when blank, so a reply goes to `DEFAULT_FROM_EMAIL` and not to a staff
+account (`organizer_inbox` falls back to staff; replies must not). Point it at
+the shared team address, never a person. Organizer-facing mail (the
+organizers' copy of a proposal, the co-presenter suggestion, the organizer side
+of the digests) keeps the `DEFAULT_FROM_EMAIL` default. Account email
+(allauth) has no Reply-To.
+
 Every send through `send_email` leaves a `common.SentEmail` row (design
 §13.1, task 2.23): the addresses as sent, the subject, the template (which
 is the kind), the rendered Markdown body, the ids of what it was about, and

@@ -74,6 +74,7 @@ def send_email(
     presenter=None,
     session=None,
     secrets=(),
+    reply_to=None,
 ):
     """Send an email from a Markdown template and record it.
 
@@ -93,6 +94,9 @@ def send_email(
         recipient_list: List of recipient email addresses
         markdown_template: Path to Markdown template (required)
         context: Template context dictionary
+        reply_to: Addresses replies go to, instead of ``DEFAULT_FROM_EMAIL``;
+            never a recipient, so never a copy. The caller supplies it, so
+            ``common`` imports nothing from the apps.
     """
     context = context or {}
     markdown_content, html_content, text_content = render_markdown_email(
@@ -109,7 +113,9 @@ def send_email(
         session=session,
     )
     try:
-        deliver_markdown_email(subject, recipient_list, html_content, text_content)
+        deliver_markdown_email(
+            subject, recipient_list, html_content, text_content, reply_to=reply_to
+        )
     except Exception as exc:
         record.status = SentEmailStatus.FAILED
         record.error = f"{type(exc).__name__}: {exc}"[:2000]

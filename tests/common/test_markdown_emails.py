@@ -181,7 +181,7 @@ class SendEmailCompatibilityTest(TestCase):
 
         mock_render.assert_called_once_with("test.md", self.context)
         mock_deliver.assert_called_once_with(
-            self.subject, self.recipients, "<h1>Hi</h1>", "Hi"
+            self.subject, self.recipients, "<h1>Hi</h1>", "Hi", reply_to=None
         )
         self.assertEqual(result.body_md, "# Hi")
         self.assertEqual(result.to, "recipient@example.com")

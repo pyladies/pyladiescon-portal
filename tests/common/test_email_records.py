@@ -31,7 +31,7 @@ from speakers.emails import (
     send_invitation_email,
     signed_invitation_token,
 )
-from speakers.models import Presenter
+from speakers.models import Presenter, SpeakerSettings
 from tests.speakers.factories import (
     make_invitation,
     make_presenter,
@@ -206,6 +206,51 @@ class TestRecording:
         assert token not in record.body_md and WITHHELD in record.body_md
         assert record.presenter == presenter
         assert record.context_digest["invitation"] == invitation.pk
+
+    def test_invitation_replies_go_to_the_team_address_in_speaker_settings(
+        self, conference, presenter, settings
+    ):
+        """Reply-To is ``SpeakerSettings.organizers_email``; nobody is
+        copied, so the accept link reaches no one but the presenter."""
+        settings.DEFAULT_FROM_EMAIL = "noreply@example.com"
+        SpeakerSettings.objects.update_or_create(
+            conference=conference, defaults={"organizers_email": "team@example.com"}
+        )
+        invitation = make_invitation(presenter)
+        invitation.issue_token()
+        invitation.save()
+        send_invitation_email(invitation)
+        message = mail.outbox[0]
+        assert message.reply_to == ["team@example.com"]
+        assert message.to == [presenter.email]
+        assert not message.cc and not message.bcc
+
+    def test_a_blank_team_address_falls_back_to_the_from_address_not_staff(
+        self, conference, presenter, settings, django_user_model
+    ):
+        settings.DEFAULT_FROM_EMAIL = "noreply@example.com"
+        django_user_model.objects.create_user(
+            username="staffer", email="staffer@example.com", is_staff=True
+        )
+        SpeakerSettings.objects.filter(conference=conference).update(
+            organizers_email=""
+        )
+        invitation = make_invitation(presenter)
+        invitation.issue_token()
+        invitation.save()
+        send_invitation_email(invitation)
+        assert mail.outbox[0].reply_to == ["noreply@example.com"]
+
+    def test_markdown_email_replies_default_to_the_from_address(self, settings):
+        settings.DEFAULT_FROM_EMAIL = "team@example.com"
+        send(["a@x.org"])
+        assert mail.outbox[0].reply_to == ["team@example.com"]
+
+    def test_a_caller_supplied_reply_to_wins(self):
+        send(["a@x.org"], reply_to=["desk@example.com"])
+        message = mail.outbox[0]
+        assert message.reply_to == ["desk@example.com"]
+        assert message.to == ["a@x.org"] and not message.cc and not message.bcc
 
     def test_invitation_link_is_withheld_by_shape_when_the_sender_forgets(
         self, conference, presenter
