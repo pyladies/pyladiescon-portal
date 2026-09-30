@@ -204,6 +204,25 @@ class TestPresenterForms:
         candidates = list(liaison_candidates(conference))
         assert root in candidates and helper in candidates and gone not in candidates
 
+    def test_pickers_name_people_with_their_username(
+        self, client, organizer, liaison, presenters
+    ):
+        """A name alone does not tell two people apart, and a username
+        alone says nothing; the pickers show both."""
+        client.force_login(organizer)
+        ada = presenters["ada"]
+        form = client.get(reverse("speakers:presenter_edit", args=[ada.slug])).context[
+            "form"
+        ]
+        labels = [
+            form.fields["liaison"].label_from_instance(u)
+            for u in form.fields["liaison"].queryset
+        ]
+        assert "Lena (liaison)" in labels and "organizer" in labels
+        page = client.get(LIST, {"liaison": liaison.pk})
+        field = page.context["filter"].form.fields["liaison"]
+        assert field.label_from_instance(liaison) == "Lena (liaison)"
+
     def test_liaison_reads_but_cannot_edit(self, client, liaison, presenters):
         """A liaison sees their presenter but must not change the email an
         invitation goes to, nor hand the presenter to someone else."""

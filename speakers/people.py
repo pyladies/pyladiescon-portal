@@ -10,8 +10,17 @@ from volunteer.constants import ApplicationStatus
 
 
 def user_label(user):
-    """Full name, or the username when the profile has none."""
+    """Full name, or the username when the profile has none: how a person is
+    named in prose, emails and page text."""
     return user.get_full_name() or user.username
+
+
+def picker_label(user):
+    """``Full Name (username)`` for a dropdown, where a name alone is not
+    enough to tell two people apart; the username alone when there is no
+    name. The same form the team form uses for its leads."""
+    name = user.get_full_name()
+    return f"{name} ({user.username})" if name else user.username
 
 
 def organizer_side_candidates(conference):

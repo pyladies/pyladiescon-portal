@@ -593,7 +593,12 @@ class TestManageVolunteers:
         another_profile.save()
         action_button = volunteer_table.render_actions("", another_profile)
         assert "btn-primary" in action_button
-        assert "Review" in action_button
+        # Icon and word: an unlabelled icon was read as anything but Review.
+        assert (
+            "fa-clipboard-list" in action_button and "</i> Review</a>" in action_button
+        )
+        # The word is visible, so no title repeats it.
+        assert "title=" not in action_button
 
         another_profile.application_status = ApplicationStatus.APPROVED
         another_profile.save()

@@ -4,7 +4,7 @@ from django.db.models import Q
 
 from .constants import UNACCEPTED_STATUSES, SessionStatus
 from .models import Presenter, Session, SessionType
-from .people import liaison_candidates
+from .people import liaison_candidates, picker_label
 
 
 class SessionFilter(django_filters.FilterSet):
@@ -73,9 +73,7 @@ class PresenterFilter(django_filters.FilterSet):
     def __init__(self, *args, conference=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.filters["liaison"].queryset = liaison_candidates(conference)
-        self.filters["liaison"].field.label_from_instance = (
-            lambda user: user.get_full_name() or user.username
-        )
+        self.filters["liaison"].field.label_from_instance = picker_label
 
     def filter_search(self, queryset, name, value):
         return queryset.filter(

@@ -225,6 +225,24 @@
         Speaking: a volunteer account is the same account, so the invitation
         belongs on their hub while proposals are open.
         {% endcomment %}
+        {# A volunteer who is also on the program has a second home; the #}
+        {# Speaking tab is easy to miss, so say so here as well. #}
+        {% if is_speaker_presenter %}
+            <div class="card border-primary-subtle mb-4">
+                <div class="card-body d-flex flex-wrap align-items-center gap-3">
+                    <div class="flex-grow-1">
+                        <h2 class="h6 text-body-emphasis mb-1">
+                            <i class="fa-solid fa-microphone text-secondary"></i> {% trans "You are speaking this year" %}
+                        </h2>
+                        <p class="text-body-secondary mb-0">
+                            {% trans "Your sessions, your speaker checklist and your profile live on your speaker dashboard." %}
+                        </p>
+                    </div>
+                    <a href="{% url 'speakers:my_dashboard' %}"
+                       class="btn btn-sm btn-primary">{% trans "Open my speaker dashboard" %}</a>
+                </div>
+            </div>
+        {% endif %}
         {% if speaker_proposals_open %}
             <div class="card border-primary-subtle mb-4">
                 <div class="card-body d-flex flex-wrap align-items-center gap-3">
