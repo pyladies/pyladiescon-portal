@@ -190,9 +190,11 @@ reminder digest and the co-presenter suggestion use too, falling back to
 the staff accounts while the field is blank, and adding the presenter's
 liaison where there is one): a proposal is work for whoever runs the program, and
 `is_staff` is neither per edition nor a job description. Approving runs the acceptance path an
-invitation takes (`services.approve_proposal`), so the checklists, the
-confirmation and the emails are the ones a speaker always gets, dated from
-the approval. Rejecting keeps the rows and locks the session's identity, and an
+invitation takes (`services.approve_proposal`), so the checklists and the
+confirmation are the ones a speaker always gets, dated from the approval. The
+email is not the same: an approval sends `proposal_approved.md` ("Your session
+is in"), while accepting an invitation sends `accepted.md` ("Welcome aboard"),
+so an approved proposer never gets the welcome email. Rejecting keeps the rows and locks the session's identity, and an
 organizer can still approve it afterwards: slots open up when something is
 cancelled, and the whole acceptance path runs then, dated from the second
 answer.
