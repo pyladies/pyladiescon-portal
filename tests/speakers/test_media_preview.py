@@ -125,6 +125,13 @@ class TestPreviewLink:
         settings.SPEAKER_MEDIA_BUCKET = ""
         assert client.get(preview(session, image)).status_code == 404
 
+    def test_an_asset_with_nothing_behind_it_is_404(
+        self, client, bucket, session, organizer
+    ):
+        client.force_login(organizer)
+        empty = asset(session, storage_key="")
+        assert client.get(preview(session, empty)).status_code == 404
+
     def test_an_admin_attached_file_previews_by_its_url(
         self, client, session, organizer
     ):

@@ -24,9 +24,11 @@ from speakers.media import (
     team_files,
 )
 from speakers.models import ChecklistItem, ChecklistTemplateItem, MediaAsset
+from speakers.rules import asset_shared
 from speakers.seeds import seed_checklists
 
 from .factories import add_presenter, make_presenter, make_session, make_settings
+from .test_rules import auto_item
 
 migration = importlib.import_module("speakers.migrations.0013_post_production")
 BUCKET = "test-speaker-media"
@@ -258,6 +260,20 @@ class TestPromoLines:
         assert shared.status == ItemStatus.DONE
         # The workshop's own lines are untouched by the panel's poster.
         assert item(workshop, "Promo materials prepared").status == ItemStatus.TODO
+
+    def test_the_rule_needs_a_kind_and_a_session(self, world):
+        """Like ``asset_exists``: an item that names no kind, or hangs on no
+        session, is never ticked by the rule."""
+        session = world["panel"]
+        no_kind = auto_item(session.conference, "asset_shared", session=session)
+        no_session = auto_item(
+            session.conference,
+            "asset_shared",
+            presenter=world["ada"],
+            requires_asset_kind="PROMO",
+        )
+        assert asset_shared(no_kind) is False
+        assert asset_shared(no_session) is False
 
     def test_the_seed_lines(self, world):
         """Every presenter template carries the two lines with their rules."""
