@@ -1,4 +1,4 @@
-{% load i18n %}
+{% load i18n speakers_extras %}
 {% comment %}
 One asset: version, file, size, who and when, duration, the download
 link, and the reviewer's note (editable when can_edit). Params:
@@ -14,10 +14,7 @@ link, and the reviewer's note (editable when can_edit). Params:
         <span class="text-secondary">{{ asset.size_bytes|filesizeformat }}</span>
     {% endif %}
     {% if asset.duration_seconds is not None %}
-        <span class="text-secondary">
-            {% widthratio asset.duration_seconds 60 1 as minutes %}
-            {{ minutes }} {% trans "min" %}
-        </span>
+        <span class="text-secondary">{{ asset.duration_seconds|duration }}</span>
     {% elif asset.probe_error %}
         <span class="text-danger" title="{{ asset.probe_error }}">
             <i class="fa-solid fa-triangle-exclamation"></i> {% trans "Length not measured" %}: {{ asset.probe_error }}

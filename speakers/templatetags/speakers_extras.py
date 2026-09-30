@@ -27,4 +27,24 @@ def invitation_status_class(invitation):
     return INVITATION_BADGE_CLASSES[invitation.status]
 
 
+@register.filter
+def duration(seconds):
+    """Whole seconds as "1 min 30 s", "45 s", or "1 h 02 min 03 s".
+
+    A video's length is shown to the second, since the limit is checked
+    to the second: "1 min" for a 1:59 clip would hide the minute that
+    matters.
+    """
+    if seconds is None:
+        return ""
+    seconds = int(seconds)
+    hours, rest = divmod(seconds, 3600)
+    minutes, secs = divmod(rest, 60)
+    if hours:
+        return f"{hours} h {minutes:02d} min {secs:02d} s"
+    if minutes:
+        return f"{minutes} min {secs:02d} s"
+    return f"{secs} s"
+
+
 register.filter("user_label", user_label)

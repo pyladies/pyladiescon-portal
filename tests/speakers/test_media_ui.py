@@ -321,3 +321,15 @@ class TestNotes:
             )
         client.force_login(organizer)
         assert client.get(notes(session, asset)).status_code == 405
+
+
+class TestDurationFilter:
+    def test_minutes_and_seconds(self):
+        from speakers.templatetags.speakers_extras import duration
+
+        assert duration(None) == ""
+        assert duration(0) == "0 s"
+        assert duration(45) == "45 s"
+        assert duration(60) == "1 min 00 s"
+        assert duration(119) == "1 min 59 s"
+        assert duration(3723) == "1 h 02 min 03 s"
