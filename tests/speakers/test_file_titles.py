@@ -175,9 +175,7 @@ class TestEditing:
         )
         assert response.status_code == 200
         html = response.content.decode()
-        assert html.strip().startswith(
-            '<div class="card mb-3" id="files-promo-landscape"'
-        )
+        assert html.strip().startswith('<tbody id="files-promo-landscape"')
         assert "Newer" in html and 'value="Newer"' in html
         assert set_line_title(square, "") == ""
         assert (
@@ -208,10 +206,10 @@ class TestWhereItShows:
         groups = {g["id"]: g for g in asset_groups(session_assets(session))}
         assert groups["files-promo-square"]["title"] == "Poster for the set"
         assert groups["files-title_card"]["title"] == ""
+        assert "Poster for the set" in html
         assert (
-            "Poster for the set" in html
-            and "Edit the title" in html
-            and "Add a title" in html
+            'id="title-files-promo-square"' in html
+            and 'id="title-files-title_card"' in html
         )
         assert 'data-role="title"' in html
         assert 'id="upload-titles-files"' in html

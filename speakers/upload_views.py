@@ -242,20 +242,19 @@ class MediaPreviewView(LoginRequiredMixin, SpeakerModuleRequiredMixin, View):
 
 
 def _row_or_files(request, session, asset, message):
-    """An htmx request gets the refreshed file row swapped in place (no
+    """An htmx request gets the refreshed file group swapped in place (no
     reload, no jump to the anchor); a plain form post goes back to the
     Files section with the message."""
     if request.headers.get("HX-Request"):
         return render(
             request,
-            "speakers/_media_asset_row.html",
+            "speakers/_media_group.html",
             {
-                "asset": asset,
+                "group": asset_group(asset),
                 "session": session,
                 # Derived, not asserted: the row offers the same controls
                 # the full page would, whoever the view's gate let in.
                 "can_edit": is_speaker_organizer(request.user),
-                "show_notes": True,
             },
         )
     messages.success(request, message)

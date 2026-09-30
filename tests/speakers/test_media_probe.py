@@ -254,4 +254,6 @@ class TestOnThePage:
         assert "could not be checked automatically" in html
         client.force_login(organizer)
         html = client.get(f"/speakers/sessions/{session.slug}/").content.decode()
-        assert "Length not measured: ffprobe is not installed" in html
+        # The table keeps the row short: the reason is the cell's title.
+        assert "Length not measured" in html
+        assert 'title="ffprobe is not installed on the worker."' in html

@@ -1,18 +1,50 @@
 {% load i18n %}
 {% comment %}
-The organizer's file list for one session (design §8.8, task 5.2): one
-group per kind, language and variant (_media_group.html), the newest
-READY version first with a download link and the reviewer's note, older
-versions folded underneath.
+The organizer's file list for one session (design §8.8): a table, one
+row per file line (kind, language and variant) showing its current
+version, with a "More" toggle that opens a second row for the preview,
+the reviewer's note, sharing, the title and the earlier versions. Each
+group is a <tbody> (_media_group.html), which is what the note, share and
+title forms swap in place.
 Params:
     session       the Session
     media_groups  media.asset_groups(...)
     can_edit      whether the note, share and title forms are offered (organizers)
 {% endcomment %}
-{% for group in media_groups %}
-    {% include "speakers/_media_group.html" with group=group session=session can_edit=can_edit %}
-{% empty %}
+{% if media_groups %}
+    <div class="table-responsive">
+        <table class="table table-sm table-hover align-middle media-table">
+            <thead class="table-light">
+                <tr>
+                    <th>
+                        {% trans "File" %}
+                    </th>
+                    <th>
+                        {% trans "Version" %}
+                    </th>
+                    <th>
+                        {% trans "Size" %}
+                    </th>
+                    <th>
+                        {% trans "Length" %}
+                    </th>
+                    <th>
+                        {% trans "Uploaded" %}
+                    </th>
+                    <th>
+                        {% trans "Speaker" %}
+                    </th>
+                    <th>
+                    </th>
+                </tr>
+            </thead>
+            {% for group in media_groups %}
+                {% include "speakers/_media_group.html" with group=group session=session can_edit=can_edit %}
+            {% endfor %}
+        </table>
+    </div>
+{% else %}
     <p class="text-secondary">
         {% trans "No files yet. A performer's raw video lands here, and so does everything post-production adds." %}
     </p>
-{% endfor %}
+{% endif %}
