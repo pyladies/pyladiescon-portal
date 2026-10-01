@@ -147,6 +147,89 @@ it, and tighten it in a later release.
 The same window applies to a column that is later removed: drop it from the
 model first, deploy, then delete the column in a follow-up migration.
 
+### Speaker media bucket
+
+Speaker media (design §8.8) lives in its own **private** bucket, named by
+`SPEAKER_MEDIA_BUCKET`, never the public-read one the image fields use. It
+needs a lifecycle rule that aborts incomplete multipart uploads after 7
+days (`AbortIncompleteMultipartUpload`): the portal's nightly "Expire
+abandoned uploads" task reclaims what it knows about, and the rule reclaims
+the rest. The bucket also needs a CORS rule allowing `PUT` from the portal's
+origin with the `ETag` header exposed, since the browser uploads the parts
+directly. Once bulk download exists (design §8.8, task 5.6) the same
+rule needs `GET` as well, and a second lifecycle rule should expire the
+`exports/` prefix after 7 days, since zip bundles are built there.
+
+**Read-only key for a post-production lead.** The bulk-download design
+names one escape hatch that needs no portal code: a Spaces key with
+read-only access to the media bucket, so one trusted person can pull an
+edition with `rclone`. Create it under API, Spaces Keys, scoped to the
+media bucket only with *Read* permission, and hand it over through the
+password manager, never by email or chat. Revoke it when the edition's
+post-production is done; nothing in the portal records what such a key
+fetches.
+
+```sh
+rclone config create do-media s3 provider=DigitalOcean \
+    endpoint=nyc3.digitaloceanspaces.com \
+    access_key_id=<key> secret_access_key=<secret>
+rclone sync do-media:pyladiescon-media/speaker-media/2026 ./pyladiescon-2026 \
+    --progress --transfers 4
+```
+
+### The media worker
+
+Media jobs run for minutes at a time: the duration probe (task 5.3, built)
+measures every video that lands with `ffprobe`, and machine transcription
+(task 5.7, designed) will run Whisper. They go on the `media` Celery queue
+(`CELERY_TASK_ROUTES` in settings), served by the `worker-media` process
+in the `Procfile` rather than the default `worker`, so a half-hour
+transcription never holds up an invitation email.
+
+- The image installs `ffmpeg`, which brings `ffprobe`.
+- **`worker-media` is a new process, so it starts at zero replicas in
+  cabotage** and has to be scaled to one by hand after the deploy that
+  adds it (see "A new or renamed process" above); keep it at one replica,
+  and it runs with concurrency 1. Until it is scaled up, every uploaded
+  video shows "Length not checked yet" for good: the probe is queued and
+  nobody is consuming the queue.
+- A probe that fails records why on the asset ("Length not measured:
+  ffprobe is not installed on the worker", for instance), which the file
+  rows show, and logs an error; the asset itself stays usable.
+
+When transcription lands:
+
+- the Whisper model is part of the image (a Dockerfile layer downloads
+  the pinned model into `/opt/whisper` at build time, before the code is
+  copied, so a code-only deploy reuses the cached layer), and the worker
+  never downloads at run time; changing `SPEAKER_TRANSCRIBE_MODEL` is an
+  image rebuild, and a model missing from the image fails the job on the
+  page rather than fetching it; give the process 2 GB of memory for
+  `small`, more for `medium`;
+- transcription runs entirely in this process; no audio leaves the
+  portal's infrastructure, and there is no API key to manage.
+
+**What a second worker process costs.** It is one more container on the
+PSF-hosted cabotage cluster with its own memory reservation (the Whisper
+model is what sets it), one more line to scale by hand after the deploy,
+and one more thing that can be at zero replicas without anything failing
+loudly: media tasks sit in Redis until a `worker-media` picks them up,
+which is why the nightly watchdog marks a job queued for over twelve
+hours as failed on the page. It shares the image, so `ffmpeg` and the
+`faster-whisper` dependency are in every process's image whether or not
+they use them (about 250 MB more image, plus about 500 MB for the
+Whisper model layer). Everything else is unchanged:
+`web`, `worker-beat` and `release` do not know it exists, and the default
+`worker` keeps consuming only its own queue.
+
+The alternative is one worker consuming both queues with two child
+processes. It saves the container and the manual scale-up, but the whole
+worker then needs the model's memory, a transcription and an email share
+the same limits, and two slow transcriptions would hold every email until
+one finishes. The separate process is the recommended shape; the single
+worker is the fallback if the cluster cannot spare a container, and it is
+a Procfile and settings change, not a code change.
+
 ### One-time configuration
 
 Two things live outside the code and have to be set on a new environment:

@@ -11,7 +11,8 @@ COPY requirements-app.txt /code/
 RUN --mount=type=cache,target=/root/.cache/pip \
     pip install -r requirements-app.txt
 
-RUN apt-get update && apt-get install -y gettext flite sox
+# ffmpeg brings ffprobe, which the media worker uses to measure videos.
+RUN apt-get update && apt-get install -y gettext flite sox ffmpeg
 
 
 ###############################################################################

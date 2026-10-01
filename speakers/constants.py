@@ -103,6 +103,12 @@ class MediaKind(models.TextChoices):
     OTHER = "OTHER", "Other"
 
 
+# The kinds the duration probe runs on (design §8.8, task 5.3).
+VIDEO_KINDS = frozenset(
+    {MediaKind.RAW_VIDEO, MediaKind.INTRO, MediaKind.OUTRO, MediaKind.PROCESSED_VIDEO}
+)
+
+
 class ChecklistScope(models.TextChoices):
     GENERAL = "GENERAL", "Every presenter (once per edition)"
     PRESENTER = "PRESENTER", "Per presenter per session (keyed by kind and role)"
@@ -196,10 +202,6 @@ class MediaStatus(models.TextChoices):
     SUPERSEDED = "SUPERSEDED", "Superseded"
 
 
-VIDEO_KINDS = frozenset(
-    {MediaKind.RAW_VIDEO, MediaKind.PROCESSED_VIDEO, MediaKind.INTRO, MediaKind.OUTRO}
-)
-
 # Slugs: sessions and presenters are addressed by slug (docs/architecture/
 # session-and-presenter-addresses.md). The derived base leaves room for a
 # "-2" style suffix under the field's max length.
@@ -254,6 +256,21 @@ def parse_owner(value):
     if kind in ("user", "team") and pk:
         return kind, pk
     return None, None
+
+
+class UploadStatus(models.TextChoices):
+    """Where an in-flight multipart upload stands (design §8.8)."""
+
+    STARTED = "STARTED", "Started"
+    COMPLETED = "COMPLETED", "Completed"
+    ABORTED = "ABORTED", "Aborted"
+    EXPIRED = "EXPIRED", "Expired"
+
+
+# Presigned part URLs are handed out in batches this size; the browser asks
+# for the next batch as it goes, so a 10,000-part upload never gets 10,000
+# URLs in one response.
+UPLOAD_PART_URL_BATCH = 50
 
 
 class NoticeKind(models.TextChoices):

@@ -127,7 +127,7 @@ PyJam sessions are pre-recorded. The performer uploads the video; the team post-
 
 ### 4.1 The performer
 
-> **Not built** (M3b). The upload panel and the post-production lists below are the proposal; today a performer sees their checklist and nothing uploads.
+> **Being built** (M3b). Task 5.2 (29 September 2026): the upload panel on the performer's session page, with resume, the current version and the length bar, and the organizer's per-session file list with download links and reviewer notes. The duration probe (5.3, same day) fills the length bar within seconds of an upload; the post-production lists are still the proposal.
 
 Same dashboard as any speaker, plus an upload panel: the video goes straight to storage in chunks and resumes if the connection drops, and the panel shows the duration against the length limit. The performer's second list is "what we're doing with your video", so they can watch it move through transcription, translation, and the final cut. When the final cut is ready, an "approve the final cut" item opens for them.
 
@@ -328,7 +328,7 @@ The speaker guide, versioned. Reading it records a `HandbookReadReceipt`; publis
 
 ### 8.8 MediaAsset
 
-> **Partly built** (M3b). The model exists and the video-length rule reads it; nothing uploads or probes a file yet.
+> **Being built** (M3b). Task 5.1 (29 September 2026): the multipart upload backend, `MediaUpload`, the JSON endpoints, versioning and `asset_ready`. Task 5.2 (same day): the browser panel with resume, the performer's video card, the organizer's file list with notes and downloads. Task 5.3 (same day): the duration probe on the `media` queue, with the failure written on the asset. Session-scoped checklists and seeds (5.4) are next.
 
 For pre-recorded sessions, one row per file that moves through post-production:
 
@@ -338,10 +338,89 @@ For pre-recorded sessions, one row per file that moves through post-production:
 | `file` | Digital Ocean Spaces, private; presigned upload and download |
 | `language` | for transcripts and translations, one row per language |
 | `version` | increments on re-upload; old versions kept until deleted |
-| `duration_seconds` | probed server-side after upload; drives the length-limit check |
+| `duration_seconds`, `probe_error` | probed server-side after upload (`ffprobe` over a presigned link, on the media queue); drives the length-limit check. When the probe cannot answer, the reason is on the asset and on the page |
 | `status`, `notes_md` | `UPLOADING` · `READY` · `FAILED` · `SUPERSEDED`; reviewer notes ("audio clips at 4:10") |
 
 Performance videos are routinely several gigabytes, so the browser uploads directly to object storage in chunks using presigned multipart URLs, with per-part retry and resume. The portal finalizes the upload and records the asset. Performers can upload raw video for their own sessions; organizers upload any kind.
+
+#### Where files live in the bucket
+
+Every object is keyed by edition, session and kind, so the bucket itself reads like a folder tree:
+
+```
+speaker-media/2026/<session-slug>/raw_video/<upload id>/<original filename>
+speaker-media/2026/<session-slug>/transcript/<upload id>/<original filename>
+```
+
+The upload id segment is what makes a re-upload a new object instead of an overwrite; the version number is assigned when the upload completes and lives on the row, not in the key. The row is the source of truth for everything else too: a session's slug can change after its first upload, and old objects keep the old slug. Nothing reads the bucket by listing it.
+
+#### Bulk download (post-production)
+
+> **Designed, not built.** Task 5.6.
+
+The people who edit the videos, design the title cards and cut the final versions work on their own machines, in their own tools, and they want *everything* for the edition on local disk, not one file at a time from a web page. A pull of an edition's raw video is tens of gigabytes across dozens of files, which rules out the two obvious shapes: a zip built on the server doubles the storage and ties up a worker and its disk for an hour, and a zip streamed through Django holds a web worker for the whole transfer and cannot resume when the connection drops. The bucket already knows how to serve large files with range requests and resume; the portal's job is to hand out the list of what to fetch and where to put it.
+
+**The export.** An organizer picks a scope on the sessions list or the post-production board (§4.2): the edition (the active one by default), the kinds (raw video by default), an optional language, the sessions currently filtered, and whether to include superseded versions (latest `READY` only by default) or only files newer than their last export. The portal answers with one presigned download link per asset and a local path for each, laid out the same way as the bucket, without the upload id and with the version in the file name so two versions can sit side by side:
+
+```
+pyladiescon-2026/<session-slug>/raw_video/v2-<original filename>
+pyladiescon-2026/<session-slug>/transcript/v1-en-<original filename>
+pyladiescon-2026/manifest.csv
+```
+
+`manifest.csv` carries what the file names cannot: session title, presenters, kind, language, version, duration, size, when it was uploaded and by whom, and the reviewer notes. Editors sort and search that in a spreadsheet; the folders stay predictable for scripts and for the editing software's media bins.
+
+**Three ways to fetch it**, all from the same export:
+
+1. *Download to a folder*, in the browser. On Chromium browsers the page asks for a local folder (the File System Access API), then streams each object straight from the bucket into that folder with the layout above, with per-file progress, retry, and skip-if-already-complete so a second run only picks up what is missing. No tooling to install; this is the button most people will use. Other browsers do not offer a folder picker and get option 2.
+2. *A download script*. A shell script with one resumable `curl` line per file (`-C -`, `--create-dirs`) and the manifest embedded, for anyone on a terminal, plus an `aria2c` input file for parallel transfers. Runs unattended and resumes after an interruption.
+3. *A zip*, only for small bundles. Transcripts, title cards and thumbnails for an edition are a few hundred megabytes at most, and a designer expects a zip. When the selection is under `SPEAKER_MEDIA_ZIP_MAX_BYTES` (1 GiB by default) the portal offers to build one: a worker task streams the objects into a zip stored under `speaker-media/exports/`, and the person gets a link when it is ready. A lifecycle rule deletes exports after 7 days. Above the cap the option is not shown.
+
+**Links and their lifetime.** A presigned link is a bearer credential: anyone holding it can fetch the object until it expires. Bulk links live longer than the one-hour page links (`SPEAKER_MEDIA_BULK_URL_TTL`, 12 hours by default, enough for a 100 GB pull on a home connection) and the export page says so. The script and the manifest are therefore treated like a credential: the page warns not to share them, and every export is recorded as a `MediaExport` row (who, when, scope, file count, total bytes, expiry) so the Maintenance section can answer "who pulled the 2026 videos, and when". The links in any email the portal sends about an export are withheld from the email record the same way invitation links are (§2.23).
+
+**Who.** Organizers, the same rule as uploading any kind; presenters never bulk download. Once the permissions catalogue lands (task 3.7) this becomes `speakers.view_mediaasset`, which is what puts the Design and Communication teams on the export page without making them program managers.
+
+**The other direction.** Editors bring processed videos, transcripts and title cards back. That stays per file through the upload panel for now; a "bulk upload from a folder" would read the same layout and manifest in reverse and is not designed here.
+
+**The escape hatch.** For a post-production lead who wants to `rclone sync` the whole edition and keep it in sync as new uploads arrive, DigitalOcean can issue a Spaces key with read-only access to just the media bucket. That works today, needs no portal code, and is the most efficient way to move 100 GB, but the key sees every edition and every kind and nothing in the portal records what it fetched, so it is an operations procedure for one trusted person (documented in the deployment guide), not a feature.
+
+**Cost.** Spaces includes 1 TiB of outbound transfer a month and charges a cent per GiB beyond it, so a handful of full pulls of an edition costs nothing extra. The export page shows the total size of the selection before anyone starts.
+
+#### Machine transcription
+
+> **Designed, not built.** Task 5.7.
+
+The "Transcribe" item on the post-production checklist completes when a transcript asset exists for the session's language (§9.7), so a worker job that writes one is the whole feature from the checklist's point of view: the item ticks itself, "Review transcript" stays a person's job, and the reviewer's corrected file goes up as the next version through the ordinary panel. The job is a draft-maker, never the last word.
+
+**What triggers it.** A raw video becoming `READY` (`asset_ready`), when the edition's speaker settings have *machine transcription* switched on (off by default) and the session has no transcript for its language that a person made. A new raw video version re-runs it only while the latest transcript is still a machine one; a reviewed transcript is never overwritten by a re-upload. An organizer can also start it by hand from a video's row in the Files section ("Transcribe this"), including on the processed video, and retry a failed run from the same place.
+
+**What it produces.** One `MediaAsset` of kind `TRANSCRIPT` in the session's language (or the language the engine detected, when the session has none), as **WebVTT** with cue timings: what YouTube accepts as captions and what a browser plays with `<track>`, and easy to read as text. It is uploaded to the bucket with a single put, recorded like any other asset (the next version for its kind and language, the previous `READY` one superseded, `asset_ready` sent), with `uploaded_by` empty and a new `generated_by` field naming the engine and model (for example `faster-whisper/small`), so the file list and the review item can say "machine draft" rather than pass it off as a person's work. Whisper's translation mode only targets English, so translations stay a person's job; a later job could draft them with a language model, and that is a separate design.
+
+**How it runs.** A Celery task, `transcribe_asset_task`, on its own queue:
+
+1. Records a `TranscriptionJob` row (video asset, engine, `QUEUED`), which is what the Files section shows while it runs ("Transcribing, started 4 minutes ago") and what "Retry" acts on.
+2. Extracts the audio without touching the video on disk: `ffmpeg` reads the presigned video URL and writes 16 kHz mono Opus at 32 kbit/s to a temporary file, about 7 MB for a 30-minute set.
+3. Hands the audio to the configured engine and gets back timed segments.
+4. Writes the VTT, uploads it, records the asset, marks the job `DONE`.
+5. On any failure marks the job `FAILED` with the error, logs it to the session's activity, and leaves the checklist item open. Never silent: a missing `ffmpeg`, a missing model, an exhausted API quota all show on the page.
+
+**The engine: Whisper in the worker, nothing hosted.** Decided 29 September 2026: transcription runs inside the portal's own worker with [faster-whisper](https://github.com/SYSTRAN/faster-whisper) (Whisper on CTranslate2, CPU, int8), and no audio leaves the portal's infrastructure. A hosted API was considered and set aside: it would be faster and better at hard audio, but it sends performers' recordings to a third party, needs a paid key, and would have to be disclosed in the performer guide. The engine sits behind a small interface (`speakers/transcription.py`: `transcribe(audio_path, language) -> segments`) so a different engine could be added later without touching the pipeline, but none is planned. `SPEAKER_TRANSCRIBE_MODEL` picks the Whisper model; the settings switch is off until the worker exists.
+
+What to expect from the worker, for a 30-minute set on two vCPUs (measure on the real worker before choosing):
+
+| Model | Time | Memory | Notes |
+|---|---|---|---|
+| `base` | a few minutes | about 0.5 GB | rough; fine for a first pass on clear English speech |
+| `small` | 10 to 20 minutes | about 1 GB | the default: good for English and the major languages |
+| `medium` | about an hour | about 2.5 GB | noticeably better for accented speech and music-heavy audio |
+
+**The model ships in the image.** The worker's disk is ephemeral, so a model fetched at run time would be fetched again after every deploy, from Hugging Face, by a process that has to be up before anyone notices it is not. Instead the Dockerfile downloads the pinned model (`SPEAKER_TRANSCRIBE_MODEL`, a build argument, and a pinned Hugging Face revision) into `/opt/whisper` in its own layer, placed right after the Python dependencies and before the code is copied, so the layer is rebuilt only when the model or the dependencies change and every code deploy reuses it from the registry. The worker points faster-whisper at that directory and never downloads anything; a model that is not in the image is an error on the page, not a surprise download. The cost is about 500 MB more image for `small`, shared by every process, sitting in the registry; the pull is skipped when the layer is unchanged. Two smaller options are recorded and not chosen: `base` (about 150 MB) trades accuracy for size, and caching the model in the media bucket makes the download fast and free of Hugging Face but still repeats it on every deploy. Whisper detects the language when the session has none.
+
+**The worker.** A transcription ties up a worker for a quarter of an hour, and the default worker also sends every email and reminder, so media jobs go on a separate Celery queue (`media`) served by their own process (`worker-media` in the Procfile, one replica, concurrency 1, a two-hour hard time limit, `acks_late` so a job a killed worker was running is delivered again; the job row notices it was already `RUNNING` and marks itself `FAILED` rather than looping). The duration probe (task 5.3) uses the same queue and the same `ffmpeg` install. The default worker never consumes `media`, so with the process at zero replicas jobs simply wait: a nightly watchdog marks any job still `QUEUED` after twelve hours `FAILED` with "no media worker picked this up", which is how a forgotten replica count shows on the page. In development one worker serves both queues (`-Q celery,media`), so the compose stack gains no container. What a second process costs, and the single-worker alternative, are weighed in the deployment guide.
+
+**What people see.** Organizers: the job's state on the video's row, the machine draft with a "machine draft" badge and its model, a download, and "Transcribe this" and "Retry" where they apply. The reviewer downloads the draft, fixes it, uploads it as the next version: that is "Review transcript". Performers: "Transcribe: done" in "What we're doing with your video", as for any other item. The performer guide and the upload panel say that recordings are transcribed by the portal's own tooling and reviewed by the team, and that nothing is sent to an outside service.
+
+**Documentation that changes when this is built** (the task lists them so none is missed): the developer setup guide (ffmpeg, the model cache, one worker for both queues), the deployment guide (the `worker-media` process, its memory, scaling it up, the watchdog), the speakers module README (the transcription module and the job row), the speaker settings help text, and the performer guide wording above. The status note at the top of this section flips from "designed" to "built".
 
 ---
 
@@ -474,7 +553,7 @@ PyJam sessions are performances recorded by the performer, post-produced by the 
 | Add title card and assemble final video | processed video asset exists |
 | Publish to YouTube with schedule and transcript | YouTube URL and publish time set on the session |
 
-Items are ordered but not gated on each other; transcription can start before the outro is recorded. Because items key on asset kind, automating a step later (say, machine transcription) is a background job that creates the asset — no checklist change.
+Items are ordered but not gated on each other; transcription can start before the outro is recorded. Because items key on asset kind, automating a step later is a background job that creates the asset with no checklist change; machine transcription (§8.8, task 5.7) is exactly that.
 
 A pre-recorded session still takes a schedule slot — the premiere or watch-party time — and appears in the public schedule and calendar feeds like any other session.
 

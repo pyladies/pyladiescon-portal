@@ -98,8 +98,89 @@ with `USE_SPACES=true` the default storage is
 django-storages `S3Boto3Storage`, `location="media"`, no overwrite) against
 Digital Ocean Spaces through the `AWS_*` env vars, with `AWS_DEFAULT_ACL =
 "public-read"` and unsigned URLs. Existing uploads are `ImageField`s
-(`PortalProfile.profile_picture`, `PyladiesChapter.logo`). There is no private
-bucket or presigned-URL code yet; Stage 1.5 and 4.1 add it.
+(`PortalProfile.profile_picture`, `PyladiesChapter.logo`).
+
+Speaker media is different (design §8.8, task 5.1): performance videos are
+gigabytes, so they never pass through the app. `speakers.media.MediaBucket`
+talks to a **private** bucket named by `SPEAKER_MEDIA_BUCKET` (empty means
+uploads are off and the endpoints answer 503), through the same `AWS_*`
+credentials and endpoint, with s3v4 signing. The browser starts an upload
+(`POST sessions/<slug>/uploads/`), gets presigned part URLs in batches of
+`UPLOAD_PART_URL_BATCH`, PUTs the parts itself, and asks the portal to
+complete or abort; `MediaUpload` is what the portal knows about an upload
+in flight, and completing it makes the `MediaAsset` (next version for the
+session, kind and language; the previous READY one becomes SUPERSEDED) and
+sends `asset_ready`, on which the asset rules re-evaluate. Who may upload
+what is `media.can_upload`: organizers any kind, a presenter on the session
+their raw video, and only once the session is theirs (a proposal waiting
+for an answer, or declined, has no channel into the bucket); every upload
+endpoint asks it, so a presenter taken off a session loses an upload in
+flight too. What the browser declares is checked twice: the declared size
+against `SPEAKER_MEDIA_MAX_BYTES` when the upload starts, and the object's
+real size against the declaration when it completes, since the parts are
+PUT to the bucket out of the portal's sight; an object that disagrees is
+deleted and the upload refused. The raw video is filed under no language
+(`media.clean_language`), one line per session, so versions supersede each
+other and the length rule reads one line; other kinds take a well-formed
+tag. A video kind must look like a video, by type or extension
+(`media.clean_content_type`). Downloads are presigned too
+(`MediaAsset.download_url`). Uploads nobody finishes expire after
+`SPEAKER_MEDIA_UPLOAD_TTL_HOURS` (the "Expire abandoned uploads" task
+nightly, `manage.py expire_abandoned_uploads` by hand); the bucket needs its
+own lifecycle rule as the backstop (`AbortIncompleteMultipartUpload` after
+7 days, see the deployment doc). Tests run against moto's S3.
+
+What reclaims space: nothing in the portal deletes an object on its own.
+Deleting a `MediaAsset` row (the admin) drops its object too
+(`receivers.drop_the_object`), and a `MediaUpload` row that fails to insert
+aborts its multipart at once. Superseded versions keep their objects for
+as long as their rows last, because the pages show them as history; an
+edition's files are reclaimed by deleting the rows, or by a bucket rule
+on the edition's prefix once the videos are published.
+
+The duration probe (task 5.3) is `speakers/probe.py`: `on_asset_ready`
+queues `probe_asset_task` for the video kinds (`constants.VIDEO_KINDS`)
+once the row is committed, routed to the `media` queue and the
+`worker-media` process (`CELERY_TASK_ROUTES`, `Procfile`); the compose
+worker consumes both queues. `ffprobe` reads the object's headers over a
+presigned link and the answer lands in `MediaAsset.duration_seconds`,
+whose save re-runs `VIDEO_LENGTH_OK`. A probe that cannot answer (no
+`ffprobe`, unreadable file, no bucket) writes the reason to
+`MediaAsset.probe_error`, logs an error and leaves the asset READY; the
+file rows and the performer's card show it. The task tries three times, a
+few minutes apart, before a failure stands; `manage.py probe_media`
+re-queues the videos still without a duration (`--all` for every video,
+`--asset` for one). Tests stub `probe.run_ffprobe`
+through an autouse fixture in `tests/speakers/conftest.py`, and one test
+runs the real binary on a two-second fixture when it is installed.
+
+The performer's video card appears only once `SPEAKER_MEDIA_BUCKET` is
+set: without storage the panel could only fail, so a portal deployed
+ahead of its bucket shows speakers nothing about video.
+
+The browser side (task 5.2) is `static/js/media-upload.js` driving
+`templates/speakers/_upload_panel.html`: it slices the file, PUTs three
+parts at a time with retries and backoff, and remembers the upload id in
+`localStorage` (per session, kind and user) so that coming back after a
+closed tab and choosing the same file again resumes: the detail endpoint
+says which parts the bucket holds (with their ETags), and only the rest go
+up. Choosing a different file aborts the remembered upload first. The
+performer's session page shows the card (`media.video_panel`: current raw
+video, its duration against `media.video_limit_minutes`, earlier versions,
+open uploads of theirs); the organizer's session page has a Files section
+(`media.asset_groups`, one block per kind and language, the newest READY
+version first) with a reviewer note per asset (`MediaNotesView`) and a
+panel for any kind. Downloads go through `MediaDownloadView`, which mints
+the presigned link on the click. `media.can_download` says who: organizers
+and the session's liaisons any file; a presenter on an accepted session
+their own raw video and the processed video they approve
+(`media.PRESENTER_KINDS`), not the intro, outro or the team's working
+files. The link lives a minute (`media.DOWNLOAD_LINK_TTL`): the browser
+follows it at once, and what the address bar and any proxy log keep has
+expired by the time anyone reads it. The JavaScript has no unit tests and
+no linter runs on it; the server is the authority on size and type and
+the panel shows its answer, and the 200 MB resume check is done by hand
+against a bucket (setup doc).
 
 ### Secrets at rest
 

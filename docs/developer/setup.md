@@ -229,6 +229,145 @@ Then run the server:
 python manage.py runserver
 ```
 
+## Speaker media uploads (optional)
+
+Performance videos go straight from the browser to a private bucket in
+presigned multipart chunks (design §8.8). With no bucket configured the
+upload endpoints answer 503 and everything else works, so most local work
+needs none of this.
+
+Once a video lands, a worker task measures it with `ffprobe` (the image
+installs `ffmpeg`; rebuild it with `make` after pulling this change) on
+the `media` Celery queue. The compose worker consumes both queues, so no
+extra container is needed locally; production runs a separate
+`worker-media` process (deployment guide). Without `ffprobe` the file row
+says so and the video is still there. The tests never call the binary
+unless they ask to: `tests/speakers/conftest.py` stubs it, and the one
+test on a real fixture video (`tests/speakers/fixtures/two-seconds.mp4`)
+is skipped when `ffprobe` is not installed.
+
+### Against a DigitalOcean Space
+
+Production uses DigitalOcean Spaces, and a local server can upload to a
+Space of its own. Make one for development, separate from the public one
+the image fields use, and keep it **private**: the portal never sets an
+ACL on what it uploads, and reads it back only through presigned links.
+
+1. In the DigitalOcean console create a Space (for example
+   `pyladiescon-media-dev`) in a region such as `nyc3`, and turn *File
+   Listing* off. Do not enable the CDN on it.
+2. On the Space, add a CORS rule for the browser's direct uploads:
+   origin `http://localhost:8000`, methods `PUT` and `GET`, allowed headers
+   `*`, exposed header `ETag`.
+3. Create a Spaces access key (API, Spaces Keys) scoped to that Space.
+4. Give the `web`, `celery` and `beat` services the settings through a
+   `compose.override.yml` next to `compose.yml` (ignored by git, so the
+   keys stay on your machine):
+
+```yaml
+services:
+  web:
+    environment:
+      SPEAKER_MEDIA_BUCKET: pyladiescon-media-dev
+      AWS_S3_ENDPOINT_URL: https://nyc3.digitaloceanspaces.com
+      AWS_S3_REGION_NAME: nyc3
+      AWS_ACCESS_KEY_ID: <your Spaces key>
+      AWS_SECRET_ACCESS_KEY: <your Spaces secret>
+  celery:
+    environment:
+      SPEAKER_MEDIA_BUCKET: pyladiescon-media-dev
+      AWS_S3_ENDPOINT_URL: https://nyc3.digitaloceanspaces.com
+      AWS_S3_REGION_NAME: nyc3
+      AWS_ACCESS_KEY_ID: <your Spaces key>
+      AWS_SECRET_ACCESS_KEY: <your Spaces secret>
+```
+
+   Then `docker compose up -d --force-recreate web celery beat`. Leave
+   `USE_SPACES` alone: it switches the image storage, which is a separate
+   matter.
+
+Until the upload panel (task 5.2) exists there is no browser path, so check
+the wiring from a shell, which plays the browser's part with boto3:
+
+```bash
+docker compose exec web python manage.py shell -c "
+from django.contrib.auth.models import User
+from speakers.media import MediaBucket, start_upload, complete_upload
+from speakers.models import Session
+session = Session.objects.filter(conference__is_active=True).first()
+user = User.objects.get(username='admin_user')
+upload = start_upload(session=session, kind='RAW_VIDEO', language='', filename='check.bin', size_bytes=3, content_type='application/octet-stream', user=user)
+bucket = MediaBucket.from_settings()
+part = bucket.client.upload_part(Bucket=bucket.bucket, Key=upload.storage_key, UploadId=upload.upload_id, PartNumber=1, Body=b'ok!')
+asset = complete_upload(upload, [{'number': 1, 'etag': part['ETag']}])
+print(asset, asset.size_bytes, asset.download_url())
+"
+```
+
+The printed link is presigned and opens the object for an hour; the same
+address without the signature is refused, which is the private Space doing
+its job.
+
+### Against a MinIO container (no account needed)
+
+The presigned URLs sign the host they are for, so the portal and the
+browser have to reach the bucket at the same address. With the portal in
+Docker that means running MinIO inside the `web` container's network
+namespace, so both see it as `localhost:9000`. This `compose.override.yml`
+does it:
+
+```yaml
+services:
+  web:
+    ports:
+      - "9000:9000"
+    environment:
+      SPEAKER_MEDIA_BUCKET: speaker-media
+      AWS_S3_ENDPOINT_URL: http://localhost:9000
+      AWS_S3_REGION_NAME: us-east-1
+      AWS_ACCESS_KEY_ID: minioadmin
+      AWS_SECRET_ACCESS_KEY: minioadmin
+  celery:
+    environment:
+      SPEAKER_MEDIA_BUCKET: speaker-media
+      AWS_S3_ENDPOINT_URL: http://web:9000
+      AWS_S3_REGION_NAME: us-east-1
+      AWS_ACCESS_KEY_ID: minioadmin
+      AWS_SECRET_ACCESS_KEY: minioadmin
+  minio:
+    image: minio/minio
+    command: server /data
+    network_mode: "service:web"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    volumes:
+      - miniodata:/data
+volumes:
+  miniodata:
+```
+
+Then `docker compose up -d --force-recreate web celery minio` and create
+the bucket once:
+
+```bash
+docker compose exec web python -c "
+import boto3, os
+boto3.client('s3', endpoint_url=os.environ['AWS_S3_ENDPOINT_URL'],
+    aws_access_key_id='minioadmin', aws_secret_access_key='minioadmin',
+    region_name='us-east-1').create_bucket(Bucket='speaker-media')"
+```
+
+MinIO answers browser uploads from any origin and exposes the `ETag`
+header, so no CORS rule is needed. Log in as a performer (the sample data's
+`volunteer2` is on the PyJam session) and upload from the session page;
+leaving the page mid-upload and choosing the same file again should
+continue from the parts that already landed.
+
+`SPEAKER_MEDIA_PART_SIZE`, `SPEAKER_MEDIA_MAX_BYTES`, `SPEAKER_MEDIA_URL_TTL`
+(how long a presigned link lives, 3600 seconds by default) and
+`SPEAKER_MEDIA_UPLOAD_TTL_HOURS` have sensible defaults in `portal/settings.py`.
+
 ## Generate Sample Data (Optional)
 
 For local development and testing, you can generate sample data to populate your database with realistic test content. This command creates:

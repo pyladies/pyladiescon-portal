@@ -1,9 +1,15 @@
 {% extends "speakers/_speaker_shell.html" %}
-{% load i18n %}
+{% load i18n static %}
 {% load speakers_extras %}
 {% block head_title %}
     {{ session.title }}
 {% endblock head_title %}
+{% block extra_head %}
+    {{ block.super }}
+    {% if video %}
+        <script src="{% static 'js/media-upload.js' %}" defer></script>
+    {% endif %}
+{% endblock extra_head %}
 {% block breadcrumb %}
     {% url 'speakers:my_sessions' as bc_url %}
     {% trans "My sessions" as bc_section %}
@@ -112,6 +118,92 @@
             </div>
         </div>
     </div>
+    {% if video %}
+        <div class="card mb-4" id="video">
+            <div class="card-header d-flex flex-wrap align-items-center gap-2">
+                <span>
+                    <i class="fa-solid fa-film"></i> {% trans "Your video" %}
+                </span>
+                {% if video.current %}
+                    <span class="badge text-bg-success">v{{ video.current.version }}</span>
+                {% endif %}
+                {% if video.limit_minutes %}
+                    <span class="text-secondary small ms-auto">
+                        {% blocktranslate with limit=video.limit_minutes %}Limit: {{ limit }} minutes{% endblocktranslate %}
+                    </span>
+                {% endif %}
+            </div>
+            <div class="card-body">
+                {% if video.current %}
+                    <div class="small mb-2">
+                        <span class="fw-semibold text-break">{{ video.current.original_filename|default:video.current.file.name }}</span>
+                        {% if video.current.size_bytes %}
+                            <span class="text-secondary">· {{ video.current.size_bytes|filesizeformat }}</span>
+                        {% endif %}
+                        <span class="text-secondary">· {% trans "uploaded" %} {{ video.current.creation_date|date:"j M H:i" }} UTC</span>
+                        {% if video.current.storage_key or video.current.file %}
+                            <a class="ms-2"
+                               href="{% url 'speakers:media_download' session.slug video.current.pk %}">{% trans "Download" %}</a>
+                        {% endif %}
+                    </div>
+                    {% if video.current.duration_seconds is None and video.current.probe_error %}
+                        <div class="small text-secondary mb-3">
+                            <i class="fa-solid fa-triangle-exclamation"></i> {% trans "The length could not be checked automatically; the team will look." %}
+                        </div>
+                    {% elif video.current.duration_seconds is None %}
+                        <div class="small text-secondary mb-3">
+                            <i class="fa-regular fa-clock"></i> {% trans "Length not checked yet." %}
+                        </div>
+                    {% elif video.limit_minutes %}
+                        {% with length=video.current.duration_seconds|duration %}
+                            <div class="progress mb-1 upload-progress"
+                                 role="progressbar"
+                                 aria-valuenow="{{ video.duration_pct }}"
+                                 aria-valuemin="0"
+                                 aria-valuemax="100">
+                                <div class="progress-bar {% if video.over_by %}bg-danger{% else %}bg-success{% endif %}"
+                                     style="width: {{ video.duration_pct }}%">
+                                </div>
+                            </div>
+                            <div class="small mb-3 {% if video.over_by %}text-danger{% else %}text-secondary{% endif %}">
+                                {% if video.over_by %}
+                                    {% blocktranslate with length=length limit=video.limit_minutes %}{{ length }}: over the {{ limit }}-minute limit. Please upload a shorter cut.{% endblocktranslate %}
+                                {% else %}
+                                    {% blocktranslate with length=length limit=video.limit_minutes %}{{ length }} of {{ limit }} minutes.{% endblocktranslate %}
+                                {% endif %}
+                            </div>
+                        {% endwith %}
+                    {% else %}
+                        <div class="small text-secondary mb-3">
+                            {% blocktranslate with length=video.current.duration_seconds|duration %}{{ length }} long.{% endblocktranslate %}
+                        </div>
+                    {% endif %}
+                    <div class="small fw-semibold mb-1">
+                        {% trans "Replace it" %}
+                    </div>
+                {% else %}
+                    <p class="small text-secondary">
+                        {% trans "No video yet. Upload your performance here; it goes straight to storage and the team takes it from there." %}
+                    </p>
+                {% endif %}
+                {% include "speakers/_upload_panel.html" with session=session kind="RAW_VIDEO" open_uploads=video.open_uploads accept="video/*" panel_id="video" %}
+            </div>
+            {% if video.history %}
+                <details class="card-body border-top pt-2">
+                    <summary class="small">
+                        {% blocktranslate count counter=video.history|length %}{{ counter }} earlier version{% plural %}{{ counter }} earlier versions{% endblocktranslate %}
+                    </summary>
+                    <ul class="list-unstyled mt-2 mb-0 d-grid gap-2">
+                        {% for asset in video.history %}
+                            <li>
+                                {% include "speakers/_media_asset_row.html" with asset=asset session=session %}
+                            </li>
+                        {% endfor %}
+                    </ul>
+                </details>
+            {% endif %}
+        </div>
+    {% endif %}
     <h2 class="h5 mb-3" id="checklist">
         {% trans "Checklist for this session" %}
     </h2>

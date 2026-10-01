@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import views
+from . import upload_views, views
 from .webhooks import pretix_webhook
 
 app_name = "speakers"
@@ -53,6 +53,42 @@ urlpatterns = [
         "sessions/<slug:slug>/presenters/<int:link_pk>/invite/",
         views.SessionInviteView.as_view(),
         name="session_invite",
+    ),
+    # Multipart uploads (design §8.8): JSON endpoints the upload panel calls.
+    path(
+        "sessions/<slug:slug>/uploads/",
+        upload_views.UploadStartView.as_view(),
+        name="upload_start",
+    ),
+    path(
+        "sessions/<slug:slug>/uploads/<int:pk>/",
+        upload_views.UploadDetailView.as_view(),
+        name="upload_detail",
+    ),
+    path(
+        "sessions/<slug:slug>/uploads/<int:pk>/parts/",
+        upload_views.UploadPartsView.as_view(),
+        name="upload_parts",
+    ),
+    path(
+        "sessions/<slug:slug>/uploads/<int:pk>/complete/",
+        upload_views.UploadCompleteView.as_view(),
+        name="upload_complete",
+    ),
+    path(
+        "sessions/<slug:slug>/uploads/<int:pk>/abort/",
+        upload_views.UploadAbortView.as_view(),
+        name="upload_abort",
+    ),
+    path(
+        "sessions/<slug:slug>/media/<int:pk>/download/",
+        upload_views.MediaDownloadView.as_view(),
+        name="media_download",
+    ),
+    path(
+        "sessions/<slug:slug>/media/<int:pk>/notes/",
+        upload_views.MediaNotesView.as_view(),
+        name="media_notes",
     ),
     path("presenters/", views.PresenterListView.as_view(), name="presenter_list"),
     path(
