@@ -97,7 +97,8 @@ class TestSwitchOff:
             == 403
         )
 
-    def test_organizer_page_is_unchanged(self, client, session, organizer):
+    def test_organizer_page_is_unchanged(self, client, session, organizer, settings):
+        settings.SPEAKER_MEDIA_BUCKET = "test-speaker-media"
         shared(session)
         client.force_login(organizer)
         html = client.get(session.get_absolute_url()).content.decode()
