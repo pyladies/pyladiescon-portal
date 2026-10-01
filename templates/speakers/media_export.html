@@ -1,0 +1,255 @@
+{% extends "speakers/_organize_shell.html" %}
+{% load i18n static %}
+{% block extra_head %}
+    {{ block.super }}
+    <script src="{% static 'js/media-export.js' %}" defer></script>
+{% endblock extra_head %}
+{% block head_title %}
+    {% trans "Download files" %}
+{% endblock head_title %}
+{% block breadcrumb %}
+    {% url 'speakers:session_list' as bc_url %}
+    {% trans "Sessions" as bc_section %}
+    {% trans "Download files" as bc_page %}
+    {% include "portal/_breadcrumbs.html" with section=bc_section section_url=bc_url page=bc_page %}
+{% endblock breadcrumb %}
+{% block content %}
+    <h1 class="h3 mb-1">
+        {% trans "Download files" %}
+    </h1>
+    <p class="text-secondary mb-3">
+        {% trans "Pick what to fetch; the count and size update when you apply the selection. An export then gives you the files as one zip, or as a script for a terminal when the selection is large." %}
+    </p>
+    <form method="get" class="card mb-3" id="export-scope">
+        <div class="card-header d-flex flex-wrap align-items-center gap-3 small">
+            <span class="fw-semibold">{% trans "Selection" %}</span>
+            <span>
+                <button class="btn btn-link btn-sm p-0" type="button" data-select="all:all">
+                    {% trans "Check everything" %}
+                </button>
+                ·
+                <button class="btn btn-link btn-sm p-0" type="button" data-select="all:none">
+                    {% trans "Clear everything" %}
+                </button>
+            </span>
+        </div>
+        <div class="card-body row g-3">
+            <div class="col-md-4">
+                <div class="form-label small mb-1 d-flex justify-content-between">
+                    <span>{% trans "Kinds" %}</span>
+                    <span>
+                        <button class="btn btn-link btn-sm p-0" type="button" data-select="kinds:all">
+                            {% trans "all" %}
+                        </button>
+                        ·
+                        <button class="btn btn-link btn-sm p-0"
+                                type="button"
+                                data-select="kinds:none">
+                            {% trans "none" %}
+                        </button>
+                    </span>
+                </div>
+                {% for value, label in kinds %}
+                    <div class="form-check">
+                        <input class="form-check-input"
+                               type="checkbox"
+                               name="kinds"
+                               value="{{ value }}"
+                               id="kind-{{ value }}"
+                               {% if value in scope.kinds %}checked{% endif %}>
+                        <label class="form-check-label small" for="kind-{{ value }}">
+                            {{ label }}
+                        </label>
+                    </div>
+                {% endfor %}
+            </div>
+            <div class="col-md-4">
+                <div class="form-label small mb-1">
+                    {% trans "Sessions" %}
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input"
+                           type="radio"
+                           name="sessions_mode"
+                           value="all"
+                           id="sessions-mode-all"
+                           {% if not scope.sessions %}checked{% endif %}>
+                    <label class="form-check-label small" for="sessions-mode-all">
+                        {% blocktranslate count counter=session_count %}Every session with files ({{ counter }}){% plural %}Every session with files ({{ counter }}){% endblocktranslate %}
+                    </label>
+                </div>
+                <div class="form-check mb-2">
+                    <input class="form-check-input"
+                           type="radio"
+                           name="sessions_mode"
+                           value="some"
+                           id="sessions-mode-some"
+                           {% if scope.sessions %}checked{% endif %}>
+                    <label class="form-check-label small" for="sessions-mode-some">
+                        {% trans "Only these sessions" %}
+                    </label>
+                </div>
+                <fieldset id="session-picker"
+                          class="border rounded p-2 session-picker"
+                          {% if not scope.sessions %}disabled{% endif %}>
+                    <div class="d-flex gap-2 align-items-center mb-2">
+                        {% trans "Filter by title" as filter_label %}
+                        <input class="form-control form-control-sm"
+                               type="search"
+                               data-role="session-filter"
+                               placeholder="{{ filter_label }}"
+                               aria-label="{{ filter_label }}">
+                        <span class="text-nowrap small">
+                            <button class="btn btn-link btn-sm p-0"
+                                    type="button"
+                                    data-select="sessions:all">
+                                {% trans "all" %}
+                            </button>
+                            ·
+                            <button class="btn btn-link btn-sm p-0"
+                                    type="button"
+                                    data-select="sessions:none">
+                                {% trans "none" %}
+                            </button>
+                        </span>
+                    </div>
+                    <div class="session-picker-list">
+                        {% for group in sessions %}
+                            <div class="small text-uppercase text-secondary mt-2 d-flex justify-content-between"
+                                 data-group="{{ forloop.counter }}">
+                                <span>{{ group.kind }} ({{ group.sessions|length }})</span>
+                                <span>
+                                    <button class="btn btn-link btn-sm p-0"
+                                            type="button"
+                                            data-select="group:{{ forloop.counter }}:all">
+                                        {% trans "all" %}
+                                    </button>
+                                    ·
+                                    <button class="btn btn-link btn-sm p-0"
+                                            type="button"
+                                            data-select="group:{{ forloop.counter }}:none">
+                                        {% trans "none" %}
+                                    </button>
+                                </span>
+                            </div>
+                            {% for session in group.sessions %}
+                                <div class="form-check"
+                                     data-group="{{ forloop.parentloop.counter }}"
+                                     data-title="{{ session.title|lower }}">
+                                    <input class="form-check-input"
+                                           type="checkbox"
+                                           name="sessions"
+                                           value="{{ session.slug }}"
+                                           id="session-{{ session.slug }}"
+                                           {% if session.slug in scope.sessions %}checked{% endif %}>
+                                    <label class="form-check-label small" for="session-{{ session.slug }}">
+                                        {{ session.title }}
+                                    </label>
+                                </div>
+                            {% endfor %}
+                        {% endfor %}
+                    </div>
+                    <div class="small text-secondary mt-2" data-role="session-summary">
+                        {% if scope.sessions %}
+                            {% blocktranslate count counter=scope.sessions|length %}{{ counter }} session chosen{% plural %}{{ counter }} sessions chosen{% endblocktranslate %}
+                        {% endif %}
+                    </div>
+                </fieldset>
+            </div>
+            <div class="col-md-4">
+                {% trans "any" as any_label %}
+                <label class="form-label small mb-1" for="export-language">
+                    {% trans "Language" %}
+                </label>
+                <input class="form-control form-control-sm mb-2"
+                       name="language"
+                       id="export-language"
+                       value="{{ scope.language }}"
+                       placeholder="{{ any_label }}"
+                       maxlength="10">
+                <div class="form-label small mb-1">
+                    {% trans "Versions" %}
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input"
+                           type="radio"
+                           name="versions"
+                           value="latest"
+                           id="versions-latest"
+                           {% if scope.versions == "latest" %}checked{% endif %}>
+                    <label class="form-check-label small" for="versions-latest">
+                        {% trans "Latest ready version of each file" %}
+                    </label>
+                </div>
+                <div class="form-check mb-2">
+                    <input class="form-check-input"
+                           type="radio"
+                           name="versions"
+                           value="all"
+                           id="versions-all"
+                           {% if scope.versions == "all" %}checked{% endif %}>
+                    <label class="form-check-label small" for="versions-all">
+                        {% trans "Every ready version" %}
+                    </label>
+                </div>
+                <label class="form-label small mb-1" for="export-since">
+                    {% trans "Only files newer than" %}
+                </label>
+                <input class="form-control form-control-sm"
+                       type="datetime-local"
+                       name="since"
+                       id="export-since"
+                       value="{{ scope.since|slice:':16' }}">
+            </div>
+            <div class="col-12 d-flex flex-wrap align-items-center gap-3">
+                <button class="btn btn-outline-secondary" type="submit">
+                    <i class="fa-solid fa-filter"></i> {% trans "Apply selection" %}
+                </button>
+                <span>
+                    {% blocktranslate count counter=file_count %}<strong>{{ counter }}</strong> file{% plural %}<strong>{{ counter }}</strong> files{% endblocktranslate %}
+                    · <strong>{{ total_bytes|filesizeformat }}</strong>
+                    {% if total_bytes > zip_max_bytes %}
+                        <span class="text-secondary small">({% trans "too large for a zip; folder download or script" %})</span>
+                    {% endif %}
+                </span>
+            </div>
+        </div>
+    </form>
+    <form method="post" action="{% url 'speakers:media_export' %}">
+        {% csrf_token %}
+        {% for value in scope.kinds %}
+            <input type="hidden" name="kinds" value="{{ value }}">
+        {% endfor %}
+        {% for slug in scope.sessions %}
+            <input type="hidden" name="sessions" value="{{ slug }}">
+        {% endfor %}
+        <input type="hidden" name="language" value="{{ scope.language }}">
+        <input type="hidden" name="versions" value="{{ scope.versions }}">
+        <input type="hidden" name="since" value="{{ scope.since }}">
+        <button class="btn btn-primary"
+                type="submit"
+                {% if not file_count %}disabled{% endif %}>
+            <i class="fa-solid fa-download"></i> {% trans "Make the export" %}
+        </button>
+        <span class="text-secondary small ms-2">
+            {% trans "Its links live for twelve hours and fetch the files for whoever has them." %}
+        </span>
+    </form>
+    {% if recent %}
+        <h2 class="h6 text-uppercase text-secondary mt-4">
+            {% trans "Your recent exports" %}
+        </h2>
+        <ul class="list-group">
+            {% for item in recent %}
+                <li class="list-group-item d-flex flex-wrap align-items-center gap-2 small">
+                    <a href="{{ item.get_absolute_url }}">{% trans "Export" %} {{ item.pk }}</a>
+                    <span class="text-secondary">{{ item.creation_date|date:"j M H:i" }} UTC</span>
+                    <span>{{ item.file_count }} {% trans "files" %} · {{ item.total_bytes|filesizeformat }}</span>
+                    {% if item.is_expired %}
+                        <span class="badge text-bg-secondary">{% trans "expired" %}</span>
+                    {% endif %}
+                </li>
+            {% endfor %}
+        </ul>
+    {% endif %}
+{% endblock content %}

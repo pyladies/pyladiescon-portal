@@ -38,6 +38,8 @@ class SessionQuerySet(models.QuerySet):
         return self.annotate(
             raw_video_version=newest(MediaKind.RAW_VIDEO, "version"),
             raw_video_seconds=newest(MediaKind.RAW_VIDEO, "duration_seconds"),
+            raw_video_pk=newest(MediaKind.RAW_VIDEO, "pk"),
+            raw_video_thumbnail=newest(MediaKind.RAW_VIDEO, "thumbnail_key"),
             final_cut_version=newest(MediaKind.PROCESSED_VIDEO, "version"),
         )
 

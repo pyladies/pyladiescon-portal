@@ -153,16 +153,69 @@ once in the upload panel, prefilled there from `media.line_titles`,
 inherited by later versions and variants in `complete_upload`
 (`media.line_title`), and edited for the whole line at once
 (`media.set_line_title`, `MediaTitleView`, which swaps the group
-`_media_group.html` in place). A few bitmap types, video and audio
-(`MediaAsset.preview_kind`, an allowlist of concrete types from the
-content type or the name; SVG, which carries script, only downloads) get
-a closed "Preview" fold on their rows (`_media_preview.html`) that loads
-the file through `MediaPreviewView`, an inline presigned link that lives
-a minute like a download's; nothing is fetched until the fold is opened,
-and video streams by range requests, each one through the endpoint for a
-fresh link. A video kind is stored with a `video/` type whatever the
-browser declared (`media.clean_content_type`), since the stored type is
-what the file is served back as.
+`_media_group.html` in place). Bulk download (task 5.6) is
+`speakers/exports.py` and `speakers/export_views.py`: an organizer picks
+a scope (kinds, language, sessions, latest or every version, newer than
+a moment), `create_export` records a `MediaExport` (count, bytes, links
+until), and the export's page offers the same set two ways: a zip the media
+worker builds under `SPEAKER_MEDIA_ZIP_MAX_BYTES` (`build_export_zip_task`,
+emailed through the recorded sender with the link withheld), first, and
+`download.sh` with resumable curl and the manifest embedded (plus an
+aria2 input file) as the advanced route. The scope form's session
+picker (`static/js/media-export.js`) is an explicit "every session" or
+"only these" choice over a filtered checkbox list grouped by type. Every path
+lays files out as `pyladiescon-<year>/<slug>/<kind>/v<n>[-<lang>][-<variant>]-<name>`
+with `manifest.csv`. Links live `SPEAKER_MEDIA_BULK_URL_TTL` (12 h);
+Maintenance > File exports lists every export, and the nightly "Expire export
+zips" task drops the zip of an export whose links have expired, so zips
+bounded per export by `SPEAKER_MEDIA_ZIP_MAX_BYTES` do not add up for
+good. The page opens with the raw videos chosen and always renders; an
+export itself needs at least one kind. Every cell of every CSV the
+app writes, the manifest included, goes through `spreadsheet.safe_cell`:
+one line, never a formula, which is also what keeps the manifest embedded
+in `download.sh` inside its heredoc. Machine transcription (task 5.7) is
+`speakers/transcription.py`: with `SPEAKER_TRANSCRIBE_ENGINE=local` the
+portal has an engine (`FasterWhisperEngine`, the one implementation of
+the small `Engine` interface; `get_engine`), and an edition with
+`SpeakerSettings.auto_transcribe` on gets a draft for every raw video
+that lands (`should_transcribe`: READY, the switch, and no reviewed
+transcript on the line; `start_job` from `on_asset_ready`). Organizers
+start or retry one from a video's row (`MediaTranscribeView`). A
+`TranscriptionJob` row carries the state the row shows; the task
+(`transcribe_asset_task`, media queue, `acks_late`) extracts the audio
+with ffmpeg from the presigned link into a temp file of raw 16 kHz
+samples (so the engine never decodes a container itself), hands it to
+the engine, writes WebVTT, puts it in the bucket and records it through
+`media.record_asset` with `generated_by` set, which the rows show as
+"machine draft"; the "Transcribe" item ticks, "Review transcript" stays
+open, and a person's next version supersedes the draft. Failures land on
+the job row and in the activity log; a job still queued after
+`SPEAKER_TRANSCRIBE_STALE_HOURS` is failed by the nightly "Fail stale
+transcription jobs" task, which is how a missing media worker shows on
+the page. The library is in `requirements-media.txt` and the model in
+`/opt/whisper`, both baked into the image only when it is built with
+`WHISPER_MODEL`; tests never import the library (`_load_model` is
+patched). Thumbnails (task 5.8) are
+`speakers/thumbnails.py`: `on_asset_ready` queues `make_thumbnail_task`
+on the `media` queue for images and videos, Pillow scales an image and
+ffmpeg takes a frame of a video (three seconds in, the first frame for a
+shorter clip) into `<storage_key>.thumb.jpg`, recorded in
+`MediaAsset.thumbnail_key` or explained in `thumbnail_error`;
+`MediaThumbnailView` redirects to an inline link, `_media_thumb.html`
+shows it or an icon, and `with_video_status` annotates the sessions list
+with the raw video's. Tests stub `thumbnails.run_ffmpeg` beside the
+ffprobe stub in `tests/speakers/conftest.py`. A few bitmap types, video,
+audio and small text files such as transcripts (`MediaAsset.preview_kind`,
+an allowlist of concrete types from the content type or the name; SVG,
+which carries script, only downloads; text goes through `media.read_text`
+as plain text rather than a signed link) get a closed "Preview" fold on
+their rows (`_media_preview.html`) that loads the file through
+`MediaPreviewView`, an inline presigned link that lives a minute like a
+download's; nothing is fetched until the fold is opened, and video streams
+by range requests, each one through the endpoint for a fresh link. A video
+kind is stored with a `video/` type whatever the browser declared
+(`media.clean_content_type`), since the stored type is what the file is
+served back as.
 Uploads nobody finishes expire after
 `SPEAKER_MEDIA_UPLOAD_TTL_HOURS` (the "Expire abandoned uploads" task
 nightly, `manage.py expire_abandoned_uploads` by hand); the bucket needs its

@@ -21,7 +21,7 @@ import boto3
 from botocore.client import Config
 from botocore.exceptions import ClientError
 from django.conf import settings
-from django.db import transaction
+from django.db import models, transaction
 from django.utils import timezone
 from django.utils.text import slugify
 
@@ -32,7 +32,13 @@ from .constants import (
     MediaStatus,
     UploadStatus,
 )
-from .models import MediaAsset, MediaUpload, SpeakerSettings, media_for_speakers
+from .models import (
+    TEXT_PREVIEW_MAX_BYTES,
+    MediaAsset,
+    MediaUpload,
+    SpeakerSettings,
+    media_for_speakers,
+)
 from .permissions import is_speaker_organizer
 from .signals import asset_ready
 
@@ -260,10 +266,17 @@ def video_limit_minutes(session):
 def session_assets(session):
     """Every asset on the session, newest version first within each kind
     and language, with the uploader for the history table."""
+    from .models import TranscriptionJob
+
     return list(
-        session.media_assets.select_related("uploaded_by").order_by(
-            "kind", "language", "variant", "-version", "-id"
+        session.media_assets.select_related("uploaded_by")
+        .prefetch_related(
+            models.Prefetch(
+                "transcription_jobs",
+                queryset=TranscriptionJob.objects.order_by("-id"),
+            )
         )
+        .order_by("kind", "language", "variant", "-version", "-id")
     )
 
 
@@ -295,6 +308,11 @@ def asset_groups(assets):
     for group in groups.values():
         # The row the title form posts to: any row of the line will do.
         group["target"] = group["current"] or group["history"][0]
+        # The newest transcription job on the current video, for its row.
+        jobs = (
+            list(group["current"].transcription_jobs.all()) if group["current"] else []
+        )
+        group["job"] = jobs[0] if jobs else None
     return list(groups.values())
 
 
@@ -373,6 +391,21 @@ def set_line_title(asset, title):
     ).update(title=title)
     asset.title = title
     return title
+
+
+def read_text(asset):
+    """A small text file's contents from the bucket (or the admin-attached
+    file), decoded leniently; None when there is no file."""
+    if asset.storage_key:
+        bucket = MediaBucket.from_settings()
+        body = bucket.client.get_object(Bucket=bucket.bucket, Key=asset.storage_key)
+        data = body["Body"].read(TEXT_PREVIEW_MAX_BYTES + 1)
+    elif asset.file:
+        with asset.file.open("rb") as handle:
+            data = handle.read(TEXT_PREVIEW_MAX_BYTES + 1)
+    else:
+        return None
+    return data[:TEXT_PREVIEW_MAX_BYTES].decode("utf-8", "replace")
 
 
 def team_files(session, assets=None):
@@ -587,41 +620,76 @@ def complete_upload(upload, parts):
             "declared; it was removed. Upload it again."
         )
     with transaction.atomic():
-        previous = MediaAsset.objects.filter(
+        asset = record_asset(
             session=upload.session,
             kind=upload.kind,
             language=upload.language,
             variant=upload.variant,
-        )
-        version = (
-            previous.order_by("-version").first() or MediaAsset(version=0)
-        ).version + 1
-        title = upload.title or line_title(upload.session, upload.kind, upload.language)
-        asset = MediaAsset.objects.create(
-            session=upload.session,
-            kind=upload.kind,
-            language=upload.language,
-            variant=upload.variant,
-            title=title,
-            version=version,
-            status=MediaStatus.READY,
             storage_key=upload.storage_key,
-            original_filename=upload.filename,
+            filename=upload.filename,
             content_type=upload.content_type,
             size_bytes=size,
             uploaded_by=upload.started_by,
-        )
-        # A replaced version is withdrawn from the speaker with its
-        # status: what the team shared was the line, and the new version
-        # is shared again from its own row.
-        previous.filter(status=MediaStatus.READY).exclude(pk=asset.pk).update(
-            status=MediaStatus.SUPERSEDED, shared_with_speaker=False
+            title=upload.title,
+            announce=False,
         )
         upload.status = UploadStatus.COMPLETED
         upload.completed_at = timezone.now()
         upload.asset = asset
         upload.save(update_fields=["status", "completed_at", "asset", "modified_date"])
     asset_ready.send(sender=MediaAsset, asset=asset)
+    return asset
+
+
+def record_asset(
+    *,
+    session,
+    kind,
+    language="",
+    variant="",
+    storage_key,
+    filename,
+    content_type,
+    size_bytes,
+    uploaded_by=None,
+    generated_by="",
+    title="",
+    announce=True,
+):
+    """Record a file that is in the bucket as the next version of its line:
+    the line's title when none is given, the previous READY version
+    superseded, and ``asset_ready`` sent unless the caller sends it after
+    its own bookkeeping. Shared by a finished upload and a job that made a
+    file itself (transcription.py)."""
+    previous = MediaAsset.objects.filter(
+        session=session, kind=kind, language=language, variant=variant
+    )
+    version = (
+        previous.order_by("-version").first() or MediaAsset(version=0)
+    ).version + 1
+    asset = MediaAsset.objects.create(
+        session=session,
+        kind=kind,
+        language=language,
+        variant=variant,
+        title=title or line_title(session, kind, language),
+        version=version,
+        status=MediaStatus.READY,
+        storage_key=storage_key,
+        original_filename=filename[:255],
+        content_type=content_type,
+        size_bytes=size_bytes,
+        uploaded_by=uploaded_by,
+        generated_by=generated_by,
+    )
+    # A replaced version is withdrawn from the speaker with its status:
+    # what the team shared was the line, and the new version is shared
+    # again from its own row.
+    previous.filter(status=MediaStatus.READY).exclude(pk=asset.pk).update(
+        status=MediaStatus.SUPERSEDED, shared_with_speaker=False
+    )
+    if announce:
+        asset_ready.send(sender=MediaAsset, asset=asset)
     return asset
 
 

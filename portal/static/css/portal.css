@@ -378,3 +378,35 @@ details.card[open] > summary.card-header::before {
 .media-table .media-group-more > td {
     border-top: 0;
 }
+
+/* The session picker on the export page (templates/speakers/media_export.html):
+   a scrollable list with the type headings inside it. */
+.session-picker-list {
+    max-height: 18rem;
+    overflow-y: auto;
+}
+.session-picker:disabled {
+    opacity: 0.5;
+}
+
+/* Thumbnails on file rows, the speaker's files and the board
+   (templates/speakers/_media_thumb.html). */
+.media-thumb {
+    object-fit: cover;
+    flex: none;
+}
+.media-thumb-icon {
+    display: inline-flex;
+    width: 64px;
+    height: 36px;
+    align-items: center;
+    justify-content: center;
+    background: var(--bs-tertiary-bg);
+    border-radius: 0.25rem;
+    flex: none;
+}
+
+/* A transcript or another text file shown in its preview fold. */
+.media-preview-text {
+    height: 20rem;
+}

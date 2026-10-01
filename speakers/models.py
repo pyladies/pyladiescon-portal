@@ -55,7 +55,9 @@ from .constants import (
     ReadyRule,
     SessionLevel,
     SessionStatus,
+    TranscriptionStatus,
     UploadStatus,
+    ZipStatus,
     format_owner,
 )
 from .encryption import EncryptedTextField, usable
@@ -179,6 +181,17 @@ class SpeakerSettings(TimestampedModel):
         "page and see the files the team shares with them. Off, the team "
         "gathers videos by other means and uploads them; organizers see "
         "everything either way.",
+    )
+    # Machine transcription (design §8.8): a raw video that lands gets a
+    # draft transcript from Whisper in the portal's own worker. Needs the
+    # portal to have an engine configured; the switch alone does nothing.
+    auto_transcribe = models.BooleanField(
+        default=False,
+        db_default=False,
+        help_text="While on, a performance video that lands is transcribed "
+        "by the portal's own worker into a draft the team reviews; nothing "
+        "is sent to an outside service. Organizers can also start one from "
+        "a video's row. Needs the portal's transcription engine set up.",
     )
     proposals_intro_md = models.TextField(
         blank=True,
@@ -1870,6 +1883,15 @@ class ChecklistItem(TimestampedModel):
         )
 
 
+# What the preview shows as plain text (design §8.8): transcripts, captions,
+# notes. Small by nature; the cap keeps a mislabelled upload out of memory.
+TEXT_PREVIEW_TYPES = frozenset(
+    {"text/vtt", "text/plain", "application/x-subrip", "text/markdown", "text/csv"}
+)
+TEXT_PREVIEW_SUFFIXES = (".vtt", ".srt", ".txt", ".md", ".csv")
+TEXT_PREVIEW_MAX_BYTES = 2 * 1024 * 1024
+
+
 class MediaAsset(TimestampedModel):
     """A file moving through post-production (design §8.8). Shell for
     Stage 3b: the multipart upload and probing arrive with tasks 4.1-4.3."""
@@ -1921,6 +1943,20 @@ class MediaAsset(TimestampedModel):
     # Why the probe could not measure the file, shown on the file rows;
     # empty once it has (probe.py).
     probe_error = models.CharField(
+        max_length=500, blank=True, default="", db_default=""
+    )
+    # Who or what made the file: empty for a person's upload, the engine
+    # and model ("faster-whisper/small") for a machine draft, so the pages
+    # never pass a draft off as reviewed work (transcription.py).
+    generated_by = models.CharField(
+        max_length=60, blank=True, default="", db_default=""
+    )
+    # A small JPEG of an image or a frame of a video, made by the media
+    # worker next to the original (thumbnails.py); or why there is none.
+    thumbnail_key = models.CharField(
+        max_length=500, blank=True, default="", db_default=""
+    )
+    thumbnail_error = models.CharField(
         max_length=500, blank=True, default="", db_default=""
     )
     notes_md = models.TextField(blank=True, help_text="Reviewer notes. Markdown.")
@@ -1978,22 +2014,50 @@ class MediaAsset(TimestampedModel):
     @property
     def preview_kind(self):
         """``"image"``, ``"video"`` or ``"audio"`` when the browser can show
-        the file itself (design §8.8, previews); empty otherwise. An
-        allowlist: a few bitmap types, video and audio. Anything else, an
-        HTML file uploaded as "other" or an SVG say, is only ever
-        downloaded."""
+        the file itself, ``"text"`` for a transcript or another small text
+        file the portal shows as plain text (design §8.8, previews); empty
+        otherwise. An allowlist: a few bitmap types, video, audio and the
+        text types below. Anything else, an HTML file uploaded as "other"
+        or an SVG say, is only ever downloaded."""
         media_type = self.media_type
         if media_type in self.PREVIEW_IMAGE_TYPES:
             return "image"
         prefix = media_type.split("/")[0]
-        return prefix if prefix in ("video", "audio") else ""
+        if prefix in ("video", "audio"):
+            return prefix
+        name = (self.original_filename or "").lower()
+        is_text = media_type in TEXT_PREVIEW_TYPES or name.endswith(
+            TEXT_PREVIEW_SUFFIXES
+        )
+        if is_text and (self.size_bytes or 0) <= TEXT_PREVIEW_MAX_BYTES:
+            return "text"
+        return ""
+
+    @property
+    def is_machine_made(self):
+        return bool(self.generated_by)
+
+    @property
+    def has_thumbnail(self):
+        return bool(self.thumbnail_key)
+
+    def thumbnail_url(self, ttl=None):
+        """A presigned link the browser shows inline, for the small image;
+        empty when there is none yet."""
+        from .media import MediaBucket
+
+        if not self.thumbnail_key:
+            return ""
+        return MediaBucket.from_settings().download_url(
+            self.thumbnail_key, ttl=ttl, inline=True, content_type="image/jpeg"
+        )
 
     def preview_url(self, ttl=None):
         """A presigned link the browser shows inline, for the preview fold;
         empty when the file is not one it can show."""
         from .media import MediaBucket
 
-        if not self.preview_kind:
+        if self.preview_kind in ("", "text"):
             return ""
         if not self.storage_key:
             return self.file.url if self.file else ""
@@ -2092,6 +2156,111 @@ class MediaUpload(TimestampedModel):
     @property
     def is_open(self):
         return self.status == UploadStatus.STARTED
+
+
+class TranscriptionJob(TimestampedModel):
+    """One run of the transcription engine on a video (design §8.8).
+
+    The row is what the Files section shows while it runs and what
+    "Retry" acts on; a failure keeps its reason here rather than in a
+    log nobody reads. The transcript it made, when it did, is ``output``.
+    """
+
+    conference = models.ForeignKey(
+        "portal.Conference",
+        on_delete=models.PROTECT,
+        related_name="transcription_jobs",
+        editable=False,
+    )
+    asset = models.ForeignKey(
+        MediaAsset, on_delete=models.CASCADE, related_name="transcription_jobs"
+    )
+    engine = models.CharField(max_length=60, blank=True, default="")
+    language = models.CharField(max_length=10, blank=True, default="")
+    status = models.CharField(
+        max_length=16,
+        choices=TranscriptionStatus.choices,
+        default=TranscriptionStatus.QUEUED,
+    )
+    error = models.CharField(max_length=500, blank=True, default="")
+    started_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="transcription_jobs",
+    )
+    started_at = models.DateTimeField(null=True, blank=True)
+    finished_at = models.DateTimeField(null=True, blank=True)
+    output = models.ForeignKey(
+        MediaAsset,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="made_by_jobs",
+    )
+
+    class Meta:
+        ordering = ["-id"]
+
+    def __str__(self):
+        return f"Transcription {self.pk} of {self.asset}"
+
+    def save(self, *args, **kwargs):
+        self.conference_id = self.asset.session.conference_id
+        super().save(*args, **kwargs)
+
+    @property
+    def is_open(self):
+        return self.status in (TranscriptionStatus.QUEUED, TranscriptionStatus.RUNNING)
+
+
+class MediaExport(TimestampedModel):
+    """One bulk download of an edition's files (design §8.8, task 5.6).
+
+    The row is the scope a person chose and the audit of it: who, when,
+    how many files, how many bytes, until when the links live. The links
+    themselves are minted when the script, manifest or folder download
+    asks for them, within ``expires_at``. A zip, when the selection is
+    small enough, is built by the media worker into the bucket and its
+    key kept here.
+    """
+
+    conference = models.ForeignKey(
+        "portal.Conference", on_delete=models.PROTECT, related_name="media_exports"
+    )
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="media_exports",
+    )
+    # {"kinds": [...], "language": "", "sessions": [slugs], "versions":
+    # "latest"|"all", "since": iso or ""}
+    scope = models.JSONField(default=dict, blank=True)
+    file_count = models.PositiveIntegerField(default=0)
+    total_bytes = models.BigIntegerField(default=0)
+    expires_at = models.DateTimeField()
+    zip_status = models.CharField(
+        max_length=16, choices=ZipStatus.choices, blank=True, default=""
+    )
+    zip_key = models.CharField(max_length=500, blank=True, default="")
+    zip_error = models.CharField(max_length=500, blank=True, default="")
+    zip_built_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-id"]
+
+    def __str__(self):
+        return f"Export {self.pk} of {self.conference}"
+
+    @property
+    def is_expired(self):
+        return self.expires_at <= timezone.now()
+
+    def get_absolute_url(self):
+        return reverse("speakers:media_export_detail", kwargs={"pk": self.pk})
 
 
 class Handbook(TimestampedModel):

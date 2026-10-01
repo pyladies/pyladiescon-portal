@@ -1,10 +1,13 @@
 import logging
 
 from celery import shared_task
+from django.conf import settings
+from django.utils import timezone
 
+from common.send_emails import send_email
 from portal.models import Conference
 
-from .constants import ProposalDecision
+from .constants import ProposalDecision, ZipStatus
 from .emails import (
     send_acceptance_email,
     send_added_to_session_email,
@@ -14,10 +17,12 @@ from .emails import (
     send_proposal_received_email,
     send_proposal_rejected_email,
 )
+from .exports import build_zip, expire_zips, zip_url
 from .media import expire_abandoned_uploads
 from .models import (
     Invitation,
     MediaAsset,
+    MediaExport,
     Presenter,
     Proposal,
     Session,
@@ -30,6 +35,8 @@ from .probe import probe_asset
 from .readiness import refresh_for_conference
 from .reminders import send_checklist_digests
 from .rules import reevaluate_all
+from .thumbnails import make_thumbnail
+from .transcription import fail_stale_jobs, transcribe
 
 logger = logging.getLogger(__name__)
 
@@ -224,6 +231,104 @@ def expire_abandoned_uploads_task():
     """
     count = expire_abandoned_uploads()
     return f"Expired {count} abandoned upload(s)"
+
+
+@shared_task(time_limit=2 * 3600)
+def build_export_zip_task(export_id):
+    """Build an export's zip in the bucket and tell the person who asked
+    (design §8.8, bulk download). On the media queue: a zip of a few
+    hundred megabytes takes minutes. A failure is written on the export,
+    where the page shows it, and logged."""
+    export = (
+        MediaExport.objects.select_related("conference", "created_by")
+        .filter(pk=export_id)
+        .first()
+    )
+    if export is None or export.created_by is None:
+        return "No such export"
+    export.zip_status = ZipStatus.RUNNING
+    export.save(update_fields=["zip_status", "modified_date"])
+    try:
+        export.zip_key = build_zip(export, export.created_by)
+    except Exception as exc:
+        # Anything, an object gone from the bucket included: a zip left
+        # RUNNING could never be asked for again, so every failure is
+        # written on the row, where the page shows it and offers a retry.
+        export.zip_status = ZipStatus.FAILED
+        export.zip_error = str(exc)[:500] or exc.__class__.__name__
+        export.save(update_fields=["zip_status", "zip_error", "modified_date"])
+        logger.exception("Export %s zip failed", export.pk)
+        return f"Export {export_id} zip failed: {exc}"
+    export.zip_status = ZipStatus.DONE
+    export.zip_built_at = timezone.now()
+    export.zip_error = ""
+    export.save(
+        update_fields=[
+            "zip_key",
+            "zip_status",
+            "zip_built_at",
+            "zip_error",
+            "modified_date",
+        ]
+    )
+    link = zip_url(export)
+    if export.created_by.email:
+        send_email(
+            f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} Your {export.conference.name} "
+            "file export is ready",
+            [export.created_by.email],
+            markdown_template="emails/speakers/export_ready.md",
+            context={
+                "export": export,
+                "link": link,
+                "expires_at": export.expires_at,
+                "conference": export.conference,
+                "user": export.created_by,
+            },
+            conference=export.conference,
+            user=export.created_by,
+            secrets=[link],
+        )
+    return f"Export {export_id} zip ready"
+
+
+@shared_task(acks_late=True, time_limit=2 * 3600)
+def transcribe_asset_task(job_id):
+    """Run one transcription job (design §8.8) on the media queue.
+    ``acks_late`` so a job a killed worker was running is delivered again,
+    where the row, already RUNNING, marks itself FAILED rather than
+    running twice."""
+    return transcribe(job_id)
+
+
+@shared_task
+def expire_export_zips_task():
+    """Nightly: drop the zips of exports whose links have expired (design
+    §8.8, bulk download). The zip was bounded per export by
+    SPEAKER_MEDIA_ZIP_MAX_BYTES; this bounds it in aggregate, since nothing
+    else ever deletes one. Seeded by migration 0015."""
+    count = expire_zips()
+    return f"Dropped {count} expired export zip(s)"
+
+
+@shared_task
+def fail_stale_transcription_jobs_task():
+    """Nightly: jobs nobody picked up say so on the page."""
+    count = fail_stale_jobs()
+    return f"Failed {count} stale transcription job(s)"
+
+
+@shared_task(time_limit=600)
+def make_thumbnail_task(asset_id):
+    """A small image for a file that just landed (design §8.8, task 5.8),
+    on the media queue beside the probe."""
+    asset = MediaAsset.objects.filter(pk=asset_id).first()
+    if asset is None:
+        return "No such asset"
+    key = make_thumbnail(asset)
+    if key is None:
+        return f"No thumbnail for asset {asset_id}: {asset.thumbnail_error}"
+    return f"Thumbnail for asset {asset_id} at {key}"
 
 
 # How many times a video is probed before its failure stands, and the

@@ -11,186 +11,230 @@ Params: group (media.asset_groups), session, can_edit
     <tbody id="{{ group.id }}" class="media-group">
         <tr>
             <td>
-                <div class="fw-semibold">
-                    {% if group.title %}
-                        {{ group.title }}
-                    {% else %}
-                        {{ group.label }}
+                <div class="d-flex align-items-start gap-2">
+                    {% include "speakers/_media_thumb.html" with asset=asset session=session size="sm" %}
+                    <div>
+                        <div class="fw-semibold">
+                            {% if group.title %}
+                                {{ group.title }}
+                            {% else %}
+                                {{ group.label }}
+                            {% endif %}
+                        </div>
+                        <div class="small">
+                            {% if group.title %}
+                                <span class="badge text-bg-light border">{{ group.label }}</span>
+                            {% endif %}
+                            {% if group.language %}
+                                <span class="badge text-bg-light border">{{ group.language }}</span>
+                            {% endif %}
+                            {% if group.variant %}
+                                <span class="badge text-bg-light border">{{ group.variant }}</span>
+                            {% endif %}
+                            <span class="text-secondary text-break">{{ asset.original_filename|default:asset.file.name|default:"" }}</span>
+                            {% if asset.is_machine_made %}
+                                {% trans "Made by the portal's transcription engine, not yet reviewed" as draft_title %}
+                                <span class="badge text-bg-warning" title="{{ draft_title }}">
+                                    <i class="fa-solid fa-robot"></i> {% trans "machine draft" %} · {{ asset.generated_by }}
+                                </span>
+                            {% endif %}
+                            {% if group.job and group.job.is_open %}
+                            <span class="text-secondary"><i class="fa-solid fa-hourglass-half"></i>
+                            {% if group.job.status == "RUNNING" %}
+                                {% blocktranslate with since=group.job.started_at|timesince %}Transcribing, started {{ since }} ago{% endblocktranslate %}
+                            {% else %}
+                                {% trans "Transcription queued" %}
+                            {% endif %}
+                        </span>
+                    {% elif group.job and group.job.status == "FAILED" %}
+                        <span class="text-danger" title="{{ group.job.error }}"><i class="fa-solid fa-triangle-exclamation"></i> {% trans "Transcription failed" %}: {{ group.job.error }}</span>
+                    {% endif %}
+                    {% if asset.thumbnail_error %}
+                        <span class="text-danger" title="{{ asset.thumbnail_error }}"><i class="fa-solid fa-triangle-exclamation"></i> {% trans "no thumbnail" %}</span>
                     {% endif %}
                 </div>
-                <div class="small">
-                    {% if group.title %}
-                        <span class="badge text-bg-light border">{{ group.label }}</span>
-                    {% endif %}
-                    {% if group.language %}
-                        <span class="badge text-bg-light border">{{ group.language }}</span>
-                    {% endif %}
-                    {% if group.variant %}
-                        <span class="badge text-bg-light border">{{ group.variant }}</span>
-                    {% endif %}
-                    <span class="text-secondary text-break">{{ asset.original_filename|default:asset.file.name|default:"" }}</span>
-                </div>
-            </td>
-            <td class="text-nowrap">
-                {% if group.current %}
-                    <span class="badge text-bg-success">v{{ group.current.version }}</span>
+            </div>
+        </div>
+    </td>
+    <td class="text-nowrap">
+        {% if group.current %}
+            <span class="badge text-bg-success">v{{ group.current.version }}</span>
+        {% else %}
+            <span class="badge text-bg-secondary">{% trans "none ready" %}</span>
+        {% endif %}
+        {% if group.history %}
+            <div class="small text-secondary">
+                {% blocktranslate count counter=group.history|length %}{{ counter }} earlier{% plural %}{{ counter }} earlier{% endblocktranslate %}
+            </div>
+        {% endif %}
+    </td>
+    <td class="text-nowrap small">
+        {% if asset.size_bytes %}
+            {{ asset.size_bytes|filesizeformat }}
+        {% endif %}
+    </td>
+    <td class="text-nowrap small">
+        {% if asset.duration_seconds is not None %}
+            {{ asset.duration_seconds|duration }}
+        {% elif asset.probe_error %}
+            {% trans "Length not measured" as not_measured %}
+            <span class="text-danger" title="{{ asset.probe_error }}">
+                <i class="fa-solid fa-triangle-exclamation"></i> {{ not_measured }}
+            </span>
+        {% endif %}
+    </td>
+    <td class="text-nowrap small text-secondary">
+        {{ asset.creation_date|date:"j M H:i" }}
+        {% if asset.uploaded_by %}
+            <div>
+                {{ asset.uploaded_by.get_full_name|default:asset.uploaded_by.username }}
+            </div>
+        {% endif %}
+    </td>
+    <td class="text-nowrap small">
+        {% trans "The speaker sees this file on their session page" as shared_title %}
+        {% if can_edit and asset.is_ready and asset.kind != "RAW_VIDEO" %}
+            <form method="post"
+                  action="{% url 'speakers:media_share' session.slug asset.pk %}"
+                  hx-post="{% url 'speakers:media_share' session.slug asset.pk %}"
+                  hx-target="#{{ group.id }}"
+                  hx-swap="outerHTML">
+                {% csrf_token %}
+                {% if asset.shared_with_speaker %}
+                    <input type="hidden" name="shared" value="0">
+                    {% trans "Shared; click to take it back" as unshare_title %}
+                    <button class="btn btn-sm btn-info" type="submit" title="{{ unshare_title }}">
+                        <i class="fa-solid fa-share-nodes"></i> {% trans "Shared" %}
+                    </button>
                 {% else %}
-                    <span class="badge text-bg-secondary">{% trans "none ready" %}</span>
+                    <input type="hidden" name="shared" value="1">
+                    <button class="btn btn-sm btn-outline-secondary" type="submit">
+                        <i class="fa-solid fa-share-nodes"></i> {% trans "Share" %}
+                    </button>
+                {% endif %}
+            </form>
+        {% elif asset.shared_with_speaker %}
+            <span class="badge text-bg-info" title="{{ shared_title }}">
+                <i class="fa-solid fa-share-nodes"></i> {% trans "Shared" %}
+            </span>
+        {% elif asset.kind == "RAW_VIDEO" %}
+            {% trans "The speaker's own file" as own_title %}
+            <span class="text-secondary" title="{{ own_title }}">{% trans "theirs" %}</span>
+        {% else %}
+            <span class="text-secondary">—</span>
+        {% endif %}
+    </td>
+    <td class="text-nowrap text-end">
+        {% if asset.storage_key or asset.file %}
+            <a class="btn btn-sm btn-outline-primary"
+               href="{% url 'speakers:media_download' session.slug asset.pk %}">
+                <i class="fa-solid fa-download"></i> {% trans "Download" %}
+            </a>
+        {% endif %}
+        <button class="btn btn-sm btn-outline-secondary"
+                type="button"
+                data-bs-toggle="collapse"
+                data-bs-target="#more-{{ group.id }}"
+                aria-expanded="false"
+                aria-controls="more-{{ group.id }}">
+            <i class="fa-solid fa-ellipsis"></i> {% trans "More" %}
+        </button>
+    </td>
+</tr>
+<tr class="collapse media-group-more" id="more-{{ group.id }}">
+    <td colspan="7" class="bg-body-tertiary">
+        <div class="row g-3">
+            <div class="col-lg-6">
+                {% if group.current %}
+                    {% include "speakers/_media_preview.html" with asset=group.current session=session %}
+                {% endif %}
+                {% if asset.notes_md and not can_edit %}
+                    <div class="small text-secondary mt-2">
+                        <i class="fa-regular fa-note-sticky"></i> {{ asset.notes_md }}
+                    </div>
                 {% endif %}
                 {% if group.history %}
-                    <div class="small text-secondary">
-                        {% blocktranslate count counter=group.history|length %}{{ counter }} earlier{% plural %}{{ counter }} earlier{% endblocktranslate %}
+                    <div class="small fw-semibold mt-3 mb-1">
+                        {% trans "Earlier versions" %}
                     </div>
+                    <ul class="list-unstyled mb-0 d-grid gap-2">
+                        {% for earlier in group.history %}
+                            <li>
+                                {% include "speakers/_media_asset_row.html" with asset=earlier session=session show_notes=True %}
+                            </li>
+                        {% endfor %}
+                    </ul>
                 {% endif %}
-            </td>
-            <td class="text-nowrap small">
-                {% if asset.size_bytes %}
-                    {{ asset.size_bytes|filesizeformat }}
-                {% endif %}
-            </td>
-            <td class="text-nowrap small">
-                {% if asset.duration_seconds is not None %}
-                    {{ asset.duration_seconds|duration }}
-                {% elif asset.probe_error %}
-                    {% trans "Length not measured" as not_measured %}
-                    <span class="text-danger" title="{{ asset.probe_error }}">
-                        <i class="fa-solid fa-triangle-exclamation"></i> {{ not_measured }}
-                    </span>
-                {% endif %}
-            </td>
-            <td class="text-nowrap small text-secondary">
-                {{ asset.creation_date|date:"j M H:i" }}
-                {% if asset.uploaded_by %}
-                    <div>
-                        {{ asset.uploaded_by.get_full_name|default:asset.uploaded_by.username }}
-                    </div>
-                {% endif %}
-            </td>
-            <td class="text-nowrap small">
-                {% trans "The speaker sees this file on their session page" as shared_title %}
-                {% if can_edit and asset.is_ready and asset.kind != "RAW_VIDEO" %}
+            </div>
+            {% if can_edit %}
+                <div class="col-lg-6 d-grid gap-2">
                     <form method="post"
-                          action="{% url 'speakers:media_share' session.slug asset.pk %}"
-                          hx-post="{% url 'speakers:media_share' session.slug asset.pk %}"
+                          action="{% url 'speakers:media_title' session.slug group.target.pk %}"
+                          hx-post="{% url 'speakers:media_title' session.slug group.target.pk %}"
                           hx-target="#{{ group.id }}"
                           hx-swap="outerHTML">
                         {% csrf_token %}
-                        {% if asset.shared_with_speaker %}
-                            <input type="hidden" name="shared" value="0">
-                            {% trans "Shared; click to take it back" as unshare_title %}
-                            <button class="btn btn-sm btn-info" type="submit" title="{{ unshare_title }}">
-                                <i class="fa-solid fa-share-nodes"></i> {% trans "Shared" %}
+                        {% trans "What this file is about, for every version and format of it" as title_placeholder %}
+                        <label class="form-label small mb-1" for="title-{{ group.id }}">
+                            {% trans "Title" %}
+                        </label>
+                        <div class="input-group input-group-sm">
+                            <input class="form-control"
+                                   id="title-{{ group.id }}"
+                                   name="title"
+                                   maxlength="200"
+                                   value="{{ group.title }}"
+                                   placeholder="{{ title_placeholder }}">
+                            <button class="btn btn-outline-secondary" type="submit">
+                                {% trans "Save" %}
                             </button>
-                        {% else %}
-                            <input type="hidden" name="shared" value="1">
-                            <button class="btn btn-sm btn-outline-secondary" type="submit">
-                                <i class="fa-solid fa-share-nodes"></i> {% trans "Share" %}
-                            </button>
-                        {% endif %}
-                    </form>
-                {% elif asset.shared_with_speaker %}
-                    <span class="badge text-bg-info" title="{{ shared_title }}">
-                        <i class="fa-solid fa-share-nodes"></i> {% trans "Shared" %}
-                    </span>
-                {% elif asset.kind == "RAW_VIDEO" %}
-                    {% trans "The speaker's own file" as own_title %}
-                    <span class="text-secondary" title="{{ own_title }}">{% trans "theirs" %}</span>
-                {% else %}
-                    <span class="text-secondary">—</span>
-                {% endif %}
-            </td>
-            <td class="text-nowrap text-end">
-                {% if asset.storage_key or asset.file %}
-                    <a class="btn btn-sm btn-outline-primary"
-                       href="{% url 'speakers:media_download' session.slug asset.pk %}">
-                        <i class="fa-solid fa-download"></i> {% trans "Download" %}
-                    </a>
-                {% endif %}
-                <button class="btn btn-sm btn-outline-secondary"
-                        type="button"
-                        data-bs-toggle="collapse"
-                        data-bs-target="#more-{{ group.id }}"
-                        aria-expanded="false"
-                        aria-controls="more-{{ group.id }}">
-                    <i class="fa-solid fa-ellipsis"></i> {% trans "More" %}
-                </button>
-            </td>
-        </tr>
-        <tr class="collapse media-group-more" id="more-{{ group.id }}">
-            <td colspan="7" class="bg-body-tertiary">
-                <div class="row g-3">
-                    <div class="col-lg-6">
-                        {% if group.current %}
-                            {% include "speakers/_media_preview.html" with asset=group.current session=session %}
-                        {% endif %}
-                        {% if asset.notes_md and not can_edit %}
-                            <div class="small text-secondary mt-2">
-                                <i class="fa-regular fa-note-sticky"></i> {{ asset.notes_md }}
-                            </div>
-                        {% endif %}
-                        {% if group.history %}
-                            <div class="small fw-semibold mt-3 mb-1">
-                                {% trans "Earlier versions" %}
-                            </div>
-                            <ul class="list-unstyled mb-0 d-grid gap-2">
-                                {% for earlier in group.history %}
-                                    <li>
-                                        {% include "speakers/_media_asset_row.html" with asset=earlier session=session show_notes=True %}
-                                    </li>
-                                {% endfor %}
-                            </ul>
-                        {% endif %}
-                    </div>
-                    {% if can_edit %}
-                        <div class="col-lg-6 d-grid gap-2">
-                            <form method="post"
-                                  action="{% url 'speakers:media_title' session.slug group.target.pk %}"
-                                  hx-post="{% url 'speakers:media_title' session.slug group.target.pk %}"
-                                  hx-target="#{{ group.id }}"
-                                  hx-swap="outerHTML">
-                                {% csrf_token %}
-                                {% trans "What this file is about, for every version and format of it" as title_placeholder %}
-                                <label class="form-label small mb-1" for="title-{{ group.id }}">
-                                    {% trans "Title" %}
-                                </label>
-                                <div class="input-group input-group-sm">
-                                    <input class="form-control"
-                                           id="title-{{ group.id }}"
-                                           name="title"
-                                           maxlength="200"
-                                           value="{{ group.title }}"
-                                           placeholder="{{ title_placeholder }}">
-                                    <button class="btn btn-outline-secondary" type="submit">
-                                        {% trans "Save" %}
-                                    </button>
-                                </div>
-                            </form>
-                            <form method="post"
-                                  action="{% url 'speakers:media_notes' session.slug asset.pk %}"
-                                  hx-post="{% url 'speakers:media_notes' session.slug asset.pk %}"
-                                  hx-target="#{{ group.id }}"
-                                  hx-swap="outerHTML">
-                                {% csrf_token %}
-                                {% trans "Reviewer note, e.g. audio clips at 4:10" as note_placeholder %}
-                                <label class="form-label small mb-1" for="notes-{{ asset.pk }}">
-                                    {% trans "Reviewer note" %}
-                                    <span class="text-secondary">{% trans "(this version, team only)" %}</span>
-                                </label>
-                                <div class="input-group input-group-sm">
-                                    <input class="form-control"
-                                           id="notes-{{ asset.pk }}"
-                                           name="notes_md"
-                                           value="{{ asset.notes_md }}"
-                                           placeholder="{{ note_placeholder }}">
-                                    <button class="btn btn-outline-secondary" type="submit">
-                                        {% trans "Save" %}
-                                    </button>
-                                </div>
-                            </form>
                         </div>
+                    </form>
+                    {% if transcribe_offered and asset.kind in video_kinds and asset.is_ready and asset.storage_key %}
+                        {% if not group.job or not group.job.is_open %}
+                            <form method="post"
+                                  action="{% url 'speakers:media_transcribe' session.slug asset.pk %}"
+                                  hx-post="{% url 'speakers:media_transcribe' session.slug asset.pk %}"
+                                  hx-target="#{{ group.id }}"
+                                  hx-swap="outerHTML">
+                                {% csrf_token %}
+                                <button class="btn btn-sm btn-outline-secondary" type="submit">
+                                    <i class="fa-solid fa-closed-captioning"></i>
+                                    {% if group.job and group.job.status == "FAILED" %}
+                                        {% trans "Retry the transcription" %}
+                                    {% else %}
+                                        {% trans "Transcribe this" %}
+                                    {% endif %}
+                                </button>
+                            </form>
+                        {% endif %}
                     {% endif %}
+                    <form method="post"
+                          action="{% url 'speakers:media_notes' session.slug asset.pk %}"
+                          hx-post="{% url 'speakers:media_notes' session.slug asset.pk %}"
+                          hx-target="#{{ group.id }}"
+                          hx-swap="outerHTML">
+                        {% csrf_token %}
+                        {% trans "Reviewer note, e.g. audio clips at 4:10" as note_placeholder %}
+                        <label class="form-label small mb-1" for="notes-{{ asset.pk }}">
+                            {% trans "Reviewer note" %}
+                            <span class="text-secondary">{% trans "(this version, team only)" %}</span>
+                        </label>
+                        <div class="input-group input-group-sm">
+                            <input class="form-control"
+                                   id="notes-{{ asset.pk }}"
+                                   name="notes_md"
+                                   value="{{ asset.notes_md }}"
+                                   placeholder="{{ note_placeholder }}">
+                            <button class="btn btn-outline-secondary" type="submit">
+                                {% trans "Save" %}
+                            </button>
+                        </div>
+                    </form>
                 </div>
-            </td>
-        </tr>
-    </tbody>
+            {% endif %}
+        </div>
+    </td>
+</tr>
+</tbody>
 {% endwith %}

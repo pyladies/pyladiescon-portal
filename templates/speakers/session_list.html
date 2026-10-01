@@ -28,6 +28,10 @@
                    href="{% url 'speakers:program_item_create' %}">
                     <i class="fa-solid fa-plus"></i> {% trans "Program item" %}
                 </a>
+                <a class="btn btn-outline-secondary"
+                   href="{% url 'speakers:media_export' %}">
+                    <i class="fa-solid fa-download"></i> {% trans "Download files" %}
+                </a>
             </div>
         {% endif %}
     </div>

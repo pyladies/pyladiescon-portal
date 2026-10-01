@@ -456,7 +456,7 @@ class TestSessions:
                 "outline_md": "1. Models",
                 "level": "BEGINNER",
                 "language": "en",
-                "title": "Django 101, revised",
+                "title": "Django 101,\nrevised",
                 "slug": "Django 101 Revised",
                 "duration_minutes": 5,
             },

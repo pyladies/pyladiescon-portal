@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import upload_views, views
+from . import export_views, upload_views, views
 from .webhooks import pretix_webhook
 
 app_name = "speakers"
@@ -86,6 +86,16 @@ urlpatterns = [
         name="media_download",
     ),
     path(
+        "sessions/<slug:slug>/media/<int:pk>/transcribe/",
+        upload_views.MediaTranscribeView.as_view(),
+        name="media_transcribe",
+    ),
+    path(
+        "sessions/<slug:slug>/media/<int:pk>/thumbnail/",
+        upload_views.MediaThumbnailView.as_view(),
+        name="media_thumbnail",
+    ),
+    path(
         "sessions/<slug:slug>/media/<int:pk>/preview/",
         upload_views.MediaPreviewView.as_view(),
         name="media_preview",
@@ -94,6 +104,22 @@ urlpatterns = [
         "sessions/<slug:slug>/media/<int:pk>/notes/",
         upload_views.MediaNotesView.as_view(),
         name="media_notes",
+    ),
+    path("exports/", export_views.MediaExportView.as_view(), name="media_export"),
+    path(
+        "exports/<int:pk>/",
+        export_views.MediaExportDetailView.as_view(),
+        name="media_export_detail",
+    ),
+    path(
+        "exports/<int:pk>/<str:name>",
+        export_views.MediaExportFileView.as_view(),
+        name="media_export_file",
+    ),
+    path(
+        "exports/<int:pk>/zip/",
+        export_views.MediaExportZipView.as_view(),
+        name="media_export_zip",
     ),
     path(
         "sessions/<slug:slug>/media/<int:pk>/title/",

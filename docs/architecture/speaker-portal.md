@@ -371,7 +371,7 @@ A file is named by its kind, language and variant ("Promo material (square)", "T
 
 #### Previews
 
-A file row, and the speaker's "Files from the team" card, carry a closed "Preview" fold for the files a browser can show itself: images, video and audio, decided from the upload's content type with the file name as a fallback. Opening it loads the file from the bucket through a second presigned link that says *inline* rather than *attachment* and carries the file's type; images load lazily, video and audio not until play, and a multi-gigabyte video then streams by range requests, so nothing is fetched in full. Everything else, including an HTML file uploaded as "other", only downloads. A poster previews at full size scaled by the page, which is fine on a session page and would not be on the board; thumbnails made by the worker are queued as task 5.8.
+A file row, and the speaker's "Files from the team" card, carry a closed "Preview" fold for the files a browser can show itself: images, video and audio, decided from the upload's content type with the file name as a fallback. Opening it loads the file from the bucket through a second presigned link that says *inline* rather than *attachment* and carries the file's type; images load lazily, video and audio not until play, and a multi-gigabyte video then streams by range requests, so nothing is fetched in full. A transcript, captions file or other small text file shows as plain text, fetched through the portal rather than by a signed link (the same permission check, no CORS rule, a few kilobytes), in the fold and in a new tab. Everything else, including an HTML file uploaded as "other", only downloads. The file rows, the speaker's files, the board's video column and the sessions list also carry a **thumbnail** (task 5.8, built 30 September 2026): when an image or video lands, the media worker scales the image with Pillow or takes a frame a few seconds in with ffmpeg, stores it as a small JPEG next to the original, and the pages show it through a redirect to an inline link, so a list of thirty sessions costs no signing to render. Audio gets an icon. A thumbnail that could not be made says why on the row and never holds the file up.
 
 #### Where files live in the bucket
 
@@ -386,7 +386,7 @@ The upload id segment is what makes a re-upload a new object instead of an overw
 
 #### Bulk download (post-production)
 
-> **Designed, not built.** Task 5.6.
+> **Built** (30 September 2026, task 5.6), with two changes from the design below made on trying it: the zip is the first choice on the page and the script the advanced one, and the browser "download to a folder" path was dropped, since choosing a folder in a browser dialog read as odd. The sessions in the scope are an explicit choice ("every session with files" or "only these", a filtered checkbox list grouped by type), so a stray click narrows nothing.
 
 The people who edit the videos, design the title cards and cut the final versions work on their own machines, in their own tools, and they want *everything* for the edition on local disk, not one file at a time from a web page. A pull of an edition's raw video is tens of gigabytes across dozens of files, which rules out the two obvious shapes: a zip built on the server doubles the storage and ties up a worker and its disk for an hour, and a zip streamed through Django holds a web worker for the whole transfer and cannot resume when the connection drops. The bucket already knows how to serve large files with range requests and resume; the portal's job is to hand out the list of what to fetch and where to put it.
 
@@ -419,7 +419,7 @@ pyladiescon-2026/manifest.csv
 
 #### Machine transcription
 
-> **Designed, not built.** Task 5.7.
+> **Built** (30 September 2026, task 5.7), as designed below. The library and the model enter the image only when it is built with `WHISPER_MODEL` set, so the web process and CI carry neither; an image built without it offers no transcription and says so.
 
 The "Transcribe" item on the post-production checklist completes when a transcript asset exists for the session's language (§9.7), so a worker job that writes one is the whole feature from the checklist's point of view: the item ticks itself, "Review transcript" stays a person's job, and the reviewer's corrected file goes up as the next version through the ordinary panel. The job is a draft-maker, never the last word.
 
@@ -430,7 +430,7 @@ The "Transcribe" item on the post-production checklist completes when a transcri
 **How it runs.** A Celery task, `transcribe_asset_task`, on its own queue:
 
 1. Records a `TranscriptionJob` row (video asset, engine, `QUEUED`), which is what the Files section shows while it runs ("Transcribing, started 4 minutes ago") and what "Retry" acts on.
-2. Extracts the audio without touching the video on disk: `ffmpeg` reads the presigned video URL and writes 16 kHz mono Opus at 32 kbit/s to a temporary file, about 7 MB for a 30-minute set.
+2. Extracts the audio without touching the video on disk: `ffmpeg` reads the presigned video URL and writes raw 16 kHz mono 16-bit samples to a temporary file (about 57 MB for a 30-minute set, gone with the job). Raw samples rather than a compressed file so the engine decodes nothing itself: on trying it, the engine's own decoder (PyAV) turned out to be the one piece whose versions drift under it.
 3. Hands the audio to the configured engine and gets back timed segments.
 4. Writes the VTT, uploads it, records the asset, marks the job `DONE`.
 5. On any failure marks the job `FAILED` with the error, logs it to the session's activity, and leaves the checklist item open. Never silent: a missing `ffmpeg`, a missing model, an exhausted API quota all show on the page.
@@ -578,7 +578,7 @@ PyJam sessions are performances recorded by the performer, post-produced by the 
 | Record intro and outro video (MC) | intro and outro assets exist |
 | Review audio and video quality | manual, with notes on the asset |
 | Check video length is within limit | automatic; blocks with the overage |
-| Transcribe | transcript asset exists for the session language |
+| Transcribe | transcript asset exists for the session language; the media worker drafts one when the edition asks (§8.8, "Machine transcription") |
 | Review transcript | manual |
 | Translate | translation asset exists — one item per target language configured in the edition's speaker settings |
 | Add title card and assemble final video | processed video asset exists |
