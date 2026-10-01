@@ -154,7 +154,8 @@ Speaker media (design §8.8) lives in its own **private** bucket, named by
 needs a lifecycle rule that aborts incomplete multipart uploads after 7
 days (`AbortIncompleteMultipartUpload`): the portal's nightly "Expire
 abandoned uploads" task reclaims what it knows about, and the rule reclaims
-the rest. The bucket also needs a CORS rule allowing `PUT` from the portal's
+the rest. The nightly "Expire export zips" task deletes the zip of every
+bulk-download export past its expiry. The bucket also needs a CORS rule allowing `PUT` from the portal's
 origin with the `ETag` header exposed, since the browser uploads the parts
 directly. Bulk download (design §8.8, task 5.6) needs `GET` in the same
 rule for the browser's folder download, and a second lifecycle rule that

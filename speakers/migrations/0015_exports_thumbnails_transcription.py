@@ -45,6 +45,38 @@ def unseed_stale_jobs_task(apps, schema_editor):
     PeriodicTask.objects.filter(name=STALE_TASK_NAME).delete()
 
 
+ZIPS_TASK_NAME = "Expire export zips"
+ZIPS_TASK_PATH = "speakers.tasks.expire_export_zips_task"
+
+
+def seed_expire_zips_task(apps, schema_editor):
+    """Nightly at 04:45 UTC: the zip of an export whose links have expired
+    leaves the bucket, so zips do not add up for good."""
+    CrontabSchedule = apps.get_model("django_celery_beat", "CrontabSchedule")
+    PeriodicTask = apps.get_model("django_celery_beat", "PeriodicTask")
+    nightly, _ = CrontabSchedule.objects.get_or_create(
+        minute="45",
+        hour="4",
+        day_of_week="*",
+        day_of_month="*",
+        month_of_year="*",
+        timezone="UTC",
+    )
+    PeriodicTask.objects.get_or_create(
+        name=ZIPS_TASK_NAME,
+        defaults={
+            "task": ZIPS_TASK_PATH,
+            "crontab": nightly,
+            "description": "Delete the zip of every media export past its expiry.",
+        },
+    )
+
+
+def unseed_expire_zips_task(apps, schema_editor):
+    PeriodicTask = apps.get_model("django_celery_beat", "PeriodicTask")
+    PeriodicTask.objects.filter(name=ZIPS_TASK_NAME).delete()
+
+
 class Migration(migrations.Migration):
 
     dependencies = [
@@ -235,4 +267,5 @@ class Migration(migrations.Migration):
             },
         ),
         migrations.RunPython(seed_stale_jobs_task, unseed_stale_jobs_task),
+        migrations.RunPython(seed_expire_zips_task, unseed_expire_zips_task),
     ]

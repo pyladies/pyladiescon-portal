@@ -373,7 +373,7 @@ class MediaThumbnailView(LoginRequiredMixin, SpeakerModuleRequiredMixin, View):
         if not asset.thumbnail_key:
             raise Http404("No thumbnail yet.")
         try:
-            return HttpResponseRedirect(asset.thumbnail_url())
+            return HttpResponseRedirect(asset.thumbnail_url(ttl=DOWNLOAD_LINK_TTL))
         except MediaStorageNotConfigured:
             raise Http404("Object storage is not configured on this portal.")
 

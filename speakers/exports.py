@@ -16,6 +16,7 @@ upload ids:
 import csv
 import io
 import re
+import secrets
 import shlex
 import tempfile
 import zipfile
@@ -28,6 +29,7 @@ from django.utils import timezone
 from .constants import MediaKind, MediaStatus, ZipStatus
 from .media import MediaBucket
 from .models import MediaAsset, MediaExport, Session
+from .spreadsheet import safe_cell
 
 VERSIONS = ("latest", "all")
 MANIFEST_COLUMNS = [
@@ -55,6 +57,8 @@ class ExportError(ValueError):
 def clean_scope(data):
     """A scope dict from a form's or a query's values, validated."""
     kinds = [k for k in data.get("kinds", []) if k in MediaKind.values]
+    if not kinds:
+        raise ExportError("Choose at least one kind of file.")
     versions = data.get("versions") or "latest"
     if versions not in VERSIONS:
         raise ExportError("versions must be latest or all.")
@@ -65,7 +69,7 @@ def clean_scope(data):
             parsed = timezone.make_aware(parsed)
         since = parsed.isoformat()
     return {
-        "kinds": kinds or [MediaKind.RAW_VIDEO],
+        "kinds": kinds,
         "language": str(data.get("language") or "")[:10],
         "sessions": [s for s in data.get("sessions", []) if s],
         "versions": versions,
@@ -73,11 +77,13 @@ def clean_scope(data):
     }
 
 
-def select_assets(conference, user, scope):
+def select_assets(conference, user, scope, as_of=None):
     """The assets the scope names, among the sessions ``user`` may see,
     session by session then by kind, language, variant and version: the
     newest READY one per line, or every version still in the bucket
-    (READY and SUPERSEDED) when the scope asks for all."""
+    (READY and SUPERSEDED) when the scope asks for all. ``as_of`` pins
+    the set to what existed when an export was made, so its count, its
+    script and its zip agree."""
     sessions = Session.objects.for_conference(conference).visible_to(user)
     if scope.get("sessions"):
         sessions = sessions.filter(slug__in=scope["sessions"])
@@ -96,6 +102,8 @@ def select_assets(conference, user, scope):
         queryset = queryset.filter(language=scope["language"])
     if scope.get("since"):
         queryset = queryset.filter(creation_date__gt=scope["since"])
+    if as_of is not None:
+        queryset = queryset.filter(creation_date__lte=as_of)
     kind_order = {kind: index for index, kind in enumerate(MediaKind.values)}
     assets = sorted(
         queryset,
@@ -165,7 +173,9 @@ def export_entries(export, user, with_urls=True):
     ttl = max(60, int((export.expires_at - timezone.now()).total_seconds()))
     bucket = MediaBucket.from_settings() if with_urls else None
     entries = []
-    for asset in select_assets(export.conference, user, export.scope):
+    for asset in select_assets(
+        export.conference, user, export.scope, as_of=export.creation_date
+    ):
         url = (
             bucket.download_url(
                 asset.storage_key,
@@ -215,19 +225,13 @@ def manifest_path(export):
     return f"pyladiescon-{export.conference.year}/manifest.csv"
 
 
-FORMULA_STARTS = ("=", "+", "-", "@", "\t", "\r")
-
-
-def _cell(value):
-    text = str(value)
-    return "'" + text if text.startswith(FORMULA_STARTS) else text
-
-
 def write_manifest(entries, stream):
     writer = csv.writer(stream)
     writer.writerow(MANIFEST_COLUMNS)
     for entry in entries:
-        writer.writerow([_cell(entry["row"][column]) for column in MANIFEST_COLUMNS])
+        writer.writerow(
+            [safe_cell(entry["row"][column]) for column in MANIFEST_COLUMNS]
+        )
     return stream
 
 
@@ -235,6 +239,12 @@ def write_script(export, entries, stream):
     """A shell script: one resumable curl per file, the manifest written
     first, so it runs unattended and continues after an interruption."""
     manifest = write_manifest(entries, io.StringIO()).getvalue()
+    # Every cell is one line (safe_cell), so no line of the manifest can be
+    # the delimiter; should one ever be, a delimiter nothing contains
+    # keeps the heredoc closed where it is meant to close.
+    delimiter = "MANIFEST"
+    while delimiter in manifest.splitlines():
+        delimiter = f"MANIFEST_{secrets.token_hex(4)}"
     stream.write("#!/bin/sh\n")
     stream.write(
         f"# PyLadiesCon {export.conference.year} media export {export.pk}: "
@@ -243,9 +253,9 @@ def write_script(export, entries, stream):
         "set -e\n"
     )
     stream.write(f"mkdir -p {shlex.quote(manifest_path(export).rsplit('/', 1)[0])}\n")
-    stream.write(f"cat > {shlex.quote(manifest_path(export))} <<'MANIFEST'\n")
+    stream.write(f"cat > {shlex.quote(manifest_path(export))} <<'{delimiter}'\n")
     stream.write(manifest)
-    stream.write("MANIFEST\n")
+    stream.write(f"{delimiter}\n")
     for entry in entries:
         stream.write(
             f"curl -fL -C - --create-dirs -o {shlex.quote(entry['path'])} "
@@ -310,6 +320,24 @@ def zip_url(export):
     return MediaBucket.from_settings().download_url(
         export.zip_key, f"pyladiescon-{export.conference.year}-export.zip", ttl=ttl
     )
+
+
+def expire_zips(now=None):
+    """Delete the zip of every export past its expiry and forget its key;
+    returns how many. The row stays, as the record of who pulled what;
+    its page already says the export has expired."""
+    now = now or timezone.now()
+    expired = MediaExport.objects.filter(expires_at__lt=now).exclude(zip_key="")
+    count = 0
+    if not expired.exists():
+        return count
+    bucket = MediaBucket.from_settings()
+    for export in expired:
+        bucket.delete(export.zip_key)
+        export.zip_key = ""
+        export.save(update_fields=["zip_key", "modified_date"])
+        count += 1
+    return count
 
 
 def exports_for_maintenance():

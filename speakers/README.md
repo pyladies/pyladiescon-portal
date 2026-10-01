@@ -166,7 +166,13 @@ picker (`static/js/media-export.js`) is an explicit "every session" or
 "only these" choice over a filtered checkbox list grouped by type. Every path
 lays files out as `pyladiescon-<year>/<slug>/<kind>/v<n>[-<lang>][-<variant>]-<name>`
 with `manifest.csv`. Links live `SPEAKER_MEDIA_BULK_URL_TTL` (12 h);
-Maintenance > File exports lists every export. Machine transcription (task 5.7) is
+Maintenance > File exports lists every export, and the nightly "Expire export
+zips" task drops the zip of an export whose links have expired, so zips
+bounded per export by `SPEAKER_MEDIA_ZIP_MAX_BYTES` do not add up for
+good. A scope must name at least one kind. Every cell of every CSV the
+app writes, the manifest included, goes through `spreadsheet.safe_cell`:
+one line, never a formula, which is also what keeps the manifest embedded
+in `download.sh` inside its heredoc. Machine transcription (task 5.7) is
 `speakers/transcription.py`: with `SPEAKER_TRANSCRIBE_ENGINE=local` the
 portal has an engine (`FasterWhisperEngine`, the one implementation of
 the small `Engine` interface; `get_engine`), and an edition with

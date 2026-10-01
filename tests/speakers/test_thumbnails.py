@@ -262,7 +262,8 @@ class TestOnThePages:
         html = client.get(reverse("speakers:session_list")).content.decode()
         assert f'<img src="{thumb}"' in html
         assert client.get(thumb).status_code == 302
-        assert "X-Amz-Signature" in client.get(thumb)["Location"]
+        location = client.get(thumb)["Location"]
+        assert "X-Amz-Signature" in location and "X-Amz-Expires=60" in location
         assert (
             client.get(
                 reverse("speakers:media_thumbnail", args=[session.slug, poster.pk])

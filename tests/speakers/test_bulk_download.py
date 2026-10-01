@@ -9,12 +9,14 @@ from unittest.mock import patch
 
 import boto3
 import pytest
+from django.apps import apps
 from django.contrib.auth.models import Group, Permission, User
 from django.core import mail
 from django.db import connection
 from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 from django.utils import timezone
+from django_celery_beat.models import PeriodicTask
 from moto import mock_aws
 
 from common.models import SentEmail
@@ -36,7 +38,7 @@ from speakers.exports import (
 )
 from speakers.media import MediaBucket
 from speakers.models import MediaAsset, MediaExport
-from speakers.tasks import build_export_zip_task
+from speakers.tasks import build_export_zip_task, expire_export_zips_task
 
 from .factories import add_presenter, make_presenter, make_session, make_settings
 
@@ -140,9 +142,10 @@ class TestScope:
         )
         assert scope["kinds"] == ["RAW_VIDEO"] and scope["versions"] == "latest"
         assert scope["since"].startswith("2026-09-01T10:00")
-        assert clean_scope({})["kinds"] == ["RAW_VIDEO"]
+        with pytest.raises(ExportError, match="at least one kind"):
+            clean_scope({})
         with pytest.raises(ExportError):
-            clean_scope({"versions": "some"})
+            clean_scope({"kinds": ["RAW_VIDEO"], "versions": "some"})
 
     def test_selection(self, world, organizer, conference):
         a = world["assets"]
@@ -332,7 +335,9 @@ class TestExport:
 
     def test_expired_export_says_so(self, client, world, organizer, conference):
         client.force_login(organizer)
-        export = create_export(conference, organizer, clean_scope({}))
+        export = create_export(
+            conference, organizer, clean_scope({"kinds": ["RAW_VIDEO"]})
+        )
         MediaExport.objects.filter(pk=export.pk).update(
             expires_at=timezone.now() - timedelta(minutes=1)
         )
@@ -364,7 +369,9 @@ class TestExport:
         client.force_login(speaker)
         assert client.get(EXPORT).status_code == 403
         export = create_export(
-            conference, User.objects.get(username="org"), clean_scope({})
+            conference,
+            User.objects.get(username="org"),
+            clean_scope({"kinds": ["RAW_VIDEO"]}),
         )
         assert client.get(export.get_absolute_url()).status_code == 403
         assert (
@@ -404,7 +411,9 @@ class TestExport:
         self, client, world, organizer, conference, settings
     ):
         client.force_login(organizer)
-        export = create_export(conference, organizer, clean_scope({}))
+        export = create_export(
+            conference, organizer, clean_scope({"kinds": ["RAW_VIDEO"]})
+        )
         settings.SPEAKER_MEDIA_BUCKET = ""
         html = client.get(export.get_absolute_url()).content.decode()
         assert "not configured" in html
@@ -483,6 +492,45 @@ class TestZip:
         assert zip_url(export) == ""
         assert build_export_zip_task(10**6) == "No such export"
 
+    def test_an_object_gone_from_the_bucket_fails_the_zip_rather_than_wedging_it(
+        self, world, organizer, conference, bucket
+    ):
+        export = create_export(
+            conference, organizer, clean_scope({"kinds": ["RAW_VIDEO"]})
+        )
+        bucket.client.delete_object(
+            Bucket=BUCKET, Key=world["assets"]["quiet_raw"].storage_key
+        )
+        assert "failed" in build_export_zip_task(export.pk)
+        export.refresh_from_db()
+        assert export.zip_status == ZipStatus.FAILED and "NoSuchKey" in export.zip_error
+
+    def test_expired_zips_leave_the_bucket(self, world, organizer, conference, bucket):
+        export = create_export(
+            conference, organizer, clean_scope({"kinds": ["RAW_VIDEO"]})
+        )
+        build_export_zip_task(export.pk)
+        export.refresh_from_db()
+        assert export.zip_key
+        assert expire_export_zips_task() == "Dropped 0 expired export zip(s)"
+        MediaExport.objects.filter(pk=export.pk).update(
+            expires_at=timezone.now() - timedelta(minutes=1)
+        )
+        assert expire_export_zips_task() == "Dropped 1 expired export zip(s)"
+        export.refresh_from_db()
+        assert export.zip_key == "" and export.zip_status == ZipStatus.DONE
+        assert not bucket.client.list_objects_v2(
+            Bucket=BUCKET, Prefix="speaker-media/exports/"
+        ).get("Contents")
+        migration = importlib.import_module(
+            "speakers.migrations.0015_exports_thumbnails_transcription"
+        )
+        migration.seed_expire_zips_task(apps, None)
+        migration.seed_expire_zips_task(apps, None)
+        assert PeriodicTask.objects.filter(name="Expire export zips").count() == 1
+        migration.unseed_expire_zips_task(apps, None)
+        assert not PeriodicTask.objects.filter(name="Expire export zips").exists()
+
     def test_storage_failure_is_recorded(self, world, organizer, conference, settings):
         export = create_export(conference, organizer, clean_scope({"kinds": ["PROMO"]}))
         settings.SPEAKER_MEDIA_BUCKET = ""
@@ -520,6 +568,47 @@ class TestMaintenance:
             getattr(op, "name", "") == "MediaExport"
             for op in migration.Migration.operations
         )
+
+    def test_a_cell_cannot_break_out_of_the_heredoc(self, world, organizer, conference):
+        """A presenter's title can carry newlines; folded to one line, no
+        manifest line can close the heredoc early and be run as shell."""
+        loud = world["loud"]
+        loud.title = "Set\nMANIFEST\ntouch PWNED\ncat <<'MANIFEST'\nx"
+        loud.save(update_fields=["title"])
+        export = create_export(
+            conference, organizer, clean_scope({"kinds": ["RAW_VIDEO"]})
+        )
+        with patch("speakers.exports.MediaBucket.download_url", return_value="u"):
+            entries = export_entries(export, organizer)
+        script = write_script(export, entries, io.StringIO()).getvalue()
+        lines = script.splitlines()
+        assert lines.count("MANIFEST") == 1  # the one closing line
+        assert "touch PWNED" not in lines
+        assert "Set MANIFEST touch PWNED cat <<'MANIFEST' x" in script
+        # Were a cell ever a delimiter line, the delimiter would change.
+        with patch("speakers.exports.write_manifest") as manifest:
+            manifest.return_value.getvalue.return_value = "a,b\nMANIFEST\n"
+            script = write_script(export, entries, io.StringIO()).getvalue()
+        assert "<<'MANIFEST'" not in script and "<<'MANIFEST_" in script
+
+    def test_an_export_is_pinned_to_when_it_was_made(
+        self, world, organizer, conference
+    ):
+        export = create_export(
+            conference, organizer, clean_scope({"kinds": ["RAW_VIDEO"]})
+        )
+        later = MediaAsset.objects.create(
+            session=world["quiet"],
+            kind=MediaKind.RAW_VIDEO,
+            status=MediaStatus.READY,
+            storage_key="speaker-media/late.mp4",
+            version=2,
+            size_bytes=1,
+        )
+        with patch("speakers.exports.MediaBucket.download_url", return_value="u"):
+            entries = export_entries(export, organizer)
+        assert len(entries) == export.file_count
+        assert later not in [e["asset"] for e in entries]
 
     def test_write_script_quotes(self, world, organizer, conference):
         export = create_export(

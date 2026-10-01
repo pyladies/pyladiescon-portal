@@ -10,6 +10,7 @@ from collections import defaultdict
 from .clock import today as current_date
 from .constants import UNACCEPTED_STATUSES, Delivery, ItemStatus, MediaKind, MediaStatus
 from .models import ChecklistItem, MediaAsset, Presenter, Session
+from .spreadsheet import safe_cell
 
 POST_PRODUCTION_TAB = "POST_PRODUCTION"
 
@@ -185,25 +186,11 @@ def _more_urgent(candidate, current, today):
     return rank(candidate) < rank(current)
 
 
-FORMULA_STARTS = ("=", "+", "-", "@", "\t", "\r")
-
 CSV_NOTE = (
     "One column per item title. A presenter on two sessions shows the more "
     "urgent copy of a same-titled item, so open the presenter page for the "
     "full list."
 )
-
-
-def _safe_cell(value):
-    """Text a spreadsheet will show, not run.
-
-    Presenters type their own display name and titles come from templates
-    organizers edit; either could start with ``=`` and be read as a formula
-    by Excel or Sheets. A leading apostrophe makes the cell literal text."""
-    text = str(value)
-    if text.startswith(FORMULA_STARTS):
-        return "'" + text
-    return text
 
 
 def write_board_csv(board, stream):
@@ -212,23 +199,23 @@ def write_board_csv(board, stream):
     writer = csv.writer(stream)
     writer.writerow([CSV_NOTE])
     writer.writerow(
-        [_safe_cell(c) for c in ["Presenter", "Email", "Liaison", "Overdue"]]
-        + [_safe_cell(title) for title in board["columns"]]
+        [safe_cell(c) for c in ["Presenter", "Email", "Liaison", "Overdue"]]
+        + [safe_cell(title) for title in board["columns"]]
     )
     for row in board["rows"]:
         presenter = row["presenter"]
         liaison = presenter.liaison
         writer.writerow(
             [
-                _safe_cell(presenter.display_name),
-                _safe_cell(presenter.email),
-                _safe_cell(
+                safe_cell(presenter.display_name),
+                safe_cell(presenter.email),
+                safe_cell(
                     (liaison.get_full_name() or liaison.username) if liaison else ""
                 ),
                 row["overdue"],
             ]
             + [
-                _safe_cell(cell.get_status_display() if cell else "")
+                safe_cell(cell.get_status_display() if cell else "")
                 for cell, _ in row["cells"]
             ]
         )
@@ -260,22 +247,22 @@ def write_post_production_csv(board, stream):
     writer.writerow([POST_PRODUCTION_CSV_NOTE])
     writer.writerow(
         [
-            _safe_cell(c)
+            safe_cell(c)
             for c in ["Session", "Presenters", "Raw video", "Final cut", "Blocked"]
         ]
-        + [_safe_cell(title) for title in board["columns"]]
+        + [safe_cell(title) for title in board["columns"]]
     )
     for row in board["rows"]:
         writer.writerow(
             [
-                _safe_cell(row["session"].title),
-                _safe_cell(", ".join(row["presenters"])),
-                _safe_cell(_video_cell(row["raw"])),
-                _safe_cell(_video_cell(row["final"])),
-                _safe_cell(row["blocked_note"]),
+                safe_cell(row["session"].title),
+                safe_cell(", ".join(row["presenters"])),
+                safe_cell(_video_cell(row["raw"])),
+                safe_cell(_video_cell(row["final"])),
+                safe_cell(row["blocked_note"]),
             ]
             + [
-                _safe_cell(
+                safe_cell(
                     (
                         f"{cell.get_status_display()}"
                         + (f" ({cell.owner_label})" if cell.owner_label else "")

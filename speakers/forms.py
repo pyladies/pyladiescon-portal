@@ -390,6 +390,11 @@ class SpeakerSessionForm(IdentityLockMixin, forms.ModelForm):
 
     IDENTITY_FIELDS = (("title", "Title"), ("slug", "Web address"))
 
+    def clean_title(self):
+        """One line, like a proposal's: it reaches email subjects and the
+        CSVs of the media exports."""
+        return one_line(self.cleaned_data["title"])
+
     def clean_slug(self):
         return _clean_slug(self, Session, "session")
 

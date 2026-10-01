@@ -17,8 +17,8 @@ from .emails import (
     send_proposal_received_email,
     send_proposal_rejected_email,
 )
-from .exports import ExportError, build_zip, zip_url
-from .media import MediaStorageNotConfigured, expire_abandoned_uploads
+from .exports import build_zip, expire_zips, zip_url
+from .media import expire_abandoned_uploads
 from .models import (
     Invitation,
     MediaAsset,
@@ -250,11 +250,14 @@ def build_export_zip_task(export_id):
     export.save(update_fields=["zip_status", "modified_date"])
     try:
         export.zip_key = build_zip(export, export.created_by)
-    except (ExportError, MediaStorageNotConfigured) as exc:
+    except Exception as exc:
+        # Anything, an object gone from the bucket included: a zip left
+        # RUNNING could never be asked for again, so every failure is
+        # written on the row, where the page shows it and offers a retry.
         export.zip_status = ZipStatus.FAILED
-        export.zip_error = str(exc)[:500]
+        export.zip_error = str(exc)[:500] or exc.__class__.__name__
         export.save(update_fields=["zip_status", "zip_error", "modified_date"])
-        logger.error("Export %s zip failed: %s", export.pk, exc)
+        logger.exception("Export %s zip failed", export.pk)
         return f"Export {export_id} zip failed: {exc}"
     export.zip_status = ZipStatus.DONE
     export.zip_built_at = timezone.now()
@@ -296,6 +299,16 @@ def transcribe_asset_task(job_id):
     where the row, already RUNNING, marks itself FAILED rather than
     running twice."""
     return transcribe(job_id)
+
+
+@shared_task
+def expire_export_zips_task():
+    """Nightly: drop the zips of exports whose links have expired (design
+    §8.8, bulk download). The zip was bounded per export by
+    SPEAKER_MEDIA_ZIP_MAX_BYTES; this bounds it in aggregate, since nothing
+    else ever deletes one. Seeded by migration 0015."""
+    count = expire_zips()
+    return f"Dropped {count} expired export zip(s)"
 
 
 @shared_task

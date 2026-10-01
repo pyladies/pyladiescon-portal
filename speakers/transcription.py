@@ -198,13 +198,12 @@ def write_vtt(segments):
 
 
 def auto_transcribe(conference):
-    """Whether the edition asked for drafts and the portal can make them."""
-    return bool(
-        settings.SPEAKER_TRANSCRIBE_ENGINE
-        and SpeakerSettings.objects.filter(
-            conference=conference, auto_transcribe=True
-        ).exists()
-    )
+    """Whether the edition asked for drafts. Whether the portal can make
+    them is the engine's business: an edition that asked while no engine
+    is set up gets a failed job that says so, not silence."""
+    return SpeakerSettings.objects.filter(
+        conference=conference, auto_transcribe=True
+    ).exists()
 
 
 def human_transcript_exists(session, language):
@@ -235,10 +234,21 @@ def should_transcribe(asset):
 
 def start_job(asset, user=None):
     """Record a job and hand it to the media worker once the row is
-    committed. Returns the job, or None when the engine is not set up."""
+    committed. Without an engine the job is recorded failed on the spot,
+    so the row and the activity say why nothing happened."""
     engine = get_engine()
     if engine is None:
-        return None
+        return TranscriptionJob.objects.create(
+            asset=asset,
+            engine=settings.SPEAKER_TRANSCRIBE_ENGINE or "",
+            language=asset.session.language,
+            started_by=user,
+            status=TranscriptionStatus.FAILED,
+            error=(
+                "No transcription engine is set up on this portal "
+                "(SPEAKER_TRANSCRIBE_ENGINE)."
+            ),
+        )
     job = TranscriptionJob.objects.create(
         asset=asset,
         engine=engine.name,

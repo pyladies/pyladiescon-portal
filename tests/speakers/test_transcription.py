@@ -323,7 +323,17 @@ class TestPipeline:
             auto_transcribe=True
         )
         settings.SPEAKER_TRANSCRIBE_ENGINE = ""
-        assert not should_transcribe(video(session, storage_key="k2"))
+        # Asked for, but no engine: a failed job says so on the row rather
+        # than nothing happening at all.
+        asked = video(session, storage_key="k2")
+        assert should_transcribe(asked)
+        with patch("speakers.transcription.get_engine", return_value=None):
+            with django_capture_on_commit_callbacks(execute=True):
+                asset_ready.send(sender=MediaAsset, asset=asked)
+        job = TranscriptionJob.objects.get()
+        assert job.status == TranscriptionStatus.FAILED
+        assert "no transcription engine" in job.error.lower()
+        job.delete()
         # A processed video or an image never triggers the automatic run.
         settings.SPEAKER_TRANSCRIBE_ENGINE = "local"
         assert not should_transcribe(
@@ -494,7 +504,11 @@ class TestOnThePage:
             follow=True,
         )
         assert "no transcription engine" in response.content.decode()
-        assert start_job(raw) is None
+        # Started anyway (the automatic trigger does): a failed job that
+        # says why, not silence.
+        job = start_job(raw)
+        assert job.status == TranscriptionStatus.FAILED
+        assert "SPEAKER_TRANSCRIBE_ENGINE" in job.error
 
     def test_the_performer_reads_what_happens_to_the_recording(
         self, client, world, engine, conference
