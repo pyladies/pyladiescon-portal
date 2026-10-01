@@ -301,9 +301,14 @@ UNVERIFIED_ACCOUNT_RETENTION_DAYS = int(
 # starts, finalizes and records the upload. Empty bucket name = uploads off
 # (the endpoints answer 503). Credentials and endpoint are the AWS_* ones
 # the media storage uses; the bucket is its own, private, never public-read.
+# The endpoint has its own variable because AWS_S3_ENDPOINT_URL may name the
+# public Space's own host (https://<space>.nyc3.digitaloceanspaces.com), which
+# would send the presigned URLs to the wrong Space; use the regional host here.
 SPEAKER_MEDIA_BUCKET = os.getenv("SPEAKER_MEDIA_BUCKET", "")
 SPEAKER_MEDIA_PREFIX = os.getenv("SPEAKER_MEDIA_PREFIX", "speaker-media/")
-SPEAKER_MEDIA_ENDPOINT_URL = os.getenv("AWS_S3_ENDPOINT_URL")
+SPEAKER_MEDIA_ENDPOINT_URL = os.getenv(
+    "SPEAKER_MEDIA_ENDPOINT_URL", os.getenv("AWS_S3_ENDPOINT_URL")
+)
 SPEAKER_MEDIA_REGION = os.getenv("AWS_S3_REGION_NAME", "us-east-1")
 SPEAKER_MEDIA_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
 SPEAKER_MEDIA_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
