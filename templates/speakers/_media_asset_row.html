@@ -7,7 +7,8 @@ last two when can_edit). The share and note forms swap this block in place throu
 htmx (the organizer shell sets the CSRF header on <body>), so the page
 neither reloads nor jumps; without JavaScript they post and come back.
 Params:
-    asset, session, can_edit, current (the group's READY version)
+    asset, session, can_edit, current (the group's READY version),
+    show_notes (the organizer page: a reviewer's note is the team's)
 {% endcomment %}
 <div id="asset-{{ asset.pk }}" class="media-asset">
     <div class="d-flex flex-wrap align-items-center gap-2 small"
@@ -91,7 +92,7 @@ Params:
                 </button>
             </div>
         </form>
-    {% elif asset.notes_md %}
+    {% elif asset.notes_md and show_notes %}
         <div class="small text-secondary mt-1">
             <i class="fa-regular fa-note-sticky"></i> {{ asset.notes_md }}
         </div>

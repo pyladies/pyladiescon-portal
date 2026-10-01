@@ -9,6 +9,7 @@ everything else here is the lifecycle around a ``MediaUpload`` row.
 """
 
 import math
+import mimetypes
 import os
 import re
 import uuid
@@ -223,8 +224,8 @@ def can_download(user, session, asset=None):
     """Who may fetch a session's files. Organizers and the session's
     liaisons: everything. A presenter on an accepted session (a proposal
     has no files for them): their own raw video, and whatever the team
-    has shared with them (design §8.6); with no ``asset`` given, whether
-    they may fetch anything at all."""
+    has shared with them and not since replaced (design §8.6); with no
+    ``asset`` given, whether they may fetch anything at all."""
     if not user.is_authenticated:
         return False
     if is_speaker_organizer(user):
@@ -237,7 +238,9 @@ def can_download(user, session, asset=None):
         return False
     if asset is None:
         return True
-    return asset.kind == MediaKind.RAW_VIDEO or asset.shared_with_speaker
+    if asset.kind == MediaKind.RAW_VIDEO:
+        return True
+    return asset.is_ready and asset.shared_with_speaker
 
 
 def video_limit_minutes(session):
@@ -374,8 +377,10 @@ def clean_content_type(kind, filename, content_type):
 
     The browser's guess is kept when it is a well-formed media type, else
     the object is an octet-stream. A video kind must look like a video, by
-    type or by extension: the panel's ``accept`` attribute is only a hint
-    to the file picker.
+    type or by extension (the panel's ``accept`` attribute is only a hint
+    to the file picker), and is stored as one: the declared type decides
+    how the file is served back, so a video kind never keeps a type that
+    is not ``video/``.
     """
     content_type = (content_type or "").strip()
     if not CONTENT_TYPE_RE.match(content_type):
@@ -383,6 +388,12 @@ def clean_content_type(kind, filename, content_type):
     if kind in VIDEO_KINDS and not content_type.startswith("video/"):
         if os.path.splitext(filename)[1].lower() not in VIDEO_EXTENSIONS:
             raise UploadError("A video is expected here; choose a video file.")
+        guessed, _ = mimetypes.guess_type(filename)
+        content_type = (
+            guessed
+            if guessed and guessed.startswith("video/")
+            else "application/octet-stream"
+        )
     return content_type
 
 
@@ -498,8 +509,11 @@ def complete_upload(upload, parts):
             size_bytes=size,
             uploaded_by=upload.started_by,
         )
+        # A replaced version is withdrawn from the speaker with its
+        # status: what the team shared was the line, and the new version
+        # is shared again from its own row.
         previous.filter(status=MediaStatus.READY).exclude(pk=asset.pk).update(
-            status=MediaStatus.SUPERSEDED
+            status=MediaStatus.SUPERSEDED, shared_with_speaker=False
         )
         upload.status = UploadStatus.COMPLETED
         upload.completed_at = timezone.now()

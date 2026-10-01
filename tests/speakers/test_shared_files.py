@@ -212,6 +212,47 @@ class TestSharing:
         html = client.get(panel.get_absolute_url()).content.decode()
         assert "Shared with speaker" in html and "Unshare" in html
 
+    def test_a_replaced_version_is_withdrawn_from_the_speaker(
+        self, client, bucket, world, organizer, speaker
+    ):
+        """What the team shared was the line; a new version is shared
+        again from its own row, and the old one is no longer reachable at
+        its URL even though its flag once said so."""
+        panel = world["panel"]
+        first = upload(bucket, panel, organizer, MediaKind.PROMO, variant="square")
+        client.force_login(organizer)
+        client.post(share_url(panel, first), {"shared": "1"})
+        second = upload(bucket, panel, organizer, MediaKind.PROMO, variant="square")
+        first.refresh_from_db()
+        assert first.status == MediaStatus.SUPERSEDED and not first.shared_with_speaker
+        assert not second.shared_with_speaker
+        assert not can_download(speaker, panel, first)
+        # Even a flag left on a superseded row grants nothing.
+        MediaAsset.objects.filter(pk=first.pk).update(shared_with_speaker=True)
+        first.refresh_from_db()
+        assert not can_download(speaker, panel, first)
+        client.force_login(speaker)
+        assert client.get(download(panel, first)).status_code == 403
+
+    def test_reviewer_notes_stay_on_the_organizer_side(
+        self, client, bucket, world, organizer, speaker
+    ):
+        """A note on an earlier raw video is for the team: the performer's
+        history list shows the version, not the note; a liaison or an
+        organizer reading the organizer page sees it."""
+        panel = world["panel"]
+        old = upload(bucket, panel, organizer, MediaKind.RAW_VIDEO)
+        upload(bucket, panel, organizer, MediaKind.RAW_VIDEO)
+        old.notes_md = "audio clips at 4:10"
+        old.save(update_fields=["notes_md"])
+        client.force_login(speaker)
+        assert "audio clips at 4:10" not in client.get(my_page(panel)).content.decode()
+        client.force_login(organizer)
+        assert (
+            "audio clips at 4:10"
+            in client.get(panel.get_absolute_url()).content.decode()
+        )
+
     def test_htmx_swaps_the_row_in_place(self, client, bucket, world, organizer):
         """From the page the buttons post through htmx and get the row back,
         so nothing reloads or jumps; a plain post still redirects."""

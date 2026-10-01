@@ -2,6 +2,8 @@
 straight from the private bucket through an inline presigned link; every
 other type only ever downloads."""
 
+from unittest.mock import patch
+
 import boto3
 import pytest
 from django.contrib.auth.models import User
@@ -10,7 +12,7 @@ from django.urls import reverse
 from moto import mock_aws
 
 from speakers.constants import MediaKind, MediaStatus
-from speakers.media import MediaBucket
+from speakers.media import MediaBucket, start_upload
 from speakers.models import MediaAsset
 
 from .factories import add_presenter, make_presenter, make_session, make_settings
@@ -84,6 +86,11 @@ class TestWhatPreviews:
             ),
             ({"content_type": "", "original_filename": "card.jpg"}, "image"),
             ({"content_type": "", "original_filename": "mystery"}, ""),
+            # An allowlist of bitmap types: SVG carries script, so it only
+            # ever downloads, whatever the name or the declared type.
+            ({"content_type": "image/svg+xml", "original_filename": "x.svg"}, ""),
+            ({"content_type": "", "original_filename": "logo.svg"}, ""),
+            ({"content_type": "image/webp"}, "image"),
         ]
         for fields, expected in cases:
             a = asset(session, **fields)
@@ -131,6 +138,45 @@ class TestPreviewLink:
         client.force_login(organizer)
         empty = asset(session, storage_key="")
         assert client.get(preview(session, empty)).status_code == 404
+
+    def test_the_link_lives_a_minute_like_a_download(
+        self, client, bucket, session, organizer
+    ):
+        """A bearer URL to a multi-gigabyte video should not sit in the
+        history and the proxy logs for an hour; the fold loads through
+        the endpoint, so a fresh link is minted for every request."""
+        client.force_login(organizer)
+        location = client.get(preview(session, asset(session)))["Location"]
+        assert "X-Amz-Expires=60" in location and "inline" in location
+
+    def test_a_video_kind_is_stored_as_a_video_whatever_was_declared(
+        self, bucket, session, organizer
+    ):
+        """The declared type decides how the file is served back, so a raw
+        video declared image/svg+xml is stored as what its name says."""
+        upload = start_upload(
+            session=session,
+            kind=MediaKind.RAW_VIDEO,
+            language="",
+            filename="talk.mp4",
+            size_bytes=3,
+            content_type="image/svg+xml",
+            user=organizer,
+        )
+        assert upload.content_type == "video/mp4"
+        # A video extension the platform's type table does not know is
+        # stored as an octet-stream: still never the declared text/html.
+        with patch("speakers.media.mimetypes.guess_type", return_value=(None, None)):
+            unknown = start_upload(
+                session=session,
+                kind=MediaKind.PROCESSED_VIDEO,
+                language="",
+                filename="cut.mts",
+                size_bytes=3,
+                content_type="text/html",
+                user=organizer,
+            )
+        assert unknown.content_type == "application/octet-stream"
 
     def test_an_admin_attached_file_previews_by_its_url(
         self, client, session, organizer

@@ -27,7 +27,7 @@ Params:
         </div>
         {% if group.current %}
             <div class="card-body">
-                {% include "speakers/_media_asset_row.html" with asset=group.current session=session can_edit=can_edit current=True %}
+                {% include "speakers/_media_asset_row.html" with asset=group.current session=session can_edit=can_edit show_notes=True current=True %}
             </div>
         {% endif %}
         {% if group.history %}
@@ -38,7 +38,7 @@ Params:
                 <ul class="list-unstyled mt-2 mb-0 d-grid gap-2">
                     {% for asset in group.history %}
                         <li>
-                            {% include "speakers/_media_asset_row.html" with asset=asset session=session can_edit=can_edit %}
+                            {% include "speakers/_media_asset_row.html" with asset=asset session=session can_edit=can_edit show_notes=True %}
                         </li>
                     {% endfor %}
                 </ul>

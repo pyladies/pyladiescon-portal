@@ -1942,14 +1942,25 @@ class MediaAsset(TimestampedModel):
         )
         return guessed or ""
 
+    # The image types the preview fold shows. Concrete types, not the
+    # family: image/svg+xml is an image that carries script, and served
+    # inline from the bucket it would run wherever a browser opens it.
+    PREVIEW_IMAGE_TYPES = frozenset(
+        {"image/png", "image/jpeg", "image/gif", "image/webp", "image/avif"}
+    )
+
     @property
     def preview_kind(self):
         """``"image"``, ``"video"`` or ``"audio"`` when the browser can show
         the file itself (design §8.8, previews); empty otherwise. An
-        allowlist: anything else, an HTML file uploaded as "other" say, is
-        only ever downloaded."""
-        prefix = self.media_type.split("/")[0]
-        return prefix if prefix in ("image", "video", "audio") else ""
+        allowlist: a few bitmap types, video and audio. Anything else, an
+        HTML file uploaded as "other" or an SVG say, is only ever
+        downloaded."""
+        media_type = self.media_type
+        if media_type in self.PREVIEW_IMAGE_TYPES:
+            return "image"
+        prefix = media_type.split("/")[0]
+        return prefix if prefix in ("video", "audio") else ""
 
     def preview_url(self, ttl=None):
         """A presigned link the browser shows inline, for the preview fold;

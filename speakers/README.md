@@ -127,16 +127,23 @@ tag. A video kind must look like a video, by type or extension
 (`MediaAsset.download_url`), behind `media.can_download`: organizers and
 the session's liaisons fetch anything, a presenter on an accepted session
 their own raw video and whatever the team has marked `shared_with_speaker`
-(`MediaShareView`, a button on the file row; design §8.6). The speaker's
-session page lists the shared files (`media.team_files`) without the
-reviewer notes. Promo materials are `PROMO` assets with a free `variant`
+(`MediaShareView`, a button on the file row; design §8.6), while it is
+the current version: a replaced version loses the flag and is withdrawn.
+The speaker's session page lists the shared files (`media.team_files`)
+and the earlier raw versions without the reviewer notes, which are the
+team's (`show_notes` on the row partial). Promo materials are `PROMO` assets with a free `variant`
 ("square", "gif"); versions count per kind, language and variant, and the
 seeded promo lines tick on the first file and the first share
-(`AutoRule.ASSET_SHARED`). Images, video and audio
-(`MediaAsset.preview_kind`, from the content type or the name) get a
-closed "Preview" fold on their rows (`_media_preview.html`) that loads the
-file through `MediaPreviewView`, an inline presigned link; nothing is
-fetched until the fold is opened, and video streams by range requests.
+(`AutoRule.ASSET_SHARED`). A few bitmap types, video and audio
+(`MediaAsset.preview_kind`, an allowlist of concrete types from the
+content type or the name; SVG, which carries script, only downloads) get
+a closed "Preview" fold on their rows (`_media_preview.html`) that loads
+the file through `MediaPreviewView`, an inline presigned link that lives
+a minute like a download's; nothing is fetched until the fold is opened,
+and video streams by range requests, each one through the endpoint for a
+fresh link. A video kind is stored with a `video/` type whatever the
+browser declared (`media.clean_content_type`), since the stored type is
+what the file is served back as.
 Uploads nobody finishes expire after
 `SPEAKER_MEDIA_UPLOAD_TTL_HOURS` (the "Expire abandoned uploads" task
 nightly, `manage.py expire_abandoned_uploads` by hand); the bucket needs its

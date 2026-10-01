@@ -229,7 +229,7 @@ class MediaPreviewView(LoginRequiredMixin, SpeakerModuleRequiredMixin, View):
         if not asset.preview_kind:
             raise Http404("This file has no preview; download it instead.")
         try:
-            url = asset.preview_url()
+            url = asset.preview_url(ttl=DOWNLOAD_LINK_TTL)
         except MediaStorageNotConfigured:
             raise Http404("Object storage is not configured on this portal.")
         if not url:
@@ -245,7 +245,14 @@ def _row_or_files(request, session, asset, message):
         return render(
             request,
             "speakers/_media_asset_row.html",
-            {"asset": asset, "session": session, "can_edit": True},
+            {
+                "asset": asset,
+                "session": session,
+                # Derived, not asserted: the row offers the same controls
+                # the full page would, whoever the view's gate let in.
+                "can_edit": is_speaker_organizer(request.user),
+                "show_notes": True,
+            },
         )
     messages.success(request, message)
     return redirect(f"{session.get_absolute_url()}#files")
