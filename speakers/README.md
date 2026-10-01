@@ -154,9 +154,13 @@ re-queues the videos still without a duration (`--all` for every video,
 through an autouse fixture in `tests/speakers/conftest.py`, and one test
 runs the real binary on a two-second fixture when it is installed.
 
-The performer's video card appears only once `SPEAKER_MEDIA_BUCKET` is
-set: without storage the panel could only fail, so a portal deployed
-ahead of its bucket shows speakers nothing about video.
+Nothing about uploads or video appears on either session page until
+`SPEAKER_MEDIA_BUCKET` is set (`media_on` in both views): without storage
+the panel could only fail, so a portal deployed ahead of its bucket shows
+no upload panel, no "Add file" and no video card, and the team gathers
+recordings as before. The organizer page's video card is also gated on
+`can_download_media` (`media.can_download`), like the blocks around it,
+so it holds if the page's own gate ever widens.
 
 The browser side (task 5.2) is `static/js/media-upload.js` driving
 `templates/speakers/_upload_panel.html`: it slices the file, PUTs three

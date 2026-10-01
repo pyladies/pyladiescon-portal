@@ -80,7 +80,13 @@ from .forms import (
     owner_choices,
 )
 from .lifecycle import waiting_on_labels
-from .media import asset_groups, open_uploads, session_assets, video_panel
+from .media import (
+    asset_groups,
+    can_download,
+    open_uploads,
+    session_assets,
+    video_panel,
+)
 from .mixins import (
     PresenterRequiredMixin,
     SpeakerModuleRequiredMixin,
@@ -379,17 +385,27 @@ class SessionDetailView(SessionScopedMixin, DetailView):
         assets = session_assets(self.object)
         context["media_groups"] = asset_groups(assets)
         context["media_kinds"] = MediaKind.choices
+        # Nothing about uploads or video appears on either session page
+        # until the portal has a bucket: without one the panel could only
+        # fail, and the team gathers recordings as before (README).
+        media_on = bool(settings.SPEAKER_MEDIA_BUCKET)
+        context["media_on"] = media_on
         context["can_upload_media"] = context["can_assign"]
+        context["can_download_media"] = can_download(self.request.user, self.object)
         context["open_uploads"] = (
             open_uploads(self.object, self.request.user)
-            if context["can_assign"]
+            if context["can_assign"] and media_on
             else []
         )
         # The strip under the title: what needs a person, counted from what
-        # the page already loaded, each tile linking to its section.
+        # the page already loaded, each tile linking to its section. The
+        # video card links downloads, so it is gated the way its neighbours
+        # are, on the right rather than on the page.
         context["video"] = (
             video_panel(self.object, self.request.user, assets)
             if self.object.is_pre_recorded
+            and media_on
+            and context["can_download_media"]
             else None
         )
         context["processed"] = next(

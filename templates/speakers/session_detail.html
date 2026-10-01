@@ -13,7 +13,7 @@ jump to the forms.
 {% endblock head_title %}
 {% block extra_head %}
     {{ block.super }}
-    {% if can_upload_media %}
+    {% if can_upload_media and media_on %}
         <script src="{% static 'js/media-upload.js' %}" defer></script>
     {% endif %}
 {% endblock extra_head %}
@@ -49,7 +49,7 @@ jump to the forms.
                         <i class="fa-solid fa-paper-plane"></i> {% trans "Invite" %}
                     </a>
                 {% endif %}
-                {% if can_upload_media %}
+                {% if can_upload_media and media_on %}
                     <a class="btn btn-outline-primary" href="#add-file">
                         <i class="fa-solid fa-cloud-arrow-up"></i> {% trans "Add file" %}
                     </a>
@@ -368,7 +368,7 @@ jump to the forms.
                 {% endif %}
             </h2>
             {% include "speakers/_media_files.html" with session=session media_groups=media_groups can_edit=can_upload_media %}
-            {% if can_upload_media %}
+            {% if can_upload_media and media_on %}
                 <div class="card mb-4" id="add-file">
                     <div class="card-header">
                         <i class="fa-solid fa-cloud-arrow-up"></i> {% trans "Add a file" %}
@@ -518,7 +518,7 @@ jump to the forms.
                     </div>
                 {% endif %}
             </div>
-            {% if video %}
+            {% if video and can_download_media %}
                 <div class="card mb-3" id="video-card">
                     <div class="card-header">
                         <i class="fa-solid fa-film"></i> {% trans "Video" %}

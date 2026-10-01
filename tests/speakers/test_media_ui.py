@@ -228,7 +228,7 @@ class TestOrganizerFiles:
         assert groups[1]["label"] == "Transcript"
 
     def test_the_page_lists_files_and_offers_the_panel(
-        self, client, session, organizer
+        self, client, session, organizer, bucket
     ):
         asset = make_asset(session, organizer, notes_md="audio clips at 4:10")
         client.force_login(organizer)

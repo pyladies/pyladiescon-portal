@@ -4,6 +4,7 @@ link to (organizer: presenters, checklist, video, schedule; speaker:
 to-dos, video, session)."""
 
 from datetime import date, timedelta
+from unittest.mock import patch
 
 import pytest
 from django.contrib.auth.models import User
@@ -69,7 +70,7 @@ def my_page(session):
 
 @pytest.mark.django_db
 class TestOrganizerStrip:
-    def test_counts_and_links(self, client, session, organizer, conference):
+    def test_counts_and_links(self, client, session, organizer, conference, bucket):
         yesterday = date.today() - timedelta(days=1)
         item(session, due_date=yesterday)
         item(session, status=ItemStatus.BLOCKED)
@@ -120,7 +121,7 @@ class TestOrganizerStrip:
         assert "Invite" in html.split('id="glance"')[0]
         assert response_glance(client, session)["invites_unsent"] == 1
 
-    def test_video_tile_and_card(self, client, session, organizer):
+    def test_video_tile_and_card(self, client, session, organizer, bucket):
         client.force_login(organizer)
         html = client.get(org_page(session)).content.decode()
         assert "No video yet" in html and "Final cut missing" in html
@@ -145,6 +146,31 @@ class TestOrganizerStrip:
         assert "Over the limit" in html and "Final cut v1" in html
         assert "over the 10-minute limit" in html
         assert reverse("speakers:media_download", args=[session.slug, final.pk]) in html
+
+    def test_no_bucket_no_video_and_no_upload(self, client, session, organizer):
+        """The same rule as the performer's page: a portal deployed ahead
+        of its bucket says nothing about uploads or video to anyone."""
+        client.force_login(organizer)
+        response = client.get(org_page(session))
+        html = response.content.decode()
+        assert response.context["video"] is None
+        assert response.context["media_on"] is False
+        assert 'id="video-card"' not in html and 'id="add-file"' not in html
+        assert "media-upload.js" not in html and "Final cut" not in html
+        assert 'id="files"' in html  # the list itself stays
+
+    def test_the_card_is_gated_on_download_rights(
+        self, client, session, organizer, bucket
+    ):
+        """Like the blocks around it, the card asks a right, not the page:
+        it holds if the page's own gate ever widens."""
+        client.force_login(organizer)
+        assert client.get(org_page(session)).context["can_download_media"] is True
+        with patch("speakers.views.can_download", return_value=False):
+            response = client.get(org_page(session))
+        assert response.context["can_download_media"] is False
+        assert response.context["video"] is None
+        assert 'id="video-card"' not in response.content.decode()
 
     def test_live_session_has_no_video_tile(
         self, client, conference, organizer, enabled
