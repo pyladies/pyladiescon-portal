@@ -210,7 +210,7 @@ class TestSharing:
         assert client.get(download(panel, cut)).status_code == 302
         client.force_login(organizer)
         html = client.get(panel.get_absolute_url()).content.decode()
-        assert "Shared with speaker" in html and "Unshare" in html
+        assert 'name="shared" value="0"' in html and "Shared" in html
 
     def test_a_replaced_version_is_withdrawn_from_the_speaker(
         self, client, bucket, world, organizer, speaker
@@ -264,8 +264,8 @@ class TestSharing:
         )
         assert response.status_code == 200
         html = response.content.decode()
-        assert html.strip().startswith(f'<div id="asset-{cut.pk}"')
-        assert "Unshare" in html and "Shared with speaker" in html
+        assert html.strip().startswith('<tbody id="files-processed_video----"')
+        assert 'name="shared" value="0"' in html and "Shared" in html
         assert "<html" not in html
         response = client.post(
             reverse("speakers:media_notes", args=[panel.slug, cut.pk]),

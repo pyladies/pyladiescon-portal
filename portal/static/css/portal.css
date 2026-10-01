@@ -372,3 +372,9 @@ details.card[open] > summary.card-header::before {
     max-width: 100%;
     max-height: 24rem;
 }
+
+/* The files table (templates/speakers/_media_files.html): the "More" row
+   under a file carries its forms and preview on a quiet background. */
+.media-table .media-group-more > td {
+    border-top: 0;
+}

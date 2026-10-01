@@ -22,11 +22,13 @@ from .media import (
     MediaStorageNotConfigured,
     UploadError,
     abort_upload,
+    asset_group,
     can_download,
     can_upload,
     complete_upload,
     part_urls,
     received_parts,
+    set_line_title,
     start_upload,
 )
 from .mixins import SpeakerModuleRequiredMixin
@@ -51,6 +53,7 @@ def _upload_json(upload, **extra):
         "kind": upload.kind,
         "language": upload.language,
         "variant": upload.variant,
+        "title": upload.title,
         "filename": upload.filename,
         "size_bytes": upload.size_bytes,
         "part_size": upload.part_size,
@@ -86,17 +89,19 @@ class UploadEndpoint(LoginRequiredMixin, SpeakerModuleRequiredMixin, View):
             Session, conference=self.conference, slug=self.kwargs["slug"]
         )
 
-    def get_upload(self, session):
+    def get_upload(self, session, to_abort=False):
         """An upload of this session the caller may act on: their own, or
         any when they organize, and only while they may still upload this
         kind here. A presenter taken off the session, or whose proposal
-        was declined, loses an upload in flight with it."""
+        was declined, or whose edition switched the speaker side off,
+        loses an upload in flight with it: they can still give it up
+        (``to_abort``), which only frees the bucket, but not finish it."""
         upload = get_object_or_404(MediaUpload, pk=self.kwargs["pk"], session=session)
         if upload.started_by_id != self.request.user.pk and not is_speaker_organizer(
             self.request.user
         ):
             raise PermissionDenied("This is not your upload.")
-        if not can_upload(self.request.user, session, upload.kind):
+        if not to_abort and not can_upload(self.request.user, session, upload.kind):
             raise PermissionDenied("You may no longer upload to this session.")
         return upload
 
@@ -122,6 +127,7 @@ class UploadStartView(UploadEndpoint):
             kind=kind,
             language=str(data.get("language", "") or "")[:10],
             variant=str(data.get("variant", "") or "").strip()[:40],
+            title=str(data.get("title", "") or ""),
             filename=str(data.get("filename", "") or ""),
             size_bytes=size_bytes,
             content_type=str(data.get("content_type", "") or "")[:100],
@@ -184,7 +190,7 @@ class UploadAbortView(UploadEndpoint):
     http_method_names = ["post"]
 
     def post(self, request, slug, pk):
-        upload = self.get_upload(self.get_session())
+        upload = self.get_upload(self.get_session(), to_abort=True)
         return JsonResponse(_upload_json(abort_upload(upload)))
 
 
@@ -238,20 +244,19 @@ class MediaPreviewView(LoginRequiredMixin, SpeakerModuleRequiredMixin, View):
 
 
 def _row_or_files(request, session, asset, message):
-    """An htmx request gets the refreshed file row swapped in place (no
+    """An htmx request gets the refreshed file group swapped in place (no
     reload, no jump to the anchor); a plain form post goes back to the
     Files section with the message."""
     if request.headers.get("HX-Request"):
         return render(
             request,
-            "speakers/_media_asset_row.html",
+            "speakers/_media_group.html",
             {
-                "asset": asset,
+                "group": asset_group(asset),
                 "session": session,
                 # Derived, not asserted: the row offers the same controls
                 # the full page would, whoever the view's gate let in.
                 "can_edit": is_speaker_organizer(request.user),
-                "show_notes": True,
             },
         )
     messages.success(request, message)
@@ -303,3 +308,28 @@ class MediaShareView(LoginRequiredMixin, SpeakerModuleRequiredMixin, View):
                 else "No longer shared with the speaker."
             ),
         )
+
+
+class MediaTitleView(LoginRequiredMixin, SpeakerModuleRequiredMixin, View):
+    """POST title: what the file line is about, on every version and
+    variant of it (design §8.8, "A title for each file"); organizers only.
+    An htmx request gets the whole group back, since every row changed."""
+
+    http_method_names = ["post"]
+
+    def post(self, request, slug, pk):
+        session = get_object_or_404(
+            Session, conference=self.conference, slug=self.kwargs["slug"]
+        )
+        if not is_speaker_organizer(request.user):
+            raise PermissionDenied("Only organizers title files.")
+        asset = get_object_or_404(MediaAsset, pk=pk, session=session)
+        set_line_title(asset, request.POST.get("title", ""))
+        if request.headers.get("HX-Request"):
+            return render(
+                request,
+                "speakers/_media_group.html",
+                {"group": asset_group(asset), "session": session, "can_edit": True},
+            )
+        messages.success(request, "Title saved.")
+        return redirect(f"{session.get_absolute_url()}#files")

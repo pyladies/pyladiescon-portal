@@ -359,7 +359,9 @@ boto3.client('s3', endpoint_url=os.environ['AWS_S3_ENDPOINT_URL'],
 ```
 
 MinIO answers browser uploads from any origin and exposes the `ETag`
-header, so no CORS rule is needed. Log in as a performer (the sample data's
+header, so no CORS rule is needed. Speakers see none of this until *Media
+for speakers* is switched on in the admin under Speaker settings;
+organizers see it all regardless. Log in as a performer (the sample data's
 `volunteer2` is on the PyJam session) and upload from the session page;
 leaving the page mid-upload and choosing the same file again should
 continue from the parts that already landed.

@@ -625,9 +625,32 @@ class TestProposalsHaveNoChannel:
         assert client.get(url("parts", session, upload)).status_code == 403
         complete = post_json(client, url("complete", session, upload), {"parts": []})
         assert complete.status_code == 403
-        assert post_json(client, url("abort", session, upload), {}).status_code == 403
         upload.refresh_from_db()
         assert upload.is_open
+        # Giving it up only frees the bucket, so that stays theirs to do.
+        assert post_json(client, url("abort", session, upload), {}).status_code == 200
+        upload.refresh_from_db()
+        assert not upload.is_open
+
+
+@pytest.mark.django_db
+class TestTheSwitchAndAnUploadInFlight:
+    def test_switching_off_still_lets_them_give_it_up(
+        self, client, bucket, session, performer, conference
+    ):
+        """With the speaker side switched off mid-upload the presenter can
+        no longer finish, but need not wait for the nightly expiry to
+        free the bucket: aborting their own upload stays theirs."""
+        client.force_login(performer)
+        upload = raw_upload(session, performer)
+        SpeakerSettings.objects.filter(conference=conference).update(
+            media_for_speakers=False
+        )
+        complete = post_json(client, url("complete", session, upload), {"parts": []})
+        assert complete.status_code == 403
+        assert post_json(client, url("abort", session, upload), {}).status_code == 200
+        upload.refresh_from_db()
+        assert not upload.is_open
 
 
 @pytest.mark.django_db

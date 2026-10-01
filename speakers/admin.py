@@ -64,6 +64,7 @@ class SpeakerSettingsAdmin(admin.ModelAdmin):
         "conference",
         "speaker_module_enabled",
         "proposals_open",
+        "media_for_speakers",
         "default_premiere_location",
         "translation_languages",
         "pretix_organizer",
@@ -98,6 +99,16 @@ class SpeakerSettingsAdmin(admin.ModelAdmin):
                 "hubs offer the propose-a-session form to anyone with an account. "
                 "Only session types marked open for proposals are offered.",
                 "fields": ("proposals_open", "proposals_intro_md"),
+            },
+        ),
+        (
+            "Media",
+            {
+                "description": "The organizer side of the media pipeline (files on "
+                "a session, the post-production board, exports) is always on. "
+                "This switch opens the speaker side: their upload panel and "
+                "the files shared with them.",
+                "fields": ("media_for_speakers",),
             },
         ),
         (

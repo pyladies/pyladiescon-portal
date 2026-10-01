@@ -169,6 +169,17 @@ class SpeakerSettings(TimestampedModel):
         help_text="While on, anyone with a portal account may propose a "
         "session, speakers already on the program included.",
     )
+    # The speaker side of the media pipeline (design §8.8): off until the
+    # team is ready for speakers to upload and to see shared files. The
+    # organizer side is always there.
+    media_for_speakers = models.BooleanField(
+        default=False,
+        db_default=False,
+        help_text="While on, speakers upload their video from their session "
+        "page and see the files the team shares with them. Off, the team "
+        "gathers videos by other means and uploads them; organizers see "
+        "everything either way.",
+    )
     proposals_intro_md = models.TextField(
         blank=True,
         default="",
@@ -272,6 +283,17 @@ class SpeakerSettings(TimestampedModel):
             from .program_types import seed_program_types
 
             seed_program_types(self.conference)
+
+
+def media_for_speakers(conference):
+    """Whether speakers in ``conference`` upload and see shared files
+    (design §8.8); off with no conference, no settings row, or the switch
+    off. Organizers are not gated by this."""
+    if conference is None:
+        return False
+    return SpeakerSettings.objects.filter(
+        conference=conference, media_for_speakers=True
+    ).exists()
 
 
 def speaker_module_enabled(conference):
@@ -1868,6 +1890,10 @@ class MediaAsset(TimestampedModel):
     # Which of several files of one kind this is: promo materials come as
     # square, landscape, vertical, video, gif. Versions count per variant.
     variant = models.CharField(max_length=40, blank=True, default="", db_default="")
+    # What the file is about, in a line ("Poster for the panel"). It belongs
+    # to the line (kind and language on the session): asked once, copied
+    # onto every later version and variant, edited everywhere at once.
+    title = models.CharField(max_length=200, blank=True, default="", db_default="")
     # The team's files are theirs until they say otherwise: a shared file
     # shows on the speaker's session page and can be fetched by them.
     shared_with_speaker = models.BooleanField(default=False, db_default=False)
@@ -1998,6 +2024,11 @@ class MediaAsset(TimestampedModel):
         base = self.get_kind_display()
         return f"{base} ({qualifier})" if qualifier else base
 
+    @property
+    def display_title(self):
+        """The title when there is one, else the label."""
+        return self.title or self.label
+
 
 class MediaUpload(TimestampedModel):
     """A multipart upload in flight (design §8.8, task 5.1).
@@ -2020,6 +2051,7 @@ class MediaUpload(TimestampedModel):
     kind = models.CharField(max_length=16, choices=MediaKind.choices)
     language = models.CharField(max_length=10, blank=True, default="")
     variant = models.CharField(max_length=40, blank=True, default="", db_default="")
+    title = models.CharField(max_length=200, blank=True, default="", db_default="")
     filename = models.CharField(max_length=255)
     content_type = models.CharField(max_length=100, default="application/octet-stream")
     size_bytes = models.BigIntegerField()

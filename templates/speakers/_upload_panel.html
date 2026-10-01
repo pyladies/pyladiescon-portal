@@ -7,6 +7,7 @@ static/js/media-upload.js. Params:
     kinds           MediaKind.choices for a select (organizer panel)
     with_language   show the language field (transcripts, translations)
     with_variant    show the variant field (promo materials: square, gif...)
+    line_titles     {"KIND|language": title} for the prefill of the title field
     open_uploads    the caller's unfinished uploads here, for the note
     accept          the file input's accept attribute (optional)
     panel_id        unique suffix for element ids on the page
@@ -81,6 +82,21 @@ static/js/media-upload.js. Params:
                 </datalist>
             </div>
         {% endif %}
+        <div class="col-12">
+            {% trans "Poster for the panel" as title_example %}
+            <label class="form-label small mb-1" for="upload-title-{{ panel_id }}">
+                {% trans "Title" %}
+                <span class="text-secondary">{% trans "(optional; what the file is about, kept for every version and format of it)" %}</span>
+            </label>
+            <input class="form-control form-control-sm"
+                   id="upload-title-{{ panel_id }}"
+                   data-role="title"
+                   maxlength="200"
+                   placeholder="{{ title_example }}">
+            {% with titles_id="upload-titles-"|add:panel_id %}
+                {{ line_titles|json_script:titles_id }}
+            {% endwith %}
+        </div>
         <div class="col">
             <label class="form-label small mb-1" for="upload-file-{{ panel_id }}">
                 {% trans "File" %}

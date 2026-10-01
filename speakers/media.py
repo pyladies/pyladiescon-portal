@@ -8,6 +8,7 @@ starts the upload, hands out URLs in batches, finalizes it and records the
 everything else here is the lifecycle around a ``MediaUpload`` row.
 """
 
+import hashlib
 import math
 import mimetypes
 import os
@@ -22,6 +23,7 @@ from botocore.exceptions import ClientError
 from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
+from django.utils.text import slugify
 
 from .constants import (
     UPLOAD_PART_URL_BATCH,
@@ -30,7 +32,7 @@ from .constants import (
     MediaStatus,
     UploadStatus,
 )
-from .models import MediaAsset, MediaUpload, SpeakerSettings
+from .models import MediaAsset, MediaUpload, SpeakerSettings, media_for_speakers
 from .permissions import is_speaker_organizer
 from .signals import asset_ready
 
@@ -217,6 +219,8 @@ def can_upload(user, session, kind):
         return True
     if kind != MediaKind.RAW_VIDEO or session.is_a_proposal:
         return False
+    if not media_for_speakers(session.conference):
+        return False
     return session.session_presenters.filter(presenter__user=user).exists()
 
 
@@ -232,7 +236,7 @@ def can_download(user, session, asset=None):
         return True
     if session.session_presenters.filter(presenter__liaison=user).exists():
         return True
-    if session.is_a_proposal:
+    if session.is_a_proposal or not media_for_speakers(session.conference):
         return False
     if not session.session_presenters.filter(presenter__user=user).exists():
         return False
@@ -276,15 +280,99 @@ def asset_groups(assets):
                 "label": asset.get_kind_display(),
                 "language": asset.language,
                 "variant": asset.variant,
+                "title": "",
+                "id": group_id(asset),
                 "current": None,
                 "history": [],
             },
         )
+        if not group["title"] and asset.title:
+            group["title"] = asset.title
         if group["current"] is None and asset.is_ready:
             group["current"] = asset
         else:
             group["history"].append(asset)
+    for group in groups.values():
+        # The row the title form posts to: any row of the line will do.
+        group["target"] = group["current"] or group["history"][0]
     return list(groups.values())
+
+
+def clean_variant(variant):
+    """The variant a file is filed under: one lower-case line, so "GIF"
+    and "gif" are one line rather than two."""
+    return " ".join((variant or "").split()).lower()[:40]
+
+
+def group_id(asset):
+    """The element id of the file group an asset belongs to, for the page,
+    the htmx swap after an edit and the More row's toggle.
+
+    Three fixed parts joined by a double hyphen, which a slug never
+    contains: language "" with variant "en" is ``files-promo----en`` and
+    language "en" with no variant is ``files-promo--en--``. Slugs are not
+    one-to-one ("café" and "cafe", "a b" and "a-b"), so when a part is not
+    already its own slug the id ends with a short hash of the raw text,
+    and distinct lines get distinct ids short of a hash collision.
+    """
+    language, variant = asset.language, asset.variant
+    parts = f"files-{asset.kind.lower()}--{slugify(language)}--{slugify(variant)}"
+    if (slugify(language), slugify(variant)) == (language, variant):
+        return parts
+    raw = f"{language}/{variant}".encode()
+    return f"{parts}--{hashlib.sha1(raw).hexdigest()[:8]}"
+
+
+def asset_group(asset):
+    """The one group this asset belongs to, rebuilt for an htmx swap."""
+    same = [
+        a
+        for a in session_assets(asset.session)
+        if (a.kind, a.language, a.variant)
+        == (asset.kind, asset.language, asset.variant)
+    ]
+    return asset_groups(same)[0]
+
+
+def line_title(session, kind, language):
+    """The newest title on a line (kind and language on the session, any
+    variant), or empty: what a new version or variant inherits."""
+    titled = (
+        MediaAsset.objects.filter(session=session, kind=kind, language=language)
+        .exclude(title="")
+        .order_by("-id")
+        .values_list("title", flat=True)
+    )
+    return titled.first() or ""
+
+
+def line_titles(session, assets=None):
+    """``{"KIND|language": title}`` for every titled line on the session:
+    what the upload panel prefills when a kind and language are chosen."""
+    if assets is None:
+        assets = session_assets(session)
+    titles = {}
+    for asset in sorted(assets, key=lambda a: a.pk, reverse=True):
+        if asset.title:
+            titles.setdefault(f"{asset.kind}|{asset.language}", asset.title)
+    return titles
+
+
+def clean_title(title):
+    """One line of text: trimmed, inner runs of whitespace (newlines and
+    tabs included) folded to a space, cut to the column."""
+    return " ".join((title or "").split())[:200]
+
+
+def set_line_title(asset, title):
+    """Give the whole line the title: every version and variant of this
+    kind and language on the session, so old rows read like the new."""
+    title = clean_title(title)
+    MediaAsset.objects.filter(
+        session_id=asset.session_id, kind=asset.kind, language=asset.language
+    ).update(title=title)
+    asset.title = title
+    return title
 
 
 def team_files(session, assets=None):
@@ -398,7 +486,16 @@ def clean_content_type(kind, filename, content_type):
 
 
 def start_upload(
-    *, session, kind, language, filename, size_bytes, content_type, user, variant=""
+    *,
+    session,
+    kind,
+    language,
+    filename,
+    size_bytes,
+    content_type,
+    user,
+    variant="",
+    title="",
 ):
     """Open a multipart upload and record it; returns the ``MediaUpload``."""
     if kind not in MediaKind.values:
@@ -418,7 +515,8 @@ def start_upload(
             session=session,
             kind=kind,
             language=language,
-            variant=(variant or "")[:40],
+            variant=clean_variant(variant),
+            title=clean_title(title),
             filename=filename[:255],
             content_type=content_type,
             size_bytes=size_bytes,
@@ -461,7 +559,9 @@ def complete_upload(upload, parts):
     """Finalize the object and record the asset.
 
     The new asset takes the next version for its session, kind, language
-    and variant, the previous READY one becomes SUPERSEDED, and
+    and variant, the line's title when the upload brought none (design
+    §8.8, "A title for each file"), the previous READY one becomes
+    SUPERSEDED, and
     ``asset_ready`` is sent once everything is saved.
     """
     if not upload.is_open:
@@ -496,11 +596,13 @@ def complete_upload(upload, parts):
         version = (
             previous.order_by("-version").first() or MediaAsset(version=0)
         ).version + 1
+        title = upload.title or line_title(upload.session, upload.kind, upload.language)
         asset = MediaAsset.objects.create(
             session=upload.session,
             kind=upload.kind,
             language=upload.language,
             variant=upload.variant,
+            title=title,
             version=version,
             status=MediaStatus.READY,
             storage_key=upload.storage_key,

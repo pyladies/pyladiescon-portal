@@ -236,7 +236,7 @@ class TestOrganizerFiles:
         assert response.status_code == 200
         html = response.content.decode()
         assert response.context["can_upload_media"] is True
-        assert 'id="files-raw_video"' in html
+        assert 'id="files-raw_video----"' in html
         assert download(session, asset) in html
         assert notes(session, asset) in html and "audio clips at 4:10" in html
         assert 'data-role="kind"' in html and 'data-role="language"' in html

@@ -1,100 +1,44 @@
 {% load i18n speakers_extras %}
 {% comment %}
-One asset: version, file, size, who and when, duration, the download
-link, a preview fold (current version only: past versions are for the
-record, not for watching), the share button and the reviewer's note (the
-last two when can_edit). The share and note forms swap this block in place through
-htmx (the organizer shell sets the CSRF header on <body>), so the page
-neither reloads nor jumps; without JavaScript they post and come back.
-Params:
-    asset, session, can_edit, current (the group's READY version),
-    show_notes (the organizer page: a reviewer's note is the team's)
+One earlier version of a file, as a single line: version and status,
+file, size, length, who and when, and the download link. Used under a
+file group's "More" row on the organizer page and under the performer's
+video card; the current version has its own table row (_media_group.html).
+Params: asset, session, show_notes (the organizer page: a reviewer's note is
+the team's, so the performer's history list leaves it out)
 {% endcomment %}
-<div id="asset-{{ asset.pk }}" class="media-asset">
-    <div class="d-flex flex-wrap align-items-center gap-2 small"
-         data-asset="{{ asset.pk }}">
-        <span class="badge {% if asset.is_ready %}text-bg-success{% elif asset.status == 'SUPERSEDED' %}text-bg-secondary{% else %}text-bg-warning{% endif %}">
-            v{{ asset.version }} · {{ asset.get_status_display }}
-        </span>
-        <span class="fw-semibold text-break">{{ asset.original_filename|default:asset.file.name|default:"(no file)" }}</span>
-        {% if asset.size_bytes %}
-            <span class="text-secondary">{{ asset.size_bytes|filesizeformat }}</span>
-        {% endif %}
-        {% if asset.duration_seconds is not None %}
-            <span class="text-secondary">{{ asset.duration_seconds|duration }}</span>
-        {% elif asset.probe_error %}
-            <span class="text-danger" title="{{ asset.probe_error }}">
-                <i class="fa-solid fa-triangle-exclamation"></i> {% trans "Length not measured" %}: {{ asset.probe_error }}
-            </span>
-        {% endif %}
-        <span class="text-secondary">
-            {{ asset.creation_date|date:"j M H:i" }} UTC
-            {% if asset.uploaded_by %}
-                · {{ asset.uploaded_by.get_full_name|default:asset.uploaded_by.username }}
-            {% endif %}
-        </span>
-        {% if asset.shared_with_speaker %}
-            {% trans "The speaker sees this file on their session page" as shared_title %}
-            <span class="badge text-bg-info" title="{{ shared_title }}">
-                <i class="fa-solid fa-share-nodes"></i> {% trans "Shared with speaker" %}
-            </span>
-        {% endif %}
-        {% if asset.storage_key or asset.file %}
-            <a class="btn btn-sm btn-outline-primary ms-auto"
-               href="{% url 'speakers:media_download' session.slug asset.pk %}">
-                <i class="fa-solid fa-download"></i> {% trans "Download" %}
-            </a>
-        {% endif %}
-        {% if can_edit and asset.is_ready and asset.kind != "RAW_VIDEO" %}
-            <form method="post"
-                  action="{% url 'speakers:media_share' session.slug asset.pk %}"
-                  hx-post="{% url 'speakers:media_share' session.slug asset.pk %}"
-                  hx-target="#asset-{{ asset.pk }}"
-                  hx-swap="outerHTML">
-                {% csrf_token %}
-                {% if asset.shared_with_speaker %}
-                    <input type="hidden" name="shared" value="0">
-                    <button class="btn btn-sm btn-outline-secondary" type="submit">
-                        {% trans "Unshare" %}
-                    </button>
-                {% else %}
-                    <input type="hidden" name="shared" value="1">
-                    <button class="btn btn-sm btn-outline-info" type="submit">
-                        <i class="fa-solid fa-share-nodes"></i> {% trans "Share with speaker" %}
-                    </button>
-                {% endif %}
-            </form>
-        {% endif %}
-    </div>
-    {% if current %}
-        {% include "speakers/_media_preview.html" with asset=asset session=session %}
+<div class="d-flex flex-wrap align-items-center gap-2 small"
+     data-asset="{{ asset.pk }}">
+    <span class="badge {% if asset.is_ready %}text-bg-success{% elif asset.status == 'SUPERSEDED' %}text-bg-secondary{% else %}text-bg-warning{% endif %}">
+        v{{ asset.version }} · {{ asset.get_status_display }}
+    </span>
+    <span class="fw-semibold text-break">{{ asset.original_filename|default:asset.file.name|default:"(no file)" }}</span>
+    {% if asset.size_bytes %}
+        <span class="text-secondary">{{ asset.size_bytes|filesizeformat }}</span>
     {% endif %}
-    {% if can_edit %}
-        <form method="post"
-              class="mt-2"
-              action="{% url 'speakers:media_notes' session.slug asset.pk %}"
-              hx-post="{% url 'speakers:media_notes' session.slug asset.pk %}"
-              hx-target="#asset-{{ asset.pk }}"
-              hx-swap="outerHTML">
-            {% csrf_token %}
-            {% trans "Reviewer note, e.g. audio clips at 4:10" as note_placeholder %}
-            <label class="visually-hidden" for="notes-{{ asset.pk }}">
-                {% trans "Reviewer note" %}
-            </label>
-            <div class="input-group input-group-sm">
-                <input class="form-control"
-                       id="notes-{{ asset.pk }}"
-                       name="notes_md"
-                       value="{{ asset.notes_md }}"
-                       placeholder="{{ note_placeholder }}">
-                <button class="btn btn-outline-secondary" type="submit">
-                    {% trans "Save note" %}
-                </button>
-            </div>
-        </form>
-    {% elif asset.notes_md and show_notes %}
-        <div class="small text-secondary mt-1">
-            <i class="fa-regular fa-note-sticky"></i> {{ asset.notes_md }}
-        </div>
+    {% if asset.duration_seconds is not None %}
+        <span class="text-secondary">{{ asset.duration_seconds|duration }}</span>
+    {% elif asset.probe_error %}
+        <span class="text-danger" title="{{ asset.probe_error }}">
+            <i class="fa-solid fa-triangle-exclamation"></i> {% trans "Length not measured" %}: {{ asset.probe_error }}
+        </span>
+    {% endif %}
+    <span class="text-secondary">
+        {{ asset.creation_date|date:"j M H:i" }} UTC
+        {% if asset.uploaded_by %}
+            · {{ asset.uploaded_by.get_full_name|default:asset.uploaded_by.username }}
+        {% endif %}
+    </span>
+    {% if asset.shared_with_speaker %}
+        <span class="badge text-bg-info">{% trans "Shared" %}</span>
+    {% endif %}
+    {% if asset.notes_md and show_notes %}
+        <span class="text-secondary"><i class="fa-regular fa-note-sticky"></i> {{ asset.notes_md }}</span>
+    {% endif %}
+    {% if asset.storage_key or asset.file %}
+        <a class="btn btn-sm btn-outline-primary ms-auto"
+           href="{% url 'speakers:media_download' session.slug asset.pk %}">
+            <i class="fa-solid fa-download"></i> {% trans "Download" %}
+        </a>
     {% endif %}
 </div>

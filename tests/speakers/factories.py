@@ -31,6 +31,9 @@ def _next():
 
 def make_settings(conference, **kwargs):
     kwargs.setdefault("speaker_module_enabled", True)
+    # The speaker side of the media pipeline is off by default in the
+    # portal; tests that exercise it want it on unless they say otherwise.
+    kwargs.setdefault("media_for_speakers", True)
     return SpeakerSettings.objects.create(conference=conference, **kwargs)
 
 

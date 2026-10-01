@@ -351,6 +351,24 @@ For pre-recorded sessions, one row per file that moves through post-production:
 
 Performance videos are routinely several gigabytes, so the browser uploads directly to object storage in chunks using presigned multipart URLs, with per-part retry and resume. The portal finalizes the upload and records the asset. Performers can upload raw video for their own sessions; organizers upload any kind.
 
+#### The speaker side is a switch
+
+The organizer side of everything above (files on a session, the board's tab, exports, previews) is always on once the portal has a bucket. What speakers see is a per-edition switch on the speaker settings, **off by default**: with it off, a speaker's session page has no Files tab and no upload panel, a presenter may neither upload nor fetch, and the team gathers videos by other means and uploads them on the performer's behalf, which completes the same checklist lines. The switch lets the media series merge and run dark for speakers while the team tries it with real files.
+
+#### A title for each file
+
+> **Built** (30 September 2026, task 5.9).
+
+A file is named by its kind, language and variant ("Promo material (square)", "Transcript (en)"), which says what it is but not what it is about. Organizers want to write "Poster for the panel, from the Canva template" or "Final cut with the new intro" once, and not again for every version or format of the same thing.
+
+**The title belongs to the line, not the version.** A *line* is one kind and language on one session; its variants and versions are the same thing in different shapes and ages. The title is therefore asked for the first time a line gets a file, carried forward onto every later version and variant, and editable in one place. Stored as `MediaAsset.title` (short, one line, 200 characters) and copied rather than joined: completing an upload with no title takes the newest title on the line, so the row always carries its own words and the page, the bulk-download manifest and the CSV need no lookup. Editing the title updates every row on the line at once, so old versions read the same as the new one.
+
+**Where it is asked.** The upload panel gains an optional *Title* field on both sides: the organizer's, where it is prefilled from the line the chosen kind and language already have (a page-level map of line titles, read by the panel's script when the kind or language changes, and left alone once the person has typed), and the performer's, where "take 2, quieter room" is welcome but not required. The start endpoint takes it, `MediaUpload` carries it, `complete_upload` writes it or inherits it.
+
+**Where it shows.** The organizer's file list puts the title on the group header next to the kind and variant badges, with a small edit form that swaps the group in place (htmx, like the note). The speaker's "Files from the team" leads with the title when there is one and the kind and variant in a badge after it; without one, the kind as today. The post-production board's video column and the CSV export carry it, and the manifest of the bulk download will once task 5.6 lands.
+
+**What it is not.** Not the reviewer's note, which is per version and internal. Not a description of the session. Not required, so an upload never waits on it. A separate `MediaLine` model that groups assets would be the more structural home for a per-line attribute, and is the shape to move to if lines ever gain more of their own (an owner, a deadline); for one short field, a copied column is the smaller change and keeps every reader one query.
+
 #### Previews
 
 A file row, and the speaker's "Files from the team" card, carry a closed "Preview" fold for the files a browser can show itself: images, video and audio, decided from the upload's content type with the file name as a fallback. Opening it loads the file from the bucket through a second presigned link that says *inline* rather than *attachment* and carries the file's type; images load lazily, video and audio not until play, and a multi-gigabyte video then streams by range requests, so nothing is fetched in full. Everything else, including an HTML file uploaded as "other", only downloads. A poster previews at full size scaled by the page, which is fine on a session page and would not be on the board; thumbnails made by the worker are queued as task 5.8.

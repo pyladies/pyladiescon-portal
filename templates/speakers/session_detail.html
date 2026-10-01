@@ -95,11 +95,7 @@ open the tab their target lives in.
                                         name="decision"
                                         value="APPROVED"
                                         type="submit">
-                                    {% if proposal.is_pending %}
-                                        {% trans "Approve" %}
-                                    {% else %}
-                                        {% trans "Approve after all" %}
-                                    {% endif %}
+                                    {% trans "Approve" %}
                                 </button>
                             </form>
                         {% endif %}
@@ -638,7 +634,7 @@ open the tab their target lives in.
                         <i class="fa-solid fa-cloud-arrow-up"></i> {% trans "Add a file" %}
                     </div>
                     <div class="card-body">
-                        {% include "speakers/_upload_panel.html" with session=session kinds=media_kinds with_language=True with_variant=True open_uploads=open_uploads panel_id="files" %}
+                        {% include "speakers/_upload_panel.html" with session=session kinds=media_kinds with_language=True with_variant=True open_uploads=open_uploads line_titles=line_titles panel_id="files" %}
                     </div>
                 </div>
                 <hr class="my-4">
