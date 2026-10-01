@@ -8,6 +8,7 @@ starts the upload, hands out URLs in batches, finalizes it and records the
 everything else here is the lifecycle around a ``MediaUpload`` row.
 """
 
+import hashlib
 import math
 import mimetypes
 import os
@@ -297,20 +298,29 @@ def asset_groups(assets):
     return list(groups.values())
 
 
+def clean_variant(variant):
+    """The variant a file is filed under: one lower-case line, so "GIF"
+    and "gif" are one line rather than two."""
+    return " ".join((variant or "").split()).lower()[:40]
+
+
 def group_id(asset):
     """The element id of the file group an asset belongs to, for the page,
     the htmx swap after an edit and the More row's toggle.
 
     Three fixed parts joined by a double hyphen, which a slug never
-    contains, so no two lines share an id: language "" with variant "en"
-    is ``files-promo----en`` and language "en" with no variant is
-    ``files-promo--en--``. Both parts are slugified, so "en-US" and "US"
-    cannot meet by case either.
+    contains: language "" with variant "en" is ``files-promo----en`` and
+    language "en" with no variant is ``files-promo--en--``. Slugs are not
+    one-to-one ("café" and "cafe", "a b" and "a-b"), so when a part is not
+    already its own slug the id ends with a short hash of the raw text,
+    and distinct lines get distinct ids short of a hash collision.
     """
-    return (
-        f"files-{asset.kind.lower()}--{slugify(asset.language)}--"
-        f"{slugify(asset.variant)}"
-    )
+    language, variant = asset.language, asset.variant
+    parts = f"files-{asset.kind.lower()}--{slugify(language)}--{slugify(variant)}"
+    if (slugify(language), slugify(variant)) == (language, variant):
+        return parts
+    raw = f"{language}/{variant}".encode()
+    return f"{parts}--{hashlib.sha1(raw).hexdigest()[:8]}"
 
 
 def asset_group(asset):
@@ -505,7 +515,7 @@ def start_upload(
             session=session,
             kind=kind,
             language=language,
-            variant=(variant or "")[:40],
+            variant=clean_variant(variant),
             title=clean_title(title),
             filename=filename[:255],
             content_type=content_type,

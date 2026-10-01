@@ -2,6 +2,8 @@
 onto every later version and variant, edited for the whole line, shown
 where the file is."""
 
+import re
+
 import boto3
 import pytest
 from django.contrib.auth.models import User
@@ -245,6 +247,10 @@ class TestGroupIds:
         and variant must not run together: "" + "en" and "en" + "" were one
         id, and "en-US" + "" met "en" + "US" by case alone."""
         rows = [("", "en"), ("en", ""), ("en-US", ""), ("en", "US"), ("", "")]
+        # Slugs are not one-to-one: rows written past the upload's
+        # normalisation (the admin, say) must still get their own ids.
+        rows += [("", "GIF"), ("", "gif"), ("", "a b"), ("", "a-b")]
+        rows += [("", "square"), ("", "square!"), ("", "café"), ("", "cafe")]
         for language, variant in rows:
             MediaAsset.objects.create(
                 session=session,
@@ -255,9 +261,20 @@ class TestGroupIds:
                 storage_key=f"k/{language}/{variant}",
             )
         ids = [g["id"] for g in asset_groups(session_assets(session))]
-        assert len(ids) == len(set(ids)) == 5
+        assert len(ids) == len(set(ids)) == len(rows)
         assert "files-promo----en" in ids and "files-promo--en--" in ids
-        assert "files-promo--en-us--" in ids and "files-promo--en--us" in ids
+        assert "files-promo----gif" in ids and "files-promo----a-b" in ids
+        # Not its own slug, so it carries the hash and cannot meet "en-US".
+        assert any(i.startswith("files-promo--en--us--") for i in ids)
+        assert all(re.fullmatch(r"[A-Za-z0-9_-]+", i) for i in ids)
+
+    def test_a_variant_is_one_lower_case_line(self, bucket, session, organizer):
+        """ "GIF" and "gif" were two lines; the upload files them as one."""
+        first = upload(bucket, session, organizer, MediaKind.PROMO, variant=" GIF ")
+        second = upload(bucket, session, organizer, MediaKind.PROMO, variant="gif")
+        assert first.variant == "gif" and second.variant == "gif"
+        first.refresh_from_db()
+        assert first.status == MediaStatus.SUPERSEDED and second.version == 2
 
     def test_a_title_is_one_line(self, bucket, session, organizer):
         poster = upload(bucket, session, organizer, MediaKind.PROMO, variant="square")
