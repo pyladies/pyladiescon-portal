@@ -729,11 +729,15 @@ restarted while holding it, a broker outage) leaves the presenter page saying
 invitations that were expected to have gone out and have no successful record
 (`speakers.delivery.unrecorded_invitations`: records are matched on the
 template, `context_digest.invitation` and a time at or after the stamp, with
-a minute for clock skew), shows a failed record's error, and sends them again
-ticked or all (`retrigger`, through `send_invitation`, so a fresh link). It
-does not judge invitations from before the first record existed, or ones that
-were opened or answered. A row sent in the last five minutes is shown but not
-selectable. Every retrigger is an `invitation.retriggered` activity entry and
+a minute for clock skew), shows a failed record's error, and sends one again
+per button press (`retrigger`, through `send_invitation`, so a fresh link; no
+bulk send, on purpose). The invitation's row is locked while it is sent, so
+two presses cannot both send. It does not judge invitations from before
+`records_began()`, which is when migration `common.0001_sent_email` was
+applied and not the oldest surviving record (the prune moves that forward, and
+a worker that was down at first leaves no early row), or ones that were opened
+or answered. A row sent in the last five minutes is shown with a disabled
+button. Every retrigger is an `invitation.retriggered` activity entry and
 a log line. The design for tracking delivery properly is
 `docs/architecture/email-delivery.md`.
 

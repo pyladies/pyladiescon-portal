@@ -108,12 +108,14 @@ email record for that send, oldest first:
 |---|---|
 | **No record** | Nothing was recorded. The task was most likely lost. |
 | **Failed** | The worker tried and the mail provider refused; the error is shown. |
-| **Probably still queued** | Marked sent in the last five minutes. Wait; it cannot be selected yet. |
+| **Probably still queued** | Marked sent in the last five minutes. Wait; its button is disabled for now. |
 
-Tick the rows and press **Send selected again**, or **Send all N again**. Each
-one gets a fresh link and expiry, so the earlier link stops working, and a
-row leaves the list once its email is recorded. If it is still there a few
-minutes later, the send is failing again: look in the worker log (below).
+Check a row, then press its **Send again** button. It is one invitation at a
+time on purpose: the email goes to a real person and the link in any earlier
+email stops working, since each send gets a fresh link and expiry. Press it
+once; a second press within five minutes is refused. A row leaves the list
+once its email is recorded. If it is still there a few minutes later, the send
+is failing again: look in the worker log (below).
 Every send from this page is an activity entry on the presenter and the
 session ("Sent again from Maintenance") and appears at the bottom of the page.
 
@@ -121,8 +123,12 @@ Limits worth knowing:
 
 - Only invitations that are still waiting are listed. One that was opened,
   accepted, declined or cancelled is not missing anything.
-- Email records exist only from 26 September 2026, so earlier invitations
-  cannot be checked, and the page says from when it can.
+- Only sends made since the portal started recording emails can be checked.
+  The page says from when: it is when the migration that created the record
+  table was applied, not the age of the oldest surviving record, so a lost
+  first send is still found and the nightly prune cannot hide one. If the
+  worker kept running older code for a while after that deploy, its sends in
+  that window have no record though they were delivered, and are listed.
 - If the mail provider accepted a message and the process died before the
   record was saved, the speaker has the email but the page lists it. Sending
   again gives them a second one.

@@ -110,7 +110,7 @@ cases, for instance when the background worker restarts at the wrong moment,
 the email is lost and the page still says **Sent**. If a speaker says nothing
 arrived, press **Resend**, or ask a maintainer to check **Maintenance**,
 **Invitations**, which lists every invitation marked sent with no record that
-the email went out and sends them again.
+the email went out and sends them again, one at a time.
 
 The same page also has **Their to-dos** and **What we're preparing for them**,
 one above the other: the speaker's checklist and the team's checklist for that

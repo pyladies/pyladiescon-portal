@@ -10,6 +10,8 @@ from portal.models import Conference
 
 from .delivery import (
     GRACE,
+    SENT,
+    WAITING,
     records_began,
     retrigger,
     retriggered_history,
@@ -26,12 +28,10 @@ class MaintenanceInvitationsView(MaintainerRequiredMixin, TemplateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         conference = Conference.get_active()
-        items = unrecorded_invitations(conference) if conference else []
         context.update(
             {
                 "conference": conference,
-                "items": items,
-                "sendable": sum(1 for item in items if not item.in_flight),
+                "items": unrecorded_invitations(conference) if conference else [],
                 "records_began": records_began(),
                 "grace_minutes": int(GRACE.total_seconds() // 60),
                 "history": retriggered_history(conference) if conference else [],
@@ -41,7 +41,8 @@ class MaintenanceInvitationsView(MaintainerRequiredMixin, TemplateView):
 
 
 class MaintenanceInvitationsRetriggerView(MaintainerRequiredMixin, View):
-    """Send again the ticked invitations, or every one that can be."""
+    """Send one invitation again. One at a time on purpose: it emails a real
+    person and ends the link they were last given."""
 
     http_method_names = ["post"]
 
@@ -50,25 +51,30 @@ class MaintenanceInvitationsRetriggerView(MaintainerRequiredMixin, View):
         if conference is None:
             messages.error(request, "There is no active edition.")
             return redirect("maintenance_invitations")
-        ids = {int(pk) for pk in request.POST.getlist("invitation") if pk.isdigit()}
-        everything = "all" in request.POST
-        if not ids and not everything:
-            messages.error(request, "Tick at least one invitation.")
+        value = request.POST.get("invitation", "")
+        if not value.isdigit():
+            messages.error(request, "Choose an invitation to send again.")
             return redirect("maintenance_invitations")
-        sent, skipped = retrigger(
-            conference, ids, actor=request.user, everything=everything
-        )
-        if sent:
+        outcome, invitation = retrigger(conference, int(value), actor=request.user)
+        if outcome == SENT:
             messages.success(
                 request,
-                f"Sent {sent} invitation(s) again. Each row leaves this list "
-                "once its email is recorded; if one is still here after a few "
-                "minutes, look in the worker log for its invitation id.",
+                f"Sent again to {invitation.presenter.display_name}. The row "
+                "leaves this list once its email is recorded; if it is still "
+                "here after a few minutes, look in the worker log for "
+                f"invitation {invitation.pk}.",
             )
-        if skipped:
+        elif outcome == WAITING:
             messages.warning(
                 request,
-                f"Skipped {skipped}: recorded, answered or sent in the last "
-                f"{int(GRACE.total_seconds() // 60)} minutes.",
+                f"{invitation.presenter.display_name} was sent an email in the "
+                f"last {int(GRACE.total_seconds() // 60)} minutes. Wait for it "
+                "to be recorded before sending again.",
+            )
+        else:
+            messages.warning(
+                request,
+                "That invitation is no longer on the list: its email was "
+                "recorded, the presenter answered, or it was cancelled.",
             )
         return redirect("maintenance_invitations")

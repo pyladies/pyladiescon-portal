@@ -6,7 +6,7 @@ queued. The record that an email actually went out, a ``SentEmail`` row, is
 written later by the worker. When a worker is killed or restarted while
 holding the task, the task is lost without an error, and the two disagree for
 good. This module finds those invitations (expected to have been sent, no
-record that they were) and sends them again.
+record that they were) and sends one again at a time.
 
 It judges only from ``SentEmail`` rows, so it cannot see an email the
 provider accepted before the process died and the row was saved; sending
@@ -17,7 +17,8 @@ import logging
 from dataclasses import dataclass
 from datetime import timedelta
 
-from django.db.models import Min
+from django.db import transaction
+from django.db.migrations.recorder import MigrationRecorder
 from django.utils import timezone
 
 from common.models import SentEmail, SentEmailStatus
@@ -37,6 +38,11 @@ CLOCK_SLACK = timedelta(minutes=1)
 
 RETRIGGERED = "invitation.retriggered"
 
+# What ``retrigger`` did.
+SENT = "sent"
+WAITING = "waiting"
+GONE = "gone"
+
 
 @dataclass(frozen=True)
 class Unrecorded:
@@ -51,17 +57,26 @@ class Unrecorded:
 
 
 def records_began():
-    """When the first sent-email record was written, or None.
+    """When the portal started recording sent emails, or None.
 
-    An invitation sent before records existed cannot be judged by them, so
-    nothing older than this is listed.
+    The moment the migration that created the table was applied, never the
+    age of the oldest row that survives. The oldest row moves forward on its
+    own (the nightly prune deletes old editions' records), and a deployment
+    whose worker was not running at first has no early row at all; either
+    would hide an invitation that was lost without a trace, which is the case
+    this page exists for.
     """
-    return SentEmail.objects.aggregate(first=Min("sent_at"))["first"]
+    return (
+        MigrationRecorder.Migration.objects.filter(app="common", name="0001_sent_email")
+        .values_list("applied", flat=True)
+        .first()
+    )
 
 
-def unrecorded_invitations(conference, now=None):
+def unrecorded_invitations(conference, now=None, only=None):
     """The invitations of ``conference`` expected to have gone out, with no
-    successful record for the send, oldest first.
+    successful record for the send, oldest first. ``only`` limits it to one
+    invitation by id.
 
     Only invitations still waiting on an answer are listed: one that was
     opened, accepted, declined or cancelled is not missing anything, since
@@ -71,17 +86,18 @@ def unrecorded_invitations(conference, now=None):
     began = records_began()
     if began is None:
         return []
+    candidates = Invitation.objects.filter(
+        conference=conference,
+        sent_at__gte=began,
+        opened_at__isnull=True,
+        accepted_at__isnull=True,
+        declined_at__isnull=True,
+        cancelled_at__isnull=True,
+    )
+    if only is not None:
+        candidates = candidates.filter(pk=only)
     invitations = list(
-        Invitation.objects.filter(
-            conference=conference,
-            sent_at__gte=began,
-            opened_at__isnull=True,
-            accepted_at__isnull=True,
-            declined_at__isnull=True,
-            cancelled_at__isnull=True,
-        )
-        .select_related("presenter", "session")
-        .order_by("sent_at", "id")
+        candidates.select_related("presenter", "session").order_by("sent_at", "id")
     )
     records = {}
     for invitation_id, sent_at, status, error in SentEmail.objects.filter(
@@ -112,30 +128,42 @@ def retriggered_history(conference, limit=20):
     )
 
 
-def retrigger(conference, invitation_ids, *, actor, everything=False):
-    """Send again the listed invitations that are still unrecorded.
+def retrigger(conference, invitation_id, *, actor):
+    """Send one invitation again, if it is still unrecorded.
 
-    The list is worked out again here, not trusted from the page: one that
-    was recorded, answered or sent a moment ago is skipped. Each goes through
-    ``send_invitation``, as an organizer's resend does, so it gets a fresh
-    link (the earlier one stops working) and a fresh expiry. Returns
-    ``(sent, skipped)`` counts.
+    Returns ``(outcome, invitation)``: ``SENT``; ``WAITING`` when it was sent
+    in the last few minutes (most likely another click, or still queued); or
+    ``GONE`` when it is no longer on the list (recorded, answered, cancelled
+    or not there), with no invitation.
+
+    The invitation's row is locked first and the list worked out after, so
+    two clicks on the same row cannot both send: the second waits for the
+    first, then finds the invitation freshly sent. A fresh link makes the
+    earlier one stop working, so a presenter must never get two emails of
+    which one is dead. The page is a hint, not an authority; nothing it
+    posted is trusted beyond the id.
     """
-    listed = unrecorded_invitations(conference)
-    wanted = (
-        {item.invitation.pk for item in listed} if everything else set(invitation_ids)
-    )
-    sent = 0
-    skipped = len(wanted - {item.invitation.pk for item in listed})
-    for item in listed:
-        if item.invitation.pk not in wanted:
-            continue
+    with transaction.atomic():
+        locked = (
+            Invitation.objects.select_for_update()
+            .filter(pk=invitation_id, conference=conference)
+            .first()
+        )
+        if locked is None:
+            return GONE, None
+        listed = unrecorded_invitations(conference, only=invitation_id)
+        if not listed:
+            return GONE, None
+        item = listed[0]
         if item.in_flight:
-            skipped += 1
-            continue
+            return WAITING, item.invitation
         invitation = item.invitation
         previous = invitation.sent_at
-        send_invitation(invitation, actor=actor)
+        try:
+            send_invitation(invitation, actor=actor)
+        except ValueError:
+            # Accepted since the list was read.
+            return GONE, None
         ActivityLog.record(
             conference,
             RETRIGGERED,
@@ -159,5 +187,4 @@ def retrigger(conference, invitation_ids, *, actor, everything=False):
             previous.isoformat(),
             f" (failed: {item.failure})" if item.failure else "",
         )
-        sent += 1
-    return sent, skipped
+    return SENT, invitation

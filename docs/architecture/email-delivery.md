@@ -289,8 +289,8 @@ them (`MaintainerRequiredMixin`). Three parts:
    default. A row shows the error, attempts, worker, timestamps and a link
    to the sent email when there is one. The Celery task id is shown and
    copyable, because it is what to search the logs for.
-3. **Resend.** A POST button per row, and "Resend all stalled and failed"
-   behind a confirmation that lists how many and to whom.
+3. **Resend.** A POST button per row. A bulk "resend all" is left out until
+   the one-at-a-time page has been used for a while.
 
 ### What resend does
 
@@ -336,12 +336,17 @@ Each step is one pull request, and only step 3 has a migration.
 1. **Find and fix the known cases.** *Built, as a page rather than a
    command:* Maintenance > Invitations lists every invitation of the active
    edition marked sent with no successful `SentEmail` for that send (a
-   failed record is shown with its error), and sends them again, ticked or
-   all at once. It compares `Invitation.sent_at` with the records, so it
-   needs no new table. It lists nothing older than the first record ever
-   written, skips invitations that were opened, accepted, declined or
-   cancelled, and disables a row sent in the last five minutes, which may
-   still be queued. A retrigger goes through `send_invitation` (a fresh link
+   failed record is shown with its error), and sends them again one at a
+   time, each with its own button (there is deliberately no bulk send: it
+   emails a real person and ends their current link). It compares
+   `Invitation.sent_at` with the records, so it needs no new table. It
+   lists nothing sent before the `common` record table existed (the time
+   migration `0001_sent_email` was applied, not the oldest surviving row,
+   which the nightly prune moves forward and which a deployment whose worker
+   was down at first does not have), skips invitations that were opened,
+   accepted, declined or cancelled, and disables a row sent in the last five
+   minutes, which may still be queued. The invitation's row is locked while
+   it is sent, so two clicks cannot both send. A retrigger goes through `send_invitation` (a fresh link
    and expiry, as an organizer's resend does), writes an `invitation.retriggered`
    activity entry with the maintainer as actor, and logs a line. The page
    lists those entries. It cannot see an email the provider accepted

@@ -26,100 +26,97 @@
             </p>
         {% elif not records_began %}
             <p class="text-secondary">
-                {% trans "No email has been recorded yet, so there is nothing to compare with." %}
+                {% trans "The portal has no record of when email records began, so there is nothing to compare with." %}
             </p>
         {% else %}
             <p class="small text-secondary">
                 {% blocktranslate with year=conference.year since=records_began|date:"j F Y" %}Edition {{ year }}. Email records exist from {{ since }}; invitations sent before that cannot be checked. An invitation that was opened, accepted, declined or cancelled is not listed.{% endblocktranslate %}
             </p>
             {% if items %}
-                {% trans "Send again" as send_again_label %}
-                <form method="post" action="{% url 'maintenance_invitations_send' %}">
-                    {% csrf_token %}
-                    <div class="table-responsive">
-                        <table class="table table-sm table-hover align-middle">
-                            <thead class="table-light">
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>
+                                    {% trans "Presenter" %}
+                                </th>
+                                <th>
+                                    {% trans "Session" %}
+                                </th>
+                                <th>
+                                    {% trans "Sent to" %}
+                                </th>
+                                <th>
+                                    {% trans "Marked sent" %}
+                                </th>
+                                <th>
+                                    {% trans "Invitation" %}
+                                </th>
+                                <th>
+                                    {% trans "Email record" %}
+                                </th>
+                                <th>
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in items %}
                                 <tr>
-                                    <th>
-                                    </th>
-                                    <th>
-                                        {% trans "Presenter" %}
-                                    </th>
-                                    <th>
-                                        {% trans "Session" %}
-                                    </th>
-                                    <th>
-                                        {% trans "Sent to" %}
-                                    </th>
-                                    <th>
-                                        {% trans "Marked sent" %}
-                                    </th>
-                                    <th>
-                                        {% trans "Invitation" %}
-                                    </th>
-                                    <th>
-                                        {% trans "Email record" %}
-                                    </th>
+                                    <td>
+                                        <a href="{{ item.invitation.presenter.get_absolute_url }}">{{ item.invitation.presenter.display_name }}</a>
+                                    </td>
+                                    <td class="small">
+                                        {% if item.invitation.session %}
+                                            {{ item.invitation.session.title }}
+                                        {% else %}
+                                            <span class="text-secondary">{% trans "Conference" %}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="small">
+                                        {{ item.invitation.sent_to }}
+                                    </td>
+                                    <td class="text-nowrap small">
+                                        {{ item.invitation.sent_at|date:"j M Y H:i" }} UTC
+                                    </td>
+                                    <td class="small">
+                                        {{ item.invitation.status.label }}
+                                    </td>
+                                    <td class="small">
+                                        {% if item.failure %}
+                                            <span class="badge text-bg-danger">{% trans "Failed" %}</span>
+                                            {{ item.failure|truncatechars:200 }}
+                                        {% elif item.in_flight %}
+                                            <span class="badge text-bg-secondary">{% trans "Probably still queued" %}</span>
+                                        {% else %}
+                                            <span class="badge text-bg-warning">{% trans "No record" %}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-end text-nowrap">
+                                        {% if item.in_flight %}
+                                            <button class="btn btn-sm btn-outline-secondary" type="button" disabled>
+                                                {% trans "Wait" %}
+                                            </button>
+                                        {% else %}
+                                            <form method="post"
+                                                  class="d-inline"
+                                                  action="{% url 'maintenance_invitations_send' %}">
+                                                {% csrf_token %}
+                                                <input type="hidden" name="invitation" value="{{ item.invitation.pk }}">
+                                                <button class="btn btn-sm btn-primary" type="submit">
+                                                    {% trans "Send again" %}
+                                                </button>
+                                            </form>
+                                        {% endif %}
+                                    </td>
                                 </tr>
-                            </thead>
-                            <tbody>
-                                {% for item in items %}
-                                    <tr>
-                                        <td>
-                                            <input type="checkbox"
-                                                   class="form-check-input"
-                                                   name="invitation"
-                                                   value="{{ item.invitation.pk }}"
-                                                   aria-label="{{ send_again_label }}"
-                                                   {% if item.in_flight %}disabled{% endif %}>
-                                        </td>
-                                        <td>
-                                            <a href="{{ item.invitation.presenter.get_absolute_url }}">{{ item.invitation.presenter.display_name }}</a>
-                                        </td>
-                                        <td class="small">
-                                            {% if item.invitation.session %}
-                                                {{ item.invitation.session.title }}
-                                            {% else %}
-                                                <span class="text-secondary">{% trans "Conference" %}</span>
-                                            {% endif %}
-                                        </td>
-                                        <td class="small">
-                                            {{ item.invitation.sent_to }}
-                                        </td>
-                                        <td class="text-nowrap small">
-                                            {{ item.invitation.sent_at|date:"j M Y H:i" }} UTC
-                                        </td>
-                                        <td class="small">
-                                            {{ item.invitation.status.label }}
-                                        </td>
-                                        <td class="small">
-                                            {% if item.failure %}
-                                                <span class="badge text-bg-danger">{% trans "Failed" %}</span>
-                                                {{ item.failure }}
-                                            {% elif item.in_flight %}
-                                                <span class="badge text-bg-secondary">{% trans "Probably still queued" %}</span>
-                                            {% else %}
-                                                <span class="badge text-bg-warning">{% trans "No record" %}</span>
-                                            {% endif %}
-                                        </td>
-                                    </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                    <p class="small text-secondary">
-                        {% trans "Sending again issues a new link and expiry, so the earlier link stops working. If the email did reach the presenter after all, they get a second one." %}
-                        {% blocktranslate with minutes=grace_minutes %}A row sent in the last {{ minutes }} minutes may still be on its way and cannot be selected yet.{% endblocktranslate %}
-                    </p>
-                    <button type="submit" class="btn btn-primary">
-                        {% trans "Send selected again" %}
-                    </button>
-                    {% if sendable %}
-                        <button type="submit" name="all" value="1" class="btn btn-outline-primary">
-                            {% blocktranslate with n=sendable %}Send all {{ n }} again{% endblocktranslate %}
-                        </button>
-                    {% endif %}
-                </form>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                <p class="small text-secondary">
+                    {% trans "Sending again emails the presenter now with a new link and expiry, so the link in any earlier email stops working. If the earlier email did reach them after all, they get a second one. It is one invitation at a time on purpose: check the row, then press the button." %}
+                    {% blocktranslate with minutes=grace_minutes %}A row sent in the last {{ minutes }} minutes may still be on its way and cannot be sent again yet.{% endblocktranslate %}
+                </p>
             {% else %}
                 <p class="text-secondary">
                     {% trans "Every invitation marked sent has an email record." %}
@@ -136,7 +133,7 @@
                             {{ entry.actor.get_full_name|default:entry.actor.username }}:
                             {{ entry.message }}
                             {% if entry.data.failure %}
-                                ({{ entry.data.failure }})
+                                ({{ entry.data.failure|truncatechars:200 }})
                             {% endif %}
                         </li>
                     {% endfor %}
