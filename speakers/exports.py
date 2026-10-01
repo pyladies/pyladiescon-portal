@@ -54,10 +54,11 @@ class ExportError(ValueError):
     to show."""
 
 
-def clean_scope(data):
-    """A scope dict from a form's or a query's values, validated."""
+def clean_scope(data, require_kinds=True):
+    """A scope dict from a form's or a query's values, validated. An export
+    needs at least one kind; the form being drawn may have none yet."""
     kinds = [k for k in data.get("kinds", []) if k in MediaKind.values]
-    if not kinds:
+    if require_kinds and not kinds:
         raise ExportError("Choose at least one kind of file.")
     versions = data.get("versions") or "latest"
     if versions not in VERSIONS:
@@ -334,8 +335,10 @@ def expire_zips(now=None):
     bucket = MediaBucket.from_settings()
     for export in expired:
         bucket.delete(export.zip_key)
+        # Not "Ready" any more: the row says there is no zip behind it.
         export.zip_key = ""
-        export.save(update_fields=["zip_key", "modified_date"])
+        export.zip_status = ""
+        export.save(update_fields=["zip_key", "zip_status", "modified_date"])
         count += 1
     return count
 

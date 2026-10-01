@@ -245,7 +245,7 @@ def start_job(asset, user=None):
             started_by=user,
             status=TranscriptionStatus.FAILED,
             error=(
-                "No transcription engine is set up on this portal "
+                "This portal has no transcription engine set up "
                 "(SPEAKER_TRANSCRIBE_ENGINE)."
             ),
         )

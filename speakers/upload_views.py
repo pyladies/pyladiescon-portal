@@ -36,7 +36,7 @@ from .media import (
 from .mixins import SpeakerModuleRequiredMixin
 from .models import MediaAsset, MediaUpload, Session
 from .permissions import is_speaker_organizer
-from .transcription import get_engine, start_job
+from .transcription import start_job
 
 
 def _payload(request):
@@ -398,9 +398,13 @@ class MediaTranscribeView(LoginRequiredMixin, SpeakerModuleRequiredMixin, View):
             status__in=[TranscriptionStatus.QUEUED, TranscriptionStatus.RUNNING]
         ).exists():
             message = "A transcription of this video is already under way."
-        elif get_engine() is None:
-            message = "This portal has no transcription engine set up."
         else:
-            start_job(asset, user=request.user)
-            message = "Transcribing; the draft appears here when it is done."
+            # Without an engine the job is recorded failed with the reason,
+            # the same row the automatic trigger would leave.
+            job = start_job(asset, user=request.user)
+            message = (
+                job.error
+                if job.status == TranscriptionStatus.FAILED
+                else "Transcribing; the draft appears here when it is done."
+            )
         return _row_or_files(request, session, asset, message)

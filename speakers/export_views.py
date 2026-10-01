@@ -45,7 +45,7 @@ FILES = {
 }
 
 
-def scope_from_query(query):
+def scope_from_query(query, require_kinds=True):
     """The scope a page's query string or form describes."""
     # "Only these sessions" is a choice of its own: a checked box with the
     # mode still on "every session" narrows nothing, so a stray click cannot.
@@ -57,8 +57,13 @@ def scope_from_query(query):
             "sessions": query.getlist("sessions") if only_these else [],
             "versions": query.get("versions", "latest"),
             "since": query.get("since", ""),
-        }
+        },
+        require_kinds=require_kinds,
     )
+
+
+# What the page opens with, from the links that lead here without a query.
+OPENING_SCOPE = {"kinds": [MediaKind.RAW_VIDEO]}
 
 
 class MediaExportView(LoginRequiredMixin, SpeakerOrganizerRequiredMixin, View):
@@ -68,11 +73,20 @@ class MediaExportView(LoginRequiredMixin, SpeakerOrganizerRequiredMixin, View):
     template_name = "speakers/media_export.html"
 
     def get(self, request):
-        try:
-            scope = scope_from_query(request.GET)
-        except (ExportError, ValueError):
-            messages.error(request, "That selection could not be read; start again.")
-            return redirect("speakers:media_export")
+        # The page always renders: a bare visit opens with the raw videos
+        # chosen, a query with no kind shows a preview of nothing, and a
+        # query that cannot be read says so on the page. Redirecting to
+        # itself on an error is a loop.
+        if not request.GET:
+            scope = clean_scope(OPENING_SCOPE)
+        else:
+            try:
+                scope = scope_from_query(request.GET, require_kinds=False)
+            except (ExportError, ValueError):
+                messages.error(
+                    request, "That selection could not be read; start again."
+                )
+                scope = clean_scope({}, require_kinds=False)
         assets = select_assets(self.conference, request.user, scope)
         return render(
             request,
@@ -99,8 +113,8 @@ class MediaExportView(LoginRequiredMixin, SpeakerOrganizerRequiredMixin, View):
     def post(self, request):
         try:
             scope = scope_from_query(request.POST)
-        except (ExportError, ValueError):
-            messages.error(request, "That selection could not be read; start again.")
+        except (ExportError, ValueError) as exc:
+            messages.error(request, f"{exc} Nothing was exported.")
             return redirect("speakers:media_export")
         export = create_export(self.conference, request.user, scope)
         if not export.file_count:

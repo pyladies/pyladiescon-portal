@@ -169,7 +169,8 @@ with `manifest.csv`. Links live `SPEAKER_MEDIA_BULK_URL_TTL` (12 h);
 Maintenance > File exports lists every export, and the nightly "Expire export
 zips" task drops the zip of an export whose links have expired, so zips
 bounded per export by `SPEAKER_MEDIA_ZIP_MAX_BYTES` do not add up for
-good. A scope must name at least one kind. Every cell of every CSV the
+good. The page opens with the raw videos chosen and always renders; an
+export itself needs at least one kind. Every cell of every CSV the
 app writes, the manifest included, goes through `spreadsheet.safe_cell`:
 one line, never a formula, which is also what keeps the manifest embedded
 in `download.sh` inside its heredoc. Machine transcription (task 5.7) is

@@ -497,18 +497,18 @@ class TestOnThePage:
         raw = video(session)
         settings.SPEAKER_TRANSCRIBE_ENGINE = "local"
         monkeypatch.setattr("speakers.transcription.get_engine", lambda: None)
-        monkeypatch.setattr("speakers.upload_views.get_engine", lambda: None)
         client.force_login(organizer)
         response = client.post(
             reverse("speakers:media_transcribe", args=[session.slug, raw.pk]),
             follow=True,
         )
         assert "no transcription engine" in response.content.decode()
-        # Started anyway (the automatic trigger does): a failed job that
-        # says why, not silence.
-        job = start_job(raw)
+        # The button leaves the same record the automatic trigger would:
+        # a failed job that says why.
+        job = raw.transcription_jobs.get()
         assert job.status == TranscriptionStatus.FAILED
         assert "SPEAKER_TRANSCRIBE_ENGINE" in job.error
+        assert job.started_by == organizer
 
     def test_the_performer_reads_what_happens_to_the_recording(
         self, client, world, engine, conference

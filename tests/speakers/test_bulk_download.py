@@ -354,10 +354,36 @@ class TestExport:
         export.refresh_from_db()
         assert export.zip_status == ""
 
+    def test_the_page_always_renders(self, client, world, organizer):
+        """The links lead here without a query, so a bare visit opens with
+        the raw videos chosen; a query with no kind previews nothing; and a
+        bad query says so on the page rather than redirecting to itself."""
+        client.force_login(organizer)
+        response = client.get(EXPORT)
+        assert response.status_code == 200
+        assert response.context["scope"]["kinds"] == ["RAW_VIDEO"]
+        assert response.context["file_count"] == 2
+        response = client.get(EXPORT, {"language": "en"})
+        assert response.status_code == 200
+        assert response.context["scope"]["kinds"] == []
+        assert response.context["file_count"] == 0
+        response = client.get(EXPORT, {"versions": "some"})
+        assert response.status_code == 200
+        assert "could not be read" in response.content.decode()
+
     def test_bad_scope_and_empty_selection(self, client, world, organizer):
         client.force_login(organizer)
-        assert client.get(EXPORT, {"versions": "some"}).status_code == 302
-        assert client.post(EXPORT, {"versions": "some"}).status_code == 302
+        # A post that names no kind, or cannot be read, comes back to the
+        # page with the reason, and the page renders.
+        response = client.post(EXPORT, {}, follow=True)
+        assert response.status_code == 200
+        assert "at least one kind" in response.content.decode()
+        response = client.post(
+            EXPORT, {"kinds": ["RAW_VIDEO"], "versions": "some"}, follow=True
+        )
+        assert response.status_code == 200
+        assert "latest or all" in response.content.decode()
+        assert not MediaExport.objects.exists()
         response = client.post(EXPORT, {"kinds": ["OUTRO"]}, follow=True)
         assert "Nothing matches" in response.content.decode()
 
@@ -518,7 +544,7 @@ class TestZip:
         )
         assert expire_export_zips_task() == "Dropped 1 expired export zip(s)"
         export.refresh_from_db()
-        assert export.zip_key == "" and export.zip_status == ZipStatus.DONE
+        assert export.zip_key == "" and export.zip_status == ""
         assert not bucket.client.list_objects_v2(
             Bucket=BUCKET, Prefix="speaker-media/exports/"
         ).get("Contents")
