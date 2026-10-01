@@ -22,8 +22,8 @@ from django.urls import include, path
 
 from portal import views
 from portal_account import views as portal_account_views
-from speakers import export_views as speakers_export_views
 from speakers import delivery_views as speakers_delivery_views
+from speakers import export_views as speakers_export_views
 from volunteer import views as volunteer_view
 
 urlpatterns = [

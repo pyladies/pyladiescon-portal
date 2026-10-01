@@ -20,6 +20,7 @@ from speakers.delivery import (
     CLOCK_SLACK,
     GONE,
     GRACE,
+    RECORDS_MIGRATION,
     RETRIGGERED,
     SENT,
     WAITING,
@@ -29,7 +30,7 @@ from speakers.delivery import (
     unrecorded_invitations,
 )
 from speakers.emails import INVITATION_TEMPLATE
-from speakers.models import ActivityLog
+from speakers.models import ActivityLog, Invitation
 from speakers.tasks import send_invitation_email_task
 
 from .factories import (
@@ -120,6 +121,21 @@ class TestRecordsBegan:
         began(days=10)
         age = timezone.now() - records_began()
         assert abs(age - timedelta(days=10)) < timedelta(minutes=1)
+
+    def test_the_migration_it_reads_exists(self):
+        """Squashing or renaming it would leave the page blind."""
+        app, name = RECORDS_MIGRATION
+        importlib.import_module(f"{app}.migrations.{name}")
+
+    def test_two_migration_rows_give_the_earliest(self):
+        began(days=5)
+        MigrationRecorder.Migration.objects.create(
+            app="common",
+            name="0001_sent_email",
+            applied=timezone.now() - timedelta(days=50),
+        )
+        age = timezone.now() - records_began()
+        assert abs(age - timedelta(days=50)) < timedelta(minutes=1)
 
     def test_does_not_depend_on_which_email_rows_survive(self, conference, enabled):
         began(days=100)
@@ -388,12 +404,28 @@ class TestRetrigger:
         began()
         invitation = sent_invitation(conference, "Ada")
 
-        def accepted(*args, **kwargs):
+        def accepted(invitation, actor=None):
+            Invitation.objects.filter(pk=invitation.pk).update(
+                accepted_at=timezone.now()
+            )
             raise ValueError("This invitation has already been accepted.")
 
         monkeypatch.setattr(delivery, "send_invitation", accepted)
         assert retrigger(conference, invitation.pk, actor=maintainer) == (GONE, None)
         assert not ActivityLog.objects.filter(action=RETRIGGERED).exists()
+
+    def test_any_other_value_error_is_not_hidden_as_gone(
+        self, conference, enabled, maintainer, monkeypatch
+    ):
+        began()
+        invitation = sent_invitation(conference, "Ada")
+
+        def broken(invitation, actor=None):
+            raise ValueError("something else is wrong")
+
+        monkeypatch.setattr(delivery, "send_invitation", broken)
+        with pytest.raises(ValueError, match="something else is wrong"):
+            retrigger(conference, invitation.pk, actor=maintainer)
 
     def test_grace_is_a_few_minutes(self):
         assert timedelta(minutes=1) < GRACE <= timedelta(minutes=15)

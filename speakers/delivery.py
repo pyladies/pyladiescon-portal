@@ -19,12 +19,13 @@ from datetime import timedelta
 
 from django.db import transaction
 from django.db.migrations.recorder import MigrationRecorder
+from django.db.models import Min
 from django.utils import timezone
 
 from common.models import SentEmail, SentEmailStatus
 
 from .emails import INVITATION_TEMPLATE
-from .models import ActivityLog, Invitation
+from .models import ActivityLog, Invitation, InvitationStatus
 from .services import send_invitation
 
 logger = logging.getLogger(__name__)
@@ -37,6 +38,11 @@ GRACE = timedelta(minutes=5)
 CLOCK_SLACK = timedelta(minutes=1)
 
 RETRIGGERED = "invitation.retriggered"
+
+# The migration whose application marks the start of email records. Pinned by
+# a test, so squashing or renaming it fails loudly instead of leaving the page
+# blind.
+RECORDS_MIGRATION = ("common", "0001_sent_email")
 
 # What ``retrigger`` did.
 SENT = "sent"
@@ -66,11 +72,10 @@ def records_began():
     would hide an invitation that was lost without a trace, which is the case
     this page exists for.
     """
-    return (
-        MigrationRecorder.Migration.objects.filter(app="common", name="0001_sent_email")
-        .values_list("applied", flat=True)
-        .first()
-    )
+    app, name = RECORDS_MIGRATION
+    return MigrationRecorder.Migration.objects.filter(app=app, name=name).aggregate(
+        first=Min("applied")
+    )["first"]
 
 
 def unrecorded_invitations(conference, now=None, only=None):
@@ -162,7 +167,11 @@ def retrigger(conference, invitation_id, *, actor):
         try:
             send_invitation(invitation, actor=actor)
         except ValueError:
-            # Accepted since the list was read.
+            # Only an acceptance since the list was read is "gone". Any other
+            # ValueError is a bug and must not be reported as that.
+            invitation.refresh_from_db()
+            if invitation.status != InvitationStatus.ACCEPTED:
+                raise
             return GONE, None
         ActivityLog.record(
             conference,

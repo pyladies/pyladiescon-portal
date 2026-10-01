@@ -346,12 +346,12 @@ Each step is one pull request, and only step 3 has a migration.
    was down at first does not have), skips invitations that were opened,
    accepted, declined or cancelled, and disables a row sent in the last five
    minutes, which may still be queued. The invitation's row is locked while
-   it is sent, so two clicks cannot both send. A retrigger goes through `send_invitation` (a fresh link
-   and expiry, as an organizer's resend does), writes an `invitation.retriggered`
-   activity entry with the maintainer as actor, and logs a line. The page
-   lists those entries. It cannot see an email the provider accepted
-   before the process died and the row was saved, so sending again there is
-   a duplicate, never a miss.
+   it is sent, so two clicks cannot both send. A retrigger goes through
+   `send_invitation` (a fresh link and expiry, as an organizer's resend
+   does), writes an `invitation.retriggered` activity entry with the
+   maintainer as actor, and logs a line. The page lists those entries. It
+   cannot see an email the provider accepted before the process died and the
+   row was saved, so sending again there is a duplicate, never a miss.
 2. **Stop losing tasks.** `@email_task` with `acks_late`,
    `reject_on_worker_lost` and retries, `LOGGING`, the Sentry `process` tag
    and the `worker_ready` message, and a pinned `--concurrency` for
