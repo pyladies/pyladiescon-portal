@@ -1,12 +1,19 @@
 {% extends "speakers/_organize_shell.html" %}
 {% load i18n static %}
 {% load portal_extras speakers_extras %}
+{% comment %}
+The organizer's session page is a workbench, so the work comes first:
+a strip of what needs a person (each tile links to its section), then
+the checklists and files on the left with the people and facts on the
+right, and the description folded below. Quick actions in the header
+jump to the forms.
+{% endcomment %}
 {% block head_title %}
     {{ session.title }}
 {% endblock head_title %}
 {% block extra_head %}
     {{ block.super }}
-    {% if can_upload_media %}
+    {% if can_upload_media and media_on %}
         <script src="{% static 'js/media-upload.js' %}" defer></script>
     {% endif %}
 {% endblock extra_head %}
@@ -36,10 +43,25 @@
             {% endif %}
         </div>
         {% if is_organizer %}
-            <a class="btn btn-outline-primary"
-               href="{% url 'speakers:session_edit' session.slug %}">
-                <i class="fa-solid fa-pen"></i> {% trans "Edit" %}
-            </a>
+            <div class="d-flex flex-wrap gap-2" id="quick-actions">
+                {% if glance.invites_unsent %}
+                    <a class="btn btn-primary" href="#presenters">
+                        <i class="fa-solid fa-paper-plane"></i> {% trans "Invite" %}
+                    </a>
+                {% endif %}
+                {% if can_upload_media and media_on %}
+                    <a class="btn btn-outline-primary" href="#add-file">
+                        <i class="fa-solid fa-cloud-arrow-up"></i> {% trans "Add file" %}
+                    </a>
+                {% endif %}
+                <a class="btn btn-outline-primary" href="#add-item">
+                    <i class="fa-solid fa-list-check"></i> {% trans "Add item" %}
+                </a>
+                <a class="btn btn-outline-primary"
+                   href="{% url 'speakers:session_edit' session.slug %}">
+                    <i class="fa-solid fa-pen"></i> {% trans "Edit" %}
+                </a>
+            </div>
         {% endif %}
     </div>
     {% if proposal %}
@@ -98,51 +120,267 @@
             </div>
         </div>
     {% endif %}
-    <div class="row g-4">
-        <div class="col-lg-8">
+    {# At a glance: what needs a person, each tile a link to its section. #}
+    <div class="row g-2 mb-4" id="glance">
+        <div class="col-6 col-lg">
+            <a class="card glance-tile h-100 {% if glance.invites_unsent %}glance-warn{% elif glance.presenters_total and glance.presenters_confirmed == glance.presenters_total %}glance-ok{% endif %}"
+               href="#presenters">
+                <div class="card-body py-2">
+                    <div class="glance-label">
+                        {% trans "Presenters" %}
+                    </div>
+                    <div class="glance-value">
+                        {% blocktranslate with confirmed=glance.presenters_confirmed total=glance.presenters_total %}{{ confirmed }} of {{ total }} confirmed{% endblocktranslate %}
+                    </div>
+                    <div class="glance-detail">
+                        {% if glance.invites_unsent %}
+                            {% blocktranslate count counter=glance.invites_unsent %}{{ counter }} invitation not sent{% plural %}{{ counter }} invitations not sent{% endblocktranslate %}
+                        {% elif not glance.presenters_total %}
+                            {% trans "Nobody added yet" %}
+                        {% elif glance.presenters_confirmed == glance.presenters_total %}
+                            {% trans "Everyone is in" %}
+                        {% else %}
+                            {% trans "Waiting for an answer" %}
+                        {% endif %}
+                    </div>
+                </div>
+            </a>
+        </div>
+        <div class="col-6 col-lg">
+            <a class="card glance-tile h-100 {% if glance.overdue or glance.blocked %}glance-bad{% elif not glance.open %}glance-ok{% endif %}"
+               href="#checklist">
+                <div class="card-body py-2">
+                    <div class="glance-label">
+                        {% trans "Checklist" %}
+                    </div>
+                    <div class="glance-value">
+                        {% blocktranslate count counter=glance.open %}{{ counter }} open item{% plural %}{{ counter }} open items{% endblocktranslate %}
+                    </div>
+                    <div class="glance-detail">
+                        {% if glance.overdue or glance.blocked or glance.waiting %}
+                            {% if glance.overdue %}
+                                {{ glance.overdue }} {% trans "overdue" %}
+                            {% endif %}
+                            {% if glance.blocked %}
+                                · {{ glance.blocked }} {% trans "blocked" %}
+                            {% endif %}
+                            {% if glance.waiting %}
+                                · {{ glance.waiting }} {% trans "waiting" %}
+                            {% endif %}
+                        {% elif glance.open %}
+                            {% trans "Nothing overdue" %}
+                        {% else %}
+                            {% trans "All done" %}
+                        {% endif %}
+                    </div>
+                </div>
+            </a>
+        </div>
+        {% if video %}
+            <div class="col-6 col-lg">
+                <a class="card glance-tile h-100 {% if not video.current or video.over_by %}glance-warn{% elif processed %}glance-ok{% endif %}"
+                   href="#files">
+                    <div class="card-body py-2">
+                        <div class="glance-label">
+                            {% trans "Video" %}
+                        </div>
+                        <div class="glance-value">
+                            {% if video.current %}
+                                {% blocktranslate with version=video.current.version %}Raw v{{ version }}{% endblocktranslate %}
+                                {% if video.current.duration_seconds is not None %}
+                                    · {{ video.current.duration_seconds|duration }}
+                                {% endif %}
+                            {% else %}
+                                {% trans "No video yet" %}
+                            {% endif %}
+                        </div>
+                        <div class="glance-detail">
+                            {% if video.over_by %}
+                                {% trans "Over the limit" %} ·
+                            {% endif %}
+                            {% if processed %}
+                                {% blocktranslate with version=processed.version %}Final cut v{{ version }}{% endblocktranslate %}
+                            {% else %}
+                                {% trans "Final cut missing" %}
+                            {% endif %}
+                        </div>
+                    </div>
+                </a>
+            </div>
+        {% endif %}
+        <div class="col-6 col-lg">
+            <a class="card glance-tile h-100 {% if glance.slot %}glance-ok{% endif %}"
+               href="#details">
+                <div class="card-body py-2">
+                    <div class="glance-label">
+                        {% trans "Schedule" %}
+                    </div>
+                    <div class="glance-value">
+                        {% if glance.slot %}
+                            {{ glance.slot.start_utc|date:"D j M H:i" }} UTC
+                        {% else %}
+                            {% trans "Not scheduled" %}
+                        {% endif %}
+                    </div>
+                    <div class="glance-detail">
+                        {% if session.is_public %}
+                            {% trans "Public" %}
+                        {% else %}
+                            {% trans "Not yet public" %}
+                        {% endif %}
+                    </div>
+                </div>
+            </a>
+        </div>
+    </div>
+    {# The description sits under the strip, above the work: title and words first, then what to do. #}
+    <div class="mb-4" id="description">
+        <h2 class="h5 mb-3">
+            {% trans "Description" %}
+        </h2>
+        <div>
             {% if session.summary_md %}
-                <h2 class="h6 text-uppercase text-secondary">
+                <h3 class="h6 text-uppercase text-secondary">
                     {% trans "Summary" %}
-                </h2>
+                </h3>
                 <div class="mb-3">
                     {{ session.summary_md|speaker_md }}
                 </div>
             {% endif %}
             {% if session.outline_md %}
-                <h2 class="h6 text-uppercase text-secondary">
+                <h3 class="h6 text-uppercase text-secondary">
                     {% trans "Outline" %}
-                </h2>
+                </h3>
                 <div class="mb-3">
                     {{ session.outline_md|speaker_md }}
                 </div>
             {% endif %}
             {% if session.prerequisites_md %}
-                <h2 class="h6 text-uppercase text-secondary">
+                <h3 class="h6 text-uppercase text-secondary">
                     {% trans "Prerequisites" %}
-                </h2>
+                </h3>
                 <div class="mb-3">
                     {{ session.prerequisites_md|speaker_md }}
                 </div>
             {% endif %}
             {% if session.audience_md %}
-                <h2 class="h6 text-uppercase text-secondary">
+                <h3 class="h6 text-uppercase text-secondary">
                     {% trans "Audience" %}
-                </h2>
+                </h3>
                 <div class="mb-3">
                     {{ session.audience_md|speaker_md }}
                 </div>
             {% endif %}
             {% if session.notes_md %}
-                <h2 class="h6 text-uppercase text-secondary">
+                <h3 class="h6 text-uppercase text-secondary">
                     {% trans "Internal notes" %}
-                </h2>
+                </h3>
                 <div class="mb-3 text-secondary">
                     {{ session.notes_md|speaker_md }}
                 </div>
             {% endif %}
+            {% if not session.summary_md and not session.outline_md %}
+                <p class="text-secondary">
+                    {% trans "No description yet." %}
+                </p>
+            {% endif %}
+        </div>
+    </div>
+    <div class="row g-4">
+        <div class="col-lg-8">
+            <h2 class="h5 mb-3" id="checklist">
+                {% trans "Checklists for this session" %}
+                {% if glance.open %}
+                    <span class="badge text-bg-light border align-middle">{{ glance.open }} {% trans "open" %}</span>
+                {% endif %}
+            </h2>
+            {% for group in checklist_groups %}
+                <div class="mb-4" data-checklist-presenter="{{ group.presenter.pk }}">
+                    <h3 class="h6 fw-bold text-uppercase mb-2">
+                        <a href="{{ group.presenter.get_absolute_url }}"
+                           class="link-body-emphasis">{{ group.presenter.display_name }}</a>
+                    </h3>
+                    {% if group.speaker %}
+                        <h4 class="h6 fw-bold mb-2">
+                            {% trans "Their to-dos" %}
+                        </h4>
+                        <div class="mb-2">
+                            {% trans "None." as empty_speaker %}
+                            {% include "speakers/_organizer_item_table.html" with items=group.speaker owner_choices=owner_choices can_assign=can_assign empty=empty_speaker %}
+                        </div>
+                    {% endif %}
+                    {% if group.organizer %}
+                        <h4 class="h6 fw-bold mt-3 mb-2">
+                            {% trans "What we're preparing for them" %}
+                        </h4>
+                        {% trans "None." as empty_organizer %}
+                        {% include "speakers/_organizer_item_table.html" with items=group.organizer owner_choices=owner_choices can_assign=can_assign empty=empty_organizer %}
+                    {% endif %}
+                </div>
+            {% empty %}
+                <p class="text-secondary">
+                    {% trans "No presenter checklists yet; they appear once a presenter accepts." %}
+                </p>
+            {% endfor %}
+            <div class="mb-2" data-checklist-session>
+                <h3 class="h6 text-uppercase text-secondary">
+                    {% trans "Session items" %}
+                </h3>
+                {% trans "No session-level items (post-production items appear here for pre-recorded sessions)." as empty_session %}
+                {% include "speakers/_organizer_item_table.html" with items=session_items owner_choices=owner_choices can_assign=can_assign empty=empty_session %}
+            </div>
+            {% if is_organizer %}
+                <details class="mb-4" id="add-item">
+                    <summary class="small">
+                        {% trans "Add a one-off session item" %}
+                    </summary>
+                    <form method="post"
+                          class="row g-2 mt-1"
+                          action="{% url 'speakers:session_add_item' session.slug %}">
+                        {% csrf_token %}
+                        <div class="col-md-5">
+                            {{ adhoc_form.title.label_tag }} {{ adhoc_form.title }}
+                        </div>
+                        <div class="col-md-3">
+                            {{ adhoc_form.owner_kind.label_tag }} {{ adhoc_form.owner_kind }}
+                        </div>
+                        <div class="col-md-4">
+                            {{ adhoc_form.due_date.label_tag }} {{ adhoc_form.due_date }}
+                        </div>
+                        <div class="col-md-6">
+                            {{ adhoc_form.owner.label_tag }} {{ adhoc_form.owner }}
+                        </div>
+                        <div class="col-12">
+                            {{ adhoc_form.description_md.label_tag }} {{ adhoc_form.description_md }}
+                        </div>
+                        <div class="col-12">
+                            <button class="btn btn-sm btn-outline-primary" type="submit">
+                                {% trans "Add item" %}
+                            </button>
+                        </div>
+                    </form>
+                </details>
+            {% endif %}
+            <h2 class="h5 mt-4 mb-3" id="files">
+                {% trans "Files" %}
+                {% if media_groups %}
+                    <span class="badge text-bg-light border align-middle">{{ media_groups|length }}</span>
+                {% endif %}
+            </h2>
+            {% include "speakers/_media_files.html" with session=session media_groups=media_groups can_edit=can_upload_media %}
+            {% if can_upload_media and media_on %}
+                <div class="card mb-4" id="add-file">
+                    <div class="card-header">
+                        <i class="fa-solid fa-cloud-arrow-up"></i> {% trans "Add a file" %}
+                    </div>
+                    <div class="card-body">
+                        {% include "speakers/_upload_panel.html" with session=session kinds=media_kinds with_language=True open_uploads=open_uploads panel_id="files" %}
+                    </div>
+                </div>
+            {% endif %}
         </div>
         <div class="col-lg-4">
-            <div class="card mb-3">
+            <div class="card mb-3" id="presenters">
                 <div class="card-header">
                     {% trans "Presenters" %}
                 </div>
@@ -280,7 +518,55 @@
                     </div>
                 {% endif %}
             </div>
-            <div class="card mb-3">
+            {% if video and can_download_media %}
+                <div class="card mb-3" id="video-card">
+                    <div class="card-header">
+                        <i class="fa-solid fa-film"></i> {% trans "Video" %}
+                    </div>
+                    <div class="card-body small">
+                        {% if video.current %}
+                            <div>
+                                <strong>{% trans "Raw" %}:</strong>
+                                v{{ video.current.version }}
+                                {% if video.current.duration_seconds is not None %}
+                                    · {{ video.current.duration_seconds|duration }}
+                                    {% if video.limit_minutes %}
+                                        {% if video.over_by %}
+                                            <span class="text-danger">({% blocktranslate with limit=video.limit_minutes %}over the {{ limit }}-minute limit{% endblocktranslate %})</span>
+                                        {% else %}
+                                            <span class="text-success">({% trans "within the limit" %})</span>
+                                        {% endif %}
+                                    {% endif %}
+                                {% elif video.current.probe_error %}
+                                    · <span class="text-danger">{% trans "length not measured" %}</span>
+                                {% else %}
+                                    · {% trans "length not checked yet" %}
+                                {% endif %}
+                                {% if video.current.storage_key or video.current.file %}
+                                    · <a href="{% url 'speakers:media_download' session.slug video.current.pk %}">{% trans "Download" %}</a>
+                                {% endif %}
+                            </div>
+                        {% else %}
+                            <div class="text-warning-emphasis">
+                                <strong>{% trans "Raw" %}:</strong> {% trans "not uploaded yet" %}
+                            </div>
+                        {% endif %}
+                        <div>
+                            <strong>{% trans "Final cut" %}:</strong>
+                            {% if processed %}
+                                v{{ processed.version }}
+                                · <a href="{% url 'speakers:media_download' session.slug processed.pk %}">{% trans "Download" %}</a>
+                            {% else %}
+                                {% trans "not yet" %}
+                            {% endif %}
+                        </div>
+                        <div class="mt-1">
+                            <a href="#files">{% trans "All files" %}</a>
+                        </div>
+                    </div>
+                </div>
+            {% endif %}
+            <div class="card mb-3" id="details">
                 <div class="card-header">
                     {% trans "Details" %}
                 </div>
@@ -317,10 +603,10 @@
                     {% endif %}
                 </div>
             </div>
-            <div class="card">
-                <div class="card-header">
+            <details class="card mb-3" id="activity">
+                <summary class="card-header">
                     {% trans "Activity" %}
-                </div>
+                </summary>
                 <ul class="list-group list-group-flush small">
                     {% for entry in activity %}
                         <li class="list-group-item">
@@ -336,91 +622,7 @@
                         </li>
                     {% endfor %}
                 </ul>
-            </div>
+            </details>
         </div>
     </div>
-    <h2 class="h5 mt-4 mb-3" id="checklist">
-        {% trans "Checklists for this session" %}
-    </h2>
-    {% for group in checklist_groups %}
-        <div class="mb-4" data-checklist-presenter="{{ group.presenter.pk }}">
-            <h3 class="h6 fw-bold text-uppercase mb-2">
-                <a href="{{ group.presenter.get_absolute_url }}"
-                   class="link-body-emphasis">{{ group.presenter.display_name }}</a>
-            </h3>
-            {% if group.speaker %}
-                <h4 class="h6 fw-bold mb-2">
-                    {% trans "Their to-dos" %}
-                </h4>
-                <div class="mb-2">
-                    {% trans "None." as empty_speaker %}
-                    {% include "speakers/_organizer_item_table.html" with items=group.speaker owner_choices=owner_choices can_assign=can_assign empty=empty_speaker %}
-                </div>
-            {% endif %}
-            {% if group.organizer %}
-                <h4 class="h6 fw-bold mt-3 mb-2">
-                    {% trans "What we're preparing for them" %}
-                </h4>
-                {% trans "None." as empty_organizer %}
-                {% include "speakers/_organizer_item_table.html" with items=group.organizer owner_choices=owner_choices can_assign=can_assign empty=empty_organizer %}
-            {% endif %}
-        </div>
-    {% empty %}
-        <p class="text-secondary">
-            {% trans "No presenter checklists yet; they appear once a presenter accepts." %}
-        </p>
-    {% endfor %}
-    <div class="mb-2" data-checklist-session>
-        <h3 class="h6 text-uppercase text-secondary">
-            {% trans "Session items" %}
-        </h3>
-        {% trans "No session-level items (post-production items appear here for pre-recorded sessions)." as empty_session %}
-        {% include "speakers/_organizer_item_table.html" with items=session_items owner_choices=owner_choices can_assign=can_assign empty=empty_session %}
-    </div>
-    {% if is_organizer %}
-        <details class="mb-4">
-            <summary class="small">
-                {% trans "Add a one-off session item" %}
-            </summary>
-            <form method="post"
-                  class="row g-2 mt-1"
-                  action="{% url 'speakers:session_add_item' session.slug %}">
-                {% csrf_token %}
-                <div class="col-md-5">
-                    {{ adhoc_form.title.label_tag }} {{ adhoc_form.title }}
-                </div>
-                <div class="col-md-3">
-                    {{ adhoc_form.owner_kind.label_tag }} {{ adhoc_form.owner_kind }}
-                </div>
-                <div class="col-md-4">
-                    {{ adhoc_form.due_date.label_tag }} {{ adhoc_form.due_date }}
-                </div>
-                <div class="col-md-6">
-                    {{ adhoc_form.owner.label_tag }} {{ adhoc_form.owner }}
-                </div>
-                <div class="col-12">
-                    {{ adhoc_form.description_md.label_tag }} {{ adhoc_form.description_md }}
-                </div>
-                <div class="col-12">
-                    <button class="btn btn-sm btn-outline-primary" type="submit">
-                        {% trans "Add item" %}
-                    </button>
-                </div>
-            </form>
-        </details>
-    {% endif %}
-    <h2 class="h5 mt-4 mb-3" id="files">
-        {% trans "Files" %}
-    </h2>
-    {% include "speakers/_media_files.html" with session=session media_groups=media_groups can_edit=can_upload_media %}
-    {% if can_upload_media %}
-        <div class="card mb-4">
-            <div class="card-header">
-                <i class="fa-solid fa-cloud-arrow-up"></i> {% trans "Add a file" %}
-            </div>
-            <div class="card-body">
-                {% include "speakers/_upload_panel.html" with session=session kinds=media_kinds with_language=True open_uploads=open_uploads panel_id="files" %}
-            </div>
-        </div>
-    {% endif %}
 {% endblock content %}

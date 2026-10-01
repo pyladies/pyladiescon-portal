@@ -313,3 +313,51 @@ button.checklist-box-done:hover {
 .upload-progress {
     height: 1.25rem;
 }
+
+/* At-a-glance strip on the session pages (templates/speakers/session_detail.html,
+   speaker_session_detail.html): one tile per thing that needs a person,
+   each a link to its section. The left edge carries the state. */
+.glance-tile {
+    color: inherit;
+    text-decoration: none;
+    border-left: 4px solid var(--bs-border-color);
+}
+.glance-tile:hover {
+    border-color: var(--bs-primary);
+    color: inherit;
+}
+.glance-tile.glance-ok {
+    border-left-color: var(--bs-success);
+}
+.glance-tile.glance-warn {
+    border-left-color: var(--bs-warning);
+}
+.glance-tile.glance-bad {
+    border-left-color: var(--bs-danger);
+}
+.glance-label {
+    font-size: 0.7rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--bs-secondary);
+}
+.glance-value {
+    font-weight: 600;
+}
+.glance-detail {
+    font-size: 0.8rem;
+    color: var(--bs-secondary);
+}
+/* A folded card (Activity): the header is the summary. */
+details.card > summary.card-header {
+    cursor: pointer;
+    list-style: none;
+}
+details.card > summary.card-header::before {
+    content: "\25B8";
+    display: inline-block;
+    width: 1em;
+}
+details.card[open] > summary.card-header::before {
+    content: "\25BE";
+}
