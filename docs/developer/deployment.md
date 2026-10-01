@@ -91,6 +91,71 @@ else. In the Django admin, under *Periodic tasks*, a task whose *Last run at*
 is empty has never been dispatched, which almost always means `worker-beat`
 is not running.
 
+### Emails queued but never sent
+
+An email is queued by the web process and sent by the `worker` process. The
+presenter page calls an invitation **Sent** the moment it is queued, and the
+record that the email actually went out (a row under Maintenance > Emails) is
+written by the worker. If the worker is killed or restarted while it holds the
+task, the task is lost without an error: nothing in Sentry, no failed record,
+and the page still says **Sent**. This happened on 1 October 2026.
+
+**Maintenance > Invitations** (maintainers only) finds these. It lists the
+active edition's invitations that were marked sent and have no successful
+email record for that send, oldest first:
+
+| Email record column | Meaning |
+|---|---|
+| **No record** | Nothing was recorded. The task was most likely lost. |
+| **Failed** | The worker tried and the mail provider refused; the error is shown. |
+| **Probably still queued** | Marked sent in the last five minutes. Wait; it cannot be selected yet. |
+
+Tick the rows and press **Send selected again**, or **Send all N again**. Each
+one gets a fresh link and expiry, so the earlier link stops working, and a
+row leaves the list once its email is recorded. If it is still there a few
+minutes later, the send is failing again: look in the worker log (below).
+Every send from this page is an activity entry on the presenter and the
+session ("Sent again from Maintenance") and appears at the bottom of the page.
+
+Limits worth knowing:
+
+- Only invitations that are still waiting are listed. One that was opened,
+  accepted, declined or cancelled is not missing anything.
+- Email records exist only from 26 September 2026, so earlier invitations
+  cannot be checked, and the page says from when it can.
+- If the mail provider accepted a message and the process died before the
+  record was saved, the speaker has the email but the page lists it. Sending
+  again gives them a second one.
+
+**Finding out why.** Cabotage runs each `Procfile` line as its own
+deployment, so the `worker` process has its own logs, apart from `web`; open
+that process, and check it is scaled to at least one replica. The apps log at
+INFO to standard output (`PORTAL_LOG_LEVEL` changes the level). For one
+invitation the lines are, in order:
+
+```
+INFO speakers.services: Invitation 482 for presenter 91 marked sent by 7; email queued on commit
+INFO common.tasks: Queued speakers.tasks.send_invitation_email_task as task 3f1c...
+INFO speakers.tasks: Invitation email: sending invitation 482 to presenter 91 (task 3f1c...)
+INFO speakers.tasks: Invitation email: invitation 482 sent, email record 1042 (task 3f1c...)
+```
+
+The task id ties the web log to the worker log; Celery's own `received` and
+`succeeded` lines carry the same id. A `received` line with no `succeeded`,
+or a `WorkerLostError` or "Worker exited prematurely" line, means the worker
+died holding the task: look for restarts and out-of-memory kills of the
+`worker` process at that time. No `received` line at all means the task never
+arrived: search the web log for `Failed to enqueue Celery task`, which is a
+broker (Redis) outage. A failure inside the task logs the traceback and the
+invitation id, and goes to Sentry. Addresses are never logged.
+
+Celery starts one child process per CPU it can see, which in a container is
+often the node's core count, not the container's share; a small memory limit
+then gets a child killed. Set `--concurrency` on the `worker` line of the
+`Procfile` if restarts coincide with lost emails. The design for tracking
+delivery properly, and the steps not built yet, are in
+`docs/architecture/email-delivery.md`.
+
 ### Database
 
 The portal needs **PostgreSQL 15 or newer**. The speakers app declares unique

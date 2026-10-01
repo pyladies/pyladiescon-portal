@@ -4,6 +4,7 @@ Views and admin actions call these; they never touch the email or the
 account machinery directly.
 """
 
+import logging
 import re
 
 from allauth.account.models import EmailAddress
@@ -47,6 +48,8 @@ from .tasks import (
     send_proposal_rejected_email_task,
 )
 
+logger = logging.getLogger(__name__)
+
 
 class InvitationError(Exception):
     """A link that cannot be used; ``reason`` names why for the template."""
@@ -78,6 +81,12 @@ def send_invitation(invitation, actor=None):
             message=f"Invitation sent to {invitation.sent_to}",
             presenter_id=invitation.presenter_id,
             session_id=invitation.session_id,
+        )
+        logger.info(
+            "Invitation %s for presenter %s marked sent by %s; email queued on commit",
+            invitation.pk,
+            invitation.presenter_id,
+            getattr(actor, "pk", None),
         )
         # Only once the token is durably stored, so the email never carries
         # a link the database rolled back.

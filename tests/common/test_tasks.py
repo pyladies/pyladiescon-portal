@@ -32,3 +32,18 @@ def test_enqueue_swallows_broker_error(caplog):
     with caplog.at_level(logging.ERROR):
         enqueue(_FailingTask())  # must not raise
     assert "Failed to enqueue" in caplog.text
+
+
+def test_enqueue_logs_the_task_id(caplog):
+    class Result:
+        id = "task-1234"
+
+    class Task:
+        name = "some.task"
+
+        def delay(self, *args, **kwargs):
+            return Result()
+
+    with caplog.at_level(logging.INFO):
+        enqueue(Task())
+    assert "Queued some.task as task task-1234" in caplog.text

@@ -220,6 +220,37 @@ USE_TZ = True
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticroot"
 MEDIA_ROOT = os.path.join(BASE_DIR, "media")
+# Logging. Without this the app's own INFO messages have no handler in the web
+# process, so only gunicorn's request lines reach the platform's logs. The
+# portal's apps log at INFO (a task starting and ending, an invitation
+# retriggered) through the root handler; a Celery worker replaces the root
+# handler with its own, so the same lines appear once in its log too.
+PORTAL_LOG_LEVEL = os.getenv("PORTAL_LOG_LEVEL", "INFO")
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "plain": {"format": "%(asctime)s %(levelname)s %(name)s: %(message)s"},
+    },
+    "handlers": {
+        "console": {"class": "logging.StreamHandler", "formatter": "plain"},
+    },
+    "root": {"handlers": ["console"], "level": "WARNING"},
+    "loggers": {
+        app: {"level": PORTAL_LOG_LEVEL}
+        for app in (
+            "common",
+            "portal",
+            "portal_account",
+            "speakers",
+            "sponsorship",
+            "volunteer",
+            "attendee",
+            "webhooks",
+        )
+    },
+}
+
 MEDIA_URL = "/media/"
 
 USE_SPACES = os.getenv("USE_SPACES")

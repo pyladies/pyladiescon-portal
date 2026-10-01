@@ -41,17 +41,46 @@ from .transcription import fail_stale_jobs, transcribe
 logger = logging.getLogger(__name__)
 
 
-@shared_task
-def send_invitation_email_task(invitation_id):
-    """Send the invitation email for ``invitation_id``."""
+@shared_task(bind=True)
+def send_invitation_email_task(self, invitation_id):
+    """Send the invitation email for ``invitation_id``.
+
+    Logs when it starts, when it ends and why it failed, each with the task
+    id that ``enqueue`` logged, so the worker's log can say what became of an
+    invitation the presenter page calls sent. The address is never logged.
+    """
+    task_id = self.request.id
     invitation = (
         Invitation.objects.filter(pk=invitation_id)
         .select_related("presenter", "session", "conference")
         .first()
     )
     if invitation is None:
+        logger.warning(
+            "Invitation email: invitation %s not found (task %s)",
+            invitation_id,
+            task_id,
+        )
         return f"Invitation with id {invitation_id} not found"
-    send_invitation_email(invitation)
+    logger.info(
+        "Invitation email: sending invitation %s to presenter %s (task %s)",
+        invitation_id,
+        invitation.presenter_id,
+        task_id,
+    )
+    try:
+        record = send_invitation_email(invitation)
+    except Exception:
+        logger.exception(
+            "Invitation email: invitation %s failed (task %s)", invitation_id, task_id
+        )
+        raise
+    logger.info(
+        "Invitation email: invitation %s sent, email record %s (task %s)",
+        invitation_id,
+        record.pk,
+        task_id,
+    )
     return f"Sent invitation email for {invitation_id}"
 
 

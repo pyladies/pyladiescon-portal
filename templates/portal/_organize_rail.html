@@ -131,6 +131,8 @@ layout, as before.
     {% include "portal/_sidebar_item.html" with url=maintenance_emails_url label=_("Emails") icon="fa-envelope-open-text" only %}
     {% url 'maintenance_exports' as maintenance_exports_url %}
     {% include "portal/_sidebar_item.html" with url=maintenance_exports_url label=_("File exports") icon="fa-file-zipper" only %}
+    {% url 'maintenance_invitations' as maintenance_invitations_url %}
+    {% include "portal/_sidebar_item.html" with url=maintenance_invitations_url label=_("Invitations") icon="fa-paper-plane" only %}
 {% endif %}
 <hr class="my-2">
 {% url 'team_new' as team_new_url %}
