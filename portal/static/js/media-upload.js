@@ -17,6 +17,8 @@
  *   [data-role=file]             <input type=file>
  *   [data-role=kind]             optional <select> (organizer panel)
  *   [data-role=language]         optional <input> (organizer panel)
+ *   [data-role=variant]          optional <input> (organizer panel): which of
+ *                                several files of one kind (square, gif...)
  *   [data-role=start]            the upload button
  *   [data-role=cancel]           cancel/abort
  *   [data-role=progress]         .progress-bar
@@ -50,6 +52,7 @@
         this.file = root.querySelector("[data-role=file]");
         this.kind = root.querySelector("[data-role=kind]");
         this.language = root.querySelector("[data-role=language]");
+        this.variant = root.querySelector("[data-role=variant]");
         this.startButton = root.querySelector("[data-role=start]");
         this.cancelButton = root.querySelector("[data-role=cancel]");
         this.bar = root.querySelector("[data-role=progress]");
@@ -75,8 +78,12 @@
         return this.language ? this.language.value.trim() : "";
     };
 
+    Panel.prototype.currentVariant = function () {
+        return this.variant ? this.variant.value.trim() : "";
+    };
+
     Panel.prototype.storageKey = function () {
-        return this.storagePrefix + ":" + this.currentKind();
+        return this.storagePrefix + ":" + this.currentKind() + ":" + this.currentVariant();
     };
 
     Panel.prototype.remembered = function () {
@@ -137,6 +144,7 @@
         this.file.disabled = on;
         if (this.kind) { this.kind.disabled = on; }
         if (this.language) { this.language.disabled = on; }
+        if (this.variant) { this.variant.disabled = on; }
         this.cancelButton.hidden = !on;
         this.bar.parentElement.hidden = !on;
     };
@@ -226,6 +234,7 @@
         return this.api("POST", this.startUrl, {
             kind: this.currentKind(),
             language: this.currentLanguage(),
+            variant: this.currentVariant(),
             filename: file.name,
             size_bytes: file.size,
             content_type: file.type || "application/octet-stream"

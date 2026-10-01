@@ -1,0 +1,108 @@
+{% load i18n speakers_extras %}
+{% comment %}
+The post-production tab (design §4.2): one row per pre-recorded session,
+one column per pipeline item, the videos in between. A blocked row is
+highlighted and carries the note (the overage, for the length check).
+Each cell shows the status and who is on it and links to the item page,
+where it is assigned; the board stays light that way.
+Expects: board (board.build_post_production_board)
+{% endcomment %}
+{% if board.rows %}
+    <div class="table-responsive">
+        <table class="table table-sm table-bordered checklist-board">
+            <thead class="table-light">
+                <tr>
+                    <th>
+                        {% trans "Session" %}
+                    </th>
+                    <th class="small fw-normal">
+                        {% trans "Videos" %}
+                    </th>
+                    {% for column in board.columns %}
+                        <th class="board-col small fw-normal">
+                            {{ column }}
+                        </th>
+                    {% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in board.rows %}
+                    <tr {% if row.blocked %}class="table-danger"{% endif %}
+                        data-session="{{ row.session.slug }}">
+                        <th class="fw-normal">
+                            <a href="{{ row.session.get_absolute_url }}">{{ row.session.title }}</a>
+                            {% if row.presenters %}
+                                <div class="small text-secondary">
+                                    {{ row.presenters|join:", " }}
+                                </div>
+                            {% endif %}
+                            {% if row.blocked_note %}
+                                <div class="small text-danger">
+                                    <i class="fa-solid fa-ban"></i> {{ row.blocked_note }}
+                                </div>
+                            {% elif row.overdue %}
+                                <div class="small text-danger">
+                                    {% blocktranslate count counter=row.overdue %}{{ counter }} overdue{% plural %}{{ counter }} overdue{% endblocktranslate %}
+                                </div>
+                            {% endif %}
+                        </th>
+                        <td class="small text-nowrap">
+                            {% if row.raw %}
+                                <a href="{% url 'speakers:media_download' row.session.slug row.raw.pk %}">{% trans "raw" %} v{{ row.raw.version }}</a>
+                                {% if row.raw.duration_seconds is not None %}
+                                    · {{ row.raw.duration_seconds|duration }}
+                                {% endif %}
+                            {% else %}
+                                <span class="text-warning-emphasis">{% trans "no raw video" %}</span>
+                            {% endif %}
+                            <br>
+                            {% if row.final %}
+                                <a href="{% url 'speakers:media_download' row.session.slug row.final.pk %}">{% trans "final cut" %} v{{ row.final.version }}</a>
+                            {% else %}
+                                <span class="text-secondary">{% trans "no final cut" %}</span>
+                            {% endif %}
+                        </td>
+                        {% for cell, css in row.cells %}
+                            <td class="{{ css }} text-center"
+                                title="{% if cell %}{{ cell.title }}: {{ cell.get_status_display }}{% if cell.due_date %}, due {{ cell.due_date|date:'j M' }}{% endif %}{% if cell.owner_label %}, {{ cell.owner_label }}{% endif %}{% if cell.note %}. {{ cell.note }}{% endif %}{% endif %}">
+                                {% if not cell %}
+                                    —
+                                {% else %}
+                                    <a class="link-body-emphasis text-decoration-none d-block"
+                                       href="{% url 'speakers:item_detail' cell.pk %}">
+                                        {% if cell.is_done %}
+                                            <i class="fa-solid fa-check"></i>
+                                        {% elif cell.status == "BLOCKED" %}
+                                            <i class="fa-solid fa-ban"></i>
+                                        {% elif cell.status == "SKIPPED" %}
+                                            <i class="fa-solid fa-forward"></i>
+                                        {% elif cell.is_waiting %}
+                                            <i class="fa-solid fa-hourglass-half text-secondary"></i>
+                                        {% elif cell.due_date %}
+                                            <span class="small">{{ cell.due_date|date:"j M" }}</span>
+                                        {% else %}
+                                            <span class="small text-secondary">{% trans "to do" %}</span>
+                                        {% endif %}
+                                        {% if cell.owner_label %}
+                                            <div class="small text-secondary text-truncate">
+                                                {{ cell.owner_label }}
+                                            </div>
+                                        {% elif cell.is_open %}
+                                            <div class="small text-secondary fst-italic">
+                                                {% trans "unassigned" %}
+                                            </div>
+                                        {% endif %}
+                                    </a>
+                                {% endif %}
+                            </td>
+                        {% endfor %}
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+{% else %}
+    <p class="text-secondary">
+        {% trans "No pre-recorded sessions with post-production items yet; they appear once a performance is confirmed." %}
+    </p>
+{% endif %}

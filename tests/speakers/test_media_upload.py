@@ -636,9 +636,7 @@ class TestLanguageAndType:
         self, bucket, session, performer
     ):
         upload = raw_upload(session, performer, language="zz", content_type="")
-        assert (
-            upload.language == "" and upload.content_type == "application/octet-stream"
-        )
+        assert upload.language == "" and upload.content_type == "video/mp4"
 
     def test_other_kinds_take_a_well_formed_tag(self, bucket, session, organizer):
         transcript = dict(kind="TRANSCRIPT", filename="t.vtt", content_type="text/vtt")
@@ -663,7 +661,7 @@ class TestLanguageAndType:
             filename="final.MOV",
             content_type="not a type",
         )
-        assert by_extension.content_type == "application/octet-stream"
+        assert by_extension.content_type == "video/quicktime"
         by_type = raw_upload(
             session,
             organizer,

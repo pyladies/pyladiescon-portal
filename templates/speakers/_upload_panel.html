@@ -6,6 +6,7 @@ static/js/media-upload.js. Params:
     kind            a fixed MediaKind value (performer panel), or omit and pass
     kinds           MediaKind.choices for a select (organizer panel)
     with_language   show the language field (transcripts, translations)
+    with_variant    show the variant field (promo materials: square, gif...)
     open_uploads    the caller's unfinished uploads here, for the note
     accept          the file input's accept attribute (optional)
     panel_id        unique suffix for element ids on the page
@@ -53,6 +54,31 @@ static/js/media-upload.js. Params:
                        data-role="language"
                        maxlength="10"
                        placeholder="en">
+            </div>
+        {% endif %}
+        {% if with_variant %}
+            <div class="col-md-2">
+                <label class="form-label small mb-1" for="upload-variant-{{ panel_id }}">
+                    {% trans "Variant" %}
+                </label>
+                <input class="form-control form-control-sm"
+                       id="upload-variant-{{ panel_id }}"
+                       data-role="variant"
+                       list="upload-variants-{{ panel_id }}"
+                       maxlength="40"
+                       placeholder="square">
+                <datalist id="upload-variants-{{ panel_id }}">
+                    <option value="square">
+                    </option>
+                    <option value="landscape">
+                    </option>
+                    <option value="vertical">
+                    </option>
+                    <option value="video">
+                    </option>
+                    <option value="gif">
+                    </option>
+                </datalist>
             </div>
         {% endif %}
         <div class="col">

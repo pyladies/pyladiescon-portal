@@ -23,7 +23,13 @@ from common.tasks import enqueue
 from portal_account import agreements
 from volunteer.models import Team
 
-from .board import build_board, write_board_csv
+from .board import (
+    POST_PRODUCTION_TAB,
+    build_board,
+    build_post_production_board,
+    write_board_csv,
+    write_post_production_csv,
+)
 from .checklists import (
     ChecklistError,
     add_adhoc_item,
@@ -85,6 +91,7 @@ from .media import (
     can_download,
     open_uploads,
     session_assets,
+    team_files,
     video_panel,
 )
 from .mixins import (
@@ -244,6 +251,7 @@ class SessionListView(
             Session.objects.for_conference(self.conference)
             .visible_to(self.request.user)
             .with_listing_data()
+            .with_video_status()
             .order_by("title")
         )
 
@@ -1416,6 +1424,9 @@ class SpeakerSessionDetailView(SpeakerSessionMixin, TemplateView):
                     if session.is_pre_recorded and settings.SPEAKER_MEDIA_BUCKET
                     else None
                 ),
+                # What the team made for this session: the poster, the
+                # final cut, the transcript (design §8.6 and §4.1).
+                "team_files": team_files(session),
             }
         )
         # The strip under the title: their to-dos, counted from the list
@@ -1677,24 +1688,31 @@ class ChecklistBoardView(LoginRequiredMixin, SpeakerStaffRequiredMixin, Template
     template_name = "speakers/checklist_board.html"
 
     def get_tab(self):
-        tab = self.request.GET.get("tab", "speaker").upper()
+        tab = self.request.GET.get("tab", "speaker").upper().replace("-", "_")
+        if tab == POST_PRODUCTION_TAB:
+            return tab
         return tab if tab in ItemOwner.values else ItemOwner.SPEAKER
+
+    def build(self, tab, sort="overdue"):
+        """The presenter board for the two owner tabs, the session board
+        (design §4.2) for post-production."""
+        if tab == POST_PRODUCTION_TAB:
+            return build_post_production_board(
+                self.conference, self.request.user, sort=sort
+            )
+        return build_board(self.conference, self.request.user, tab, sort=sort)
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         tab = self.get_tab()
+        sort = self.request.GET.get("sort", "overdue")
         context.update(
             {
                 "conference": self.conference,
                 "rail_active": "checklists",
                 "tab": tab,
-                "sort": self.request.GET.get("sort", "overdue"),
-                "board": build_board(
-                    self.conference,
-                    self.request.user,
-                    tab,
-                    sort=self.request.GET.get("sort", "overdue"),
-                ),
+                "sort": sort,
+                "board": self.build(tab, sort),
             }
         )
         return context
@@ -1703,12 +1721,15 @@ class ChecklistBoardView(LoginRequiredMixin, SpeakerStaffRequiredMixin, Template
 class ChecklistBoardExportView(ChecklistBoardView):
     def get(self, request, *args, **kwargs):
         tab = self.get_tab()
-        board = build_board(self.conference, request.user, tab)
+        board = self.build(tab)
         response = HttpResponse(content_type="text/csv")
         response["Content-Disposition"] = (
             f'attachment; filename="checklists-{tab.lower()}-{self.conference.slug}.csv"'
         )
-        write_board_csv(board, response)
+        if tab == POST_PRODUCTION_TAB:
+            write_post_production_csv(board, response)
+        else:
+            write_board_csv(board, response)
         return response
 
 

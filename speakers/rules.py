@@ -128,6 +128,24 @@ def asset_exists(item):
     )
 
 
+@rule(AutoRule.ASSET_SHARED)
+def asset_shared(item):
+    """A ready asset of the required kind that the team has shared with the
+    speaker: "promo materials shared with presenter" is done when the
+    speaker can see one, not when someone remembers to tick it."""
+    if not item.requires_asset_kind or item.session_id is None:
+        return False
+    return (
+        MediaAsset.latest_ready(
+            item.session,
+            item.requires_asset_kind,
+            item.requires_asset_language,
+            shared=True,
+        )
+        is not None
+    )
+
+
 @rule(AutoRule.VIDEO_LENGTH_OK)
 def video_length_ok(item):
     """The newest raw video within the limit, or Blocked by how much.

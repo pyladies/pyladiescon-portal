@@ -108,6 +108,45 @@ class TestOrganizerStrip:
         )
         assert "Checklists for this session" in html
 
+    def test_four_tabs_and_the_anchors_inside_them(
+        self, client, session, organizer, bucket
+    ):
+        """The page is split into tabs; the strip's tiles, the quick actions
+        and the redirects keep their anchors, which the script resolves to
+        the tab they live in."""
+        item(session)
+        client.force_login(organizer)
+        html = client.get(org_page(session)).content.decode()
+        for pane in ("tab-overview", "tab-checklists", "tab-files", "tab-details"):
+            assert f'data-bs-target="#{pane}"' in html and f'id="{pane}"' in html
+        assert "js/session-tabs" in html
+        assert 'data-anchor="checklist"' in html and 'data-anchor="files"' in html
+
+        # Each anchor sits inside its pane, in order.
+        def inside(anchor, pane):
+            start = html.index(f'id="{pane}"')
+            nxt = [
+                html.index(f'id="{p}"')
+                for p in ("tab-overview", "tab-checklists", "tab-files", "tab-details")
+                if html.index(f'id="{p}"') > start
+            ]
+            end = min(nxt) if nxt else len(html)
+            return start < html.index(f'id="{anchor}"') < end
+
+        assert inside("description", "tab-overview") and inside(
+            "presenters", "tab-overview"
+        )
+        assert inside("checklist", "tab-checklists") and inside(
+            "add-item", "tab-checklists"
+        )
+        assert inside("files", "tab-files") and inside("add-file", "tab-files")
+        assert inside("details", "tab-details") and inside("activity", "tab-details")
+        # The checklist tab carries the open count.
+        assert (
+            'data-anchor="checklist"' in html.split("Checklists")[0]
+            or "1</span>" in html
+        )
+
     def test_invite_action_only_when_someone_is_uninvited(
         self, client, session, organizer, conference
     ):
@@ -227,12 +266,16 @@ class TestSpeakerStrip:
         assert "Not uploaded yet" in html and "Upload it when it is ready" in html
         assert "Upload video" in html and 'href="#video"' in html
         assert "Not scheduled yet" in html and "Not yet public" in html
-        # Work first, description after, headings people know kept.
-        assert html.index('id="video"') < html.index('id="checklist"')
+        # Three tabs under the strip: Overview, Checklist, Files; headings
+        # people know kept.
+        for pane in ("tab-overview", "tab-checklist", "tab-files"):
+            assert f'data-bs-target="#{pane}"' in html and f'id="{pane}"' in html
+        assert "js/session-tabs" in html
         assert (
             html.index('id="glance"')
             < html.index('id="description"')
             < html.index('id="checklist"')
+            < html.index('id="video"')
         )
         assert "Checklist for this session" in html and "No description yet" in html
 
@@ -282,3 +325,4 @@ class TestSpeakerStrip:
         html = client.get(my_page(session)).content.decode()
         assert "Your video" not in html and "Nothing yet" in html
         assert "Your list appears once the team sets it up" in html
+        assert "Files the team shares with you appear on this tab" in html

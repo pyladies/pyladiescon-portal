@@ -2,9 +2,11 @@
 {% load i18n static %}
 {% load speakers_extras %}
 {% comment %}
-The speaker's session page puts what they came to do first: a strip of
-their to-dos and (for a performance) their video, then the video card
-and the checklist, and the description with the facts below.
+The speaker's session page: a strip of their to-dos and (for a
+performance) their video under the title, then three tabs so no one view
+is crowded: Overview (description, details, co-presenters), Checklist,
+Files (their video and what the team shared). The strip's tiles and the
+upload action open the tab their target lives in.
 {% endcomment %}
 {% block head_title %}
     {{ session.title }}
@@ -14,6 +16,7 @@ and the checklist, and the description with the facts below.
     {% if video %}
         <script src="{% static 'js/media-upload.js' %}" defer></script>
     {% endif %}
+    <script src="{% static 'js/session-tabs.js' %}" defer></script>
 {% endblock extra_head %}
 {% block breadcrumb %}
     {% url 'speakers:my_sessions' as bc_url %}
@@ -148,183 +151,288 @@ and the checklist, and the description with the facts below.
             </a>
         </div>
     </div>
-    <div class="mb-4" id="description">
-        <h2 class="h5 mb-3">
-            {% trans "Description" %}
-        </h2>
-        {% if session.summary_md %}
-            <h3 class="h6 text-uppercase text-secondary">
-                {% trans "Summary" %}
-            </h3>
-            <div class="mb-3">
-                {{ session.summary_md|speaker_md }}
-            </div>
-        {% endif %}
-        {% if session.outline_md %}
-            <h3 class="h6 text-uppercase text-secondary">
-                {% trans "Outline" %}
-            </h3>
-            <div class="mb-3">
-                {{ session.outline_md|speaker_md }}
-            </div>
-        {% endif %}
-        {% if session.prerequisites_md %}
-            <h3 class="h6 text-uppercase text-secondary">
-                {% trans "Prerequisites" %}
-            </h3>
-            <div class="mb-3">
-                {{ session.prerequisites_md|speaker_md }}
-            </div>
-        {% endif %}
-        {% if session.audience_md %}
-            <h3 class="h6 text-uppercase text-secondary">
-                {% trans "Audience" %}
-            </h3>
-            <div class="mb-3">
-                {{ session.audience_md|speaker_md }}
-            </div>
-        {% endif %}
-        {% if not session.summary_md and not session.outline_md %}
-            <p class="text-secondary">
-                {% trans "No description yet. A title and two sentences is a complete listing." %}
-                <a href="{% url 'speakers:my_session_edit' session.slug %}">{% trans "Add one" %}</a>
-            </p>
-        {% endif %}
-    </div>
-    {% if video %}
-        <div class="card mb-4" id="video">
-            <div class="card-header d-flex flex-wrap align-items-center gap-2">
-                <span>
-                    <i class="fa-solid fa-film"></i> {% trans "Your video" %}
-                </span>
-                {% if video.current %}
-                    <span class="badge text-bg-success">v{{ video.current.version }}</span>
+    {# Three tabs under the strip: what it is, what is theirs to do, the files (their video and what the team shared). The strip tiles and the quick action open the right tab (static/js/session-tabs.js). #}
+    <ul class="nav nav-tabs mb-3" id="session-tabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active"
+                    id="tab-overview-link"
+                    data-bs-toggle="tab"
+                    data-bs-target="#tab-overview"
+                    data-anchor="overview"
+                    type="button"
+                    role="tab"
+                    aria-controls="tab-overview"
+                    aria-selected="true">
+                {% trans "Overview" %}
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link"
+                    id="tab-checklist-link"
+                    data-bs-toggle="tab"
+                    data-bs-target="#tab-checklist"
+                    data-anchor="checklist"
+                    type="button"
+                    role="tab"
+                    aria-controls="tab-checklist"
+                    aria-selected="false">
+                {% trans "Checklist" %}
+                {% if glance.open %}
+                    <span class="badge text-bg-light border ms-1">{{ glance.open }}</span>
                 {% endif %}
-                {% if video.limit_minutes %}
-                    <span class="text-secondary small ms-auto">
-                        {% blocktranslate with limit=video.limit_minutes %}Limit: {{ limit }} minutes{% endblocktranslate %}
-                    </span>
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link"
+                    id="tab-files-link"
+                    data-bs-toggle="tab"
+                    data-bs-target="#tab-files"
+                    data-anchor="files"
+                    type="button"
+                    role="tab"
+                    aria-controls="tab-files"
+                    aria-selected="false">
+                {% trans "Files" %}
+                {% if team_files %}
+                    <span class="badge text-bg-light border ms-1">{{ team_files|length }}</span>
                 {% endif %}
-            </div>
-            <div class="card-body">
-                {% if video.current %}
-                    <div class="small mb-2">
-                        <span class="fw-semibold text-break">{{ video.current.original_filename|default:video.current.file.name }}</span>
-                        {% if video.current.size_bytes %}
-                            <span class="text-secondary">· {{ video.current.size_bytes|filesizeformat }}</span>
+            </button>
+        </li>
+    </ul>
+    <div class="tab-content" id="session-tab-panes">
+        <div class="tab-pane fade show active"
+             id="tab-overview"
+             role="tabpanel"
+             aria-labelledby="tab-overview-link"
+             tabindex="0">
+            <div class="row g-4" id="overview">
+                <div class="col-lg-8">
+                    <div class="mb-4" id="description">
+                        <h2 class="h5 mb-3">
+                            {% trans "Description" %}
+                        </h2>
+                        {% if session.summary_md %}
+                            <h3 class="h6 text-uppercase text-secondary">
+                                {% trans "Summary" %}
+                            </h3>
+                            <div class="mb-3">
+                                {{ session.summary_md|speaker_md }}
+                            </div>
                         {% endif %}
-                        <span class="text-secondary">· {% trans "uploaded" %} {{ video.current.creation_date|date:"j M H:i" }} UTC</span>
-                        {% if video.current.storage_key or video.current.file %}
-                            <a class="ms-2"
-                               href="{% url 'speakers:media_download' session.slug video.current.pk %}">{% trans "Download" %}</a>
+                        {% if session.outline_md %}
+                            <h3 class="h6 text-uppercase text-secondary">
+                                {% trans "Outline" %}
+                            </h3>
+                            <div class="mb-3">
+                                {{ session.outline_md|speaker_md }}
+                            </div>
+                        {% endif %}
+                        {% if session.prerequisites_md %}
+                            <h3 class="h6 text-uppercase text-secondary">
+                                {% trans "Prerequisites" %}
+                            </h3>
+                            <div class="mb-3">
+                                {{ session.prerequisites_md|speaker_md }}
+                            </div>
+                        {% endif %}
+                        {% if session.audience_md %}
+                            <h3 class="h6 text-uppercase text-secondary">
+                                {% trans "Audience" %}
+                            </h3>
+                            <div class="mb-3">
+                                {{ session.audience_md|speaker_md }}
+                            </div>
+                        {% endif %}
+                        {% if not session.summary_md and not session.outline_md %}
+                            <p class="text-secondary">
+                                {% trans "No description yet. A title and two sentences is a complete listing." %}
+                                <a href="{% url 'speakers:my_session_edit' session.slug %}">{% trans "Add one" %}</a>
+                            </p>
                         {% endif %}
                     </div>
-                    {% if video.current.duration_seconds is None and video.current.probe_error %}
-                        <div class="small text-secondary mb-3">
-                            <i class="fa-solid fa-triangle-exclamation"></i> {% trans "The length could not be checked automatically; the team will look." %}
+                </div>
+                <div class="col-lg-4">
+                    <div class="card mb-3" id="details">
+                        <div class="card-header">
+                            {% trans "Details" %}
                         </div>
-                    {% elif video.current.duration_seconds is None %}
-                        <div class="small text-secondary mb-3">
-                            <i class="fa-regular fa-clock"></i> {% trans "Length not checked yet." %}
-                        </div>
-                    {% elif video.limit_minutes %}
-                        {% with length=video.current.duration_seconds|duration %}
-                            <div class="progress mb-1 upload-progress"
-                                 role="progressbar"
-                                 aria-valuenow="{{ video.duration_pct }}"
-                                 aria-valuemin="0"
-                                 aria-valuemax="100">
-                                <div class="progress-bar {% if video.over_by %}bg-danger{% else %}bg-success{% endif %}"
-                                     style="width: {{ video.duration_pct }}%">
-                                </div>
+                        <div class="card-body small">
+                            <div>
+                                <strong>{% trans "Level" %}:</strong> {{ session.get_level_display|default:"—" }}
                             </div>
-                            <div class="small mb-3 {% if video.over_by %}text-danger{% else %}text-secondary{% endif %}">
-                                {% if video.over_by %}
-                                    {% blocktranslate with length=length limit=video.limit_minutes %}{{ length }}: over the {{ limit }}-minute limit. Please upload a shorter cut.{% endblocktranslate %}
+                            <div>
+                                <strong>{% trans "Language" %}:</strong> {{ session.language|default:"—" }}
+                            </div>
+                            <div>
+                                <strong>{% trans "When" %}:</strong>
+                                {% if slot %}
+                                    {{ slot.start_utc|date:"D j M H:i" }} UTC
                                 {% else %}
-                                    {% blocktranslate with length=length limit=video.limit_minutes %}{{ length }} of {{ limit }} minutes.{% endblocktranslate %}
+                                    {% trans "Not scheduled yet" %}
                                 {% endif %}
                             </div>
-                        {% endwith %}
-                    {% else %}
-                        <div class="small text-secondary mb-3">
-                            {% blocktranslate with length=video.current.duration_seconds|duration %}{{ length }} long.{% endblocktranslate %}
                         </div>
-                    {% endif %}
-                    <div class="small fw-semibold mb-1">
-                        {% trans "Replace it" %}
                     </div>
-                {% else %}
-                    <p class="small text-secondary">
-                        {% trans "No video yet. Upload your performance here; it goes straight to storage and the team takes it from there." %}
-                    </p>
-                {% endif %}
-                {% include "speakers/_upload_panel.html" with session=session kind="RAW_VIDEO" open_uploads=video.open_uploads accept="video/*" panel_id="video" %}
-            </div>
-            {% if video.history %}
-                <details class="card-body border-top pt-2">
-                    <summary class="small">
-                        {% blocktranslate count counter=video.history|length %}{{ counter }} earlier version{% plural %}{{ counter }} earlier versions{% endblocktranslate %}
-                    </summary>
-                    <ul class="list-unstyled mt-2 mb-0 d-grid gap-2">
-                        {% for asset in video.history %}
-                            <li>
-                                {% include "speakers/_media_asset_row.html" with asset=asset session=session %}
-                            </li>
-                        {% endfor %}
-                    </ul>
-                </details>
-            {% endif %}
-        </div>
-    {% endif %}
-    <h2 class="h5 mb-3" id="checklist">
-        {% trans "Checklist for this session" %}
-        {% if glance.open %}
-            <span class="badge text-bg-light border align-middle">{{ glance.open }} {% trans "open" %}</span>
-        {% endif %}
-    </h2>
-    {% include "speakers/_speaker_checklist_lists.html" with speaker_items=speaker_items organizer_items=organizer_items video_items=video_items %}
-    <div class="row g-4 mt-2" id="details-row">
-        <div class="col-lg-6">
-            <div class="card" id="details">
-                <div class="card-header">
-                    {% trans "Details" %}
+                    <div class="card">
+                        <div class="card-header">
+                            {% trans "Co-presenters" %}
+                        </div>
+                        <ul class="list-group list-group-flush">
+                            {% for other in co_presenters %}
+                                <li class="list-group-item">
+                                    {{ other.presenter.display_name }}
+                                    <span class="badge text-bg-light border">{{ other.get_role_display }}</span>
+                                </li>
+                            {% empty %}
+                                <li class="list-group-item text-secondary">
+                                    {% trans "Just you so far." %}
+                                </li>
+                            {% endfor %}
+                        </ul>
+                    </div>
                 </div>
-                <div class="card-body small">
-                    <div>
-                        <strong>{% trans "Level" %}:</strong> {{ session.get_level_display|default:"—" }}
-                    </div>
-                    <div>
-                        <strong>{% trans "Language" %}:</strong> {{ session.language|default:"—" }}
-                    </div>
-                    <div>
-                        <strong>{% trans "When" %}:</strong>
-                        {% if slot %}
-                            {{ slot.start_utc|date:"D j M H:i" }} UTC
-                        {% else %}
-                            {% trans "Not scheduled yet" %}
+            </div>
+        </div>
+        <div class="tab-pane fade"
+             id="tab-checklist"
+             role="tabpanel"
+             aria-labelledby="tab-checklist-link"
+             tabindex="0">
+            <h2 class="h5 mb-3" id="checklist">
+                {% trans "Checklist for this session" %}
+                {% if glance.open %}
+                    <span class="badge text-bg-light border align-middle">{{ glance.open }} {% trans "open" %}</span>
+                {% endif %}
+            </h2>
+            {% include "speakers/_speaker_checklist_lists.html" with speaker_items=speaker_items organizer_items=organizer_items video_items=video_items %}
+        </div>
+        <div class="tab-pane fade"
+             id="tab-files"
+             role="tabpanel"
+             aria-labelledby="tab-files-link"
+             tabindex="0">
+            <div id="files">
+                {% if video %}
+                    <div class="card mb-4" id="video">
+                        <div class="card-header d-flex flex-wrap align-items-center gap-2">
+                            <span>
+                                <i class="fa-solid fa-film"></i> {% trans "Your video" %}
+                            </span>
+                            {% if video.current %}
+                                <span class="badge text-bg-success">v{{ video.current.version }}</span>
+                            {% endif %}
+                            {% if video.limit_minutes %}
+                                <span class="text-secondary small ms-auto">
+                                    {% blocktranslate with limit=video.limit_minutes %}Limit: {{ limit }} minutes{% endblocktranslate %}
+                                </span>
+                            {% endif %}
+                        </div>
+                        <div class="card-body">
+                            {% if video.current %}
+                                <div class="small mb-2">
+                                    <span class="fw-semibold text-break">{{ video.current.original_filename|default:video.current.file.name }}</span>
+                                    {% if video.current.size_bytes %}
+                                        <span class="text-secondary">· {{ video.current.size_bytes|filesizeformat }}</span>
+                                    {% endif %}
+                                    <span class="text-secondary">· {% trans "uploaded" %} {{ video.current.creation_date|date:"j M H:i" }} UTC</span>
+                                    {% if video.current.storage_key or video.current.file %}
+                                        <a class="ms-2"
+                                           href="{% url 'speakers:media_download' session.slug video.current.pk %}">{% trans "Download" %}</a>
+                                    {% endif %}
+                                </div>
+                                {% include "speakers/_media_preview.html" with asset=video.current session=session %}
+                                {% if video.current.duration_seconds is None and video.current.probe_error %}
+                                    <div class="small text-secondary mb-3">
+                                        <i class="fa-solid fa-triangle-exclamation"></i> {% trans "The length could not be checked automatically; the team will look." %}
+                                    </div>
+                                {% elif video.current.duration_seconds is None %}
+                                    <div class="small text-secondary mb-3">
+                                        <i class="fa-regular fa-clock"></i> {% trans "Length not checked yet." %}
+                                    </div>
+                                {% elif video.limit_minutes %}
+                                    {% with length=video.current.duration_seconds|duration %}
+                                        <div class="progress mb-1 upload-progress"
+                                             role="progressbar"
+                                             aria-valuenow="{{ video.duration_pct }}"
+                                             aria-valuemin="0"
+                                             aria-valuemax="100">
+                                            <div class="progress-bar {% if video.over_by %}bg-danger{% else %}bg-success{% endif %}"
+                                                 style="width: {{ video.duration_pct }}%">
+                                            </div>
+                                        </div>
+                                        <div class="small mb-3 {% if video.over_by %}text-danger{% else %}text-secondary{% endif %}">
+                                            {% if video.over_by %}
+                                                {% blocktranslate with length=length limit=video.limit_minutes %}{{ length }}: over the {{ limit }}-minute limit. Please upload a shorter cut.{% endblocktranslate %}
+                                            {% else %}
+                                                {% blocktranslate with length=length limit=video.limit_minutes %}{{ length }} of {{ limit }} minutes.{% endblocktranslate %}
+                                            {% endif %}
+                                        </div>
+                                    {% endwith %}
+                                {% else %}
+                                    <div class="small text-secondary mb-3">
+                                        {% blocktranslate with length=video.current.duration_seconds|duration %}{{ length }} long.{% endblocktranslate %}
+                                    </div>
+                                {% endif %}
+                                <div class="small fw-semibold mb-1">
+                                    {% trans "Replace it" %}
+                                </div>
+                            {% else %}
+                                <p class="small text-secondary">
+                                    {% trans "No video yet. Upload your performance here; it goes straight to storage and the team takes it from there." %}
+                                </p>
+                            {% endif %}
+                            {% include "speakers/_upload_panel.html" with session=session kind="RAW_VIDEO" open_uploads=video.open_uploads accept="video/*" panel_id="video" %}
+                        </div>
+                        {% if video.history %}
+                            <details class="card-body border-top pt-2">
+                                <summary class="small">
+                                    {% blocktranslate count counter=video.history|length %}{{ counter }} earlier version{% plural %}{{ counter }} earlier versions{% endblocktranslate %}
+                                </summary>
+                                <ul class="list-unstyled mt-2 mb-0 d-grid gap-2">
+                                    {% for asset in video.history %}
+                                        <li>
+                                            {% include "speakers/_media_asset_row.html" with asset=asset session=session %}
+                                        </li>
+                                    {% endfor %}
+                                </ul>
+                            </details>
                         {% endif %}
                     </div>
-                </div>
-            </div>
-        </div>
-        <div class="col-lg-6">
-            <div class="card">
-                <div class="card-header">
-                    {% trans "Co-presenters" %}
-                </div>
-                <ul class="list-group list-group-flush">
-                    {% for other in co_presenters %}
-                        <li class="list-group-item">
-                            {{ other.presenter.display_name }}
-                            <span class="badge text-bg-light border">{{ other.get_role_display }}</span>
-                        </li>
-                    {% empty %}
-                        <li class="list-group-item text-secondary">
-                            {% trans "Just you so far." %}
-                        </li>
-                    {% endfor %}
-                </ul>
+                {% endif %}
+                {% if team_files %}
+                    <div class="card mb-4" id="team-files">
+                        <div class="card-header">
+                            <i class="fa-solid fa-folder-open"></i> {% trans "Files from the team" %}
+                        </div>
+                        <ul class="list-group list-group-flush">
+                            {% for asset in team_files %}
+                                <li class="list-group-item d-flex flex-wrap align-items-center gap-2 small">
+                                    <span class="fw-semibold">{{ asset.label }}</span>
+                                    <span class="badge text-bg-light border">v{{ asset.version }}</span>
+                                    <span class="text-secondary text-break">{{ asset.original_filename|default:asset.file.name }}</span>
+                                    {% if asset.size_bytes %}
+                                        <span class="text-secondary">{{ asset.size_bytes|filesizeformat }}</span>
+                                    {% endif %}
+                                    <span class="text-secondary">{{ asset.creation_date|date:"j M" }}</span>
+                                    {% if asset.storage_key or asset.file %}
+                                        <a class="btn btn-sm btn-outline-primary ms-auto"
+                                           href="{% url 'speakers:media_download' session.slug asset.pk %}">
+                                            <i class="fa-solid fa-download"></i> {% trans "Download" %}
+                                        </a>
+                                    {% endif %}
+                                    <div class="w-100">
+                                        {% include "speakers/_media_preview.html" with asset=asset session=session %}
+                                    </div>
+                                </li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                {% endif %}
+                {% if not video and not team_files %}
+                    <p class="text-secondary">
+                        {% trans "Nothing here yet. Files the team shares with you appear on this tab." %}
+                    </p>
+                {% endif %}
             </div>
         </div>
     </div>

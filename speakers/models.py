@@ -5,6 +5,7 @@ Every row is scoped to a ``portal.Conference`` (the design document calls it a
 new Conference row with the same code. See ``speakers/README.md``.
 """
 
+import mimetypes
 import secrets
 import zoneinfo
 from datetime import timedelta
@@ -1864,6 +1865,12 @@ class MediaAsset(TimestampedModel):
     language = models.CharField(
         max_length=10, blank=True, help_text="Transcripts and translations."
     )
+    # Which of several files of one kind this is: promo materials come as
+    # square, landscape, vertical, video, gif. Versions count per variant.
+    variant = models.CharField(max_length=40, blank=True, default="", db_default="")
+    # The team's files are theirs until they say otherwise: a shared file
+    # shows on the speaker's session page and can be fetched by them.
+    shared_with_speaker = models.BooleanField(default=False, db_default=False)
     version = models.PositiveIntegerField(default=1)
     status = models.CharField(
         max_length=16, choices=MediaStatus.choices, default=MediaStatus.UPLOADING
@@ -1924,15 +1931,72 @@ class MediaAsset(TimestampedModel):
             self.storage_key, self.original_filename or None, ttl=ttl
         )
 
+    @property
+    def media_type(self):
+        """The file's type as best known: what the upload said, else what
+        the name suggests."""
+        if self.content_type and self.content_type != "application/octet-stream":
+            return self.content_type
+        guessed, _ = mimetypes.guess_type(
+            self.original_filename or self.file.name or ""
+        )
+        return guessed or ""
+
+    # The image types the preview fold shows. Concrete types, not the
+    # family: image/svg+xml is an image that carries script, and served
+    # inline from the bucket it would run wherever a browser opens it.
+    PREVIEW_IMAGE_TYPES = frozenset(
+        {"image/png", "image/jpeg", "image/gif", "image/webp", "image/avif"}
+    )
+
+    @property
+    def preview_kind(self):
+        """``"image"``, ``"video"`` or ``"audio"`` when the browser can show
+        the file itself (design §8.8, previews); empty otherwise. An
+        allowlist: a few bitmap types, video and audio. Anything else, an
+        HTML file uploaded as "other" or an SVG say, is only ever
+        downloaded."""
+        media_type = self.media_type
+        if media_type in self.PREVIEW_IMAGE_TYPES:
+            return "image"
+        prefix = media_type.split("/")[0]
+        return prefix if prefix in ("video", "audio") else ""
+
+    def preview_url(self, ttl=None):
+        """A presigned link the browser shows inline, for the preview fold;
+        empty when the file is not one it can show."""
+        from .media import MediaBucket
+
+        if not self.preview_kind:
+            return ""
+        if not self.storage_key:
+            return self.file.url if self.file else ""
+        return MediaBucket.from_settings().download_url(
+            self.storage_key, ttl=ttl, inline=True, content_type=self.media_type
+        )
+
     @classmethod
-    def latest_ready(cls, session, kind, language=None):
-        """The newest READY asset of ``kind`` on ``session`` (and language)."""
+    def latest_ready(cls, session, kind, language=None, variant=None, shared=None):
+        """The newest READY asset of ``kind`` on ``session`` (and language,
+        variant, and whether it is shared with the speaker, when given)."""
         queryset = cls.objects.filter(
             session=session, kind=kind, status=MediaStatus.READY
         )
         if language:
             queryset = queryset.filter(language=language)
+        if variant:
+            queryset = queryset.filter(variant=variant)
+        if shared is not None:
+            queryset = queryset.filter(shared_with_speaker=shared)
         return queryset.order_by("-version", "-id").first()
+
+    @property
+    def label(self):
+        """Kind, then the language or variant that tells it from its kin:
+        "Transcript (en)", "Promo material (square)"."""
+        qualifier = self.language or self.variant
+        base = self.get_kind_display()
+        return f"{base} ({qualifier})" if qualifier else base
 
 
 class MediaUpload(TimestampedModel):
@@ -1955,6 +2019,7 @@ class MediaUpload(TimestampedModel):
     )
     kind = models.CharField(max_length=16, choices=MediaKind.choices)
     language = models.CharField(max_length=10, blank=True, default="")
+    variant = models.CharField(max_length=40, blank=True, default="", db_default="")
     filename = models.CharField(max_length=255)
     content_type = models.CharField(max_length=100, default="application/octet-stream")
     size_bytes = models.BigIntegerField()

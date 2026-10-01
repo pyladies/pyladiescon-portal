@@ -127,7 +127,27 @@ deleted and the upload refused. The raw video is filed under no language
 other and the length rule reads one line; other kinds take a well-formed
 tag. A video kind must look like a video, by type or extension
 (`media.clean_content_type`). Downloads are presigned too
-(`MediaAsset.download_url`). Uploads nobody finishes expire after
+(`MediaAsset.download_url`), behind `media.can_download`: organizers and
+the session's liaisons fetch anything, a presenter on an accepted session
+their own raw video and whatever the team has marked `shared_with_speaker`
+(`MediaShareView`, a button on the file row; design §8.6), while it is
+the current version: a replaced version loses the flag and is withdrawn.
+The speaker's session page lists the shared files (`media.team_files`)
+and the earlier raw versions without the reviewer notes, which are the
+team's (`show_notes` on the row partial). Promo materials are `PROMO` assets with a free `variant`
+("square", "gif"); versions count per kind, language and variant, and the
+seeded promo lines tick on the first file and the first share
+(`AutoRule.ASSET_SHARED`). A few bitmap types, video and audio
+(`MediaAsset.preview_kind`, an allowlist of concrete types from the
+content type or the name; SVG, which carries script, only downloads) get
+a closed "Preview" fold on their rows (`_media_preview.html`) that loads
+the file through `MediaPreviewView`, an inline presigned link that lives
+a minute like a download's; nothing is fetched until the fold is opened,
+and video streams by range requests, each one through the endpoint for a
+fresh link. A video kind is stored with a `video/` type whatever the
+browser declared (`media.clean_content_type`), since the stored type is
+what the file is served back as.
+Uploads nobody finishes expire after
 `SPEAKER_MEDIA_UPLOAD_TTL_HOURS` (the "Expire abandoned uploads" task
 nightly, `manage.py expire_abandoned_uploads` by hand); the bucket needs its
 own lifecycle rule as the backstop (`AbortIncompleteMultipartUpload` after
@@ -178,11 +198,8 @@ open uploads of theirs); the organizer's session page has a Files section
 (`media.asset_groups`, one block per kind and language, the newest READY
 version first) with a reviewer note per asset (`MediaNotesView`) and a
 panel for any kind. Downloads go through `MediaDownloadView`, which mints
-the presigned link on the click. `media.can_download` says who: organizers
-and the session's liaisons any file; a presenter on an accepted session
-their own raw video and the processed video they approve
-(`media.PRESENTER_KINDS`), not the intro, outro or the team's working
-files. The link lives a minute (`media.DOWNLOAD_LINK_TTL`): the browser
+the presigned link on the click for whoever `media.can_download` admits
+(above). The link lives a minute (`media.DOWNLOAD_LINK_TTL`): the browser
 follows it at once, and what the address bar and any proxy log keep has
 expired by the time anyone reads it. The JavaScript has no unit tests and
 no linter runs on it; the server is the authority on size and type and
@@ -321,6 +338,17 @@ the looser `not_only_proposing()`: a presenter an organizer created, invited
 or not, is still their work, while someone whose every session is still a
 proposal or a refused one is not a row until an answer puts them on one.
 
+The board's third tab (`board.build_post_production_board`, design §4.2)
+has pre-recorded sessions down the side and the session-scope pipeline
+items across, with the newest READY raw and processed video per row,
+blocked rows first with the note (the overage), then the most overdue.
+Three queries whatever the size. A cell shows the status and who is on
+it and links to the item page, where it is assigned: a select per cell
+would put the whole assignee list on the page a few hundred times. The
+sessions list's Videos column reads the same facts from
+`SessionQuerySet.with_video_status` (three subquery annotations, so the
+list stays flat).
+
 Title and display name are collapsed to one line on the way in
 (`forms.one_line`): both reach email subject lines, and a newline in a
 header makes Django refuse the message, which would silently cost the
@@ -349,8 +377,11 @@ A template line waits on any of three sources, and an organizer override
 outranks all of them (`speakers/readiness.py`):
 
 - **A rule** (`ready_rule`), for something the database can answer:
-  `session_scheduled`, `guide_published`, `registration_open`. Adding one is
-  a code change, because the predicate is code.
+  `session_scheduled`, `guide_published`, `registration_open`,
+  `final_cut_ready` (a READY processed video is on the session, which is
+  what holds the performer's "Approve the final cut" until there is
+  something to approve; re-read whenever an asset lands, changes or
+  goes). Adding one is a code change, because the predicate is code.
 - **A gate** (`ready_gate_code`), a switch organizers flip on the
   "Readiness gates" page, for work the portal cannot see: the tech check
   equipment, an upload feature that does not exist yet. One flip opens every

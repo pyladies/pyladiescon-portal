@@ -22,10 +22,11 @@ counts and the board can filter in SQL instead of asking every row.
 
 from django.db.models import Q
 
-from .constants import ItemStatus, ReadyOverride, ReadyRule
+from .constants import ItemStatus, MediaKind, MediaStatus, ReadyOverride, ReadyRule
 from .models import (
     ChecklistItem,
     Handbook,
+    MediaAsset,
     ReadinessGate,
     ScheduleSlot,
     SpeakerSettings,
@@ -63,6 +64,21 @@ def registration_open(item):
         conference_id=item.conference_id
     ).first()
     return bool(settings_row and settings_row.pretix_configured)
+
+
+@ready_rule(ReadyRule.FINAL_CUT_READY)
+def final_cut_ready(item):
+    """The edited video is in and shared with the speaker, so there is
+    something they can watch and approve (design §9.7 step 5). Re-checked
+    whenever an asset lands, changes or is shared."""
+    if item.session_id is None:
+        return False
+    return MediaAsset.objects.filter(
+        session_id=item.session_id,
+        kind=MediaKind.PROCESSED_VIDEO,
+        status=MediaStatus.READY,
+        shared_with_speaker=True,
+    ).exists()
 
 
 def _gate(item):

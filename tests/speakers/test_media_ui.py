@@ -282,13 +282,17 @@ class TestDownload:
             assert "X-Amz-Signature" in response["Location"]
             assert "take.mp4" in response["Location"]
 
-    def test_a_presenter_fetches_their_video_and_the_cut_only(
+    def test_a_presenter_fetches_their_video_and_what_is_shared(
         self, client, bucket, session, performer, liaison, organizer
     ):
-        cut = make_asset(session, organizer, kind=MediaKind.PROCESSED_VIDEO)
+        cut = make_asset(
+            session, organizer, kind=MediaKind.PROCESSED_VIDEO, shared_with_speaker=True
+        )
         intro = make_asset(session, organizer, kind=MediaKind.INTRO)
+        unshared = make_asset(session, organizer, kind=MediaKind.PROCESSED_VIDEO)
         assert can_download(performer, session, cut)
         assert not can_download(performer, session, intro)
+        assert not can_download(performer, session, unshared)
         assert can_download(liaison, session, intro)
         assert can_download(organizer, session, intro)
         client.force_login(performer)

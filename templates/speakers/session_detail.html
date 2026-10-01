@@ -2,11 +2,11 @@
 {% load i18n static %}
 {% load portal_extras speakers_extras %}
 {% comment %}
-The organizer's session page is a workbench, so the work comes first:
-a strip of what needs a person (each tile links to its section), then
-the checklists and files on the left with the people and facts on the
-right, and the description folded below. Quick actions in the header
-jump to the forms.
+The organizer's session page is a workbench: a strip of what needs a
+person under the title, then four tabs so no one view is crowded:
+Overview (description, presenters, video), Checklists, Files, Details
+(facts and activity). Quick actions in the header and the strip's tiles
+open the tab their target lives in.
 {% endcomment %}
 {% block head_title %}
     {{ session.title }}
@@ -16,6 +16,7 @@ jump to the forms.
     {% if can_upload_media and media_on %}
         <script src="{% static 'js/media-upload.js' %}" defer></script>
     {% endif %}
+    <script src="{% static 'js/session-tabs.js' %}" defer></script>
 {% endblock extra_head %}
 {% block breadcrumb %}
     {% url 'speakers:session_list' as bc_url %}
@@ -233,61 +234,324 @@ jump to the forms.
             </a>
         </div>
     </div>
-    {# The description sits under the strip, above the work: title and words first, then what to do. #}
-    <div class="mb-4" id="description">
-        <h2 class="h5 mb-3">
-            {% trans "Description" %}
-        </h2>
-        <div>
-            {% if session.summary_md %}
-                <h3 class="h6 text-uppercase text-secondary">
-                    {% trans "Summary" %}
-                </h3>
-                <div class="mb-3">
-                    {{ session.summary_md|speaker_md }}
+    {# Four tabs under the strip: what it is, the work, the files, the facts. The strip tiles, the quick actions and every old anchor open the right tab (static/js/session-tabs.js). #}
+    <ul class="nav nav-tabs mb-3" id="session-tabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active"
+                    id="tab-overview-link"
+                    data-bs-toggle="tab"
+                    data-bs-target="#tab-overview"
+                    data-anchor="overview"
+                    type="button"
+                    role="tab"
+                    aria-controls="tab-overview"
+                    aria-selected="true">
+                {% trans "Overview" %}
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link"
+                    id="tab-checklists-link"
+                    data-bs-toggle="tab"
+                    data-bs-target="#tab-checklists"
+                    data-anchor="checklist"
+                    type="button"
+                    role="tab"
+                    aria-controls="tab-checklists"
+                    aria-selected="false">
+                {% trans "Checklists" %}
+                {% if glance.open %}
+                    <span class="badge text-bg-light border ms-1">{{ glance.open }}</span>
+                {% endif %}
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link"
+                    id="tab-files-link"
+                    data-bs-toggle="tab"
+                    data-bs-target="#tab-files"
+                    data-anchor="files"
+                    type="button"
+                    role="tab"
+                    aria-controls="tab-files"
+                    aria-selected="false">
+                {% trans "Files" %}
+                {% if media_groups %}
+                    <span class="badge text-bg-light border ms-1">{{ media_groups|length }}</span>
+                {% endif %}
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link"
+                    id="tab-details-link"
+                    data-bs-toggle="tab"
+                    data-bs-target="#tab-details"
+                    data-anchor="details"
+                    type="button"
+                    role="tab"
+                    aria-controls="tab-details"
+                    aria-selected="false">
+                {% trans "Details" %}
+            </button>
+        </li>
+    </ul>
+    <div class="tab-content" id="session-tab-panes">
+        <div class="tab-pane fade show active"
+             id="tab-overview"
+             role="tabpanel"
+             aria-labelledby="tab-overview-link"
+             tabindex="0">
+            <div class="row g-4" id="overview">
+                <div class="col-lg-8">
+                    {# The description sits under the strip, above the work: title and words first, then what to do. #}
+                    <div class="mb-4" id="description">
+                        <h2 class="h5 mb-3">
+                            {% trans "Description" %}
+                        </h2>
+                        <div>
+                            {% if session.summary_md %}
+                                <h3 class="h6 text-uppercase text-secondary">
+                                    {% trans "Summary" %}
+                                </h3>
+                                <div class="mb-3">
+                                    {{ session.summary_md|speaker_md }}
+                                </div>
+                            {% endif %}
+                            {% if session.outline_md %}
+                                <h3 class="h6 text-uppercase text-secondary">
+                                    {% trans "Outline" %}
+                                </h3>
+                                <div class="mb-3">
+                                    {{ session.outline_md|speaker_md }}
+                                </div>
+                            {% endif %}
+                            {% if session.prerequisites_md %}
+                                <h3 class="h6 text-uppercase text-secondary">
+                                    {% trans "Prerequisites" %}
+                                </h3>
+                                <div class="mb-3">
+                                    {{ session.prerequisites_md|speaker_md }}
+                                </div>
+                            {% endif %}
+                            {% if session.audience_md %}
+                                <h3 class="h6 text-uppercase text-secondary">
+                                    {% trans "Audience" %}
+                                </h3>
+                                <div class="mb-3">
+                                    {{ session.audience_md|speaker_md }}
+                                </div>
+                            {% endif %}
+                            {% if session.notes_md %}
+                                <h3 class="h6 text-uppercase text-secondary">
+                                    {% trans "Internal notes" %}
+                                </h3>
+                                <div class="mb-3 text-secondary">
+                                    {{ session.notes_md|speaker_md }}
+                                </div>
+                            {% endif %}
+                            {% if not session.summary_md and not session.outline_md %}
+                                <p class="text-secondary">
+                                    {% trans "No description yet." %}
+                                </p>
+                            {% endif %}
+                        </div>
+                    </div>
                 </div>
-            {% endif %}
-            {% if session.outline_md %}
-                <h3 class="h6 text-uppercase text-secondary">
-                    {% trans "Outline" %}
-                </h3>
-                <div class="mb-3">
-                    {{ session.outline_md|speaker_md }}
+                <div class="col-lg-4">
+                    <div class="card mb-3" id="presenters">
+                        <div class="card-header">
+                            {% trans "Presenters" %}
+                        </div>
+                        {% trans "Confirmed" as confirmed_label %}
+                        {% trans "Not yet confirmed" as pending_label %}
+                        <ul class="list-group list-group-flush">
+                            {% for link in presenter_links %}
+                                {% with invitation=invitations_by_presenter|get_item:link.presenter_id %}
+                                    <li class="list-group-item">
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <span>
+                                                <a href="{{ link.presenter.get_absolute_url }}">{{ link.presenter.display_name }}</a>
+                                                <span class="badge text-bg-light border">{{ link.role.name }}</span>
+                                                {% if not link.is_required %}
+                                                    <span class="badge text-bg-light border">{% trans "optional" %}</span>
+                                                {% endif %}
+                                            </span>
+                                            {% if link.is_confirmed %}
+                                                <i class="fa-solid fa-check text-success" title="{{ confirmed_label }}"></i>
+                                            {% else %}
+                                                <i class="fa-regular fa-clock text-secondary"
+                                                   title="{{ pending_label }}"></i>
+                                            {% endif %}
+                                        </div>
+                                        {% if invitation %}
+                                            <div class="small mt-1">
+                                                <span class="badge {{ invitation|invitation_status_class }}">{{ invitation.status.label }}</span>
+                                                {% if invitation.sent_at %}
+                                                    <span class="text-secondary">{% trans "sent" %} {{ invitation.sent_at|date:"j M" }}</span>
+                                                {% endif %}
+                                            </div>
+                                        {% endif %}
+                                        {% if is_organizer and not link.is_confirmed %}
+                                            <details class="mt-2">
+                                                <summary class="small">
+                                                    {% if invitation and invitation.sent_at %}
+                                                        {% trans "Resend invitation" %}
+                                                    {% else %}
+                                                        {% trans "Send invitation" %}
+                                                    {% endif %}
+                                                </summary>
+                                                <form method="post"
+                                                      class="mt-2"
+                                                      id="invite-form-{{ link.pk }}"
+                                                      action="{% url 'speakers:session_invite' session.slug link.pk %}">
+                                                    {% csrf_token %}
+                                                    <input type="hidden" name="presenter" value="{{ link.presenter.slug }}">
+                                                    <input type="hidden" name="session" value="{{ session.pk }}">
+                                                    <label class="form-label small" for="message-{{ link.pk }}">
+                                                        {% trans "Personal message (markdown, optional)" %}
+                                                    </label>
+                                                    <textarea class="form-control form-control-sm mb-2"
+                                                              id="message-{{ link.pk }}"
+                                                              name="message_md"
+                                                              rows="3">{% if invitation %}{{ invitation.message_md }}{% endif %}</textarea>
+                                                    <button class="btn btn-sm btn-primary" type="submit">
+                                                        <i class="fa-solid fa-paper-plane"></i> {% trans "Send" %}
+                                                    </button>
+                                                </form>
+                                                {% include "speakers/_invitation_preview_slot.html" with pk=link.pk %}
+                                            </details>
+                                        {% endif %}
+                                        {% if is_organizer %}
+                                            {% with role_form=role_forms|get_item:link.pk %}
+                                                <details class="mt-2">
+                                                    <summary class="small">
+                                                        {% trans "Change role" %}
+                                                    </summary>
+                                                    <form method="post"
+                                                          class="mt-2"
+                                                          action="{% url 'speakers:session_edit_presenter' session.slug link.pk %}">
+                                                        {% csrf_token %}
+                                                        <div class="mb-2">
+                                                            {{ role_form.role }}
+                                                        </div>
+                                                        <div class="form-check mb-2">
+                                                            {{ role_form.is_required }}
+                                                            <label class="form-check-label small"
+                                                                   for="{{ role_form.is_required.id_for_label }}">
+                                                                {% trans "Required to confirm the session" %}
+                                                            </label>
+                                                        </div>
+                                                        <button class="btn btn-sm btn-outline-primary" type="submit">
+                                                            {% trans "Save" %}
+                                                        </button>
+                                                        <div class="small text-secondary mt-1">
+                                                            {% trans "Their checklist follows the role: open items of the old role are dropped, done ones stay." %}
+                                                        </div>
+                                                    </form>
+                                                </details>
+                                            {% endwith %}
+                                            <form method="post"
+                                                  class="mt-1"
+                                                  action="{% url 'speakers:session_remove_presenter' session.slug link.pk %}">
+                                                {% csrf_token %}
+                                                <button class="btn btn-link btn-sm text-danger p-0" type="submit">
+                                                    {% trans "Remove from session" %}
+                                                </button>
+                                            </form>
+                                        {% endif %}
+                                    </li>
+                                {% endwith %}
+                            {% empty %}
+                                <li class="list-group-item text-secondary">
+                                    {% trans "No presenters yet." %}
+                                </li>
+                            {% endfor %}
+                        </ul>
+                        {% if is_organizer %}
+                            <div class="card-body border-top">
+                                <form method="post"
+                                      action="{% url 'speakers:session_add_presenter' session.slug %}">
+                                    {% csrf_token %}
+                                    <div class="small fw-semibold mb-2">
+                                        {% trans "Add presenter" %}
+                                    </div>
+                                    <div class="mb-2">
+                                        {{ add_presenter_form.presenter }}
+                                    </div>
+                                    <div class="mb-2">
+                                        {{ add_presenter_form.role }}
+                                    </div>
+                                    <div class="form-check mb-2">
+                                        {{ add_presenter_form.is_required }}
+                                        <label class="form-check-label small"
+                                               for="{{ add_presenter_form.is_required.id_for_label }}">
+                                            {% trans "Required to confirm the session" %}
+                                        </label>
+                                    </div>
+                                    <button class="btn btn-sm btn-outline-primary" type="submit">
+                                        {% trans "Add" %}
+                                    </button>
+                                    <a class="small ms-2" href="{% url 'speakers:presenter_create' %}">{% trans "New presenter" %}</a>
+                                </form>
+                            </div>
+                        {% endif %}
+                    </div>
+                    {% if video and can_download_media %}
+                        <div class="card mb-3" id="video-card">
+                            <div class="card-header">
+                                <i class="fa-solid fa-film"></i> {% trans "Video" %}
+                            </div>
+                            <div class="card-body small">
+                                {% if video.current %}
+                                    <div>
+                                        <strong>{% trans "Raw" %}:</strong>
+                                        v{{ video.current.version }}
+                                        {% if video.current.duration_seconds is not None %}
+                                            · {{ video.current.duration_seconds|duration }}
+                                            {% if video.limit_minutes %}
+                                                {% if video.over_by %}
+                                                    <span class="text-danger">({% blocktranslate with limit=video.limit_minutes %}over the {{ limit }}-minute limit{% endblocktranslate %})</span>
+                                                {% else %}
+                                                    <span class="text-success">({% trans "within the limit" %})</span>
+                                                {% endif %}
+                                            {% endif %}
+                                        {% elif video.current.probe_error %}
+                                            · <span class="text-danger">{% trans "length not measured" %}</span>
+                                        {% else %}
+                                            · {% trans "length not checked yet" %}
+                                        {% endif %}
+                                        {% if video.current.storage_key or video.current.file %}
+                                            · <a href="{% url 'speakers:media_download' session.slug video.current.pk %}">{% trans "Download" %}</a>
+                                        {% endif %}
+                                    </div>
+                                {% else %}
+                                    <div class="text-warning-emphasis">
+                                        <strong>{% trans "Raw" %}:</strong> {% trans "not uploaded yet" %}
+                                    </div>
+                                {% endif %}
+                                <div>
+                                    <strong>{% trans "Final cut" %}:</strong>
+                                    {% if processed %}
+                                        v{{ processed.version }}
+                                        · <a href="{% url 'speakers:media_download' session.slug processed.pk %}">{% trans "Download" %}</a>
+                                    {% else %}
+                                        {% trans "not yet" %}
+                                    {% endif %}
+                                </div>
+                                <div class="mt-1">
+                                    <a href="#files">{% trans "All files" %}</a>
+                                </div>
+                            </div>
+                        </div>
+                    {% endif %}
                 </div>
-            {% endif %}
-            {% if session.prerequisites_md %}
-                <h3 class="h6 text-uppercase text-secondary">
-                    {% trans "Prerequisites" %}
-                </h3>
-                <div class="mb-3">
-                    {{ session.prerequisites_md|speaker_md }}
-                </div>
-            {% endif %}
-            {% if session.audience_md %}
-                <h3 class="h6 text-uppercase text-secondary">
-                    {% trans "Audience" %}
-                </h3>
-                <div class="mb-3">
-                    {{ session.audience_md|speaker_md }}
-                </div>
-            {% endif %}
-            {% if session.notes_md %}
-                <h3 class="h6 text-uppercase text-secondary">
-                    {% trans "Internal notes" %}
-                </h3>
-                <div class="mb-3 text-secondary">
-                    {{ session.notes_md|speaker_md }}
-                </div>
-            {% endif %}
-            {% if not session.summary_md and not session.outline_md %}
-                <p class="text-secondary">
-                    {% trans "No description yet." %}
-                </p>
-            {% endif %}
+            </div>
         </div>
-    </div>
-    <div class="row g-4">
-        <div class="col-lg-8">
+        <div class="tab-pane fade"
+             id="tab-checklists"
+             role="tabpanel"
+             aria-labelledby="tab-checklists-link"
+             tabindex="0">
             <h2 class="h5 mb-3" id="checklist">
                 {% trans "Checklists for this session" %}
                 {% if glance.open %}
@@ -361,268 +625,100 @@ jump to the forms.
                     </form>
                 </details>
             {% endif %}
-            <h2 class="h5 mt-4 mb-3" id="files">
-                {% trans "Files" %}
-                {% if media_groups %}
-                    <span class="badge text-bg-light border align-middle">{{ media_groups|length }}</span>
-                {% endif %}
-            </h2>
-            {% include "speakers/_media_files.html" with session=session media_groups=media_groups can_edit=can_upload_media %}
+        </div>
+        <div class="tab-pane fade"
+             id="tab-files"
+             role="tabpanel"
+             aria-labelledby="tab-files-link"
+             tabindex="0">
             {% if can_upload_media and media_on %}
+                {# Adding comes first: it is what the tab is opened for most; the list follows under a rule. #}
                 <div class="card mb-4" id="add-file">
                     <div class="card-header">
                         <i class="fa-solid fa-cloud-arrow-up"></i> {% trans "Add a file" %}
                     </div>
                     <div class="card-body">
-                        {% include "speakers/_upload_panel.html" with session=session kinds=media_kinds with_language=True open_uploads=open_uploads panel_id="files" %}
+                        {% include "speakers/_upload_panel.html" with session=session kinds=media_kinds with_language=True with_variant=True open_uploads=open_uploads panel_id="files" %}
                     </div>
                 </div>
+                <hr class="my-4">
             {% endif %}
-        </div>
-        <div class="col-lg-4">
-            <div class="card mb-3" id="presenters">
-                <div class="card-header">
-                    {% trans "Presenters" %}
-                </div>
-                {% trans "Confirmed" as confirmed_label %}
-                {% trans "Not yet confirmed" as pending_label %}
-                <ul class="list-group list-group-flush">
-                    {% for link in presenter_links %}
-                        {% with invitation=invitations_by_presenter|get_item:link.presenter_id %}
-                            <li class="list-group-item">
-                                <div class="d-flex justify-content-between align-items-center">
-                                    <span>
-                                        <a href="{{ link.presenter.get_absolute_url }}">{{ link.presenter.display_name }}</a>
-                                        <span class="badge text-bg-light border">{{ link.role.name }}</span>
-                                        {% if not link.is_required %}
-                                            <span class="badge text-bg-light border">{% trans "optional" %}</span>
-                                        {% endif %}
-                                    </span>
-                                    {% if link.is_confirmed %}
-                                        <i class="fa-solid fa-check text-success" title="{{ confirmed_label }}"></i>
-                                    {% else %}
-                                        <i class="fa-regular fa-clock text-secondary"
-                                           title="{{ pending_label }}"></i>
-                                    {% endif %}
-                                </div>
-                                {% if invitation %}
-                                    <div class="small mt-1">
-                                        <span class="badge {{ invitation|invitation_status_class }}">{{ invitation.status.label }}</span>
-                                        {% if invitation.sent_at %}
-                                            <span class="text-secondary">{% trans "sent" %} {{ invitation.sent_at|date:"j M" }}</span>
-                                        {% endif %}
-                                    </div>
-                                {% endif %}
-                                {% if is_organizer and not link.is_confirmed %}
-                                    <details class="mt-2">
-                                        <summary class="small">
-                                            {% if invitation and invitation.sent_at %}
-                                                {% trans "Resend invitation" %}
-                                            {% else %}
-                                                {% trans "Send invitation" %}
-                                            {% endif %}
-                                        </summary>
-                                        <form method="post"
-                                              class="mt-2"
-                                              id="invite-form-{{ link.pk }}"
-                                              action="{% url 'speakers:session_invite' session.slug link.pk %}">
-                                            {% csrf_token %}
-                                            <input type="hidden" name="presenter" value="{{ link.presenter.slug }}">
-                                            <input type="hidden" name="session" value="{{ session.pk }}">
-                                            <label class="form-label small" for="message-{{ link.pk }}">
-                                                {% trans "Personal message (markdown, optional)" %}
-                                            </label>
-                                            <textarea class="form-control form-control-sm mb-2"
-                                                      id="message-{{ link.pk }}"
-                                                      name="message_md"
-                                                      rows="3">{% if invitation %}{{ invitation.message_md }}{% endif %}</textarea>
-                                            <button class="btn btn-sm btn-primary" type="submit">
-                                                <i class="fa-solid fa-paper-plane"></i> {% trans "Send" %}
-                                            </button>
-                                        </form>
-                                        {% include "speakers/_invitation_preview_slot.html" with pk=link.pk %}
-                                    </details>
-                                {% endif %}
-                                {% if is_organizer %}
-                                    {% with role_form=role_forms|get_item:link.pk %}
-                                        <details class="mt-2">
-                                            <summary class="small">
-                                                {% trans "Change role" %}
-                                            </summary>
-                                            <form method="post"
-                                                  class="mt-2"
-                                                  action="{% url 'speakers:session_edit_presenter' session.slug link.pk %}">
-                                                {% csrf_token %}
-                                                <div class="mb-2">
-                                                    {{ role_form.role }}
-                                                </div>
-                                                <div class="form-check mb-2">
-                                                    {{ role_form.is_required }}
-                                                    <label class="form-check-label small"
-                                                           for="{{ role_form.is_required.id_for_label }}">
-                                                        {% trans "Required to confirm the session" %}
-                                                    </label>
-                                                </div>
-                                                <button class="btn btn-sm btn-outline-primary" type="submit">
-                                                    {% trans "Save" %}
-                                                </button>
-                                                <div class="small text-secondary mt-1">
-                                                    {% trans "Their checklist follows the role: open items of the old role are dropped, done ones stay." %}
-                                                </div>
-                                            </form>
-                                        </details>
-                                    {% endwith %}
-                                    <form method="post"
-                                          class="mt-1"
-                                          action="{% url 'speakers:session_remove_presenter' session.slug link.pk %}">
-                                        {% csrf_token %}
-                                        <button class="btn btn-link btn-sm text-danger p-0" type="submit">
-                                            {% trans "Remove from session" %}
-                                        </button>
-                                    </form>
-                                {% endif %}
-                            </li>
-                        {% endwith %}
-                    {% empty %}
-                        <li class="list-group-item text-secondary">
-                            {% trans "No presenters yet." %}
-                        </li>
-                    {% endfor %}
-                </ul>
-                {% if is_organizer %}
-                    <div class="card-body border-top">
-                        <form method="post"
-                              action="{% url 'speakers:session_add_presenter' session.slug %}">
-                            {% csrf_token %}
-                            <div class="small fw-semibold mb-2">
-                                {% trans "Add presenter" %}
-                            </div>
-                            <div class="mb-2">
-                                {{ add_presenter_form.presenter }}
-                            </div>
-                            <div class="mb-2">
-                                {{ add_presenter_form.role }}
-                            </div>
-                            <div class="form-check mb-2">
-                                {{ add_presenter_form.is_required }}
-                                <label class="form-check-label small"
-                                       for="{{ add_presenter_form.is_required.id_for_label }}">
-                                    {% trans "Required to confirm the session" %}
-                                </label>
-                            </div>
-                            <button class="btn btn-sm btn-outline-primary" type="submit">
-                                {% trans "Add" %}
-                            </button>
-                            <a class="small ms-2" href="{% url 'speakers:presenter_create' %}">{% trans "New presenter" %}</a>
-                        </form>
-                    </div>
+            <h2 class="h5 mb-3" id="files">
+                {% trans "Uploaded files" %}
+                {% if media_groups %}
+                    <span class="badge text-bg-light border align-middle">{{ media_groups|length }}</span>
                 {% endif %}
-            </div>
-            {% if video and can_download_media %}
-                <div class="card mb-3" id="video-card">
-                    <div class="card-header">
-                        <i class="fa-solid fa-film"></i> {% trans "Video" %}
-                    </div>
-                    <div class="card-body small">
-                        {% if video.current %}
+            </h2>
+            {% include "speakers/_media_files.html" with session=session media_groups=media_groups can_edit=can_upload_media %}
+        </div>
+        <div class="tab-pane fade"
+             id="tab-details"
+             role="tabpanel"
+             aria-labelledby="tab-details-link"
+             tabindex="0">
+            <div class="row g-4">
+                <div class="col-lg-5">
+                    <div class="card" id="details">
+                        <div class="card-header">
+                            {% trans "Details" %}
+                        </div>
+                        <div class="card-body small">
                             <div>
-                                <strong>{% trans "Raw" %}:</strong>
-                                v{{ video.current.version }}
-                                {% if video.current.duration_seconds is not None %}
-                                    · {{ video.current.duration_seconds|duration }}
-                                    {% if video.limit_minutes %}
-                                        {% if video.over_by %}
-                                            <span class="text-danger">({% blocktranslate with limit=video.limit_minutes %}over the {{ limit }}-minute limit{% endblocktranslate %})</span>
-                                        {% else %}
-                                            <span class="text-success">({% trans "within the limit" %})</span>
-                                        {% endif %}
-                                    {% endif %}
-                                {% elif video.current.probe_error %}
-                                    · <span class="text-danger">{% trans "length not measured" %}</span>
+                                <strong>{% trans "Level" %}:</strong> {{ session.get_level_display|default:"—" }}
+                            </div>
+                            <div>
+                                <strong>{% trans "Language" %}:</strong> {{ session.language|default:"—" }}
+                            </div>
+                            <div>
+                                <strong>{% trans "Slot" %}:</strong>
+                                {% if session.slot %}
+                                    {{ session.slot.start_utc|date:"D H:i" }} UTC
                                 {% else %}
-                                    · {% trans "length not checked yet" %}
-                                {% endif %}
-                                {% if video.current.storage_key or video.current.file %}
-                                    · <a href="{% url 'speakers:media_download' session.slug video.current.pk %}">{% trans "Download" %}</a>
+                                    {% trans "Not scheduled" %}
                                 {% endif %}
                             </div>
-                        {% else %}
-                            <div class="text-warning-emphasis">
-                                <strong>{% trans "Raw" %}:</strong> {% trans "not uploaded yet" %}
-                            </div>
-                        {% endif %}
-                        <div>
-                            <strong>{% trans "Final cut" %}:</strong>
-                            {% if processed %}
-                                v{{ processed.version }}
-                                · <a href="{% url 'speakers:media_download' session.slug processed.pk %}">{% trans "Download" %}</a>
-                            {% else %}
-                                {% trans "not yet" %}
+                            {% if session.is_pre_recorded %}
+                                <div>
+                                    <strong>{% trans "Premiere" %}:</strong> {{ session.effective_premiere_location }}
+                                </div>
+                            {% endif %}
+                            {% if session.liaisons %}
+                                <div>
+                                    <strong>{% trans "Liaison" %}:</strong>
+                                    {% for liaison in session.liaisons %}
+                                        {{ liaison.get_full_name|default:liaison.username }}
+                                        {% if not forloop.last %}
+                                            ,
+                                        {% endif %}
+                                    {% endfor %}
+                                </div>
                             {% endif %}
                         </div>
-                        <div class="mt-1">
-                            <a href="#files">{% trans "All files" %}</a>
-                        </div>
                     </div>
                 </div>
-            {% endif %}
-            <div class="card mb-3" id="details">
-                <div class="card-header">
-                    {% trans "Details" %}
-                </div>
-                <div class="card-body small">
-                    <div>
-                        <strong>{% trans "Level" %}:</strong> {{ session.get_level_display|default:"—" }}
-                    </div>
-                    <div>
-                        <strong>{% trans "Language" %}:</strong> {{ session.language|default:"—" }}
-                    </div>
-                    <div>
-                        <strong>{% trans "Slot" %}:</strong>
-                        {% if session.slot %}
-                            {{ session.slot.start_utc|date:"D H:i" }} UTC
-                        {% else %}
-                            {% trans "Not scheduled" %}
-                        {% endif %}
-                    </div>
-                    {% if session.is_pre_recorded %}
-                        <div>
-                            <strong>{% trans "Premiere" %}:</strong> {{ session.effective_premiere_location }}
+                <div class="col-lg-7">
+                    <div class="card" id="activity">
+                        <div class="card-header">
+                            {% trans "Activity" %}
                         </div>
-                    {% endif %}
-                    {% if session.liaisons %}
-                        <div>
-                            <strong>{% trans "Liaison" %}:</strong>
-                            {% for liaison in session.liaisons %}
-                                {{ liaison.get_full_name|default:liaison.username }}
-                                {% if not forloop.last %}
-                                    ,
-                                {% endif %}
+                        <ul class="list-group list-group-flush small">
+                            {% for entry in activity %}
+                                <li class="list-group-item">
+                                    <span class="text-secondary">{{ entry.creation_date|date:"j M H:i" }}</span>
+                                    {{ entry.action }}
+                                    {% if entry.actor %}
+                                        · {{ entry.actor.username }}
+                                    {% endif %}
+                                </li>
+                            {% empty %}
+                                <li class="list-group-item text-secondary">
+                                    {% trans "Nothing yet." %}
+                                </li>
                             {% endfor %}
-                        </div>
-                    {% endif %}
+                        </ul>
+                    </div>
                 </div>
             </div>
-            <details class="card mb-3" id="activity">
-                <summary class="card-header">
-                    {% trans "Activity" %}
-                </summary>
-                <ul class="list-group list-group-flush small">
-                    {% for entry in activity %}
-                        <li class="list-group-item">
-                            <span class="text-secondary">{{ entry.creation_date|date:"j M H:i" }}</span>
-                            {{ entry.action }}
-                            {% if entry.actor %}
-                                · {{ entry.actor.username }}
-                            {% endif %}
-                        </li>
-                    {% empty %}
-                        <li class="list-group-item text-secondary">
-                            {% trans "Nothing yet." %}
-                        </li>
-                    {% endfor %}
-                </ul>
-            </details>
         </div>
     </div>
 {% endblock content %}

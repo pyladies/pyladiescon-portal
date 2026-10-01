@@ -10,11 +10,14 @@ Params:
 {% endcomment %}
 {% for group in media_groups %}
     <div class="card mb-3"
-         id="files-{{ group.kind|lower }}{% if group.language %}-{{ group.language }}{% endif %}">
+         id="files-{{ group.kind|lower }}{% if group.language %}-{{ group.language }}{% endif %}{% if group.variant %}-{{ group.variant|slugify }}{% endif %}">
         <div class="card-header d-flex flex-wrap align-items-center gap-2">
             <span class="fw-semibold">{{ group.label }}</span>
             {% if group.language %}
                 <span class="badge text-bg-light border">{{ group.language }}</span>
+            {% endif %}
+            {% if group.variant %}
+                <span class="badge text-bg-light border">{{ group.variant }}</span>
             {% endif %}
             {% if group.current %}
                 <span class="badge text-bg-success">v{{ group.current.version }}</span>
@@ -24,7 +27,7 @@ Params:
         </div>
         {% if group.current %}
             <div class="card-body">
-                {% include "speakers/_media_asset_row.html" with asset=group.current session=session can_edit=can_edit current=True %}
+                {% include "speakers/_media_asset_row.html" with asset=group.current session=session can_edit=can_edit show_notes=True current=True %}
             </div>
         {% endif %}
         {% if group.history %}
@@ -35,7 +38,7 @@ Params:
                 <ul class="list-unstyled mt-2 mb-0 d-grid gap-2">
                     {% for asset in group.history %}
                         <li>
-                            {% include "speakers/_media_asset_row.html" with asset=asset session=session can_edit=can_edit %}
+                            {% include "speakers/_media_asset_row.html" with asset=asset session=session can_edit=can_edit show_notes=True %}
                         </li>
                     {% endfor %}
                 </ul>
