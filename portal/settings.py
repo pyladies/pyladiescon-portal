@@ -299,12 +299,21 @@ UNVERIFIED_ACCOUNT_RETENTION_DAYS = int(
 # Speaker media (design §8.8): performance videos go straight from the
 # browser to a private bucket in presigned multipart chunks; the portal
 # starts, finalizes and records the upload. Empty bucket name = uploads off
-# (the endpoints answer 503). Credentials and endpoint are the AWS_* ones
-# the media storage uses; the bucket is its own, private, never public-read.
+# (the endpoints answer 503). Credentials are the AWS_* ones the media
+# storage uses; the bucket is its own, private, never public-read.
+# The endpoint and region have their own variables because the media Space
+# may not be where the public one is: AWS_S3_ENDPOINT_URL may name that
+# Space's own host (https://<space>.nyc3.digitaloceanspaces.com), which would
+# send the presigned URLs to the wrong Space; use the regional host here.
 SPEAKER_MEDIA_BUCKET = os.getenv("SPEAKER_MEDIA_BUCKET", "")
 SPEAKER_MEDIA_PREFIX = os.getenv("SPEAKER_MEDIA_PREFIX", "speaker-media/")
-SPEAKER_MEDIA_ENDPOINT_URL = os.getenv("AWS_S3_ENDPOINT_URL")
-SPEAKER_MEDIA_REGION = os.getenv("AWS_S3_REGION_NAME", "us-east-1")
+# A blank value counts as unset: boto3 turns an empty endpoint into real AWS.
+SPEAKER_MEDIA_ENDPOINT_URL = os.getenv("SPEAKER_MEDIA_ENDPOINT_URL") or os.getenv(
+    "AWS_S3_ENDPOINT_URL"
+)
+SPEAKER_MEDIA_REGION = (
+    os.getenv("SPEAKER_MEDIA_REGION") or os.getenv("AWS_S3_REGION_NAME") or "us-east-1"
+)
 SPEAKER_MEDIA_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
 SPEAKER_MEDIA_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
 # 64 MiB parts: a 4 GiB video is 64 parts, well under S3's 10,000, and a

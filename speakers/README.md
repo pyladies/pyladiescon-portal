@@ -104,7 +104,10 @@ Speaker media is different (design §8.8, task 5.1): performance videos are
 gigabytes, so they never pass through the app. `speakers.media.MediaBucket`
 talks to a **private** bucket named by `SPEAKER_MEDIA_BUCKET` (empty means
 uploads are off and the endpoints answer 503), through the same `AWS_*`
-credentials and endpoint, with s3v4 signing. The browser starts an upload
+credentials, its own endpoint and region (`SPEAKER_MEDIA_ENDPOINT_URL`,
+`SPEAKER_MEDIA_REGION`, each falling back to the `AWS_*` pair when unset or
+blank), with s3v4 signing. The deployment guide is the only guard against a
+wrong endpoint: nothing checks it at release. The browser starts an upload
 (`POST sessions/<slug>/uploads/`), gets presigned part URLs in batches of
 `UPLOAD_PART_URL_BATCH`, PUTs the parts itself, and asks the portal to
 complete or abort; `MediaUpload` is what the portal knows about an upload

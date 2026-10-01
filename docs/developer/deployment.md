@@ -160,6 +160,16 @@ directly. Once bulk download exists (design §8.8, task 5.6) the same
 rule needs `GET` as well, and a second lifecycle rule should expire the
 `exports/` prefix after 7 days, since zip bundles are built there.
 
+**Endpoint and region.** The media client reads `SPEAKER_MEDIA_ENDPOINT_URL`
+and `SPEAKER_MEDIA_REGION`, each falling back to `AWS_S3_ENDPOINT_URL` and
+`AWS_S3_REGION_NAME` when unset or blank. Set them to the media Space's regional host
+and region (`https://sfo3.digitaloceanspaces.com` and `sfo3`, say), not a
+Space's own host: boto3 puts the bucket name in the path, so a host that
+already names another Space signs every upload for the wrong Space, and the
+browser's preflight fails with no `Access-Control-Allow-Origin`. A region
+that is not the Space's gives a signature error. The image storage keeps
+using the `AWS_*` variables unchanged. The access key must reach both Spaces.
+
 **Read-only key for a post-production lead.** The bulk-download design
 names one escape hatch that needs no portal code: a Spaces key with
 read-only access to the media bucket, so one trusted person can pull an
