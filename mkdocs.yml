@@ -48,6 +48,7 @@ nav:
     - Pretix Per Conference: architecture/pretix-per-conference.md
     - Session and Presenter Addresses: architecture/session-and-presenter-addresses.md
     - Speaker Portal: architecture/speaker-portal.md
+    - Email Delivery: architecture/email-delivery.md
   - User Guide:
     - Get started: user/get_started.md
     - Core Team: user/core_team.md

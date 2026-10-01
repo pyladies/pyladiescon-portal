@@ -720,6 +720,35 @@ sources dropped (`SentEmail.body_html`), so reading a trail never fetches
 from a third party. The sponsorship contract request to the PSF goes
 through `send_email` too, so account emails are the only exception.
 
+**Invitations marked sent with no email record.** `Invitation.sent_at` is
+stamped by the web process when the email is queued; the `SentEmail` row is
+written later, by the worker. A task lost between the two (a worker killed or
+restarted while holding it, a broker outage) leaves the presenter page saying
+"Sent" with nothing sent and no error anywhere. Maintenance > Invitations
+(`speakers.delivery_views`, maintainers only) lists the active edition's
+invitations that were expected to have gone out and have no successful record
+(`speakers.delivery.unrecorded_invitations`: records are matched on the
+template, `context_digest.invitation` and a time at or after the stamp, with
+a minute for clock skew), shows a failed record's error, and sends one again
+per button press (`retrigger`, through `send_invitation`, so a fresh link; no
+bulk send, on purpose). The invitation's row is locked while it is sent, so
+two presses cannot both send. It does not judge invitations from before
+`records_began()`, which is when migration `common.0001_sent_email` was
+applied and not the oldest surviving record (the prune moves that forward, and
+a worker that was down at first leaves no early row), or ones that were opened
+or answered. A row sent in the last five minutes is shown with a disabled
+button. Every retrigger is an `invitation.retriggered` activity entry and
+a log line. The design for tracking delivery properly is
+`docs/architecture/email-delivery.md`.
+
+**Logging.** `LOGGING` in settings sends the apps' INFO messages to stdout
+(`PORTAL_LOG_LEVEL` to change it); without it the web process logged only
+gunicorn's request lines. `enqueue` logs the id of a queued task, and
+`send_invitation_email_task` logs its start, end and failure with the same
+id, which is what the worker's own `received` and `succeeded` lines carry.
+Each Procfile process is a separate deployment in cabotage with its own logs,
+so the worker's lines are under `worker`, not `web`.
+
 ### Previewing an invitation
 
 Both invite forms show the email the Send button would produce: recipient,

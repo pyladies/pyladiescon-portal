@@ -26,11 +26,19 @@ def enqueue(task, *args, **kwargs):
     Sending email is a side effect of the triggering request (a profile save,
     an approval, a cancellation). If the broker is unreachable, log it (so it
     surfaces in Sentry) rather than raising and 500-ing the user's action.
+    A queued task logs its id, which is what the worker's own "received" and
+    "succeeded" lines carry, so one search follows it across processes.
     """
     try:
-        task.delay(*args, **kwargs)
+        result = task.delay(*args, **kwargs)
     except OperationalError:
         logger.exception(
             "Failed to enqueue Celery task %r — broker unavailable",
             getattr(task, "name", task),
+        )
+    else:
+        logger.info(
+            "Queued %s as task %s",
+            getattr(task, "name", task),
+            getattr(result, "id", None),
         )

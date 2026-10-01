@@ -83,7 +83,7 @@ def send_invitation_email(invitation):
     in), so it is withheld from the sent-email record that maintainers read.
     """
     accept_url = invitation_url(invitation)
-    send_email(
+    return send_email(
         invitation_subject(invitation, invitation.conference),
         [invitation.presenter.email],
         markdown_template=INVITATION_TEMPLATE,

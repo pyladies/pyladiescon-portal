@@ -105,6 +105,13 @@ invitation:
 been accepted, including expired, declined and cancelled ones. **Cancel** is
 only offered while the invitation is waiting, and makes its link stop working.
 
+**Sent** means the portal queued the email, not that it was delivered. In rare
+cases, for instance when the background worker restarts at the wrong moment,
+the email is lost and the page still says **Sent**. If a speaker says nothing
+arrived, press **Resend**, or ask a maintainer to check **Maintenance**,
+**Invitations**, which lists every invitation marked sent with no record that
+the email went out and sends them again, one at a time.
+
 The same page also has **Their to-dos** and **What we're preparing for them**,
 one above the other: the speaker's checklist and the team's checklist for that
 speaker. They are empty until the speaker accepts. After that this is where you
@@ -153,4 +160,6 @@ organizers' email address from the same settings. There you can:
   presenter page: it shows when each invitation was sent, opened and answered.
   Maintainers can also read every email the portal has sent under
   **Maintenance**, **Emails**; that page needs the maintainer permission, so a
-  staff organizer may not see it.
+  staff organizer may not see it. **Maintenance**,
+  **Invitations** (also maintainers only) shows the invitations whose email has
+  no record.

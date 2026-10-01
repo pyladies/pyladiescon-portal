@@ -56,6 +56,37 @@ if SENTRY_SDK_DSN:
             ),
         ],
     )
+
+# Logging. Without this the app's own INFO messages have no handler in the web
+# process, so only gunicorn's request lines reach the platform's logs. The
+# portal's apps log at INFO (a task starting and ending, an invitation
+# retriggered) through the root handler; a Celery worker replaces the root
+# handler with its own, so the same lines appear once in its log too.
+PORTAL_LOG_LEVEL = os.getenv("PORTAL_LOG_LEVEL", "INFO").upper()
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "plain": {"format": "%(asctime)s %(levelname)s %(name)s: %(message)s"},
+    },
+    "handlers": {
+        "console": {"class": "logging.StreamHandler", "formatter": "plain"},
+    },
+    "root": {"handlers": ["console"], "level": "WARNING"},
+    "loggers": {
+        app: {"level": PORTAL_LOG_LEVEL}
+        for app in (
+            "common",
+            "portal",
+            "volunteer",
+            "portal_account",
+            "sponsorship",
+            "attendee",
+            "speakers",
+        )
+    },
+}
+
 # When DJANGO_ALLOWED_HOSTS is not set, Django requires ALLOWED_HOSTS
 # to still be a list or tuple. This default prevents Celery and other
 # background processes from failing during settings initialization.
