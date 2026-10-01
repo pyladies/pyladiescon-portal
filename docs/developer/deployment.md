@@ -162,7 +162,7 @@ rule needs `GET` as well, and a second lifecycle rule should expire the
 
 **Endpoint and region.** The media client reads `SPEAKER_MEDIA_ENDPOINT_URL`
 and `SPEAKER_MEDIA_REGION`, each falling back to `AWS_S3_ENDPOINT_URL` and
-`AWS_S3_REGION_NAME` when unset. Set them to the media Space's regional host
+`AWS_S3_REGION_NAME` when unset or blank. Set them to the media Space's regional host
 and region (`https://sfo3.digitaloceanspaces.com` and `sfo3`, say), not a
 Space's own host: boto3 puts the bucket name in the path, so a host that
 already names another Space signs every upload for the wrong Space, and the
