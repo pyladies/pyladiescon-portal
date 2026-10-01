@@ -89,17 +89,19 @@ class UploadEndpoint(LoginRequiredMixin, SpeakerModuleRequiredMixin, View):
             Session, conference=self.conference, slug=self.kwargs["slug"]
         )
 
-    def get_upload(self, session):
+    def get_upload(self, session, to_abort=False):
         """An upload of this session the caller may act on: their own, or
         any when they organize, and only while they may still upload this
         kind here. A presenter taken off the session, or whose proposal
-        was declined, loses an upload in flight with it."""
+        was declined, or whose edition switched the speaker side off,
+        loses an upload in flight with it: they can still give it up
+        (``to_abort``), which only frees the bucket, but not finish it."""
         upload = get_object_or_404(MediaUpload, pk=self.kwargs["pk"], session=session)
         if upload.started_by_id != self.request.user.pk and not is_speaker_organizer(
             self.request.user
         ):
             raise PermissionDenied("This is not your upload.")
-        if not can_upload(self.request.user, session, upload.kind):
+        if not to_abort and not can_upload(self.request.user, session, upload.kind):
             raise PermissionDenied("You may no longer upload to this session.")
         return upload
 
@@ -188,7 +190,7 @@ class UploadAbortView(UploadEndpoint):
     http_method_names = ["post"]
 
     def post(self, request, slug, pk):
-        upload = self.get_upload(self.get_session())
+        upload = self.get_upload(self.get_session(), to_abort=True)
         return JsonResponse(_upload_json(abort_upload(upload)))
 
 

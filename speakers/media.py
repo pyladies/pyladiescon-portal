@@ -22,6 +22,7 @@ from botocore.exceptions import ClientError
 from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
+from django.utils.text import slugify
 
 from .constants import (
     UPLOAD_PART_URL_BATCH,
@@ -297,14 +298,19 @@ def asset_groups(assets):
 
 
 def group_id(asset):
-    """The element id of the file group an asset belongs to, for the page
-    and for the htmx swap after an edit."""
-    parts = [asset.kind.lower()]
-    if asset.language:
-        parts.append(asset.language)
-    if asset.variant:
-        parts.append(re.sub(r"[^a-z0-9]+", "-", asset.variant.lower()).strip("-"))
-    return "files-" + "-".join(parts)
+    """The element id of the file group an asset belongs to, for the page,
+    the htmx swap after an edit and the More row's toggle.
+
+    Three fixed parts joined by a double hyphen, which a slug never
+    contains, so no two lines share an id: language "" with variant "en"
+    is ``files-promo----en`` and language "en" with no variant is
+    ``files-promo--en--``. Both parts are slugified, so "en-US" and "US"
+    cannot meet by case either.
+    """
+    return (
+        f"files-{asset.kind.lower()}--{slugify(asset.language)}--"
+        f"{slugify(asset.variant)}"
+    )
 
 
 def asset_group(asset):
@@ -342,10 +348,16 @@ def line_titles(session, assets=None):
     return titles
 
 
+def clean_title(title):
+    """One line of text: trimmed, inner runs of whitespace (newlines and
+    tabs included) folded to a space, cut to the column."""
+    return " ".join((title or "").split())[:200]
+
+
 def set_line_title(asset, title):
     """Give the whole line the title: every version and variant of this
     kind and language on the session, so old rows read like the new."""
-    title = (title or "").strip()[:200]
+    title = clean_title(title)
     MediaAsset.objects.filter(
         session_id=asset.session_id, kind=asset.kind, language=asset.language
     ).update(title=title)
@@ -494,7 +506,7 @@ def start_upload(
             kind=kind,
             language=language,
             variant=(variant or "")[:40],
-            title=(title or "").strip()[:200],
+            title=clean_title(title),
             filename=filename[:255],
             content_type=content_type,
             size_bytes=size_bytes,

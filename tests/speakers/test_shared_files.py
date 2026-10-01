@@ -264,7 +264,7 @@ class TestSharing:
         )
         assert response.status_code == 200
         html = response.content.decode()
-        assert html.strip().startswith('<tbody id="files-processed_video"')
+        assert html.strip().startswith('<tbody id="files-processed_video----"')
         assert 'name="shared" value="0"' in html and "Shared" in html
         assert "<html" not in html
         response = client.post(

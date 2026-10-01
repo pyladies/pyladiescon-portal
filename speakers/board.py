@@ -270,8 +270,8 @@ def write_post_production_csv(board, stream):
             [
                 _safe_cell(row["session"].title),
                 _safe_cell(", ".join(row["presenters"])),
-                _video_cell(row["raw"]),
-                _video_cell(row["final"]),
+                _safe_cell(_video_cell(row["raw"])),
+                _safe_cell(_video_cell(row["final"])),
                 _safe_cell(row["blocked_note"]),
             ]
             + [

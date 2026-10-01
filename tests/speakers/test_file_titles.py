@@ -175,7 +175,7 @@ class TestEditing:
         )
         assert response.status_code == 200
         html = response.content.decode()
-        assert html.strip().startswith('<tbody id="files-promo-landscape"')
+        assert html.strip().startswith('<tbody id="files-promo----landscape"')
         assert "Newer" in html and 'value="Newer"' in html
         assert set_line_title(square, "") == ""
         assert (
@@ -204,12 +204,12 @@ class TestWhereItShows:
         client.force_login(organizer)
         html = client.get(session.get_absolute_url()).content.decode()
         groups = {g["id"]: g for g in asset_groups(session_assets(session))}
-        assert groups["files-promo-square"]["title"] == "Poster for the set"
-        assert groups["files-title_card"]["title"] == ""
+        assert groups["files-promo----square"]["title"] == "Poster for the set"
+        assert groups["files-title_card----"]["title"] == ""
         assert "Poster for the set" in html
         assert (
-            'id="title-files-promo-square"' in html
-            and 'id="title-files-title_card"' in html
+            'id="title-files-promo----square"' in html
+            and 'id="title-files-title_card----"' in html
         )
         assert 'data-role="title"' in html
         assert 'id="upload-titles-files"' in html
@@ -236,3 +236,46 @@ class TestWhereItShows:
 
         csv = write_post_production_csv(board, StringIO()).getvalue()
         assert "v1 (1:30) Take two, quieter room" in csv
+
+
+@pytest.mark.django_db
+class TestGroupIds:
+    def test_no_two_lines_share_an_id(self, session, organizer):
+        """The id is the htmx target and the More row's toggle, so language
+        and variant must not run together: "" + "en" and "en" + "" were one
+        id, and "en-US" + "" met "en" + "US" by case alone."""
+        rows = [("", "en"), ("en", ""), ("en-US", ""), ("en", "US"), ("", "")]
+        for language, variant in rows:
+            MediaAsset.objects.create(
+                session=session,
+                kind=MediaKind.PROMO,
+                status=MediaStatus.READY,
+                language=language,
+                variant=variant,
+                storage_key=f"k/{language}/{variant}",
+            )
+        ids = [g["id"] for g in asset_groups(session_assets(session))]
+        assert len(ids) == len(set(ids)) == 5
+        assert "files-promo----en" in ids and "files-promo--en--" in ids
+        assert "files-promo--en-us--" in ids and "files-promo--en--us" in ids
+
+    def test_a_title_is_one_line(self, bucket, session, organizer):
+        poster = upload(bucket, session, organizer, MediaKind.PROMO, variant="square")
+        assert set_line_title(poster, " line one\nline two\ttabbed ") == (
+            "line one line two tabbed"
+        )
+        titled = upload(
+            bucket, session, organizer, MediaKind.TITLE_CARD, title="a\n\nb"
+        )
+        assert titled.title == "a b"
+
+    def test_the_board_shows_both_titles_when_they_differ(
+        self, client, bucket, session, organizer
+    ):
+        upload(bucket, session, organizer, MediaKind.RAW_VIDEO, title="The take")
+        upload(bucket, session, organizer, MediaKind.PROCESSED_VIDEO, title="The cut")
+        client.force_login(organizer)
+        html = client.get(
+            reverse("speakers:checklist_board"), {"tab": "post_production"}
+        ).content.decode()
+        assert "The take" in html and "final cut: The cut" in html
