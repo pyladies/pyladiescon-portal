@@ -112,12 +112,31 @@ in flight, and completing it makes the `MediaAsset` (next version for the
 session, kind and language; the previous READY one becomes SUPERSEDED) and
 sends `asset_ready`, on which the asset rules re-evaluate. Who may upload
 what is `media.can_upload`: organizers any kind, a presenter on the session
-their raw video. Downloads are presigned too (`MediaAsset.download_url`).
-Uploads nobody finishes expire after `SPEAKER_MEDIA_UPLOAD_TTL_HOURS` (the
-"Expire abandoned uploads" task nightly, `manage.py expire_abandoned_uploads`
-by hand); the bucket needs its own lifecycle rule as the backstop
-(`AbortIncompleteMultipartUpload` after 7 days, see the deployment doc).
-Tests run against moto's S3.
+their raw video, and only once the session is theirs (a proposal waiting
+for an answer, or declined, has no channel into the bucket); every upload
+endpoint asks it, so a presenter taken off a session loses an upload in
+flight too. What the browser declares is checked twice: the declared size
+against `SPEAKER_MEDIA_MAX_BYTES` when the upload starts, and the object's
+real size against the declaration when it completes, since the parts are
+PUT to the bucket out of the portal's sight; an object that disagrees is
+deleted and the upload refused. The raw video is filed under no language
+(`media.clean_language`), one line per session, so versions supersede each
+other and the length rule reads one line; other kinds take a well-formed
+tag. A video kind must look like a video, by type or extension
+(`media.clean_content_type`). Downloads are presigned too
+(`MediaAsset.download_url`). Uploads nobody finishes expire after
+`SPEAKER_MEDIA_UPLOAD_TTL_HOURS` (the "Expire abandoned uploads" task
+nightly, `manage.py expire_abandoned_uploads` by hand); the bucket needs its
+own lifecycle rule as the backstop (`AbortIncompleteMultipartUpload` after
+7 days, see the deployment doc). Tests run against moto's S3.
+
+What reclaims space: nothing in the portal deletes an object on its own.
+Deleting a `MediaAsset` row (the admin) drops its object too
+(`receivers.drop_the_object`), and a `MediaUpload` row that fails to insert
+aborts its multipart at once. Superseded versions keep their objects for
+as long as their rows last, because the pages show them as history; an
+edition's files are reclaimed by deleting the rows, or by a bucket rule
+on the edition's prefix once the videos are published.
 
 The duration probe (task 5.3) is `speakers/probe.py`: `on_asset_ready`
 queues `probe_asset_task` for the video kinds (`constants.VIDEO_KINDS`)
@@ -128,7 +147,10 @@ presigned link and the answer lands in `MediaAsset.duration_seconds`,
 whose save re-runs `VIDEO_LENGTH_OK`. A probe that cannot answer (no
 `ffprobe`, unreadable file, no bucket) writes the reason to
 `MediaAsset.probe_error`, logs an error and leaves the asset READY; the
-file rows and the performer's card show it. Tests stub `probe.run_ffprobe`
+file rows and the performer's card show it. The task tries three times, a
+few minutes apart, before a failure stands; `manage.py probe_media`
+re-queues the videos still without a duration (`--all` for every video,
+`--asset` for one). Tests stub `probe.run_ffprobe`
 through an autouse fixture in `tests/speakers/conftest.py`, and one test
 runs the real binary on a two-second fixture when it is installed.
 
@@ -149,10 +171,16 @@ open uploads of theirs); the organizer's session page has a Files section
 (`media.asset_groups`, one block per kind and language, the newest READY
 version first) with a reviewer note per asset (`MediaNotesView`) and a
 panel for any kind. Downloads go through `MediaDownloadView`, which mints
-the presigned link on the click for whoever may open the session on either
-side (`media.can_download`: organizers, the session's liaisons, its
-presenters). The JavaScript has no unit tests; the 200 MB resume check is
-done by hand against a bucket (setup doc).
+the presigned link on the click. `media.can_download` says who: organizers
+and the session's liaisons any file; a presenter on an accepted session
+their own raw video and the processed video they approve
+(`media.PRESENTER_KINDS`), not the intro, outro or the team's working
+files. The link lives a minute (`media.DOWNLOAD_LINK_TTL`): the browser
+follows it at once, and what the address bar and any proxy log keep has
+expired by the time anyone reads it. The JavaScript has no unit tests and
+no linter runs on it; the server is the authority on size and type and
+the panel shows its answer, and the 200 MB resume check is done by hand
+against a bucket (setup doc).
 
 ### Secrets at rest
 

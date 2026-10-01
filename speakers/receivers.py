@@ -3,6 +3,9 @@
 Registered from ``SpeakersConfig.ready()``.
 """
 
+import logging
+
+from botocore.exceptions import ClientError
 from django.db import transaction
 from django.db.models import Q
 from django.db.models.signals import post_delete, post_save
@@ -16,6 +19,7 @@ from .checklists import (
     instantiate_session_checklist,
 )
 from .constants import VIDEO_KINDS, AutoRule
+from .media import MediaBucket, MediaStorageNotConfigured
 from .models import (
     Handbook,
     HandbookReadReceipt,
@@ -33,6 +37,8 @@ from .rules import (
     items_for_session,
 )
 from .signals import asset_ready, invitation_accepted, session_confirmed
+
+logger = logging.getLogger(__name__)
 
 
 @receiver(invitation_accepted, dispatch_uid="speakers.checklists.on_accept")
@@ -192,3 +198,23 @@ def on_asset_ready(sender, asset, **kwargs):
         from .tasks import probe_asset_task
 
         transaction.on_commit(lambda: probe_asset_task.delay(asset.pk))
+
+
+@receiver(post_delete, sender=MediaAsset, dispatch_uid="speakers.media.on_delete")
+def drop_the_object(sender, instance, **kwargs):
+    """A row deleted in the admin takes its object with it; otherwise the
+    bucket keeps a file nothing can reach again. Superseded versions keep
+    theirs for as long as their rows last: they are the history the pages
+    show. A bucket that cannot be reached is logged, not raised, so the
+    row's deletion stands either way."""
+    if not instance.storage_key:
+        return
+    try:
+        MediaBucket.from_settings().delete(instance.storage_key)
+    except (MediaStorageNotConfigured, ClientError) as exc:
+        logger.error(
+            "Object %s of deleted asset %s stays in the bucket: %s",
+            instance.storage_key,
+            instance.pk,
+            exc,
+        )

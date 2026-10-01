@@ -226,18 +226,37 @@ def expire_abandoned_uploads_task():
     return f"Expired {count} abandoned upload(s)"
 
 
-@shared_task(queue="media")
-def probe_asset_task(asset_id):
+# How many times a video is probed before its failure stands, and the
+# wait before each try again: two minutes, then four.
+PROBE_ATTEMPTS = 3
+PROBE_RETRY_SECONDS = 120
+
+
+@shared_task
+def probe_asset_task(asset_id, attempt=1):
     """Measure a video that just landed (design §8.8, task 5.3).
 
     Routed to the ``media`` queue (settings ``CELERY_TASK_ROUTES``), served
     by the ``worker-media`` process, so a probe over a slow link never
     holds up an email. Saving the duration re-runs the length rule.
+
+    A probe that fails is queued again, ``PROBE_ATTEMPTS`` tries in all a
+    few minutes apart, before the failure stands on the asset: a dropped
+    connection to the bucket should not hold a checklist item until
+    someone uploads the file again. ``manage.py probe_media`` re-queues
+    the ones that stood.
     """
     asset = MediaAsset.objects.filter(pk=asset_id).first()
     if asset is None:
         return "No such asset"
     duration = probe_asset(asset)
     if duration is None:
-        return f"Probe failed for asset {asset_id}: {asset.probe_error}"
+        message = f"Probe failed for asset {asset_id}: {asset.probe_error}"
+        if attempt < PROBE_ATTEMPTS:
+            probe_asset_task.apply_async(
+                args=(asset_id, attempt + 1),
+                countdown=PROBE_RETRY_SECONDS * attempt,
+            )
+            return f"{message}; try {attempt + 1} of {PROBE_ATTEMPTS} queued"
+        return message
     return f"Asset {asset_id} runs {duration} s"

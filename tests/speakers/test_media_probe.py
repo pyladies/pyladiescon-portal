@@ -4,6 +4,7 @@ recorded where people look rather than swallowed."""
 
 import shutil
 import subprocess
+from io import StringIO
 from pathlib import Path
 from unittest.mock import PropertyMock, patch
 
@@ -12,6 +13,7 @@ import pytest
 from django.conf import settings as django_settings
 from django.contrib.auth.models import User
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.core.management import call_command
 from django.db.models.fields.files import FieldFile
 from moto import mock_aws
 
@@ -20,6 +22,7 @@ from speakers.media import MediaBucket
 from speakers.models import MediaAsset
 from speakers.probe import ProbeError, probe_asset, probe_duration
 from speakers.probe import run_ffprobe as real_run_ffprobe
+from speakers.rules import Blocked, video_length_ok
 from speakers.signals import asset_ready
 from speakers.tasks import probe_asset_task
 
@@ -156,13 +159,60 @@ class TestTaskAndTrigger:
         asset = make_video(session)
         assert probe_asset_task(asset.pk) == f"Asset {asset.pk} runs 120 s"
         ffprobe.side_effect = ProbeError("boom")
-        assert probe_asset_task(asset.pk) == f"Probe failed for asset {asset.pk}: boom"
+        assert probe_asset_task(asset.pk, attempt=3) == (
+            f"Probe failed for asset {asset.pk}: boom"
+        )
+
+    def test_a_failure_is_tried_three_times_before_it_stands(
+        self, bucket, session, ffprobe
+    ):
+        """A dropped connection should not hold the length item until
+        someone uploads again: two more tries, two then four minutes
+        later (eager here, so they run at once)."""
+        asset = make_video(session)
+        ffprobe.side_effect = ProbeError("boom")
+        with patch.object(
+            probe_asset_task, "apply_async", wraps=probe_asset_task.apply_async
+        ) as queued:
+            assert probe_asset_task(asset.pk) == (
+                f"Probe failed for asset {asset.pk}: boom; try 2 of 3 queued"
+            )
+        assert ffprobe.call_count == 3
+        assert [call.kwargs["countdown"] for call in queued.call_args_list] == [
+            120,
+            240,
+        ]
+        asset.refresh_from_db()
+        assert asset.probe_error == "boom" and asset.duration_seconds is None
+
+    def test_probe_media_queues_the_unmeasured(self, bucket, session, ffprobe):
+        measured = make_video(session, duration_seconds=5)
+        unmeasured = make_video(session, version=2)
+        out = StringIO()
+        call_command("probe_media", stdout=out)
+        assert "Queued 1 probe(s)" in out.getvalue()
+        unmeasured.refresh_from_db()
+        assert unmeasured.duration_seconds == 120
+        out = StringIO()
+        call_command("probe_media", "--all", stdout=out)
+        assert "Queued 2 probe(s)" in out.getvalue()
+        out = StringIO()
+        call_command("probe_media", "--asset", str(measured.pk), stdout=out)
+        assert "Queued 1 probe(s)" in out.getvalue()
+
+    def test_a_file_under_another_tag_does_not_stand_in_for_the_video(self, session):
+        """Versions are per language; the rule reads the raw video's one
+        line (no language), so a short file filed under some tag by the
+        person the rule judges changes nothing."""
+        item = auto_item(session.conference, AutoRule.VIDEO_LENGTH_OK, session=session)
+        make_video(session, duration_seconds=1200)
+        make_video(session, language="zz", duration_seconds=10)
+        assert isinstance(video_length_ok(item), Blocked)
 
     def test_task_is_routed_to_the_media_queue(self):
         assert django_settings.CELERY_TASK_ROUTES[
             "speakers.tasks.probe_asset_task"
         ] == {"queue": "media"}
-        assert probe_asset_task.queue == "media"
 
     def test_a_ready_video_is_measured_and_the_length_rule_answers(
         self, bucket, session, ffprobe, django_capture_on_commit_callbacks

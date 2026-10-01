@@ -13,7 +13,7 @@ from django.db.models import Q
 from attendee.models import PretixOrder, PretixOrderstatus
 
 from .checklists import block_item, complete_item, reopen_item
-from .constants import AutoRule, ItemStatus, MediaKind
+from .constants import AutoRule, ItemStatus, MediaKind, MediaStatus
 from .media import video_limit_minutes
 from .models import (
     ChecklistItem,
@@ -130,8 +130,24 @@ def asset_exists(item):
 
 @rule(AutoRule.VIDEO_LENGTH_OK)
 def video_length_ok(item):
+    """The newest raw video within the limit, or Blocked by how much.
+
+    The raw video is one line per session, filed under no language
+    (``media.clean_language``), and the rule reads that line only: a file
+    put under some other tag, by whoever the rule judges, cannot stand in
+    for the recording.
+    """
     session = item.session
-    video = MediaAsset.latest_ready(session, MediaKind.RAW_VIDEO)
+    video = (
+        MediaAsset.objects.filter(
+            session=session,
+            kind=MediaKind.RAW_VIDEO,
+            language="",
+            status=MediaStatus.READY,
+        )
+        .order_by("-version", "-id")
+        .first()
+    )
     if video is None or video.duration_seconds is None:
         return False
     limit = video_limit_minutes(session)

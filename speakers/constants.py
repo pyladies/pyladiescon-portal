@@ -202,10 +202,6 @@ class MediaStatus(models.TextChoices):
     SUPERSEDED = "SUPERSEDED", "Superseded"
 
 
-VIDEO_KINDS = frozenset(
-    {MediaKind.RAW_VIDEO, MediaKind.PROCESSED_VIDEO, MediaKind.INTRO, MediaKind.OUTRO}
-)
-
 # Slugs: sessions and presenters are addressed by slug (docs/architecture/
 # session-and-presenter-addresses.md). The derived base leaves room for a
 # "-2" style suffix under the field's max length.

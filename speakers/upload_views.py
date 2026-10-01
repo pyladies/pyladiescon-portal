@@ -14,12 +14,11 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import PermissionDenied
 from django.http import Http404, HttpResponseRedirect, JsonResponse
 from django.shortcuts import get_object_or_404, redirect
-from django.utils.decorators import method_decorator
 from django.views import View
-from django.views.decorators.http import require_POST
 
 from .constants import UPLOAD_PART_URL_BATCH
 from .media import (
+    DOWNLOAD_LINK_TTL,
     MediaStorageNotConfigured,
     UploadError,
     abort_upload,
@@ -37,9 +36,12 @@ from .permissions import is_speaker_organizer
 
 def _payload(request):
     try:
-        return json.loads(request.body.decode("utf-8") or "{}")
+        data = json.loads(request.body.decode("utf-8") or "{}")
     except (ValueError, UnicodeDecodeError):
         raise UploadError("The request body is not JSON.")
+    if not isinstance(data, dict):
+        raise UploadError("The request body must be a JSON object.")
+    return data
 
 
 def _upload_json(upload, **extra):
@@ -59,7 +61,13 @@ def _upload_json(upload, **extra):
 
 
 class UploadEndpoint(LoginRequiredMixin, SpeakerModuleRequiredMixin, View):
-    """Shared plumbing: the session, the upload, the error shapes."""
+    """Shared plumbing: the session, the upload, the error shapes.
+
+    The POST-only endpoints say so with ``http_method_names`` rather than
+    ``require_POST`` around ``dispatch``, so the login and module checks
+    run first: with the module off, a GET is a 404 like everything else
+    here, not a 405 that gives the endpoint away.
+    """
 
     def dispatch(self, request, *args, **kwargs):
         try:
@@ -79,12 +87,16 @@ class UploadEndpoint(LoginRequiredMixin, SpeakerModuleRequiredMixin, View):
 
     def get_upload(self, session):
         """An upload of this session the caller may act on: their own, or
-        any when they organize."""
+        any when they organize, and only while they may still upload this
+        kind here. A presenter taken off the session, or whose proposal
+        was declined, loses an upload in flight with it."""
         upload = get_object_or_404(MediaUpload, pk=self.kwargs["pk"], session=session)
         if upload.started_by_id != self.request.user.pk and not is_speaker_organizer(
             self.request.user
         ):
             raise PermissionDenied("This is not your upload.")
+        if not can_upload(self.request.user, session, upload.kind):
+            raise PermissionDenied("You may no longer upload to this session.")
         return upload
 
 
@@ -92,9 +104,7 @@ class UploadStartView(UploadEndpoint):
     """POST {kind, language?, filename, size_bytes, content_type?}: open an
     upload and return its first batch of part URLs."""
 
-    @method_decorator(require_POST)
-    def dispatch(self, request, *args, **kwargs):
-        return super().dispatch(request, *args, **kwargs)
+    http_method_names = ["post"]
 
     def post(self, request, slug):
         session = self.get_session()
@@ -145,9 +155,7 @@ class UploadPartsView(UploadEndpoint):
 class UploadCompleteView(UploadEndpoint):
     """POST {parts: [{number, etag}]}: finalize and record the asset."""
 
-    @method_decorator(require_POST)
-    def dispatch(self, request, *args, **kwargs):
-        return super().dispatch(request, *args, **kwargs)
+    http_method_names = ["post"]
 
     def post(self, request, slug, pk):
         upload = self.get_upload(self.get_session())
@@ -171,9 +179,7 @@ class UploadCompleteView(UploadEndpoint):
 class UploadAbortView(UploadEndpoint):
     """POST: give the upload up; the bucket drops the parts."""
 
-    @method_decorator(require_POST)
-    def dispatch(self, request, *args, **kwargs):
-        return super().dispatch(request, *args, **kwargs)
+    http_method_names = ["post"]
 
     def post(self, request, slug, pk):
         upload = self.get_upload(self.get_session())
@@ -185,7 +191,9 @@ class MediaDownloadView(LoginRequiredMixin, SpeakerModuleRequiredMixin, View):
 
     Links are minted on the click rather than rendered into the page, so
     a page left open does not hand out stale ones, and the file list
-    costs no signing at all to render.
+    costs no signing at all to render. The link lives a minute
+    (``DOWNLOAD_LINK_TTL``): the browser follows it at once, and what the
+    address bar and any log keep has expired by the time anyone reads it.
     """
 
     def get(self, request, slug, pk):
@@ -195,8 +203,10 @@ class MediaDownloadView(LoginRequiredMixin, SpeakerModuleRequiredMixin, View):
         if not can_download(request.user, session):
             raise PermissionDenied("You may not fetch this session's files.")
         asset = get_object_or_404(MediaAsset, pk=pk, session=session)
+        if not can_download(request.user, session, asset):
+            raise PermissionDenied("You may not fetch this file.")
         try:
-            url = asset.download_url()
+            url = asset.download_url(ttl=DOWNLOAD_LINK_TTL)
         except MediaStorageNotConfigured:
             raise Http404("Object storage is not configured on this portal.")
         if not url:
@@ -208,9 +218,7 @@ class MediaNotesView(LoginRequiredMixin, SpeakerModuleRequiredMixin, View):
     """POST notes_md: the reviewer's note on an asset ("audio clips at
     4:10"); organizers only."""
 
-    @method_decorator(require_POST)
-    def dispatch(self, request, *args, **kwargs):
-        return super().dispatch(request, *args, **kwargs)
+    http_method_names = ["post"]
 
     def post(self, request, slug, pk):
         session = get_object_or_404(

@@ -282,6 +282,32 @@ class TestDownload:
             assert "X-Amz-Signature" in response["Location"]
             assert "take.mp4" in response["Location"]
 
+    def test_a_presenter_fetches_their_video_and_the_cut_only(
+        self, client, bucket, session, performer, liaison, organizer
+    ):
+        cut = make_asset(session, organizer, kind=MediaKind.PROCESSED_VIDEO)
+        intro = make_asset(session, organizer, kind=MediaKind.INTRO)
+        assert can_download(performer, session, cut)
+        assert not can_download(performer, session, intro)
+        assert can_download(liaison, session, intro)
+        assert can_download(organizer, session, intro)
+        client.force_login(performer)
+        assert client.get(download(session, cut)).status_code == 302
+        assert client.get(download(session, intro)).status_code == 403
+        session.status = "PROPOSED"
+        session.save()
+        assert not can_download(performer, session) and can_download(liaison, session)
+        assert client.get(download(session, cut)).status_code == 403
+
+    def test_the_link_lives_a_minute_and_carries_a_safe_name(
+        self, client, bucket, session, organizer
+    ):
+        asset = make_asset(session, organizer, original_filename='my "set".mp4')
+        client.force_login(organizer)
+        location = client.get(download(session, asset))["Location"]
+        assert "X-Amz-Expires=60" in location
+        assert "my%20set.mp4" in location and "%22set%22" not in location
+
     def test_refusals(self, client, bucket, session, organizer, conference):
         asset = make_asset(session, organizer)
         stranger = User.objects.create_user("s", email="s@x.org")

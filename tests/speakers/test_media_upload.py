@@ -4,6 +4,7 @@ rule, and the endpoints' error shapes."""
 
 import importlib
 import json
+import logging
 from datetime import timedelta
 from io import StringIO
 from unittest.mock import patch
@@ -33,12 +34,13 @@ from speakers.media import (
     abort_upload,
     can_upload,
     complete_upload,
+    content_disposition,
     expire_abandoned_uploads,
     plan_parts,
     received_parts,
     start_upload,
 )
-from speakers.models import MediaAsset, MediaUpload
+from speakers.models import MediaAsset, MediaUpload, SpeakerSettings
 from speakers.signals import asset_ready
 from speakers.tasks import expire_abandoned_uploads_task
 
@@ -559,3 +561,187 @@ class TestExpiry:
         with pytest.raises(UploadError):
             complete_upload(upload, [])
         assert received_parts(upload) == []
+
+
+def raw_upload(session, user, **kwargs):
+    base = dict(
+        session=session,
+        kind="RAW_VIDEO",
+        language="",
+        filename="a.mp4",
+        size_bytes=3,
+        content_type="video/mp4",
+        user=user,
+    )
+    base.update(kwargs)
+    return start_upload(**base)
+
+
+@pytest.mark.django_db
+class TestWhatArrives:
+    def test_an_object_that_is_not_the_declared_size_is_thrown_away(
+        self, client, bucket, session, performer
+    ):
+        """The declared size is what the cap was checked against; the parts
+        go to the bucket out of sight, so the object is measured when it
+        is complete, and one that disagrees is removed before any row
+        records it."""
+        client.force_login(performer)
+        upload = raw_upload(session, performer)
+        parts = upload_parts(bucket, upload, [12])
+        response = post_json(client, url("complete", session, upload), {"parts": parts})
+        assert response.status_code == 400
+        assert "12 bytes, not the 3 declared" in response.json()["error"]
+        upload.refresh_from_db()
+        assert upload.status == "ABORTED" and upload.asset is None
+        assert not MediaAsset.objects.filter(session=session).exists()
+        with pytest.raises(ClientError):
+            bucket.client.head_object(Bucket=BUCKET, Key=upload.storage_key)
+
+
+@pytest.mark.django_db
+class TestProposalsHaveNoChannel:
+    def test_the_rule_and_the_endpoint(
+        self, client, bucket, session, performer, organizer
+    ):
+        client.force_login(performer)
+        for status in ("PROPOSED", "REJECTED"):
+            session.status = status
+            session.save()
+            assert not can_upload(performer, session, MediaKind.RAW_VIDEO)
+            assert can_upload(organizer, session, MediaKind.RAW_VIDEO)
+            payload = {"kind": "RAW_VIDEO", "filename": "a.mp4", "size_bytes": 3}
+            assert post_json(client, start_url(session), payload).status_code == 403
+
+    def test_an_upload_in_flight_goes_with_the_seat(
+        self, client, bucket, session, performer
+    ):
+        """Every endpoint re-asks can_upload: a presenter taken off the
+        session cannot finish, resume or even look at what they started."""
+        client.force_login(performer)
+        upload = raw_upload(session, performer)
+        session.session_presenters.all().delete()
+        assert client.get(url("detail", session, upload)).status_code == 403
+        assert client.get(url("parts", session, upload)).status_code == 403
+        complete = post_json(client, url("complete", session, upload), {"parts": []})
+        assert complete.status_code == 403
+        assert post_json(client, url("abort", session, upload), {}).status_code == 403
+        upload.refresh_from_db()
+        assert upload.is_open
+
+
+@pytest.mark.django_db
+class TestLanguageAndType:
+    def test_the_raw_video_is_one_line_whatever_the_tag(
+        self, bucket, session, performer
+    ):
+        upload = raw_upload(session, performer, language="zz", content_type="")
+        assert (
+            upload.language == "" and upload.content_type == "application/octet-stream"
+        )
+
+    def test_other_kinds_take_a_well_formed_tag(self, bucket, session, organizer):
+        transcript = dict(kind="TRANSCRIPT", filename="t.vtt", content_type="text/vtt")
+        tagged = raw_upload(session, organizer, language=" pt-BR ", **transcript)
+        assert tagged.language == "pt-BR"
+        with pytest.raises(UploadError, match="tag such as"):
+            raw_upload(session, organizer, language="zz!", **transcript)
+
+    def test_a_video_kind_wants_a_video(self, bucket, session, organizer):
+        with pytest.raises(UploadError, match="choose a video file"):
+            raw_upload(
+                session,
+                organizer,
+                kind="PROCESSED_VIDEO",
+                filename="poster.png",
+                content_type="image/png",
+            )
+        by_extension = raw_upload(
+            session,
+            organizer,
+            kind="PROCESSED_VIDEO",
+            filename="final.MOV",
+            content_type="not a type",
+        )
+        assert by_extension.content_type == "application/octet-stream"
+        by_type = raw_upload(
+            session,
+            organizer,
+            kind="PROCESSED_VIDEO",
+            filename="final",
+            content_type="video/x-matroska",
+        )
+        assert by_type.content_type == "video/x-matroska"
+
+
+@pytest.mark.django_db
+class TestBadBodiesAndNames:
+    def test_a_body_that_is_not_an_object_is_a_bad_request(
+        self, client, bucket, session, performer
+    ):
+        client.force_login(performer)
+        for body in ([1, 2, 3], "hi", None, 7):
+            response = post_json(client, start_url(session), body)
+            assert response.status_code == 400, body
+            assert "JSON object" in response.json()["error"]
+
+    def test_a_name_or_a_row_that_fails_leaves_no_multipart(
+        self, bucket, session, performer
+    ):
+        with pytest.raises(UploadError, match="cannot carry"):
+            raw_upload(session, performer, filename="a\x00.mp4")
+        assert multipart_uploads(bucket) == []
+        with patch(
+            "speakers.media.MediaUpload.objects.create",
+            side_effect=RuntimeError("the database went away"),
+        ):
+            with pytest.raises(RuntimeError):
+                raw_upload(session, performer)
+        assert multipart_uploads(bucket) == []
+
+    def test_a_get_with_the_module_off_is_404_not_405(
+        self, client, bucket, session, performer, conference
+    ):
+        client.force_login(performer)
+        upload = raw_upload(session, performer)
+        SpeakerSettings.objects.filter(conference=conference).update(
+            speaker_module_enabled=False
+        )
+        assert client.get(start_url(session)).status_code == 404
+        assert client.get(url("complete", session, upload)).status_code == 404
+        assert client.get(url("abort", session, upload)).status_code == 404
+
+
+@pytest.mark.django_db
+class TestTheObjectGoesWithTheRow:
+    def test_deleting_the_asset_deletes_the_object(
+        self, bucket, session, performer, settings, caplog
+    ):
+        upload = raw_upload(session, performer)
+        asset = complete_upload(upload, upload_parts(bucket, upload, [3]))
+        bucket.client.head_object(Bucket=BUCKET, Key=asset.storage_key)
+        asset.delete()
+        with pytest.raises(ClientError):
+            bucket.client.head_object(Bucket=BUCKET, Key=upload.storage_key)
+        # Without storage the row still goes, and the log says what stays.
+        orphan = MediaAsset.objects.create(
+            session=session, kind=MediaKind.OTHER, storage_key="speaker-media/x/y"
+        )
+        settings.SPEAKER_MEDIA_BUCKET = ""
+        with caplog.at_level(logging.ERROR):
+            orphan.delete()
+        assert "stays in the bucket" in caplog.text
+        MediaAsset.objects.create(session=session, kind=MediaKind.OTHER).delete()
+
+
+class TestContentDisposition:
+    def test_the_header_the_bucket_is_told(self):
+        assert content_disposition("take.mp4") == 'attachment; filename="take.mp4"'
+        assert (
+            content_disposition('my "set"\\final\r\n.mov')
+            == 'attachment; filename="my setfinal.mov"'
+        )
+        assert content_disposition("sessão.mp4") == (
+            "attachment; filename=\"sesso.mp4\"; filename*=UTF-8''sess%C3%A3o.mp4"
+        )
+        assert content_disposition("日本").startswith('attachment; filename="download"')

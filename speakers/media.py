@@ -9,9 +9,11 @@ everything else here is the lifecycle around a ``MediaUpload`` row.
 """
 
 import math
+import os
 import re
 import uuid
 from datetime import timedelta
+from urllib.parse import quote
 
 import boto3
 from botocore.client import Config
@@ -20,7 +22,13 @@ from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
 
-from .constants import UPLOAD_PART_URL_BATCH, MediaKind, MediaStatus, UploadStatus
+from .constants import (
+    UPLOAD_PART_URL_BATCH,
+    VIDEO_KINDS,
+    MediaKind,
+    MediaStatus,
+    UploadStatus,
+)
 from .models import MediaAsset, MediaUpload, SpeakerSettings
 from .permissions import is_speaker_organizer
 from .signals import asset_ready
@@ -28,6 +36,26 @@ from .signals import asset_ready
 # S3 limits: at least 5 MiB per part except the last, at most 10,000 parts.
 MIN_PART_SIZE = 5 * 1024 * 1024
 MAX_PARTS = 10_000
+
+# A download link is minted on the click and followed at once. A minute is
+# plenty, and what the address bar, the history and any proxy log keep is
+# then a credential that has already expired.
+DOWNLOAD_LINK_TTL = 60
+
+# A language tag the way BCP 47 writes one: a language, then at most two
+# more pieces ("pt", "pt-BR", "zh-Hant-TW"); the column holds ten.
+LANGUAGE_RE = re.compile(r"^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8}){0,2}$")
+# A media type is two tokens; anything else is stored as octet-stream.
+CONTENT_TYPE_RE = re.compile(r"^[A-Za-z0-9!#$&^_.+-]+/[A-Za-z0-9!#$&^_.+-]+$")
+# What a video kind accepts when the browser offers no video/* type.
+VIDEO_EXTENSIONS = frozenset(
+    {".mp4", ".m4v", ".mov", ".webm", ".mkv", ".avi", ".mpg", ".mpeg", ".mts", ".m2ts"}
+)
+CONTROL_CHARS = re.compile(r"[\x00-\x1f\x7f]")
+# What a presenter may fetch from their session: their own recording and
+# the edit they approve (design §4.1). Intros, outros and the team's working
+# files stay on the organizer side.
+PRESENTER_KINDS = frozenset({MediaKind.RAW_VIDEO, MediaKind.PROCESSED_VIDEO})
 
 
 class MediaStorageNotConfigured(Exception):
@@ -133,6 +161,11 @@ class MediaBucket:
         )
         return self.client.head_object(Bucket=self.bucket, Key=key)["ContentLength"]
 
+    def delete(self, key):
+        """Remove an object. The bucket answers the same for one it does not
+        have, so a repeat is harmless."""
+        self.client.delete_object(Bucket=self.bucket, Key=key)
+
     def abort(self, key, upload_id):
         """Abort, and treat an upload the bucket no longer knows as aborted:
         the lifecycle rule may have got there first."""
@@ -147,36 +180,57 @@ class MediaBucket:
     def download_url(self, key, filename=None, ttl=None):
         params = {"Bucket": self.bucket, "Key": key}
         if filename:
-            params["ResponseContentDisposition"] = f'attachment; filename="{filename}"'
+            params["ResponseContentDisposition"] = content_disposition(filename)
         return self.client.generate_presigned_url(
             "get_object", Params=params, ExpiresIn=ttl or settings.SPEAKER_MEDIA_URL_TTL
         )
 
 
+def content_disposition(filename):
+    """``attachment`` with the file's own name, reduced to what a header may
+    carry: quotes, backslashes and control characters dropped, an ASCII
+    name in ``filename`` and, when the name has more, the whole of it
+    percent-encoded in ``filename*`` (RFC 6266). This is the one string a
+    client typed that reaches a response header."""
+    cleaned = CONTROL_CHARS.sub("", filename).replace("\\", "").replace('"', "")
+    ascii_name = cleaned.encode("ascii", "ignore").decode() or "download"
+    header = f'attachment; filename="{ascii_name}"'
+    if cleaned != ascii_name:
+        header += f"; filename*=UTF-8''{quote(cleaned)}"
+    return header
+
+
 def can_upload(user, session, kind):
     """Who may put a file of ``kind`` on ``session``: organizers any kind,
-    a presenter on the session their raw video only (design §8.8)."""
+    a presenter on the session their raw video only (design §8.8), and
+    only once the session is theirs: a proposal still waiting for an
+    answer, or turned down, has no channel into the bucket."""
     if not user.is_authenticated:
         return False
     if is_speaker_organizer(user):
         return True
-    if kind != MediaKind.RAW_VIDEO:
+    if kind != MediaKind.RAW_VIDEO or session.is_a_proposal:
         return False
     return session.session_presenters.filter(presenter__user=user).exists()
 
 
-def can_download(user, session):
-    """Who may fetch a session's files: whoever may open the session, on
-    either side. Organizers and the session's liaisons see it on the
-    organizer side; a presenter on it sees it on theirs, and needs the
-    processed video to approve the final cut (design §4.1)."""
+def can_download(user, session, asset=None):
+    """Who may fetch a session's files. Organizers and the session's
+    liaisons any of them, on the organizer side; a presenter on an
+    accepted session their own recording and the processed video they
+    approve (``PRESENTER_KINDS``, design §4.1). With no ``asset`` the
+    answer is whether they may fetch anything here at all."""
     if not user.is_authenticated:
         return False
     if is_speaker_organizer(user):
         return True
-    if session.session_presenters.filter(presenter__user=user).exists():
+    if session.session_presenters.filter(presenter__liaison=user).exists():
         return True
-    return session.session_presenters.filter(presenter__liaison=user).exists()
+    if session.is_a_proposal:
+        return False
+    if asset is not None and asset.kind not in PRESENTER_KINDS:
+        return False
+    return session.session_presenters.filter(presenter__user=user).exists()
 
 
 def video_limit_minutes(session):
@@ -269,31 +323,74 @@ def plan_parts(size_bytes):
     return part_size, parts_total
 
 
+def clean_language(kind, language):
+    """The language an upload is filed under, or raise.
+
+    The raw video is the session's own recording, one line per session
+    whatever the tongue, so it carries no language: a second line under
+    another tag would escape the versioning and the length rule. Other
+    kinds take a well-formed tag or none.
+    """
+    if kind == MediaKind.RAW_VIDEO:
+        return ""
+    language = (language or "").strip()
+    if language and not LANGUAGE_RE.match(language):
+        raise UploadError("The language must be a tag such as en or pt-BR.")
+    return language
+
+
+def clean_content_type(kind, filename, content_type):
+    """The type the object is stored with, or raise.
+
+    The browser's guess is kept when it is a well-formed media type, else
+    the object is an octet-stream. A video kind must look like a video, by
+    type or by extension: the panel's ``accept`` attribute is only a hint
+    to the file picker.
+    """
+    content_type = (content_type or "").strip()
+    if not CONTENT_TYPE_RE.match(content_type):
+        content_type = "application/octet-stream"
+    if kind in VIDEO_KINDS and not content_type.startswith("video/"):
+        if os.path.splitext(filename)[1].lower() not in VIDEO_EXTENSIONS:
+            raise UploadError("A video is expected here; choose a video file.")
+    return content_type
+
+
 def start_upload(*, session, kind, language, filename, size_bytes, content_type, user):
     """Open a multipart upload and record it; returns the ``MediaUpload``."""
     if kind not in MediaKind.values:
         raise UploadError("Unknown kind of file.")
     if not filename:
         raise UploadError("The file needs a name.")
+    if CONTROL_CHARS.search(filename):
+        raise UploadError("The file's name has characters a name cannot carry.")
+    language = clean_language(kind, language)
+    content_type = clean_content_type(kind, filename, content_type)
     part_size, parts_total = plan_parts(size_bytes)
     bucket = MediaBucket.from_settings()
     key = bucket.key_for(session, kind, filename)
-    upload_id = bucket.start(key, content_type or "application/octet-stream")
-    return MediaUpload.objects.create(
-        session=session,
-        kind=kind,
-        language=language or "",
-        filename=filename[:255],
-        content_type=content_type or "application/octet-stream",
-        size_bytes=size_bytes,
-        part_size=part_size,
-        parts_total=parts_total,
-        storage_key=key,
-        upload_id=upload_id,
-        expires_at=timezone.now()
-        + timedelta(hours=settings.SPEAKER_MEDIA_UPLOAD_TTL_HOURS),
-        started_by=user,
-    )
+    upload_id = bucket.start(key, content_type)
+    try:
+        return MediaUpload.objects.create(
+            session=session,
+            kind=kind,
+            language=language,
+            filename=filename[:255],
+            content_type=content_type,
+            size_bytes=size_bytes,
+            part_size=part_size,
+            parts_total=parts_total,
+            storage_key=key,
+            upload_id=upload_id,
+            expires_at=timezone.now()
+            + timedelta(hours=settings.SPEAKER_MEDIA_UPLOAD_TTL_HOURS),
+            started_by=user,
+        )
+    except Exception:
+        # The row is how the portal finds the multipart again; without it
+        # only the bucket's lifecycle rule would, so it goes at once.
+        bucket.abort(key, upload_id)
+        raise
 
 
 def part_urls(upload, start=1, count=UPLOAD_PART_URL_BATCH):
@@ -332,9 +429,19 @@ def complete_upload(upload, parts):
         )
     if any(not part.get("etag") for part in parts):
         raise UploadError("Every part needs its ETag.")
-    size = MediaBucket.from_settings().complete(
-        upload.storage_key, upload.upload_id, parts
-    )
+    bucket = MediaBucket.from_settings()
+    size = bucket.complete(upload.storage_key, upload.upload_id, parts)
+    if size != upload.size_bytes:
+        # The declared size is what the cap was checked against; the object
+        # is the truth. One that disagrees is thrown away before anything
+        # records it, so a declared byte cannot buy a part slot to fill.
+        bucket.delete(upload.storage_key)
+        upload.status = UploadStatus.ABORTED
+        upload.save(update_fields=["status", "modified_date"])
+        raise UploadError(
+            f"The file that arrived is {size} bytes, not the {upload.size_bytes} "
+            "declared; it was removed. Upload it again."
+        )
     with transaction.atomic():
         previous = MediaAsset.objects.filter(
             session=upload.session, kind=upload.kind, language=upload.language
