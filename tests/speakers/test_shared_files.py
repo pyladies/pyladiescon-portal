@@ -147,7 +147,9 @@ class TestVariants:
         assert response.status_code == 201
         assert response.json()["variant"] == "gif"
 
-    def test_the_organizer_panel_offers_the_field(self, client, world, organizer):
+    def test_the_organizer_panel_offers_the_field(
+        self, client, world, organizer, bucket
+    ):
         client.force_login(organizer)
         html = client.get(world["panel"].get_absolute_url()).content.decode()
         assert 'data-role="variant"' in html and 'value="landscape"' in html

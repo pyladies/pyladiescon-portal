@@ -108,7 +108,9 @@ class TestOrganizerStrip:
         )
         assert "Checklists for this session" in html
 
-    def test_four_tabs_and_the_anchors_inside_them(self, client, session, organizer):
+    def test_four_tabs_and_the_anchors_inside_them(
+        self, client, session, organizer, bucket
+    ):
         """The page is split into tabs; the strip's tiles, the quick actions
         and the redirects keep their anchors, which the script resolves to
         the tab they live in."""
