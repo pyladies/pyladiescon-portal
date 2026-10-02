@@ -34,6 +34,8 @@ services:
   web:
     build:
       target: dev
+      args:
+        WHISPER_MODEL: ${WHISPER_MODEL:-}
     image: pyladiescon-portal-web:docker-compose
     command: python manage.py runserver 0.0.0.0:8000
     volumes:
@@ -62,6 +64,7 @@ services:
       args:
         USER_ID: ${USER_ID:-1000}
         GROUP_ID: ${GROUP_ID:-1000}
+        WHISPER_MODEL: ${WHISPER_MODEL:-}
     image: pyladiescon-portal-celery:docker-compose
     # One worker for both queues in development (production has worker-media).
     command: celery -A portal worker -Q celery,media --loglevel=info
@@ -95,6 +98,7 @@ services:
       args:
         USER_ID: ${USER_ID:-1000}
         GROUP_ID: ${GROUP_ID:-1000}
+        WHISPER_MODEL: ${WHISPER_MODEL:-}
     image: pyladiescon-portal-beat:docker-compose
     command: celery -A portal beat --loglevel=info
     working_dir: /code
