@@ -282,16 +282,17 @@ transcription never holds up an invitation email.
 
 Transcription (task 5.7, built):
 
-- the library and the Whisper model are part of the image **only when it
-  is built with `--build-arg WHISPER_MODEL=small`** (the Dockerfile layer
+- the library and the Whisper model are part of the image by default: the
+  Dockerfile's `ARG WHISPER_MODEL` defaults to `small`, so a platform that
+  cannot pass build arguments (cabotage) still gets an engine. The layer
   installs `requirements-media.txt` and downloads the model into
   `/opt/whisper` before the code is copied, so a code-only deploy reuses
-  the cached layer); an image built without the argument, which is what
-  CI builds, has no engine, and the job says so on the page. If the
-  platform cannot pass build arguments, set the default in the
-  Dockerfile. The worker never downloads at run time; changing the model
-  is an image rebuild; give the process 2 GB of memory for `small`, more
-  for `medium`;
+  the cached layer. `compose.yml` sets the argument to empty for the dev
+  images (and so for CI), which carry neither; build with
+  `--build-arg WHISPER_MODEL=` to get a lean production image, and an image
+  without a model has no engine, which the job says on the page. The worker
+  never downloads at run time; changing the model is an image rebuild; give
+  the process 2 GB of memory for `small`, more for `medium`;
 - set `SPEAKER_TRANSCRIBE_ENGINE=local` (and `SPEAKER_TRANSCRIBE_MODEL`
   to the model that was baked in) on every process, since the web
   process reads the first to offer "Transcribe this"; then switch *Auto

@@ -1,4 +1,5 @@
 # Machine transcription in the media worker (design §8.8). Installed into the
-# image only when it is built with WHISPER_MODEL set (Dockerfile), so the web
-# process and CI do not carry CTranslate2 and friends.
+# image whenever WHISPER_MODEL is non-empty (Dockerfile, default "small");
+# compose.yml sets it empty, so local builds and CI do not carry CTranslate2
+# and friends, but a plain docker build or the platform's build does.
 faster-whisper==1.2.1

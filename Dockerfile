@@ -15,12 +15,15 @@ RUN --mount=type=cache,target=/root/.cache/pip \
 # take thumbnail frames, and pulls the audio out for transcription.
 RUN apt-get update && apt-get install -y gettext flite sox ffmpeg
 
-# Machine transcription (design §8.8): with WHISPER_MODEL set (say "small"),
-# the library goes in and the model is downloaded into /opt/whisper in this
-# layer, before the code is copied, so a code-only build reuses it and the
-# worker never downloads at run time. Empty (the default, and what CI builds)
-# means no transcription in this image.
-ARG WHISPER_MODEL=""
+# Machine transcription (design §8.8): with WHISPER_MODEL set, the library
+# goes in and the model is downloaded into /opt/whisper in this layer, before
+# the code is copied, so a code-only build reuses it and the worker never
+# downloads at run time. It defaults to "small" so a platform that cannot pass
+# build arguments (cabotage) still ships the library and model; the engine
+# itself is switched on by SPEAKER_TRANSCRIBE_ENGINE. compose overrides it to
+# empty for the dev images, and an empty value means no transcription in the
+# image.
+ARG WHISPER_MODEL="small"
 COPY requirements-media.txt /code/
 RUN --mount=type=cache,target=/root/.cache/pip \
     if [ -n "$WHISPER_MODEL" ]; then \

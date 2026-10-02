@@ -70,7 +70,8 @@ def _load_model(model_name, model_dir):
     if not os.path.isdir(path):
         raise TranscriptionError(
             f"The Whisper model '{model_name}' is not in the image at {path}; "
-            "build it with WHISPER_MODEL set."
+            "the image was built with WHISPER_MODEL empty (compose.yml does "
+            "this for dev); build it with WHISPER_MODEL=small."
         )
     try:
         return WhisperModel(path, device="cpu", compute_type="int8")
