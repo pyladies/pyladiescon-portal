@@ -256,8 +256,8 @@ class TestPipeline:
         draft = job.output
         assert draft.kind == MediaKind.TRANSCRIPT and draft.language == "en"
         assert draft.version == 1 and draft.generated_by == "fake/tiny"
-        assert draft.original_filename == f"{session.slug}-en.vtt"
-        assert draft.title == "Machine transcript of Raw video (performer upload)"
+        assert draft.original_filename == "take-en.vtt" and draft.variant == "take"
+        assert draft.title == "Machine transcript of take.mp4"
         stored = bucket.client.get_object(Bucket=BUCKET, Key=draft.storage_key)
         assert stored["ContentType"] == "text/vtt"
         assert b"Welcome to PyJam." in stored["Body"].read()
@@ -279,6 +279,55 @@ class TestPipeline:
         assert job.output.language == "pt" and job.output.original_filename.endswith(
             "-pt.vtt"
         )
+
+    def test_each_video_gets_its_own_transcript(self, world, engine, bucket):
+        session = world["session"]
+        drafts = []
+        for name in ("video1.mpg", "video2.mpg"):
+            job = start_job(video(session, original_filename=name))
+            transcribe(job.pk)
+            job.refresh_from_db()
+            drafts.append(job.output)
+        assert [d.original_filename for d in drafts] == [
+            "video1-en.vtt",
+            "video2-en.vtt",
+        ]
+        assert [d.variant for d in drafts] == ["video1", "video2"]
+        assert [d.version for d in drafts] == [1, 1]
+        assert all(d.status == MediaStatus.READY for d in drafts)
+        # Transcribing the same video again is the next version of its own file.
+        job = start_job(video(session, original_filename="video1.mpg"))
+        transcribe(job.pk)
+        job.refresh_from_db()
+        drafts[0].refresh_from_db()
+        assert job.output.version == 2 and job.output.variant == "video1"
+        assert drafts[0].status == MediaStatus.SUPERSEDED
+
+    def test_a_video_without_a_file_name_is_named_after_the_session(
+        self, world, engine, bucket
+    ):
+        session = world["session"]
+        job = start_job(video(session, original_filename=""))
+        transcribe(job.pk)
+        job.refresh_from_db()
+        assert job.output.original_filename == f"{session.slug}-en.vtt"
+        assert job.output.variant == ""
+
+    def test_a_reviewed_transcript_of_another_video_is_no_bar(
+        self, world, engine, bucket
+    ):
+        session = world["session"]
+        MediaAsset.objects.create(
+            session=session,
+            kind=MediaKind.TRANSCRIPT,
+            language="en",
+            variant="video1",
+            status=MediaStatus.READY,
+            storage_key="k",
+            version=1,
+        )
+        assert not should_transcribe(video(session, original_filename="video1.mpg"))
+        assert should_transcribe(video(session, original_filename="video2.mpg"))
 
     def test_a_reviewed_transcript_is_never_overwritten(self, world, engine, bucket):
         session = world["session"]

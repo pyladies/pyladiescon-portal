@@ -24,7 +24,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from .constants import MediaKind, MediaStatus, TranscriptionStatus
-from .media import MediaBucket, MediaStorageNotConfigured, record_asset
+from .media import MediaBucket, MediaStorageNotConfigured, clean_variant, record_asset
 from .models import ActivityLog, MediaAsset, SpeakerSettings, TranscriptionJob
 
 logger = logging.getLogger(__name__)
@@ -207,18 +207,32 @@ def auto_transcribe(conference):
     ).exists()
 
 
-def human_transcript_exists(session, language):
+def video_stem(asset):
+    """The video's file name without its extension: what its transcript is
+    named after, so three videos on a session give three transcripts."""
+    return os.path.splitext(asset.original_filename or "")[0]
+
+
+def human_transcript_exists(session, language, variant=""):
     """Whether the newest transcript on the line is a person's: a reviewed
-    file is never overwritten by a re-upload of the video."""
-    newest = (
-        MediaAsset.objects.filter(
-            session=session, kind=MediaKind.TRANSCRIPT, language=language
+    file is never overwritten by a re-upload of the video. The lines that
+    count are the video's own (``variant``) and the session-wide one a
+    person uploads without a variant."""
+    for line in {"", variant}:
+        newest = (
+            MediaAsset.objects.filter(
+                session=session,
+                kind=MediaKind.TRANSCRIPT,
+                language=language,
+                variant=line,
+            )
+            .exclude(status=MediaStatus.FAILED)
+            .order_by("-version", "-id")
+            .first()
         )
-        .exclude(status=MediaStatus.FAILED)
-        .order_by("-version", "-id")
-        .first()
-    )
-    return newest is not None and not newest.is_machine_made
+        if newest is not None and not newest.is_machine_made:
+            return True
+    return False
 
 
 def should_transcribe(asset):
@@ -229,7 +243,9 @@ def should_transcribe(asset):
         and asset.is_ready
         and bool(asset.storage_key)
         and auto_transcribe(asset.session.conference)
-        and not human_transcript_exists(asset.session, asset.session.language)
+        and not human_transcript_exists(
+            asset.session, asset.session.language, clean_variant(video_stem(asset))
+        )
     )
 
 
@@ -281,16 +297,20 @@ def run_job(job):
     bucket.client.put_object(
         Bucket=bucket.bucket, Key=key, Body=vtt, ContentType="text/vtt"
     )
+    stem = video_stem(asset) or asset.session.slug
     return record_asset(
         session=asset.session,
         kind=MediaKind.TRANSCRIPT,
         language=language,
+        variant=clean_variant(video_stem(asset)),
         storage_key=key,
-        filename=f"{asset.session.slug}-{language or 'transcript'}.vtt",
+        filename=f"{stem}-{language or 'transcript'}.vtt",
         content_type="text/vtt",
         size_bytes=len(vtt),
         generated_by=engine.name,
-        title=f"Machine transcript of {asset.display_title}"[:200],
+        title=f"Machine transcript of {asset.original_filename or asset.display_title}"[
+            :200
+        ],
     )
 
 
