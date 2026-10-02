@@ -419,7 +419,7 @@ pyladiescon-2026/manifest.csv
 
 #### Machine transcription
 
-> **Built** (30 September 2026, task 5.7), as designed below. The library and the model enter the image only when it is built with `WHISPER_MODEL` set, so the web process and CI carry neither; an image built without it offers no transcription and says so.
+> **Built** (30 September 2026, task 5.7), as designed below. The library and the model enter any image built with a non-empty `WHISPER_MODEL`, which the Dockerfile defaults to `small` so the platform build (no build arguments) has an engine; `compose.yml` sets it empty, so local builds and CI carry neither, but the production web process does carry them, one image serving every process; an image built with it empty offers no transcription and says so.
 
 The "Transcribe" item on the post-production checklist completes when a transcript asset exists for the session's language (§9.7), so a worker job that writes one is the whole feature from the checklist's point of view: the item ticks itself, "Review transcript" stays a person's job, and the reviewer's corrected file goes up as the next version through the ordinary panel. The job is a draft-maker, never the last word.
 

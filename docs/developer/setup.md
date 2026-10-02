@@ -367,9 +367,10 @@ for speakers* is switched on in the admin under Speaker settings;
 organizers see it all regardless.
 
 Transcription needs the Whisper library and a model in the image: build
-with `docker compose build --build-arg WHISPER_MODEL=small web celery`
-(about 500 MB more, once), put `SPEAKER_TRANSCRIBE_ENGINE: local` in the
-override's `environment` for `web` and `celery`, restart both, and switch
+with `WHISPER_MODEL=small docker compose build web celery`
+(about 500 MB more, once; `--build-arg WHISPER_MODEL=small` overrides the
+empty default in `compose.yml` the same way), put
+`SPEAKER_TRANSCRIBE_ENGINE: local` in the override's `environment` for `web` and `celery`, restart both, and switch
 *Auto transcribe* on under Speaker settings. A short clip uploaded as a
 raw video then gets a "machine draft" transcript on the session's Files
 tab within a minute or two; "Transcribe this" on any video row starts one

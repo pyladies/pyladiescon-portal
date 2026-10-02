@@ -193,9 +193,14 @@ the job row and in the activity log; a job still queued after
 `SPEAKER_TRANSCRIBE_STALE_HOURS` is failed by the nightly "Fail stale
 transcription jobs" task, which is how a missing media worker shows on
 the page. The library is in `requirements-media.txt` and the model in
-`/opt/whisper`, both baked into the image only when it is built with
-`WHISPER_MODEL`; tests never import the library (`_load_model` is
-patched). Thumbnails (task 5.8) are
+`/opt/whisper`, both baked into any image built with a non-empty
+`WHISPER_MODEL`, which the Dockerfile defaults to `small` so cabotage, which
+passes no build arguments, still gets an engine. `compose.yml` holds it empty
+for the dev images, which is what keeps local builds and CI free of the
+library and model; a plain `docker build` or the platform's build carries them,
+in the web and beat processes too, since one image serves every process (a
+separate media-worker target would avoid that, and is the alternative if the
+size matters). Tests never import the library (`_load_model` is patched). Thumbnails (task 5.8) are
 `speakers/thumbnails.py`: `on_asset_ready` queues `make_thumbnail_task`
 on the `media` queue for images and videos, Pillow scales an image and
 ffmpeg takes a frame of a video (three seconds in, the first frame for a
