@@ -8,6 +8,7 @@ static/js/media-upload.js. Params:
     with_language   show the language field (transcripts, translations)
     with_variant    show the variant field (promo materials: square, gif...)
     line_titles     {"KIND|language": title} for the prefill of the title field
+    line_variants   the variants already on the session, offered with the formats
     open_uploads    the caller's unfinished uploads here, for the note
     accept          the file input's accept attribute (optional)
     panel_id        unique suffix for element ids on the page
@@ -79,7 +80,14 @@ static/js/media-upload.js. Params:
                     </option>
                     <option value="gif">
                     </option>
+                    {% for line_variant in line_variants %}
+                        <option value="{{ line_variant }}">
+                        </option>
+                    {% endfor %}
                 </datalist>
+                <div class="form-text small">
+                    {% trans "To replace a machine transcript, choose its variant from the list." %}
+                </div>
             </div>
         {% endif %}
         <div class="col-12">

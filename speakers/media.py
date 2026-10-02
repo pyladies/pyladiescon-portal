@@ -376,6 +376,16 @@ def line_titles(session, assets=None):
     return titles
 
 
+def line_variants(session, assets=None):
+    """The variants already filed on the session, sorted: what the upload
+    panel offers beside the promo formats, because a file uploaded under a
+    line's variant is the next version of that line (a reviewed transcript
+    replaces the machine draft this way)."""
+    if assets is None:
+        assets = session_assets(session)
+    return sorted({asset.variant for asset in assets if asset.variant})
+
+
 def clean_title(title):
     """One line of text: trimmed, inner runs of whitespace (newlines and
     tabs included) folded to a space, cut to the column."""

@@ -209,30 +209,39 @@ def auto_transcribe(conference):
 
 def video_stem(asset):
     """The video's file name without its extension: what its transcript is
-    named after, so three videos on a session give three transcripts."""
+    named after."""
     return os.path.splitext(asset.original_filename or "")[0]
 
 
-def human_transcript_exists(session, language, variant=""):
-    """Whether the newest transcript on the line is a person's: a reviewed
-    file is never overwritten by a re-upload of the video. The lines that
-    count are the video's own (``variant``) and the session-wide one a
-    person uploads without a variant."""
-    for line in {"", variant}:
-        newest = (
-            MediaAsset.objects.filter(
-                session=session,
-                kind=MediaKind.TRANSCRIPT,
-                language=language,
-                variant=line,
-            )
-            .exclude(status=MediaStatus.FAILED)
-            .order_by("-version", "-id")
-            .first()
+def transcript_variant(asset):
+    """The line a video's draft is filed on: the file name stem for a person
+    to read, then the video's own pk, which is what keeps it unique. A name
+    alone is not enough: two exports that differ only past the column's 40
+    characters, or a raw video and a final cut both called take.mp4, would
+    share a line and each supersede the other's transcript."""
+    suffix = f"-{asset.pk}"
+    stem = clean_variant(video_stem(asset))[: 40 - len(suffix)].strip()
+    return f"{stem}{suffix}" if stem else f"video{suffix}"
+
+
+def human_transcript_exists(session, language, variant):
+    """Whether the newest transcript on the video's own line (``variant``,
+    from ``transcript_variant``) is a person's: a reviewed file is never
+    overwritten by a re-run on the same video. A transcript a person
+    uploaded without a variant is a session-wide file, not any one video's,
+    and bars nothing, so one review never stops the drafts of the others."""
+    newest = (
+        MediaAsset.objects.filter(
+            session=session,
+            kind=MediaKind.TRANSCRIPT,
+            language=language,
+            variant=variant,
         )
-        if newest is not None and not newest.is_machine_made:
-            return True
-    return False
+        .exclude(status=MediaStatus.FAILED)
+        .order_by("-version", "-id")
+        .first()
+    )
+    return newest is not None and not newest.is_machine_made
 
 
 def should_transcribe(asset):
@@ -244,7 +253,7 @@ def should_transcribe(asset):
         and bool(asset.storage_key)
         and auto_transcribe(asset.session.conference)
         and not human_transcript_exists(
-            asset.session, asset.session.language, clean_variant(video_stem(asset))
+            asset.session, asset.session.language, transcript_variant(asset)
         )
     )
 
@@ -297,12 +306,14 @@ def run_job(job):
     bucket.client.put_object(
         Bucket=bucket.bucket, Key=key, Body=vtt, ContentType="text/vtt"
     )
+    # A video with no file name (only possible outside the upload path) is
+    # named after the session and filed on "video-<pk>", still its own line.
     stem = video_stem(asset) or asset.session.slug
     return record_asset(
         session=asset.session,
         kind=MediaKind.TRANSCRIPT,
         language=language,
-        variant=clean_variant(video_stem(asset)),
+        variant=transcript_variant(asset),
         storage_key=key,
         filename=f"{stem}-{language or 'transcript'}.vtt",
         content_type="text/vtt",
