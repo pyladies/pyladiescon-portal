@@ -133,6 +133,36 @@ Limits worth knowing:
   record was saved, the speaker has the email but the page lists it. Sending
   again gives them a second one.
 
+**Check the workers after every deploy.** Every worker reading the default
+queue takes tasks, and a task goes to whichever takes it first. A release
+can leave an older `worker` pod running beside the new one (this happened
+on 1 October 2026, and both showed under the one process), and then some
+emails are sent with the old code: without a record, without the log lines,
+with the old behaviour, while the deploy reports success. The top of **Maintenance >
+Invitations** lists every worker attached to the broker: its name, which
+queue it reads, how long it has been up, and whether it runs the same email
+code as the site. The check after a deploy is one default worker, saying
+**same as this site**, and one media worker (a worker started with
+`-Q celery,media`, as in development, counts as both). Red alerts name the
+problem: more than one worker reading the default queue, none reading the
+default queue, none reading the media queue (thumbnails, transcription and
+downloads wait), or a worker whose code the page cannot confirm. That last one
+reads one of four ways: **not reported** means the worker answered that it does
+not know the command, so it runs code older than the page and should be
+removed; **differs** shows a different fingerprint of the files that decide
+what an email task does (`common.workers.email_code_version`); **error** is a
+worker that knows the command and failed, with its error; **no answer** is a
+worker that was attached but did not reply in time, which may be busy or
+stuck. The fingerprint is of the code the process started with, so a changed
+file shows the old value until the process restarts.
+
+The page takes about a second longer to load while it waits for answers. If
+the broker cannot be reached it says so within a few seconds instead of
+hanging: connecting is bounded by `CELERY_BROKER_TRANSPORT_OPTIONS`
+(`socket_connect_timeout`, which also bounds a worker's own connect), and the
+page gives up after the wait plus a few seconds. The same list is available
+from a shell with `celery -A portal inspect ping`.
+
 **Finding out why.** Cabotage runs each `Procfile` line as its own
 deployment, so the `worker` process has its own logs, apart from `web`; open
 that process, and check it is scaled to at least one replica. The apps log at

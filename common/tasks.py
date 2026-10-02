@@ -1,11 +1,24 @@
 import logging
 
 from celery import shared_task
+from celery.worker.control import control_command
 from kombu.exceptions import OperationalError
 
 from .models import prune_sent_emails
+from .workers import email_code_version
 
 logger = logging.getLogger(__name__)
+
+
+@control_command()
+def portal_code_version(state):
+    """Tell Maintenance > Invitations which email code this worker runs.
+
+    A worker that predates this command cannot answer it, and the page shows
+    that silence as "older code". The name must match
+    ``common.workers.CODE_VERSION_COMMAND``.
+    """
+    return {"version": email_code_version()}
 
 
 @shared_task

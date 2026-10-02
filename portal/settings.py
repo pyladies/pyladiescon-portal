@@ -489,6 +489,11 @@ PRETIX_WEBHOOK_SECRET = os.getenv("PRETIX_WEBHOOK_SECRET")
 # broker works without copying that secret into a second env var.
 CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL") or os.environ.get("REDIS_URL")
 
+# Without a bound a connection to an address that never answers waits for the
+# operating system's own timeout, minutes long. Only the connect is bounded:
+# the worker's reads on the queue block by design.
+CELERY_BROKER_TRANSPORT_OPTIONS = {"socket_connect_timeout": 5}
+
 # Periodic tasks live in the database (django-celery-beat) and are edited in
 # the Django admin under "Periodic tasks". The `worker-beat` process in the Procfile
 # reads them. The unverified-account deletion job is seeded by

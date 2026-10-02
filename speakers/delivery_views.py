@@ -6,6 +6,7 @@ from django.views import View
 from django.views.generic import TemplateView
 
 from common.mixins import MaintainerRequiredMixin
+from common.workers import inspect_workers
 from portal.models import Conference
 
 from .delivery import (
@@ -20,8 +21,9 @@ from .delivery import (
 
 
 class MaintenanceInvitationsView(MaintainerRequiredMixin, TemplateView):
-    """The active edition's invitations marked sent with no email record,
-    with the sends already made from this page."""
+    """The workers attached to the broker, then the active edition's
+    invitations marked sent with no email record and the sends already made
+    from this page."""
 
     template_name = "speakers/maintenance_invitations.html"
 
@@ -35,6 +37,7 @@ class MaintenanceInvitationsView(MaintainerRequiredMixin, TemplateView):
                 "records_began": records_began(),
                 "grace_minutes": int(GRACE.total_seconds() // 60),
                 "history": retriggered_history(conference) if conference else [],
+                "workers": inspect_workers(),
             }
         )
         return context

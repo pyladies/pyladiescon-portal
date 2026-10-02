@@ -10,8 +10,13 @@ reference for any work that touches `common/send_emails.py`,
 Status: partly built. Sections marked *build* say what lands and where.
 **Built on 1 October 2026:** the audit and retrigger page (Maintenance >
 Invitations, `speakers/delivery.py`), the `LOGGING` setting, and log lines
-for a queued task, the invitation task and a retrigger. Everything else
-below is still design.
+for a queued task, the invitation task and a retrigger. **Built on 2 October
+2026:** the Workers panel at the top of Maintenance > Invitations
+(`common/workers.py`, and the `portal_code_version` control command in
+`common/tasks.py`), which lists every worker attached to the broker beside
+the web process's email-code fingerprint, after a stale `worker` pod left
+over from an earlier release took most of the tasks and sent email without a
+record. Everything else below is still design.
 
 ## Why
 
@@ -274,13 +279,15 @@ each worker really arrives in Sentry tagged with its process.
 
 ## Maintenance > Delivery
 
-*build*
+*build.* The worker list below is already on Maintenance > Invitations
+(`common.workers.inspect_workers`); this page would take it over.
 
 A page beside Accounts, Emails and Exports, gated on `is_maintainer` like
 them (`MaintainerRequiredMixin`). Three parts:
 
 1. **Workers.** One line per queue: last heartbeat, hostname, whether
-   Sentry was on. Red if no heartbeat in ten minutes, with the text of what
+   Sentry was on (the live list of attached workers, their uptime and email
+   code is already built). Red if no heartbeat in ten minutes, with the text of what
    that usually means ("the worker is not running or not consuming this
    queue"). This is the same idea as `fail_stale_jobs`, which already tells
    a maintainer that `worker-media` is at zero replicas.
