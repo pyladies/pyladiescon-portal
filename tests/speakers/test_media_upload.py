@@ -736,12 +736,21 @@ class TestBadBodiesAndNames:
 @pytest.mark.django_db
 class TestTheObjectGoesWithTheRow:
     def test_deleting_the_asset_deletes_the_object(
-        self, bucket, session, performer, settings, caplog
+        self,
+        bucket,
+        session,
+        performer,
+        settings,
+        caplog,
+        django_capture_on_commit_callbacks,
     ):
+        """The object goes once the deletion commits (receivers.py), so a
+        direct delete runs the hooks the way a request's commit would."""
         upload = raw_upload(session, performer)
         asset = complete_upload(upload, upload_parts(bucket, upload, [3]))
         bucket.client.head_object(Bucket=BUCKET, Key=asset.storage_key)
-        asset.delete()
+        with django_capture_on_commit_callbacks(execute=True):
+            asset.delete()
         with pytest.raises(ClientError):
             bucket.client.head_object(Bucket=BUCKET, Key=upload.storage_key)
         # Without storage the row still goes, and the log says what stays.
@@ -749,7 +758,9 @@ class TestTheObjectGoesWithTheRow:
             session=session, kind=MediaKind.OTHER, storage_key="speaker-media/x/y"
         )
         settings.SPEAKER_MEDIA_BUCKET = ""
-        with caplog.at_level(logging.ERROR):
+        with caplog.at_level(logging.ERROR), django_capture_on_commit_callbacks(
+            execute=True
+        ):
             orphan.delete()
         assert "in the bucket" in caplog.text
         MediaAsset.objects.create(session=session, kind=MediaKind.OTHER).delete()

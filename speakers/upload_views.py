@@ -440,15 +440,14 @@ class MediaDeleteView(LoginRequiredMixin, SpeakerModuleRequiredMixin, View):
         else:
             back = reverse("speakers:my_session_detail", args=[session.slug]) + "#video"
         try:
-            label, name, versions = delete_line(
+            label, name, versions, drafts = delete_line(
                 asset, request.user, request.POST.get("confirm", "")
             )
         except MediaDeleteError as exc:
             messages.error(request, str(exc))
             return redirect(back)
-        messages.success(
-            request,
-            f"Deleted {label} ({name}), {versions} version(s), from the portal "
-            "and from storage.",
-        )
+        note = f"Deleted {label} ({name}), {versions} version(s)"
+        if drafts:
+            note += f" and {drafts} machine transcript(s) made from it"
+        messages.success(request, f"{note}, from the portal and from storage.")
         return redirect(back)

@@ -1,7 +1,8 @@
 """Deleting a file line, every version of it (design §8.8, "Deleting a
 file"): organizers any line, a performer their own raw video, both after
 typing the file's name back; what a cancelled session keeps and what the
-admin's session delete takes with it."""
+admin's session delete takes with it. The view's client runs the commit
+hooks; a direct delete runs them with ``commits``."""
 
 import logging
 
@@ -31,6 +32,7 @@ from speakers.models import (
     Session,
     TranscriptionJob,
 )
+from speakers.transcription import transcript_variant
 
 from .factories import add_presenter, make_presenter, make_session, make_settings
 
@@ -48,6 +50,18 @@ def bucket(settings):
     with mock_aws():
         boto3.client("s3", region_name="us-east-1").create_bucket(Bucket=BUCKET)
         yield MediaBucket.from_settings()
+
+
+@pytest.fixture
+def commits(django_capture_on_commit_callbacks):
+    """Run the commit hooks after a direct delete, the way a request's
+    commit would: the bucket work waits for them."""
+
+    def _within(action):
+        with django_capture_on_commit_callbacks(execute=True):
+            return action()
+
+    return _within
 
 
 @pytest.fixture
@@ -227,6 +241,7 @@ class TestOrganizerDeletes:
             "Raw video (performer upload)",
             "raw_video.mp4",
             1,
+            0,
         )
         assert not TranscriptionJob.objects.filter(pk=job.pk).exists()
 
@@ -264,6 +279,121 @@ class TestOrganizerDeletes:
         client.force_login(liaison)
         html = client.get(organizer_page(session)).content.decode()
         assert "media-delete" not in html
+
+    def test_a_rollback_keeps_the_files(
+        self, bucket, session, organizer, monkeypatch, commits
+    ):
+        """The bucket answers after the commit, not before: a deletion
+        that fails after the rows are gone restores the rows and, with
+        them, the files their download links point at."""
+        video = upload(bucket, session, organizer)
+
+        def refuse(*args, **kwargs):
+            raise RuntimeError("the log table is away")
+
+        monkeypatch.setattr(ActivityLog, "record", refuse)
+        with pytest.raises(RuntimeError):
+            commits(lambda: delete_line(video, organizer, "raw_video.mp4"))
+        assert MediaAsset.objects.filter(pk=video.pk).exists()
+        assert in_bucket(bucket, video.storage_key)
+        assert in_bucket(bucket, video.thumbnail_key)
+        assert MediaUpload.objects.filter(asset=video).exists()
+
+    def test_a_name_stored_with_spaces_around_it(
+        self, client, bucket, session, organizer
+    ):
+        """The typed value is trimmed, so the name to type is too; a name
+        that kept its spaces would match nothing anyone can type."""
+        video = upload(bucket, session, organizer, filename=" take.mp4 ")
+        assert confirmation_name(video) == "take.mp4"
+        client.force_login(organizer)
+        html = client.get(organizer_page(session)).content.decode()
+        assert 'data-name="take.mp4"' in html
+        response = client.post(
+            delete_url(session, video), {"confirm": "take.mp4"}, follow=True
+        )
+        assert flashed(response)[0].startswith("Deleted ")
+        assert not MediaAsset.objects.filter(pk=video.pk).exists()
+
+    def test_a_machine_transcript_goes_with_its_video(
+        self, client, bucket, session, organizer
+    ):
+        """The draft's line is keyed to the video's row, so nothing could
+        replace it once the video is gone; a transcript a person uploaded
+        on that line stays, and so does the upload row's absence."""
+        video = upload(bucket, session, organizer)
+        draft = upload(
+            bucket,
+            session,
+            organizer,
+            MediaKind.TRANSCRIPT,
+            filename="draft.vtt",
+            language="en",
+            variant=transcript_variant(video),
+        )
+        draft.generated_by = "faster-whisper/small"
+        draft.save(update_fields=["generated_by"])
+        TranscriptionJob.objects.create(
+            asset=video, status=TranscriptionStatus.DONE, output=draft
+        )
+        reviewed = upload(
+            bucket,
+            session,
+            organizer,
+            MediaKind.TRANSCRIPT,
+            filename="reviewed.vtt",
+            language="en",
+            variant=transcript_variant(video),
+        )
+        client.force_login(organizer)
+        response = client.post(
+            delete_url(session, video), {"confirm": "raw_video.mp4"}, follow=True
+        )
+        assert flashed(response) == [
+            "Deleted Raw video (performer upload) (raw_video.mp4), 1 version(s) "
+            "and 1 machine transcript(s) made from it, from the portal and from "
+            "storage."
+        ]
+        assert not MediaAsset.objects.filter(pk__in=[video.pk, draft.pk]).exists()
+        assert MediaAsset.objects.filter(pk=reviewed.pk).exists()
+        assert not in_bucket(bucket, draft.storage_key)
+        assert in_bucket(bucket, reviewed.storage_key)
+        assert not MediaUpload.objects.filter(storage_key=video.storage_key).exists()
+        assert MediaUpload.objects.filter(storage_key=reviewed.storage_key).exists()
+        entry = ActivityLog.objects.get(action="media.deleted")
+        assert entry.data["drafts"] == ["draft.vtt"]
+
+    def test_an_attached_file_goes_from_storage(
+        self, session, organizer, commits, monkeypatch, caplog
+    ):
+        """A file attached through the admin lives in the default storage,
+        not the bucket; it goes the same way, and a storage that refuses
+        is logged, not raised."""
+        attached = MediaAsset.objects.create(
+            session=session,
+            kind=MediaKind.OTHER,
+            status=MediaStatus.READY,
+            file=SimpleUploadedFile("notes.txt", b"hello"),
+        )
+        storage, name = attached.file.storage, attached.file.name
+        assert storage.exists(name)
+        commits(lambda: delete_line(attached, organizer, "notes.txt"))
+        assert not storage.exists(name)
+        stubborn = MediaAsset.objects.create(
+            session=session,
+            kind=MediaKind.OTHER,
+            file=SimpleUploadedFile("more.txt", b"hello"),
+        )
+
+        def refuse(name):
+            raise OSError("read-only")
+
+        monkeypatch.setattr(stubborn.file.storage, "delete", refuse)
+        stubborn_pk = stubborn.pk
+        with caplog.at_level(logging.ERROR):
+            commits(stubborn.delete)
+        assert f"Deleted asset {stubborn_pk} leaves" in caplog.text
+        assert "more.txt in storage: read-only" in caplog.text
 
     def test_no_dialog_without_files(self, client, session, organizer):
         client.force_login(organizer)
@@ -330,6 +460,26 @@ class TestPerformerDeletes:
         assert not can_delete(liaison, session, video)
         assert not can_delete(AnonymousUser(), session, video)
 
+    def test_the_panel_counts_the_shown_line_only(
+        self, bucket, session, performer, organizer
+    ):
+        """A raw video under another variant is another line: the count
+        the dialog shows is what the delete takes, and a team upload on
+        that other line does not cost the performer their button."""
+        upload(bucket, session, performer, filename="take1.mp4")
+        upload(bucket, session, performer, filename="take2.mp4")
+        upload(bucket, session, organizer, filename="angle.mp4", variant="angle2")
+        panel = video_panel(session, performer)
+        assert panel["confirm_name"] in ("take2.mp4", "angle.mp4")
+        assert panel["versions"] == 2 if panel["confirm_name"] == "take2.mp4" else 1
+        line = [
+            a
+            for a in MediaAsset.objects.filter(session=session)
+            if a.variant == panel["delete_target"].variant
+        ]
+        assert panel["versions"] == len(line)
+        assert panel["can_delete"] is all(a.uploaded_by == performer for a in line)
+
     def test_the_panel_without_a_video(self, session, performer):
         panel = video_panel(session, performer)
         assert panel["delete_target"] is None
@@ -367,7 +517,7 @@ class TestTheSessionItself:
         assert in_bucket(bucket, video.thumbnail_key)
 
     def test_deleting_it_takes_the_files_and_aborts_open_uploads(
-        self, bucket, session, organizer, performer
+        self, bucket, session, organizer, performer, commits
     ):
         """The admin's delete cascades: every asset row goes with its
         object and thumbnail, and an upload still in flight is aborted so
@@ -384,7 +534,7 @@ class TestTheSessionItself:
             user=performer,
         )
         assert len(bucket.client.list_multipart_uploads(Bucket=BUCKET)["Uploads"]) == 1
-        Session.objects.filter(pk=session.pk).delete()
+        commits(lambda: Session.objects.filter(pk=session.pk).delete())
         assert not MediaAsset.objects.filter(pk__in=[video.pk, poster.pk]).exists()
         assert not MediaUpload.objects.filter(pk=open_upload.pk).exists()
         for asset in (video, poster):
@@ -393,7 +543,7 @@ class TestTheSessionItself:
         assert "Uploads" not in bucket.client.list_multipart_uploads(Bucket=BUCKET)
 
     def test_without_storage_the_rows_still_go(
-        self, bucket, session, performer, settings, caplog
+        self, bucket, session, performer, settings, caplog, commits
     ):
         open_upload = start_upload(
             session=session,
@@ -406,6 +556,6 @@ class TestTheSessionItself:
         )
         settings.SPEAKER_MEDIA_BUCKET = ""
         with caplog.at_level(logging.ERROR):
-            open_upload.delete()
+            commits(open_upload.delete)
         assert "stays open in the bucket" in caplog.text
         assert not MediaUpload.objects.filter(pk=open_upload.pk).exists()
