@@ -47,7 +47,7 @@ static/js/media-upload.js. Params:
             </div>
         {% endif %}
         {% if with_language %}
-            <div class="col-md-2">
+            <div class="col-md-3">
                 <label class="form-label small mb-1" for="upload-language-{{ panel_id }}">
                     {% trans "Language" %}
                 </label>
@@ -59,7 +59,7 @@ static/js/media-upload.js. Params:
             </div>
         {% endif %}
         {% if with_variant %}
-            <div class="col-md-2">
+            <div class="col-md-5">
                 <label class="form-label small mb-1" for="upload-variant-{{ panel_id }}">
                     {% trans "Variant" %}
                 </label>
@@ -85,16 +85,16 @@ static/js/media-upload.js. Params:
                         </option>
                     {% endfor %}
                 </datalist>
-                <div class="form-text small">
-                    {% trans "To replace a machine transcript, choose its variant from the list." %}
-                </div>
+            </div>
+            <div class="col-12 form-text small mt-0">
+                {% trans "Pick a listed variant to replace a machine transcript." %}
             </div>
         {% endif %}
         <div class="col-12">
             {% trans "Poster for the panel" as title_example %}
             <label class="form-label small mb-1" for="upload-title-{{ panel_id }}">
                 {% trans "Title" %}
-                <span class="text-secondary">{% trans "(optional; what the file is about, kept for every version and format of it)" %}</span>
+                <span class="text-secondary">{% trans "(optional; shared by every version and format)" %}</span>
             </label>
             <input class="form-control form-control-sm"
                    id="upload-title-{{ panel_id }}"
