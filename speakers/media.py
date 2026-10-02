@@ -30,13 +30,16 @@ from .constants import (
     VIDEO_KINDS,
     MediaKind,
     MediaStatus,
+    TranscriptionStatus,
     UploadStatus,
 )
 from .models import (
     TEXT_PREVIEW_MAX_BYTES,
+    ActivityLog,
     MediaAsset,
     MediaUpload,
     SpeakerSettings,
+    TranscriptionJob,
     media_for_speakers,
 )
 from .permissions import is_speaker_organizer
@@ -69,6 +72,10 @@ class MediaStorageNotConfigured(Exception):
 
 class UploadError(ValueError):
     """A request the lifecycle refuses; the message is for the caller."""
+
+
+class MediaDeleteError(ValueError):
+    """A deletion the portal refuses; the message is for the caller."""
 
 
 class MediaBucket:
@@ -308,6 +315,9 @@ def asset_groups(assets):
     for group in groups.values():
         # The row the title form posts to: any row of the line will do.
         group["target"] = group["current"] or group["history"][0]
+        # What deleting the line asks the person to type, and what goes.
+        group["confirm_name"] = confirmation_name(group["target"])
+        group["versions"] = len(group["history"]) + (1 if group["current"] else 0)
         # The newest transcription job on the current video, for its row.
         jobs = (
             list(group["current"].transcription_jobs.all()) if group["current"] else []
@@ -403,6 +413,103 @@ def set_line_title(asset, title):
     return title
 
 
+def line_assets(asset):
+    """Every version of the file ``asset`` is one version of: the rows of
+    its kind, language and variant on its session, newest first."""
+    return list(
+        MediaAsset.objects.filter(
+            session_id=asset.session_id,
+            kind=asset.kind,
+            language=asset.language,
+            variant=asset.variant,
+        )
+        .select_related("uploaded_by")
+        .order_by("-version", "-id")
+    )
+
+
+def confirmation_name(asset):
+    """The name the page shows for a file row, which is what deleting the
+    line asks the person to type back: the uploaded file's name, else the
+    admin-attached file's, else the label ("Transcript (en)")."""
+    name = (
+        asset.original_filename
+        or (os.path.basename(asset.file.name) if asset.file else "")
+        or asset.label
+    )
+    # A name stored with spaces around it would otherwise match nothing:
+    # the typed value is trimmed, so the name to type is too.
+    return name.strip()
+
+
+def can_delete(user, session, asset, assets=None):
+    """Who may delete a file line, every version of it: organizers any
+    line; a presenter on the session their raw video, and only when every
+    version of it is their own upload. One the team put there on their
+    behalf is the team's to take away. Pass ``assets`` (``line_assets``)
+    when the caller already has the line."""
+    if not user.is_authenticated:
+        return False
+    if is_speaker_organizer(user):
+        return True
+    if asset.kind != MediaKind.RAW_VIDEO or not can_upload(user, session, asset.kind):
+        return False
+    if assets is None:
+        assets = line_assets(asset)
+    return all(a.uploaded_by_id == user.pk for a in assets)
+
+
+def delete_line(asset, actor, confirm):
+    """Delete every version of the file ``asset`` belongs to, once the
+    person has typed its name back (``confirmation_name`` of the row the
+    page shows, the newest ready one). A machine transcript made from a
+    video on the line goes with it: a draft of a file that is gone has no
+    reader, and its line is keyed to the video's own row (transcription.py).
+    A reviewed transcript a person uploaded stays. The rows go in one
+    transaction, with the finished upload rows that pointed at them; their
+    objects and thumbnails follow from the bucket once it commits
+    (receivers.py). A video whose transcription is still running stays
+    until the job is done, since the job would otherwise write a transcript
+    for a file that is gone. Logs what went on the session. Returns
+    ``(label, name, versions, drafts)`` for the message."""
+    assets = line_assets(asset)
+    shown = next((a for a in assets if a.is_ready), assets[0])
+    name = confirmation_name(shown)
+    if (confirm or "").strip() != name:
+        raise MediaDeleteError("Type the file name exactly as shown to confirm.")
+    if TranscriptionJob.objects.filter(
+        asset__in=assets,
+        status__in=[TranscriptionStatus.QUEUED, TranscriptionStatus.RUNNING],
+    ).exists():
+        raise MediaDeleteError(
+            "A transcription of this video is under way; wait for it to finish."
+        )
+    drafts = list(
+        MediaAsset.objects.filter(made_by_jobs__asset__in=assets)
+        .exclude(generated_by="")
+        .distinct()
+    )
+    label = shown.display_title
+    going = [a.pk for a in assets + drafts]
+    with transaction.atomic():
+        MediaUpload.objects.filter(asset__in=going).delete()
+        MediaAsset.objects.filter(pk__in=going).delete()
+        ActivityLog.record(
+            shown.conference,
+            "media.deleted",
+            target=shown.session,
+            actor=actor,
+            message=f"{label}: {name}, {len(assets)} version(s)",
+            kind=shown.kind,
+            language=shown.language,
+            variant=shown.variant,
+            versions=len(assets),
+            filenames=[confirmation_name(a) for a in assets],
+            drafts=[confirmation_name(a) for a in drafts],
+        )
+    return label, name, len(assets), len(drafts)
+
+
 def read_text(asset):
     """A small text file's contents from the bucket (or the admin-attached
     file), decoded leniently; None when there is no file."""
@@ -456,6 +563,15 @@ def video_panel(session, user, assets=None):
         assets = session_assets(session)
     assets = [a for a in assets if a.kind == MediaKind.RAW_VIDEO]
     current = next((a for a in assets if a.is_ready), None)
+    shown = current or (assets[0] if assets else None)
+    # What deleting takes: the shown row's own line (its variant), not
+    # every raw video on the session.
+    line = [
+        a
+        for a in assets
+        if shown is not None
+        and (a.language, a.variant) == (shown.language, shown.variant)
+    ]
     limit = video_limit_minutes(session)
     duration_pct = None
     over_by = None
@@ -471,6 +587,12 @@ def video_panel(session, user, assets=None):
         "open_uploads": [
             u for u in open_uploads(session, user) if u.kind == MediaKind.RAW_VIDEO
         ],
+        # The performer may delete their video, every version, when each
+        # one is their own upload; the modal asks for the shown file's name.
+        "delete_target": shown,
+        "can_delete": bool(shown) and can_delete(user, session, shown, line),
+        "confirm_name": confirmation_name(shown) if shown else "",
+        "versions": len(line),
     }
 
 

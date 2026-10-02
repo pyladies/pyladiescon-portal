@@ -153,7 +153,21 @@ once in the upload panel, prefilled there from `media.line_titles`,
 inherited by later versions and variants in `complete_upload`
 (`media.line_title`), and edited for the whole line at once
 (`media.set_line_title`, `MediaTitleView`, which swaps the group
-`_media_group.html` in place). Bulk download (task 5.6) is
+`_media_group.html` in place). Deleting a line takes every version of it
+(`media.delete_line`, `MediaDeleteView`, design §8.8 "Deleting a file"):
+organizers any line, a performer their own raw video while every version
+is theirs (`media.can_delete`), after typing the shown file's name into
+the page's one dialog (`_media_delete_modal.html`, `static/js/media-delete.js`);
+the rows go in one transaction, with the finished `MediaUpload` rows that
+pointed at them and any machine transcript made from a video on the line
+(a reviewed one a person uploaded stays), and the `post_delete` receiver
+drops each object, its thumbnail and an admin-attached file once the
+transaction commits (`transaction.on_commit`, so a rollback never leaves a
+row without its file), the same receiver the admin's session delete
+cascades through (an open `MediaUpload` is aborted there too). A cancelled
+session keeps its files. The text preview answers with
+`X-Frame-Options: SAMEORIGIN`, since the clickjacking middleware's `DENY`
+would leave the fold's iframe empty. Bulk download (task 5.6) is
 `speakers/exports.py` and `speakers/export_views.py`: an organizer picks
 a scope (kinds, language, sessions, latest or every version, newer than
 a moment), `create_export` records a `MediaExport` (count, bytes, links

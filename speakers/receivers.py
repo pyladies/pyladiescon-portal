@@ -26,6 +26,7 @@ from .models import (
     HandbookReadReceipt,
     Invitation,
     MediaAsset,
+    MediaUpload,
     Presenter,
     ScheduleSlot,
     Session,
@@ -216,21 +217,66 @@ def on_asset_ready(sender, asset, **kwargs):
         start_job(asset)
 
 
-@receiver(post_delete, sender=MediaAsset, dispatch_uid="speakers.media.on_delete")
-def drop_the_object(sender, instance, **kwargs):
-    """A row deleted in the admin takes its object with it; otherwise the
-    bucket keeps a file nothing can reach again. Superseded versions keep
-    theirs for as long as their rows last: they are the history the pages
-    show. A bucket that cannot be reached is logged, not raised, so the
-    row's deletion stands either way."""
-    if not instance.storage_key:
+def _drop_objects(pk, keys, attached):
+    """Remove a deleted asset's files: its bucket objects (the upload and
+    the thumbnail beside it) and an admin-attached file in the default
+    storage. Storage that cannot be reached is logged, not raised."""
+    if attached is not None:
+        try:
+            attached.storage.delete(attached.name)
+        except OSError as exc:
+            logger.error("Deleted asset %s leaves %s in storage: %s", pk, attached, exc)
+    if not keys:
         return
     try:
-        MediaBucket.from_settings().delete(instance.storage_key)
+        bucket = MediaBucket.from_settings()
+        for key in keys:
+            bucket.delete(key)
+    except (MediaStorageNotConfigured, ClientError) as exc:
+        logger.error("Deleted asset %s leaves %s in the bucket: %s", pk, keys, exc)
+
+
+@receiver(post_delete, sender=MediaAsset, dispatch_uid="speakers.media.on_delete")
+def drop_the_object(sender, instance, **kwargs):
+    """A deleted row takes its files with it: the object, the thumbnail
+    made next to it, and an admin-attached file; otherwise the bucket
+    keeps a file nothing can reach again. Fires for every row of a line
+    someone deletes on the page and for each row the admin's session
+    delete cascades through. Superseded versions keep theirs for as long
+    as their rows last: they are the history the pages show.
+
+    The files go once the transaction commits (or at once, outside one):
+    a deletion rolled back after the bucket had already answered would
+    restore a row whose file is gone, with its download link on the page.
+    """
+    keys = [key for key in (instance.storage_key, instance.thumbnail_key) if key]
+    attached = instance.file if instance.file else None
+    if not keys and attached is None:
+        return
+    # Read now: the collector blanks the pk once the signals have run.
+    pk = instance.pk
+    transaction.on_commit(lambda: _drop_objects(pk, keys, attached))
+
+
+def _abort_upload(pk, key, upload_id):
+    try:
+        MediaBucket.from_settings().abort(key, upload_id)
     except (MediaStorageNotConfigured, ClientError) as exc:
         logger.error(
-            "Object %s of deleted asset %s stays in the bucket: %s",
-            instance.storage_key,
-            instance.pk,
+            "Upload %s of deleted row %s stays open in the bucket: %s",
+            upload_id,
+            pk,
             exc,
         )
+
+
+@receiver(post_delete, sender=MediaUpload, dispatch_uid="speakers.media.abort_upload")
+def abort_the_upload(sender, instance, **kwargs):
+    """An upload still in flight when its row goes (the admin deleted the
+    session under it) is aborted in the bucket once the deletion commits,
+    so the parts it received are freed now rather than when the lifecycle
+    rule gets to them."""
+    if not instance.is_open:
+        return
+    pk, key, upload_id = instance.pk, instance.storage_key, instance.upload_id
+    transaction.on_commit(lambda: _abort_upload(pk, key, upload_id))

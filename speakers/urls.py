@@ -131,6 +131,11 @@ urlpatterns = [
         upload_views.MediaShareView.as_view(),
         name="media_share",
     ),
+    path(
+        "sessions/<slug:slug>/media/<int:pk>/delete/",
+        upload_views.MediaDeleteView.as_view(),
+        name="media_delete",
+    ),
     path("presenters/", views.PresenterListView.as_view(), name="presenter_list"),
     path(
         "presenters/new/",

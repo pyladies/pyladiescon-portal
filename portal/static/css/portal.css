@@ -374,9 +374,22 @@ details.card[open] > summary.card-header::before {
 }
 
 /* The files table (templates/speakers/_media_files.html): the "More" row
-   under a file carries its forms and preview on a quiet background. */
+   under a file carries its forms and preview on a quiet background. While
+   it is open, it and the file row above it read as one block: the same
+   background on both, an accent down their left edge, and a firmer rule
+   under the pair, so the panel is not mistaken for another file. */
 .media-table .media-group-more > td {
     border-top: 0;
+    padding: 1rem 1.25rem 1.25rem;
+}
+.media-table .media-group:has(> .media-group-more.show) > tr > td {
+    --bs-table-bg: var(--bs-tertiary-bg);
+}
+.media-table .media-group:has(> .media-group-more.show) > tr > td:first-child {
+    border-left: 3px solid var(--bs-primary);
+}
+.media-table .media-group:has(> .media-group-more.show) > .media-group-more > td {
+    border-bottom: 2px solid var(--bs-secondary-border-subtle);
 }
 
 /* The session picker on the export page (templates/speakers/media_export.html):

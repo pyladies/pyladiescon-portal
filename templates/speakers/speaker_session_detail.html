@@ -17,6 +17,9 @@ upload action open the tab their target lives in.
         <script src="{% static 'js/media-upload.js' %}" defer></script>
     {% endif %}
     <script src="{% static 'js/session-tabs.js' %}" defer></script>
+    {% if video.can_delete %}
+        <script src="{% static 'js/media-delete.js' %}" defer></script>
+    {% endif %}
 {% endblock extra_head %}
 {% block breadcrumb %}
     {% url 'speakers:my_sessions' as bc_url %}
@@ -392,6 +395,24 @@ upload action open the tab their target lives in.
                                     </div>
                                 {% endif %}
                             </div>
+                            {% if video.can_delete %}
+                                <div class="card-body border-top pt-2 small">
+                                    {% blocktranslate count counter=video.versions asvar versions_text %}{{ counter }} version{% plural %}{{ counter }} versions{% endblocktranslate %}
+                                    {% trans "Your video" as video_label %}
+                                    <button type="button"
+                                            class="btn btn-sm btn-outline-danger"
+                                            data-bs-toggle="modal"
+                                            data-bs-target="#media-delete-modal"
+                                            data-action="{% url 'speakers:media_delete' session.slug video.delete_target.pk %}"
+                                            data-name="{{ video.confirm_name }}"
+                                            data-label="{{ video_label }}"
+                                            data-versions="{{ versions_text }}">
+                                        <i class="fa-solid fa-trash"></i> {% trans "Delete my video" %}
+                                    </button>
+                                    <span class="text-secondary ms-2">{% trans "Removes every version you uploaded." %}</span>
+                                </div>
+                                {% include "speakers/_media_delete_modal.html" %}
+                            {% endif %}
                             {% if video.history %}
                                 <details class="card-body border-top pt-2">
                                     <summary class="small">

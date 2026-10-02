@@ -1,0 +1,59 @@
+{% load i18n %}
+{% comment %}
+The one confirmation dialog for deleting a file line, every version of
+it (design §8.8, "Deleting a file"). Included once per page; each Delete
+button carries the line it is about in data attributes (action URL, the
+name to type, the label, the version count), and static/js/media-delete.js
+copies them in when the dialog opens and enables the button only once
+the typed name matches. The view checks the name again.
+{% endcomment %}
+<div class="modal fade"
+     id="media-delete-modal"
+     tabindex="-1"
+     aria-labelledby="media-delete-title"
+     aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="post" action="" data-role="form">
+                {% csrf_token %}
+                <div class="modal-header">
+                    <h5 class="modal-title" id="media-delete-title">
+                        {% trans "Delete this file?" %}
+                    </h5>
+                    {% trans "Close" as close_label %}
+                    <button type="button"
+                            class="btn-close"
+                            data-bs-dismiss="modal"
+                            aria-label="{{ close_label }}">
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <p class="mb-2">
+                        <span class="fw-semibold" data-role="label"></span>
+                        <span class="text-secondary" data-role="versions"></span>
+                    </p>
+                    <p class="text-danger">
+                        {% trans "Every version of this file is removed from the portal and from storage. This cannot be undone." %}
+                    </p>
+                    <label class="form-label" for="media-delete-confirm">
+                        {% trans "Type the file name to confirm:" %}
+                        <code data-role="name"></code>
+                    </label>
+                    <input class="form-control"
+                           id="media-delete-confirm"
+                           name="confirm"
+                           autocomplete="off"
+                           required>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        {% trans "Keep it" %}
+                    </button>
+                    <button type="submit" class="btn btn-danger" disabled data-role="submit">
+                        <i class="fa-solid fa-trash"></i> {% trans "Delete every version" %}
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>

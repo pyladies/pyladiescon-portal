@@ -1,44 +1,44 @@
 {% load i18n speakers_extras %}
 {% comment %}
-One earlier version of a file, as a single line: version and status,
-file, size, length, who and when, and the download link. Used under a
-file group's "More" row on the organizer page and under the performer's
-video card; the current version has its own table row (_media_group.html).
+One earlier version of a file, as one short line: the version badge
+(coloured by status, the status itself in its tooltip), the file name,
+size and length, when it landed, and an icon to download it. Who
+uploaded it and the reviewer's note sit in the date's tooltip rather
+than on the line, since a replaced version is read once in a while and
+scanned the rest of the time. Used under a file group's "More" row on
+the organizer page and under the performer's video card; the current
+version has its own table row (_media_group.html).
 Params: asset, session, show_notes (the organizer page: a reviewer's note is
 the team's, so the performer's history list leaves it out)
 {% endcomment %}
 <div class="d-flex flex-wrap align-items-center gap-2 small"
      data-asset="{{ asset.pk }}">
-    <span class="badge {% if asset.is_ready %}text-bg-success{% elif asset.status == 'SUPERSEDED' %}text-bg-secondary{% else %}text-bg-warning{% endif %}">
-        v{{ asset.version }} · {{ asset.get_status_display }}
-    </span>
-    <span class="fw-semibold text-break">{{ asset.original_filename|default:asset.file.name|default:"(no file)" }}</span>
+    <span class="badge {% if asset.is_ready %}text-bg-success{% elif asset.status == 'SUPERSEDED' %}text-bg-secondary{% else %}text-bg-warning{% endif %}"
+          title="{{ asset.get_status_display }}">v{{ asset.version }}</span>
+    <span class="text-break">{{ asset.original_filename|default:asset.file.name|default:"(no file)" }}</span>
     {% if asset.size_bytes %}
         <span class="text-secondary">{{ asset.size_bytes|filesizeformat }}</span>
     {% endif %}
     {% if asset.duration_seconds is not None %}
         <span class="text-secondary">{{ asset.duration_seconds|duration }}</span>
-    {% elif asset.probe_error %}
-        <span class="text-danger" title="{{ asset.probe_error }}">
-            <i class="fa-solid fa-triangle-exclamation"></i> {% trans "Length not measured" %}: {{ asset.probe_error }}
-        </span>
     {% endif %}
-    <span class="text-secondary">
-        {{ asset.creation_date|date:"j M H:i" }} UTC
-        {% if asset.uploaded_by %}
-            · {{ asset.uploaded_by.get_full_name|default:asset.uploaded_by.username }}
+    <span class="text-secondary"
+          title="{{ asset.creation_date|date:'j M Y H:i' }} UTC{% if asset.uploaded_by %} · {{ asset.uploaded_by.get_full_name|default:asset.uploaded_by.username }}{% endif %}{% if asset.notes_md and show_notes %} · {{ asset.notes_md }}{% endif %}">
+        {{ asset.creation_date|date:"j M" }}
+        {% if asset.notes_md and show_notes %}
+            <i class="fa-regular fa-note-sticky"></i>
         {% endif %}
     </span>
     {% if asset.shared_with_speaker %}
         <span class="badge text-bg-info">{% trans "Shared" %}</span>
     {% endif %}
-    {% if asset.notes_md and show_notes %}
-        <span class="text-secondary"><i class="fa-regular fa-note-sticky"></i> {{ asset.notes_md }}</span>
-    {% endif %}
     {% if asset.storage_key or asset.file %}
-        <a class="btn btn-sm btn-outline-primary ms-auto"
-           href="{% url 'speakers:media_download' session.slug asset.pk %}">
-            <i class="fa-solid fa-download"></i> {% trans "Download" %}
+        {% trans "Download" as download_label %}
+        <a class="ms-auto text-decoration-none"
+           href="{% url 'speakers:media_download' session.slug asset.pk %}"
+           title="{{ download_label }}"
+           aria-label="{{ download_label }}">
+            <i class="fa-solid fa-download"></i>
         </a>
     {% endif %}
 </div>

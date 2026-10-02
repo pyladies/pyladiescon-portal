@@ -17,6 +17,9 @@ open the tab their target lives in.
         <script src="{% static 'js/media-upload.js' %}" defer></script>
     {% endif %}
     <script src="{% static 'js/session-tabs.js' %}" defer></script>
+    {% if can_upload_media %}
+        <script src="{% static 'js/media-delete.js' %}" defer></script>
+    {% endif %}
 {% endblock extra_head %}
 {% block breadcrumb %}
     {% url 'speakers:session_list' as bc_url %}
@@ -654,6 +657,9 @@ open the tab their target lives in.
                 {% endif %}
             </div>
             {% include "speakers/_media_files.html" with session=session media_groups=media_groups can_edit=can_upload_media %}
+            {% if can_upload_media and media_groups %}
+                {% include "speakers/_media_delete_modal.html" %}
+            {% endif %}
         </div>
         <div class="tab-pane fade"
              id="tab-details"
