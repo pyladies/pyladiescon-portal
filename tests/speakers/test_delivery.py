@@ -13,9 +13,10 @@ from django.utils import timezone
 from pytest_django.asserts import assertContains, assertNotContains
 
 from common.models import SentEmail, SentEmailStatus, prune_sent_emails
+from common.workers import Worker, WorkerReport, email_code_version
 from portal.models import Conference
 from portal_account.permissions import MAINTAINERS_GROUP
-from speakers import delivery
+from speakers import delivery, delivery_views
 from speakers.delivery import (
     CLOCK_SLACK,
     GONE,
@@ -53,6 +54,15 @@ def migrations_table(db):
     production always has) does not exist. Created inside the test's own
     transaction, so it is rolled back with it."""
     MigrationRecorder(connection).ensure_schema()
+
+
+@pytest.fixture(autouse=True)
+def no_broker(monkeypatch):
+    """The page asks the broker which workers are attached; tests have none,
+    so it answers with nobody unless a test says otherwise."""
+    report = WorkerReport([], email_code_version())
+    monkeypatch.setattr(delivery_views, "inspect_workers", lambda: report)
+    return report
 
 
 @pytest.fixture
@@ -586,3 +596,76 @@ class TestMaintenanceInvitationsPage:
         response = self.login(client, maintainer).get(reverse(LIST_URL))
         body = response.content.decode()
         assert body.index("newer entry") < body.index("older entry")
+
+
+@pytest.mark.django_db
+class TestWorkersPanel:
+    def login(self, client, user):
+        client.force_login(user)
+        return client
+
+    def show(self, monkeypatch, workers, error="", problems=None):
+        report = WorkerReport(
+            workers, email_code_version(), problems or [], error=error
+        )
+        monkeypatch.setattr(delivery_views, "inspect_workers", lambda: report)
+
+    def worker(self, name, queue="celery", version=None, tasks=None):
+        return Worker(
+            name=f"celery@{name}",
+            queues=(queue,),
+            uptime=7200,
+            started=timezone.now() - timedelta(hours=2),
+            tasks=tasks or {"speakers.tasks.send_invitation_email_task": 3},
+            version=email_code_version() if version is None else version,
+        )
+
+    def test_lists_each_worker_with_its_code(
+        self, client, maintainer, monkeypatch, conference
+    ):
+        self.show(
+            monkeypatch,
+            [
+                self.worker("new-1"),
+                self.worker("old-2", version=""),
+                self.worker("other-3", version="deadbeef"),
+                self.worker("media-4", queue="media"),
+            ],
+            problems=["Two workers read the default queue."],
+        )
+        response = self.login(client, maintainer).get(reverse(LIST_URL))
+        assertContains(response, "Workers")
+        assertContains(response, "new-1")
+        assertContains(response, 'text-bg-success">same as this site', count=2)
+        assertContains(response, 'text-bg-danger">not reported', count=1)
+        assertContains(response, 'text-bg-warning">differs', count=1)
+        assertContains(response, "deadbeef")
+        assertContains(response, "media")
+        assertContains(response, "2\xa0hours ago")
+        assertContains(response, "Two workers read the default queue.")
+        assertContains(response, email_code_version())
+
+    def test_no_problems_means_no_alert(
+        self, client, maintainer, monkeypatch, conference
+    ):
+        self.show(monkeypatch, [self.worker("only")])
+        response = self.login(client, maintainer).get(reverse(LIST_URL))
+        assertContains(response, "only")
+        assertNotContains(response, "alert-danger")
+
+    def test_says_when_nobody_answers(
+        self, client, maintainer, monkeypatch, conference
+    ):
+        self.show(monkeypatch, [], problems=["No worker is reading the default queue."])
+        response = self.login(client, maintainer).get(reverse(LIST_URL))
+        assertContains(response, "No worker answered.")
+        assertContains(response, "No worker is reading the default queue.")
+
+    def test_says_when_the_broker_cannot_be_asked(
+        self, client, maintainer, monkeypatch, conference
+    ):
+        self.show(monkeypatch, [], error="ConnectionError: refused")
+        response = self.login(client, maintainer).get(reverse(LIST_URL))
+        assertContains(response, "could not be asked which workers are attached")
+        assertContains(response, "ConnectionError: refused")
+        assertNotContains(response, "No worker answered.")

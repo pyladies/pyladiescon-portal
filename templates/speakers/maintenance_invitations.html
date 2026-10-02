@@ -20,6 +20,83 @@
         <p class="text-secondary mb-3">
             {% trans "Invitations the portal marked as sent, with no record that the email went out. A presenter's page calls an invitation sent as soon as it is queued; the record is written by the worker when the email is delivered. The two disagree when a task is lost, for instance when a worker restarts while holding it." %}
         </p>
+        <h2 class="h5">
+            {% trans "Workers" %}
+        </h2>
+        {% if workers.error %}
+            <div class="alert alert-danger" role="alert">
+                {% blocktranslate with error=workers.error %}The broker could not be asked which workers are attached: {{ error }}{% endblocktranslate %}
+            </div>
+        {% else %}
+            {% for problem in workers.problems %}
+                <div class="alert alert-danger" role="alert">
+                    {{ problem }}
+                </div>
+            {% endfor %}
+            {% if workers.workers %}
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>
+                                    {% trans "Worker" %}
+                                </th>
+                                <th>
+                                    {% trans "Reads" %}
+                                </th>
+                                <th>
+                                    {% trans "Running since" %}
+                                </th>
+                                <th>
+                                    {% trans "Email code" %}
+                                </th>
+                                <th class="text-end">
+                                    {% trans "Tasks run" %}
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for worker in workers.workers %}
+                                <tr>
+                                    <td class="small text-break">
+                                        {{ worker.label }}
+                                    </td>
+                                    <td class="small">
+                                        {{ worker.role }}
+                                    </td>
+                                    <td class="small text-nowrap">
+                                        {% blocktranslate with since=worker.started|timesince %}{{ since }} ago{% endblocktranslate %}
+                                    </td>
+                                    <td class="small">
+                                        {% if not worker.version %}
+                                            <span class="badge text-bg-danger">{% trans "not reported" %}</span>
+                                        {% elif worker.version == workers.web_version %}
+                                            <span class="badge text-bg-success">{% trans "same as this site" %}</span>
+                                        {% else %}
+                                            <span class="badge text-bg-warning">{% trans "differs" %}</span>
+                                            {{ worker.version }}
+                                        {% endif %}
+                                    </td>
+                                    <td class="small text-end">
+                                        {{ worker.tasks_run }}
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                <p class="small text-secondary">
+                    {% blocktranslate with version=workers.web_version %}This site runs email code {{ version }}. After a deploy there should be one worker reading the default queue and it should say "same as this site". A worker that does not report a version runs older code: it still takes tasks, so some emails are sent by it without a record.{% endblocktranslate %}
+                </p>
+            {% else %}
+                <p class="text-secondary">
+                    {% trans "No worker answered." %}
+                </p>
+            {% endif %}
+        {% endif %}
+        <h2 class="h5 mt-4">
+            {% trans "Marked sent, no email record" %}
+        </h2>
         {% if not conference %}
             <p class="text-secondary">
                 {% trans "There is no active edition." %}
