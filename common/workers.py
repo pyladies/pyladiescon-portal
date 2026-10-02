@@ -10,8 +10,8 @@ lays the workers side by side so the difference is visible on one page.
 
 A worker reports the fingerprint of the files that decide what an email task
 does (``portal_code_version``, registered in ``common.tasks``). A worker that
-predates the command cannot answer it, which is itself the finding: it runs
-older code than this page.
+predates the command answers the broadcast with an error naming it, which is
+itself the finding: it runs older code than this page.
 """
 
 import hashlib
@@ -21,6 +21,7 @@ from dataclasses import dataclass, field
 from datetime import timedelta
 from functools import lru_cache
 from pathlib import Path
+from time import monotonic
 
 from celery import current_app
 from django.conf import settings
@@ -31,6 +32,13 @@ logger = logging.getLogger(__name__)
 DEFAULT_QUEUE = "celery"
 MEDIA_QUEUE = "media"
 CODE_VERSION_COMMAND = "portal_code_version"
+
+# What a worker's answer to the version request says about its code.
+CODE_CURRENT = "current"
+CODE_DIFFERS = "differs"
+CODE_OLDER = "older"
+CODE_ERROR = "error"
+CODE_SILENT = "silent"
 
 # The files whose content decides what an email task does.
 EMAIL_CODE_FILES = (
@@ -44,11 +52,22 @@ EMAIL_CODE_FILES = (
 
 @lru_cache(maxsize=1)
 def email_code_version():
-    """A short fingerprint of the email code this process was started with."""
+    """A short fingerprint of the email code this process was started with.
+
+    Cached for the life of the process on purpose: it names the code that was
+    loaded, not the files on disk now, so editing a file and reloading shows
+    the old fingerprint until a restart, which is what a page about telling
+    versions apart should say. A file that cannot be read (renamed, say)
+    contributes a marker instead of raising, so the page that diagnoses
+    workers is never the thing that fails; a test pins that every file exists.
+    """
     digest = hashlib.sha256()
     for relative in EMAIL_CODE_FILES:
         digest.update(relative.encode())
-        digest.update((Path(settings.BASE_DIR) / relative).read_bytes())
+        try:
+            digest.update((Path(settings.BASE_DIR) / relative).read_bytes())
+        except OSError:
+            digest.update(b"<unreadable>")
     return digest.hexdigest()[:8]
 
 
@@ -61,8 +80,11 @@ class Worker:
     uptime: int
     started: object
     tasks: dict
-    # Empty when the worker did not answer the version command.
-    version: str
+    # What its answer to the version request says (``CODE_*``).
+    code: str
+    # The fingerprint it reported, or the error it answered with.
+    version: str = ""
+    error: str = ""
 
     @property
     def label(self):
@@ -70,10 +92,20 @@ class Worker:
         return self.name.removeprefix("celery@")
 
     @property
+    def reads_default(self):
+        return DEFAULT_QUEUE in self.queues
+
+    @property
+    def reads_media(self):
+        return MEDIA_QUEUE in self.queues
+
+    @property
     def role(self):
-        if DEFAULT_QUEUE in self.queues:
+        if self.reads_default and self.reads_media:
+            return "default and media"
+        if self.reads_default:
             return "default"
-        if MEDIA_QUEUE in self.queues:
+        if self.reads_media:
             return "media"
         return "other"
 
@@ -94,13 +126,28 @@ class WorkerReport:
     error: str = ""
 
 
+def classify(version, error, web_version):
+    """What a worker's answer says about its code.
+
+    A worker without the command replies with an error that names it (a
+    ``KeyError``), which is the signature of older code. Any other error is a
+    worker that knows the command and failed, and no answer at all is a worker
+    that was busy or gone.
+    """
+    if version:
+        return CODE_CURRENT if version == web_version else CODE_DIFFERS
+    if error:
+        return CODE_OLDER if CODE_VERSION_COMMAND in error else CODE_ERROR
+    return CODE_SILENT
+
+
 def assess(workers, web_version):
     """The things wrong with this set of workers, as sentences."""
     problems = []
-    default = [w for w in workers if w.role == "default"]
+    default = [w for w in workers if w.reads_default]
     if not default:
         problems.append(
-            "No worker is reading the default queue, so emails are queued " "and wait."
+            "No worker is reading the default queue, so emails are queued and wait."
         )
     elif len(default) > 1:
         problems.append(
@@ -108,13 +155,28 @@ def assess(workers, web_version):
             "whichever takes it first, so if they run different code, some "
             "emails are sent without a record or a log line."
         )
+    if not any(w.reads_media for w in workers):
+        problems.append(
+            "No worker is reading the media queue, so thumbnails, "
+            "transcription and downloads wait."
+        )
     for worker in workers:
-        if not worker.version:
+        if worker.code == CODE_OLDER:
             problems.append(
                 f"{worker.label} does not report a code version: it runs "
                 "code older than this page."
             )
-        elif worker.version != web_version:
+        elif worker.code == CODE_ERROR:
+            problems.append(
+                f"{worker.label} answered the version request with an error "
+                f"({worker.error}), so its code version is unknown."
+            )
+        elif worker.code == CODE_SILENT:
+            problems.append(
+                f"{worker.label} did not answer the version request. It may "
+                "be busy or stuck."
+            )
+        elif worker.code == CODE_DIFFERS:
             problems.append(
                 f"{worker.label} runs different email code ({worker.version}) "
                 f"from this site ({web_version})."
@@ -122,39 +184,55 @@ def assess(workers, web_version):
     return problems
 
 
-def inspect_workers(control=None, timeout=1.0):
+def inspect_workers(control=None, timeout=1.0, patience=3.0):
     """Ask the broker which workers are attached and what they run.
 
-    The three questions are independent, so they go out together and the page
-    waits for one timeout, not three. Never raises: a broker that cannot be
-    reached is reported in ``error``.
+    The three questions are independent, so they go out together. ``timeout``
+    is how long Celery waits for replies once connected; ``patience`` is the
+    extra the page allows for connecting, after which the broker is reported
+    as not answering. The pool is not joined on the way out: a connection to
+    an address that never answers would otherwise hold the page for as long
+    as the socket does. (``broker_transport_options`` bounds the connect
+    itself, so such a thread ends soon after.) Never raises.
     """
     control = control or current_app.control
     web_version = email_code_version()
+    pool = ThreadPoolExecutor(max_workers=3)
     try:
-        with ThreadPoolExecutor(max_workers=3) as pool:
-            stats = pool.submit(lambda: control.inspect(timeout=timeout).stats())
-            queues = pool.submit(
-                lambda: control.inspect(timeout=timeout).active_queues()
-            )
-            replies = pool.submit(
+        futures = (
+            pool.submit(lambda: control.inspect(timeout=timeout).stats()),
+            pool.submit(lambda: control.inspect(timeout=timeout).active_queues()),
+            pool.submit(
                 lambda: control.broadcast(
                     CODE_VERSION_COMMAND, reply=True, timeout=timeout
                 )
-            )
-            stats, queues, replies = (
-                stats.result() or {},
-                queues.result() or {},
-                replies.result() or [],
-            )
+            ),
+        )
+        deadline = monotonic() + timeout + patience
+        stats, queues, replies = (
+            future.result(timeout=max(deadline - monotonic(), 0)) for future in futures
+        )
+        stats, queues, replies = stats or {}, queues or {}, replies or []
+    except TimeoutError:
+        logger.warning("The broker did not answer for the list of workers")
+        return WorkerReport(
+            [],
+            web_version,
+            error=f"no answer from the broker within {timeout + patience:g} seconds",
+        )
     except Exception as exc:
         logger.warning("Could not ask the broker for its workers: %s", exc)
         return WorkerReport([], web_version, error=f"{type(exc).__name__}: {exc}")
+    finally:
+        pool.shutdown(wait=False, cancel_futures=True)
 
-    versions = {}
+    versions, errors = {}, {}
     for reply in replies:
         for name, answer in reply.items():
-            versions[name] = answer.get("version", "")
+            if "version" in answer:
+                versions[name] = answer["version"]
+            else:
+                errors[name] = str(answer.get("error", "unexpected reply"))
     now = timezone.now()
     workers = [
         Worker(
@@ -163,7 +241,9 @@ def inspect_workers(control=None, timeout=1.0):
             uptime=info.get("uptime", 0),
             started=now - timedelta(seconds=info.get("uptime", 0)),
             tasks=info.get("total", {}),
+            code=classify(versions.get(name, ""), errors.get(name, ""), web_version),
             version=versions.get(name, ""),
+            error=errors.get(name, ""),
         )
         for name, info in sorted(stats.items())
     ]

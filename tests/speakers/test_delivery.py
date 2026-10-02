@@ -610,14 +610,20 @@ class TestWorkersPanel:
         )
         monkeypatch.setattr(delivery_views, "inspect_workers", lambda: report)
 
-    def worker(self, name, queue="celery", version=None, tasks=None):
+    def worker(self, name, queues=("celery",), code="current", version=None, error=""):
         return Worker(
             name=f"celery@{name}",
-            queues=(queue,),
+            queues=queues,
             uptime=7200,
             started=timezone.now() - timedelta(hours=2),
-            tasks=tasks or {"speakers.tasks.send_invitation_email_task": 3},
-            version=email_code_version() if version is None else version,
+            tasks={"speakers.tasks.send_invitation_email_task": 3},
+            code=code,
+            version=(
+                email_code_version()
+                if version is None and code == "current"
+                else (version or "")
+            ),
+            error=error,
         )
 
     def test_lists_each_worker_with_its_code(
@@ -627,20 +633,26 @@ class TestWorkersPanel:
             monkeypatch,
             [
                 self.worker("new-1"),
-                self.worker("old-2", version=""),
-                self.worker("other-3", version="deadbeef"),
-                self.worker("media-4", queue="media"),
+                self.worker("old-2", code="older"),
+                self.worker("other-3", code="differs", version="deadbeef"),
+                self.worker("bad-4", code="error", error="RuntimeError('boom')"),
+                self.worker("mute-5", code="silent"),
+                self.worker("media-6", queues=("media",)),
+                self.worker("dev-7", queues=("celery", "media")),
             ],
             problems=["Two workers read the default queue."],
         )
         response = self.login(client, maintainer).get(reverse(LIST_URL))
         assertContains(response, "Workers")
         assertContains(response, "new-1")
-        assertContains(response, 'text-bg-success">same as this site', count=2)
+        assertContains(response, 'text-bg-success">same as this site', count=3)
         assertContains(response, 'text-bg-danger">not reported', count=1)
         assertContains(response, 'text-bg-warning">differs', count=1)
+        assertContains(response, 'text-bg-danger">error', count=1)
+        assertContains(response, 'text-bg-warning">no answer', count=1)
+        assertContains(response, "RuntimeError(&#x27;boom&#x27;)")
         assertContains(response, "deadbeef")
-        assertContains(response, "media")
+        assertContains(response, "default and media")
         assertContains(response, "2\xa0hours ago")
         assertContains(response, "Two workers read the default queue.")
         assertContains(response, email_code_version())

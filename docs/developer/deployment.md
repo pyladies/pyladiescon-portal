@@ -142,14 +142,26 @@ with the old behaviour, while the deploy reports success. The top of **Maintenan
 Invitations** lists every worker attached to the broker: its name, which
 queue it reads, how long it has been up, and whether it runs the same email
 code as the site. The check after a deploy is one default worker, saying
-**same as this site**, and one media worker. Red alerts name the problem:
-more than one default worker, no default worker, or a worker that **does not
-report a code version**, which means it runs code older than the page and
-should be removed. A worker reports a short fingerprint of the files that
-decide what an email task does (`common.workers.email_code_version`), so a
-worker that answers with a different fingerprint is shown as **differs**.
-The page takes about a second longer to load while it waits for answers. The
-same list is available from a shell with `celery -A portal inspect ping`.
+**same as this site**, and one media worker (a worker started with
+`-Q celery,media`, as in development, counts as both). Red alerts name the
+problem: more than one worker reading the default queue, none reading the
+default queue, none reading the media queue (thumbnails, transcription and
+downloads wait), or a worker whose code the page cannot confirm. That last one
+reads one of four ways: **not reported** means the worker answered that it does
+not know the command, so it runs code older than the page and should be
+removed; **differs** shows a different fingerprint of the files that decide
+what an email task does (`common.workers.email_code_version`); **error** is a
+worker that knows the command and failed, with its error; **no answer** is a
+worker that was attached but did not reply in time, which may be busy or
+stuck. The fingerprint is of the code the process started with, so a changed
+file shows the old value until the process restarts.
+
+The page takes about a second longer to load while it waits for answers. If
+the broker cannot be reached it says so within a few seconds instead of
+hanging: connecting is bounded by `CELERY_BROKER_TRANSPORT_OPTIONS`
+(`socket_connect_timeout`, which also bounds a worker's own connect), and the
+page gives up after the wait plus a few seconds. The same list is available
+from a shell with `celery -A portal inspect ping`.
 
 **Finding out why.** Cabotage runs each `Procfile` line as its own
 deployment, so the `worker` process has its own logs, apart from `web`; open

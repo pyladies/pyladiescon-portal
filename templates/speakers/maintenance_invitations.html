@@ -68,13 +68,18 @@
                                         {% blocktranslate with since=worker.started|timesince %}{{ since }} ago{% endblocktranslate %}
                                     </td>
                                     <td class="small">
-                                        {% if not worker.version %}
-                                            <span class="badge text-bg-danger">{% trans "not reported" %}</span>
-                                        {% elif worker.version == workers.web_version %}
+                                        {% if worker.code == "current" %}
                                             <span class="badge text-bg-success">{% trans "same as this site" %}</span>
-                                        {% else %}
+                                        {% elif worker.code == "differs" %}
                                             <span class="badge text-bg-warning">{% trans "differs" %}</span>
                                             {{ worker.version }}
+                                        {% elif worker.code == "older" %}
+                                            <span class="badge text-bg-danger">{% trans "not reported" %}</span>
+                                        {% elif worker.code == "error" %}
+                                            <span class="badge text-bg-danger">{% trans "error" %}</span>
+                                            {{ worker.error|truncatechars:80 }}
+                                        {% else %}
+                                            <span class="badge text-bg-warning">{% trans "no answer" %}</span>
                                         {% endif %}
                                     </td>
                                     <td class="small text-end">
