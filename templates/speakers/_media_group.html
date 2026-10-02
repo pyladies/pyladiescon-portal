@@ -3,8 +3,9 @@
 One file group (a kind, language and variant on the session) as a table
 body: a row for the current version, and a collapsed row underneath
 with the preview, the reviewer's note, the title and the earlier
-versions; sharing is the button in the Speaker column. Its id is what
-the note, share and title forms swap.
+versions folded behind their count; sharing is the button in the Speaker column, and deleting
+the line opens the page's one dialog (_media_delete_modal.html). Its id
+is what the note, share and title forms swap.
 Params: group (media.asset_groups), session, can_edit
 {% endcomment %}
 {% with asset=group.current|default:group.target %}
@@ -154,20 +155,23 @@ Params: group (media.asset_groups), session, can_edit
                     </div>
                 {% endif %}
                 {% if group.history %}
-                    <div class="small fw-semibold mt-3 mb-1">
-                        {% trans "Earlier versions" %}
-                    </div>
-                    <ul class="list-unstyled mb-0 d-grid gap-2">
-                        {% for earlier in group.history %}
-                            <li>
-                                {% include "speakers/_media_asset_row.html" with asset=earlier session=session show_notes=True %}
-                            </li>
-                        {% endfor %}
-                    </ul>
+                    <details class="mt-3">
+                        <summary class="small">
+                            <i class="fa-solid fa-clock-rotate-left"></i>
+                            {% blocktranslate count counter=group.history|length %}{{ counter }} earlier version{% plural %}{{ counter }} earlier versions{% endblocktranslate %}
+                        </summary>
+                        <ul class="list-unstyled mt-2 mb-0 d-grid gap-1">
+                            {% for earlier in group.history %}
+                                <li>
+                                    {% include "speakers/_media_asset_row.html" with asset=earlier session=session show_notes=True %}
+                                </li>
+                            {% endfor %}
+                        </ul>
+                    </details>
                 {% endif %}
             </div>
             {% if can_edit %}
-                <div class="col-lg-6 d-grid gap-2">
+                <div class="col-lg-6 d-grid gap-2 align-content-start">
                     <form method="post"
                           action="{% url 'speakers:media_title' session.slug group.target.pk %}"
                           hx-post="{% url 'speakers:media_title' session.slug group.target.pk %}"
@@ -190,25 +194,6 @@ Params: group (media.asset_groups), session, can_edit
                             </button>
                         </div>
                     </form>
-                    {% if transcribe_offered and asset.kind in video_kinds and asset.is_ready and asset.storage_key %}
-                        {% if not group.job or not group.job.is_open %}
-                            <form method="post"
-                                  action="{% url 'speakers:media_transcribe' session.slug asset.pk %}"
-                                  hx-post="{% url 'speakers:media_transcribe' session.slug asset.pk %}"
-                                  hx-target="#{{ group.id }}"
-                                  hx-swap="outerHTML">
-                                {% csrf_token %}
-                                <button class="btn btn-sm btn-outline-secondary" type="submit">
-                                    <i class="fa-solid fa-closed-captioning"></i>
-                                    {% if group.job and group.job.status == "FAILED" %}
-                                        {% trans "Retry the transcription" %}
-                                    {% else %}
-                                        {% trans "Transcribe this" %}
-                                    {% endif %}
-                                </button>
-                            </form>
-                        {% endif %}
-                    {% endif %}
                     <form method="post"
                           action="{% url 'speakers:media_notes' session.slug asset.pk %}"
                           hx-post="{% url 'speakers:media_notes' session.slug asset.pk %}"
@@ -234,6 +219,40 @@ Params: group (media.asset_groups), session, can_edit
                 </div>
             {% endif %}
         </div>
+        {% if can_edit %}
+            {% blocktranslate count counter=group.versions asvar versions_text %}{{ counter }} version{% plural %}{{ counter }} versions{% endblocktranslate %}
+            <div class="d-flex flex-wrap align-items-center gap-2 border-top pt-3 mt-3">
+                {% if transcribe_offered and asset.kind in video_kinds and asset.is_ready and asset.storage_key %}
+                    {% if not group.job or not group.job.is_open %}
+                        <form method="post"
+                              action="{% url 'speakers:media_transcribe' session.slug asset.pk %}"
+                              hx-post="{% url 'speakers:media_transcribe' session.slug asset.pk %}"
+                              hx-target="#{{ group.id }}"
+                              hx-swap="outerHTML">
+                            {% csrf_token %}
+                            <button class="btn btn-sm btn-outline-secondary" type="submit">
+                                <i class="fa-solid fa-closed-captioning"></i>
+                                {% if group.job and group.job.status == "FAILED" %}
+                                    {% trans "Retry the transcription" %}
+                                {% else %}
+                                    {% trans "Transcribe this" %}
+                                {% endif %}
+                            </button>
+                        </form>
+                    {% endif %}
+                {% endif %}
+                <button type="button"
+                        class="btn btn-sm btn-outline-danger"
+                        data-bs-toggle="modal"
+                        data-bs-target="#media-delete-modal"
+                        data-action="{% url 'speakers:media_delete' session.slug group.target.pk %}"
+                        data-name="{{ group.confirm_name }}"
+                        data-label="{{ group.title|default:group.label }}"
+                        data-versions="{{ versions_text }}">
+                    <i class="fa-solid fa-trash"></i> {% trans "Delete every version" %}
+                </button>
+            </div>
+        {% endif %}
     </td>
 </tr>
 </tbody>

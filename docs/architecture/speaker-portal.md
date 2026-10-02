@@ -369,6 +369,18 @@ A file is named by its kind, language and variant ("Promo material (square)", "T
 
 **What it is not.** Not the reviewer's note, which is per version and internal. Not a description of the session. Not required, so an upload never waits on it. A separate `MediaLine` model that groups assets would be the more structural home for a per-line attribute, and is the shape to move to if lines ever gain more of their own (an owner, a deadline); for one short field, a copied column is the smaller change and keeps every reader one query.
 
+#### Deleting a file
+
+> **Built** (2 October 2026).
+
+Files are kept until someone deletes them: a cancelled session keeps everything it had, since a cancellation is often undone and the recording is the hard part to get back. Deleting is explicit, per *file*, and takes **every version** of it: a file is a line (kind, language and variant on the session), its versions are the same thing at different ages, and a page that let someone delete v2 and keep v1 would be offering a choice nobody makes on purpose. The rows go in one transaction; each row's object and the thumbnail beside it go from the bucket as the row is deleted, which is the same receiver the admin's cascade runs through, so the two paths cannot drift. The session's activity log records what went, with the file names, and who did it.
+
+**Who.** Organizers may delete any line from the session's Files section. A performer may delete their own raw video from their session page, and only while every version of it is their own upload: once the team has put a version there on their behalf, the line is the team's to take away, and the page offers nothing. The usual gates apply (the speaker side's switch, a presenter on an accepted session). A video whose transcription is still running stays until the job is done, because the job would otherwise write a transcript for a file that is gone.
+
+**The confirmation.** One dialog per page, opened by the row's *Delete every version* button; it shows what will go and asks the person to type the file's name as the row shows it (the newest ready version's). The button stays disabled until the name matches, and the view checks it again: a name that does not match deletes nothing. Typing a name rather than clicking "yes" is the point, since the file is routinely the only copy of a performance.
+
+**What the admin's session delete does.** Deleting a `Session` row in the Django admin cascades to its assets, so every object and thumbnail goes with it, and an upload still in flight is aborted so its parts are freed. The design permissions table lists `delete_mediaasset` for the Design team's leads; until the permissions refactor lands, deleting follows the organizer gate like the other file actions.
+
 #### Previews
 
 A file row, and the speaker's "Files from the team" card, carry a closed "Preview" fold for the files a browser can show itself: images, video and audio, decided from the upload's content type with the file name as a fallback. Opening it loads the file from the bucket through a second presigned link that says *inline* rather than *attachment* and carries the file's type; images load lazily, video and audio not until play, and a multi-gigabyte video then streams by range requests, so nothing is fetched in full. A transcript, captions file or other small text file shows as plain text, fetched through the portal rather than by a signed link (the same permission check, no CORS rule, a few kilobytes), in the fold and in a new tab. Everything else, including an HTML file uploaded as "other", only downloads. The file rows, the speaker's files, the board's video column and the sessions list also carry a **thumbnail** (task 5.8, built 30 September 2026): when an image or video lands, the media worker scales the image with Pillow or takes a frame a few seconds in with ffmpeg, stores it as a small JPEG next to the original, and the pages show it through a redirect to an inline link, so a list of thirty sessions costs no signing to render. Audio gets an icon. A thumbnail that could not be made says why on the row and never holds the file up.
@@ -669,7 +681,7 @@ A presenter's bio is public only if the program is published, they are on at lea
 
 **Preview for the website build:** every public endpoint and the widget accept a signed, expiring preview token that bypasses the visibility rules, so the conference site can be developed against the draft program and switched to live by removing the token. Preview responses are never cached.
 
-Cancelling a session or a presenter withdrawing un-publishes it, invalidates the cache, and the widget drops it on next load — no site rebuild.
+Cancelling a session or a presenter withdrawing un-publishes it, invalidates the cache, and the widget drops it on next load — no site rebuild. The session's files stay (§8.8, "Deleting a file").
 
 ---
 

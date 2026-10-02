@@ -26,6 +26,7 @@ from .models import (
     HandbookReadReceipt,
     Invitation,
     MediaAsset,
+    MediaUpload,
     Presenter,
     ScheduleSlot,
     Session,
@@ -218,19 +219,42 @@ def on_asset_ready(sender, asset, **kwargs):
 
 @receiver(post_delete, sender=MediaAsset, dispatch_uid="speakers.media.on_delete")
 def drop_the_object(sender, instance, **kwargs):
-    """A row deleted in the admin takes its object with it; otherwise the
-    bucket keeps a file nothing can reach again. Superseded versions keep
+    """A deleted row takes its object with it, and the thumbnail made next
+    to it; otherwise the bucket keeps a file nothing can reach again. Fires
+    for every row of a line someone deletes on the page and for each row
+    the admin's session delete cascades through. Superseded versions keep
     theirs for as long as their rows last: they are the history the pages
     show. A bucket that cannot be reached is logged, not raised, so the
     row's deletion stands either way."""
-    if not instance.storage_key:
+    keys = [key for key in (instance.storage_key, instance.thumbnail_key) if key]
+    if not keys:
         return
     try:
-        MediaBucket.from_settings().delete(instance.storage_key)
+        bucket = MediaBucket.from_settings()
+        for key in keys:
+            bucket.delete(key)
     except (MediaStorageNotConfigured, ClientError) as exc:
         logger.error(
-            "Object %s of deleted asset %s stays in the bucket: %s",
-            instance.storage_key,
+            "Deleted asset %s leaves %s in the bucket: %s",
+            instance.pk,
+            keys,
+            exc,
+        )
+
+
+@receiver(post_delete, sender=MediaUpload, dispatch_uid="speakers.media.abort_upload")
+def abort_the_upload(sender, instance, **kwargs):
+    """An upload still in flight when its row goes (the admin deleted the
+    session under it) is aborted in the bucket, so the parts it received
+    are freed now rather than when the lifecycle rule gets to them."""
+    if not instance.is_open:
+        return
+    try:
+        MediaBucket.from_settings().abort(instance.storage_key, instance.upload_id)
+    except (MediaStorageNotConfigured, ClientError) as exc:
+        logger.error(
+            "Upload %s of deleted row %s stays open in the bucket: %s",
+            instance.upload_id,
             instance.pk,
             exc,
         )

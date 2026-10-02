@@ -160,6 +160,9 @@ class TestPreviewLink:
         assert response.status_code == 200
         assert response["Content-Type"] == "text/plain; charset=utf-8"
         assert response["Content-Disposition"] == "inline"
+        # Shown in an iframe on the page: DENY, the middleware's default,
+        # would leave the fold empty.
+        assert response["X-Frame-Options"] == "SAMEORIGIN"
         assert response.content.decode() == body
         html = client.get(session.get_absolute_url()).content.decode()
         assert f'<iframe src="{preview(session, text)}"' in html

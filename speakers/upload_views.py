@@ -15,18 +15,22 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import PermissionDenied
 from django.http import Http404, HttpResponse, HttpResponseRedirect, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.views import View
 
 from .constants import UPLOAD_PART_URL_BATCH, VIDEO_KINDS, TranscriptionStatus
 from .media import (
     DOWNLOAD_LINK_TTL,
+    MediaDeleteError,
     MediaStorageNotConfigured,
     UploadError,
     abort_upload,
     asset_group,
+    can_delete,
     can_download,
     can_upload,
     complete_upload,
+    delete_line,
     part_urls,
     read_text,
     received_parts,
@@ -249,6 +253,10 @@ class MediaPreviewView(LoginRequiredMixin, SpeakerModuleRequiredMixin, View):
                 raise Http404("This asset has no file.")
             response = HttpResponse(body, content_type="text/plain; charset=utf-8")
             response["Content-Disposition"] = "inline"
+            # The fold shows it in an iframe on the portal's own page; the
+            # clickjacking middleware would otherwise stamp DENY on it and
+            # the browser would show an empty frame.
+            response["X-Frame-Options"] = "SAMEORIGIN"
             return response
         try:
             url = asset.preview_url(ttl=DOWNLOAD_LINK_TTL)
@@ -408,3 +416,39 @@ class MediaTranscribeView(LoginRequiredMixin, SpeakerModuleRequiredMixin, View):
                 else "Transcribing; the draft appears here when it is done."
             )
         return _row_or_files(request, session, asset, message)
+
+
+class MediaDeleteView(LoginRequiredMixin, SpeakerModuleRequiredMixin, View):
+    """POST confirm=<file name>: delete the file line this asset belongs
+    to, every version of it, from the portal and the bucket (design §8.8,
+    "Deleting a file"). Organizers any line; a presenter their own raw
+    video (``media.can_delete``). The page's modal asks for the shown
+    file's name, and the view checks it again: a name that does not match
+    deletes nothing. Back to where the file was listed either way."""
+
+    http_method_names = ["post"]
+
+    def post(self, request, slug, pk):
+        session = get_object_or_404(
+            Session, conference=self.conference, slug=self.kwargs["slug"]
+        )
+        asset = get_object_or_404(MediaAsset, pk=pk, session=session)
+        if not can_delete(request.user, session, asset):
+            raise PermissionDenied("You may not delete this file.")
+        if is_speaker_organizer(request.user):
+            back = f"{session.get_absolute_url()}#files"
+        else:
+            back = reverse("speakers:my_session_detail", args=[session.slug]) + "#video"
+        try:
+            label, name, versions = delete_line(
+                asset, request.user, request.POST.get("confirm", "")
+            )
+        except MediaDeleteError as exc:
+            messages.error(request, str(exc))
+            return redirect(back)
+        messages.success(
+            request,
+            f"Deleted {label} ({name}), {versions} version(s), from the portal "
+            "and from storage.",
+        )
+        return redirect(back)

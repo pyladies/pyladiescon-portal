@@ -751,7 +751,7 @@ class TestTheObjectGoesWithTheRow:
         settings.SPEAKER_MEDIA_BUCKET = ""
         with caplog.at_level(logging.ERROR):
             orphan.delete()
-        assert "stays in the bucket" in caplog.text
+        assert "in the bucket" in caplog.text
         MediaAsset.objects.create(session=session, kind=MediaKind.OTHER).delete()
 
 
