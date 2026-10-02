@@ -179,7 +179,18 @@ portal has an engine (`FasterWhisperEngine`, the one implementation of
 the small `Engine` interface; `get_engine`), and an edition with
 `SpeakerSettings.auto_transcribe` on gets a draft for every raw video
 that lands (`should_transcribe`: READY, the switch, and no reviewed
-transcript on the line; `start_job` from `on_asset_ready`). Organizers
+transcript on the video's own line; `start_job` from `on_asset_ready`).
+A draft is filed on a line of its own, named after the video (`video1.mpg`
+gives `video1-en.vtt`) and keyed by `transcript_variant`: the file name stem
+for a person to read plus the video asset's pk, which is what keeps it
+unique (a name alone collides when two exports differ past the column's 40
+characters, or when a raw video and a final cut share a name). Several
+videos on a session each get a transcript, and only a re-run of the same
+video makes a new version. A reviewer's corrected file supersedes the draft
+only when it goes up under the draft's variant, so the panel's Variant field
+lists the variants already on the session (`line_variants`) with a line of
+help; a transcript uploaded with no variant is a session-wide file and bars
+no video's draft, so one review never stops the others. Organizers
 start or retry one from a video's row (`MediaTranscribeView`). A
 `TranscriptionJob` row carries the state the row shows; the task
 (`transcribe_asset_task`, media queue, `acks_late`) extracts the audio

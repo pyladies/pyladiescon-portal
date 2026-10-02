@@ -20,7 +20,7 @@ from moto import mock_aws
 
 from speakers.checklists import instantiate_session_checklist
 from speakers.constants import ItemStatus, MediaKind, MediaStatus, TranscriptionStatus
-from speakers.media import MediaBucket
+from speakers.media import MediaBucket, line_variants, record_asset
 from speakers.models import (
     ActivityLog,
     ChecklistItem,
@@ -43,6 +43,7 @@ from speakers.transcription import (
     should_transcribe,
     start_job,
     transcribe,
+    transcript_variant,
     write_vtt,
 )
 
@@ -256,8 +257,9 @@ class TestPipeline:
         draft = job.output
         assert draft.kind == MediaKind.TRANSCRIPT and draft.language == "en"
         assert draft.version == 1 and draft.generated_by == "fake/tiny"
-        assert draft.original_filename == f"{session.slug}-en.vtt"
-        assert draft.title == "Machine transcript of Raw video (performer upload)"
+        assert draft.original_filename == "take-en.vtt"
+        assert draft.variant == f"take-{raw.pk}"
+        assert draft.title == "Machine transcript of take.mp4"
         stored = bucket.client.get_object(Bucket=BUCKET, Key=draft.storage_key)
         assert stored["ContentType"] == "text/vtt"
         assert b"Welcome to PyJam." in stored["Body"].read()
@@ -280,10 +282,101 @@ class TestPipeline:
             "-pt.vtt"
         )
 
-    def test_a_reviewed_transcript_is_never_overwritten(self, world, engine, bucket):
+    def test_each_video_gets_its_own_transcript(self, world, engine, bucket):
         session = world["session"]
-        raw = video(session)
-        assert should_transcribe(raw)
+        videos = [
+            video(session, original_filename=name)
+            for name in ("video1.mpg", "video2.mpg")
+        ]
+        drafts = []
+        for raw in videos:
+            job = start_job(raw)
+            transcribe(job.pk)
+            job.refresh_from_db()
+            drafts.append(job.output)
+        assert [d.original_filename for d in drafts] == [
+            "video1-en.vtt",
+            "video2-en.vtt",
+        ]
+        assert [d.variant for d in drafts] == [
+            f"video1-{videos[0].pk}",
+            f"video2-{videos[1].pk}",
+        ]
+        assert [d.version for d in drafts] == [1, 1]
+        assert all(d.status == MediaStatus.READY for d in drafts)
+        # Transcribing the same video again is the next version of its own file.
+        job = start_job(videos[0])
+        transcribe(job.pk)
+        job.refresh_from_db()
+        drafts[0].refresh_from_db()
+        assert job.output.version == 2 and job.output.variant == drafts[0].variant
+        assert drafts[0].status == MediaStatus.SUPERSEDED
+
+    def test_names_that_agree_past_the_column_or_across_kinds_stay_apart(
+        self, world, engine, bucket
+    ):
+        session = world["session"]
+        long_a = "PyLadiesCon-2026-keynote-recording-final-v2.mp4"
+        long_b = "PyLadiesCon-2026-keynote-recording-final-v3.mp4"
+        raws = [
+            video(session, original_filename=long_a),
+            video(session, original_filename=long_b),
+            video(session, original_filename="take.mp4"),
+            video(
+                session, original_filename="take.mp4", kind=MediaKind.PROCESSED_VIDEO
+            ),
+        ]
+        variants = []
+        for raw in raws:
+            job = start_job(raw)
+            transcribe(job.pk)
+            job.refresh_from_db()
+            assert job.output.version == 1 and len(job.output.variant) <= 40
+            variants.append(job.output.variant)
+        assert len(set(variants)) == 4
+        assert not MediaAsset.objects.filter(status=MediaStatus.SUPERSEDED).exists()
+
+    def test_a_video_without_a_file_name_is_named_after_the_session(
+        self, world, engine, bucket
+    ):
+        session = world["session"]
+        raw = video(session, original_filename="")
+        job = start_job(raw)
+        transcribe(job.pk)
+        job.refresh_from_db()
+        assert job.output.original_filename == f"{session.slug}-en.vtt"
+        assert job.output.variant == f"video-{raw.pk}"
+
+    def test_a_reviewed_transcript_replaces_the_draft_on_its_line(
+        self, world, engine, bucket
+    ):
+        session = world["session"]
+        first = video(session, original_filename="video1.mpg")
+        second = video(session, original_filename="video2.mpg")
+        job = start_job(first)
+        transcribe(job.pk)
+        job.refresh_from_db()
+        draft = job.output
+        # The reviewer picks the draft's variant in the panel: the next version.
+        reviewed = record_asset(
+            session=session,
+            kind=MediaKind.TRANSCRIPT,
+            language="en",
+            variant=draft.variant,
+            storage_key="k",
+            filename="corrected.vtt",
+            content_type="text/vtt",
+            size_bytes=1,
+        )
+        draft.refresh_from_db()
+        assert reviewed.version == 2 and draft.status == MediaStatus.SUPERSEDED
+        assert not should_transcribe(first)
+        assert should_transcribe(second)
+
+    def test_a_session_wide_reviewed_transcript_bars_no_video(
+        self, world, engine, bucket
+    ):
+        session = world["session"]
         MediaAsset.objects.create(
             session=session,
             kind=MediaKind.TRANSCRIPT,
@@ -292,7 +385,25 @@ class TestPipeline:
             storage_key="k",
             version=1,
         )
-        assert human_transcript_exists(session, "en") and not should_transcribe(raw)
+        assert should_transcribe(video(session, original_filename="video2.mpg"))
+
+    def test_a_reviewed_transcript_is_never_overwritten(self, world, engine, bucket):
+        session = world["session"]
+        raw = video(session)
+        variant = transcript_variant(raw)
+        assert should_transcribe(raw)
+        MediaAsset.objects.create(
+            session=session,
+            kind=MediaKind.TRANSCRIPT,
+            language="en",
+            variant=variant,
+            status=MediaStatus.READY,
+            storage_key="k",
+            version=1,
+        )
+        assert human_transcript_exists(
+            session, "en", variant
+        ) and not should_transcribe(raw)
         # A machine draft in the way is no bar: the next video gets a fresh draft.
         MediaAsset.objects.filter(kind=MediaKind.TRANSCRIPT).update(
             generated_by="fake/tiny"
@@ -303,6 +414,7 @@ class TestPipeline:
             session=session,
             kind=MediaKind.TRANSCRIPT,
             language="en",
+            variant=variant,
             status=MediaStatus.READY,
             storage_key="k2",
             version=2,
@@ -465,6 +577,19 @@ class TestOnThePage:
         response = client.post(url, follow=True)
         assert "already under way" in response.content.decode()
         assert TranscriptionJob.objects.count() == 1
+
+    def test_the_panel_offers_the_variants_already_on_the_session(
+        self, client, world, engine, bucket, organizer
+    ):
+        session = world["session"]
+        job = start_job(video(session, original_filename="video1.mpg"))
+        transcribe(job.pk)
+        job.refresh_from_db()
+        assert line_variants(session) == [job.output.variant]
+        client.force_login(organizer)
+        html = client.get(session.get_absolute_url()).content.decode()
+        assert f'<option value="{job.output.variant}">' in html
+        assert "To replace a machine transcript" in html
 
     def test_refusals(self, client, world, engine, bucket, organizer, settings):
         session = world["session"]

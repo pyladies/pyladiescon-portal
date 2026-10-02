@@ -91,6 +91,7 @@ from .media import (
     asset_groups,
     can_download,
     line_titles,
+    line_variants,
     media_for_speakers,
     open_uploads,
     session_assets,
@@ -403,6 +404,7 @@ class SessionDetailView(SessionScopedMixin, DetailView):
         media_on = bool(settings.SPEAKER_MEDIA_BUCKET)
         context["media_on"] = media_on
         context["line_titles"] = line_titles(self.object, assets)
+        context["line_variants"] = line_variants(self.object, assets)
         # "Transcribe this" is offered when the portal has an engine; the
         # edition's switch only governs the automatic run.
         context["transcribe_offered"] = bool(settings.SPEAKER_TRANSCRIBE_ENGINE)
