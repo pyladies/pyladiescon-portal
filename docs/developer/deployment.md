@@ -351,6 +351,41 @@ one finishes. The separate process is the recommended shape; the single
 worker is the fallback if the cluster cannot spare a container, and it is
 a Procfile and settings change, not a code change.
 
+### Email and worker settings
+
+These are read from the environment of every process. All have defaults, so
+none is required.
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `DJANGO_EMAIL_TIMEOUT` | 30 | Seconds a connection to the mail server may wait. Applies when `DJANGO_EMAIL_HOST` is set. Without a timeout, a server that accepts the connection and then says nothing holds a worker process for ever. |
+| `DJANGO_EMAIL_HOST_PASSWORD` | none | The SMTP password. The old, misspelt name `DJANOG_EMAIL_HOST_PASSWORD` is still read, so an existing deployment keeps working; the correctly spelt one wins when both are set. |
+| `CELERY_WORKER_CONCURRENCY` | 2 | Processes per worker. Celery's own default is one per CPU it can see, which in a container is often the node's core count rather than the container's share; a small memory limit then gets a process killed, and the task it held with it. `worker-media` sets its own on the command line. |
+| `PORTAL_LOG_LEVEL` | `INFO` | Level for the apps' own log lines. |
+
+Workers hand each process one task at a time (`CELERY_WORKER_PREFETCH_MULTIPLIER`
+is 1), so a long task does not leave others reserved behind it while another
+process sits idle. The broker connection is bounded and kept alive
+(`CELERY_BROKER_TRANSPORT_OPTIONS`).
+
+**What the email tasks do when something goes wrong.** The tasks that send one
+email to one person (the invitation, the acceptance and added-to-session
+emails, and the approved and rejected proposal replies) are acknowledged when
+they finish, not when they start, so a worker that is killed or restarted
+while holding one gives it back to the queue. They retry a mail server that is
+down or slow (four times, with growing waits), and give up at once on an
+address the server refuses or a login it rejects. Each has a time limit, so a
+stalled connection cannot hold a process. A task that runs twice (a worker
+that dies after the mail server accepted the message) checks first whether the
+send is already on record and does not mail the person again. A worker logs
+`Worker ready: <name> process=<kind> email_code=<fingerprint>` each time it
+starts, so a worker that restarts every few minutes shows as a run of those
+lines, and each one says which code it came up with. Sentry events carry a
+`process` tag (`web`, `worker`, `worker-media` or `beat`) so an error can be
+traced to the kind of process it came from. The digests and the notices to the
+organizers are not retried, because a retry would send again to people who
+already have them.
+
 ### One-time configuration
 
 Two things live outside the code and have to be set on a new environment:

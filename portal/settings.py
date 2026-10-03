@@ -22,6 +22,8 @@ import django.db.models.signals
 import sentry_sdk
 from sentry_sdk.integrations.django import DjangoIntegration
 
+from portal.process import process_name
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -56,6 +58,9 @@ if SENTRY_SDK_DSN:
             ),
         ],
     )
+    # Web, the workers and the scheduler share this environment, so an event
+    # cannot say which of them it came from unless it is told.
+    sentry_sdk.get_global_scope().set_tag("process", process_name())
 
 # Logging. Without this the app's own INFO messages have no handler in the web
 # process, so only gunicorn's request lines reach the platform's logs. The
@@ -459,7 +464,15 @@ if "DJANGO_EMAIL_HOST" in os.environ:
     EMAIL_HOST = os.getenv("DJANGO_EMAIL_HOST")
     EMAIL_PORT = os.getenv("DJANGO_EMAIL_PORT")
     EMAIL_HOST_USER = os.getenv("DJANGO_EMAIL_HOST_USER")
-    EMAIL_HOST_PASSWORD = os.getenv("DJANOG_EMAIL_HOST_PASSWORD")
+    # The misspelt name is what an existing deployment may have set, so both
+    # are read; the correctly spelt one wins.
+    EMAIL_HOST_PASSWORD = os.getenv("DJANGO_EMAIL_HOST_PASSWORD") or os.getenv(
+        "DJANOG_EMAIL_HOST_PASSWORD"
+    )
+    # Seconds a connection to the mail server may wait. Without one a server
+    # that accepts the connection and then says nothing holds the worker's
+    # process for ever.
+    EMAIL_TIMEOUT = int(os.getenv("DJANGO_EMAIL_TIMEOUT", "30"))
     EMAIL_USE_TLS = os.getenv("DJANGO_EMAIL_USE_TLS")
     DEFAULT_FROM_EMAIL = os.getenv("DJANGO_DEFAULT_FROM_EMAIL")
 else:
@@ -492,7 +505,24 @@ CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL") or os.environ.get("REDIS
 # Without a bound a connection to an address that never answers waits for the
 # operating system's own timeout, minutes long. Only the connect is bounded:
 # the worker's reads on the queue block by design.
-CELERY_BROKER_TRANSPORT_OPTIONS = {"socket_connect_timeout": 5}
+CELERY_BROKER_TRANSPORT_OPTIONS = {
+    "socket_connect_timeout": 5,
+    # A connection a firewall or the broker closed while idle is noticed and
+    # replaced, not left for a worker to wait on.
+    "socket_keepalive": True,
+    "health_check_interval": 30,
+}
+
+# Processes per worker. The default is one per CPU the container can see,
+# which is often the node's core count and not the container's share; a small
+# memory limit then gets a process killed, and the task it held with it. The
+# media worker sets its own on the command line.
+CELERY_WORKER_CONCURRENCY = int(os.environ.get("CELERY_WORKER_CONCURRENCY", "2"))
+
+# Hand a process one task at a time. Tasks are acknowledged when they finish,
+# so a process that has reserved four holds three it is not running, and they
+# wait behind a long one while another process sits idle.
+CELERY_WORKER_PREFETCH_MULTIPLIER = 1
 
 # Periodic tasks live in the database (django-celery-beat) and are edited in
 # the Django admin under "Periodic tasks". The `worker-beat` process in the Procfile

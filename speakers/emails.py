@@ -4,6 +4,8 @@ Kept apart from ``services`` so the Celery tasks can import it without a
 cycle: services enqueue tasks, tasks send emails, emails import neither.
 """
 
+from datetime import timedelta
+
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.sites.models import Site
@@ -13,6 +15,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from common.markdown_emails import MarkdownEmailRenderer
+from common.models import SentEmail, SentEmailStatus
 from common.send_emails import send_email
 
 from .models import SpeakerSettings
@@ -20,6 +23,8 @@ from .people import user_label
 
 INVITATION_SALT = "speakers.invitation"
 INVITATION_TEMPLATE = "emails/speakers/invitation.md"
+# The web and the worker keep their own clocks.
+RECORD_CLOCK_SLACK = timedelta(minutes=1)
 # Stands in for the signed token in a preview of an email not yet sent.
 PREVIEW_LINK_PLACEHOLDER = "personal-link"
 
@@ -74,6 +79,28 @@ def invitation_context(invitation, *, conference, accept_url, expires_at):
             else "the organizing team"
         ),
     }
+
+
+def invitation_email_recorded(invitation):
+    """Whether the current send of this invitation already has a successful
+    record. A task redelivered after a worker died holding it asks first, so
+    the presenter is not mailed twice.
+
+    A record counts only if it is no older than the stamp of this send, with
+    no allowance for clock skew. Maintenance > Invitations forgives a minute
+    (a wrong "recorded" only hides a row there), but here a wrong "recorded"
+    would skip a real email: a resend made within a minute of the last send
+    would find the last send's record and never go out. A worker whose clock
+    runs behind can only cause a harmless second copy.
+    """
+    if invitation.sent_at is None:
+        return False
+    return SentEmail.objects.filter(
+        template=INVITATION_TEMPLATE,
+        status=SentEmailStatus.SENT,
+        context_digest__invitation=invitation.pk,
+        sent_at__gte=invitation.sent_at,
+    ).exists()
 
 
 def send_invitation_email(invitation):

@@ -781,6 +781,17 @@ button. Every retrigger is an `invitation.retriggered` activity entry and
 a log line. The design for tracking delivery properly is
 `docs/architecture/email-delivery.md`.
 
+**When an email task is interrupted.** The one-recipient email tasks
+(`send_invitation_email_task`, the acceptance, added-to-session and proposal
+approved and rejected tasks) use `common.tasks.email_task`: acknowledged late
+and given back if the worker dies, retried when the mail server is down or
+slow (not when it refuses the address or the login), with a time limit. A task
+that runs twice checks first whether the send is already on record
+(`emails.invitation_email_recorded` for the invitation), so the presenter is
+not mailed twice. The proposal receipt, the co-presenter suggestion and the
+digests send to several people and are not retried. `EMAIL_TIMEOUT` bounds the
+SMTP connection. Settings and variables are in `docs/developer/deployment.md`.
+
 **Logging.** `LOGGING` in settings sends the apps' INFO messages to stdout
 (`PORTAL_LOG_LEVEL` to change it); without it the web process logged only
 gunicorn's request lines. `enqueue` logs the id of a queued task, and

@@ -24,7 +24,7 @@ from django.utils import timezone
 
 from common.models import SentEmail, SentEmailStatus
 
-from .emails import INVITATION_TEMPLATE
+from .emails import INVITATION_TEMPLATE, RECORD_CLOCK_SLACK
 from .models import ActivityLog, Invitation, InvitationStatus
 from .services import send_invitation
 
@@ -34,8 +34,7 @@ logger = logging.getLogger(__name__)
 # listed, but cannot be sent again, so a second click does not mail twice.
 GRACE = timedelta(minutes=5)
 
-# The web and the worker keep their own clocks.
-CLOCK_SLACK = timedelta(minutes=1)
+CLOCK_SLACK = RECORD_CLOCK_SLACK
 
 RETRIGGERED = "invitation.retriggered"
 

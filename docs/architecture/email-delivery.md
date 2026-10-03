@@ -16,7 +16,14 @@ for a queued task, the invitation task and a retrigger. **Built on 2 October
 `common/tasks.py`), which lists every worker attached to the broker beside
 the web process's email-code fingerprint, after a stale `worker` pod left
 over from an earlier release took most of the tasks and sent email without a
-record. Everything else below is still design.
+record. **Built on 3 October 2026:** step 2 of the rollout below, except the
+Sentry start-up message: `common.tasks.email_task` (late acknowledgement,
+redelivery on a lost worker, retries for a slow or down mail server but not
+for a refused address, a time limit), a redelivery guard on the invitation
+task, `EMAIL_TIMEOUT`, `CELERY_WORKER_CONCURRENCY` and a prefetch of one, a
+kept-alive broker connection, the `process` tag on Sentry events, and a
+`Worker ready` log line carrying the email-code fingerprint. Everything else
+below is still design.
 
 ## Why
 
@@ -359,11 +366,15 @@ Each step is one pull request, and only step 3 has a migration.
    maintainer as actor, and logs a line. The page lists those entries. It
    cannot see an email the provider accepted before the process died and the
    row was saved, so sending again there is a duplicate, never a miss.
-2. **Stop losing tasks.** `@email_task` with `acks_late`,
-   `reject_on_worker_lost` and retries, `LOGGING`, the Sentry `process` tag
-   and the `worker_ready` message, and a pinned `--concurrency` for
-   `worker` in the `Procfile`. No migration. This alone ends the silent
-   loss of a task a restarting worker held.
+2. **Stop losing tasks.** *Built, with the start-up message logged and not
+   sent to Sentry (each restart would be an issue):* `@email_task` with
+   `acks_late`, `reject_on_worker_lost` and retries, `LOGGING`, the Sentry
+   `process` tag, and a worker concurrency setting in place of a `Procfile`
+   flag (`CELERY_WORKER_CONCURRENCY`, which needs no shell expansion). No
+   migration. This ends the silent loss of a task a restarting worker held.
+   Only tasks that send one email to one person use it: a retry of a digest
+   or of the organizers' notice would send again to people who already have
+   it, so those are left as they were.
 3. **Make it visible.** `EmailDispatch`, `enqueue_email`, the presenter-page
    labels, the reconciler, `WorkerHeartbeat`, the Delivery page and resend.
    One migration for the app, with the periodic task seeded in it.
