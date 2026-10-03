@@ -147,7 +147,11 @@ Sharing stamps `MediaAsset.shared_at`, and the daily checklist digest
 them, once each (`SharedFileNotice`, `media.new_shared_files`; design
 §13.2): a presenter with new files and nothing due still gets the email,
 the subject names what is inside, and nothing goes out when there is
-neither.
+neither. "Once" is per presenter and file row: a file unshared and shared
+again is the same file and is not announced twice, while a replaced
+version is a new row and is. The migration that adds the table marks
+everything already shared as told, so the first digest after a deploy
+announces only what is shared from then on.
 The speaker's session page lists the shared files (`media.team_files`)
 and the earlier raw versions without the reviewer notes, which are the
 team's (`show_notes` on the row partial). Promo materials are `PROMO` assets with a free `variant`

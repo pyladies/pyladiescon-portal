@@ -546,19 +546,33 @@ def team_files(session, assets=None):
     return sorted(newest.values(), key=lambda a: (a.creation_date, a.pk), reverse=True)
 
 
-def new_shared_files(presenter):
+def told_files(conference):
+    """``{presenter_id: {asset_id, ...}}`` of every shared file each
+    presenter of the edition has been told about, read once for the
+    digest's whole run."""
+    told = {}
+    for presenter_id, asset_id in SharedFileNotice.objects.filter(
+        conference=conference
+    ).values_list("presenter_id", "asset_id"):
+        told.setdefault(presenter_id, set()).add(asset_id)
+    return told
+
+
+def new_shared_files(presenter, *, media_on=None, told=None):
     """What the daily digest tells this presenter about (design §13.2):
     ``[(session, [asset, ...]), ...]`` of the files the team has shared on
     their accepted, uncancelled sessions that they have not been told of,
     the newest ready version of each line. Empty when the edition's
-    speaker side is off, since the page would show them nothing."""
-    if not media_for_speakers(presenter.conference):
+    speaker side is off, since the page would show them nothing. The digest
+    passes the edition's switch and ``told_files`` in, read once for every
+    presenter; alone, the function reads them itself."""
+    if media_on is None:
+        media_on = media_for_speakers(presenter.conference)
+    if not media_on:
         return []
-    told = set(
-        SharedFileNotice.objects.filter(presenter=presenter).values_list(
-            "asset_id", flat=True
-        )
-    )
+    if told is None:
+        told = told_files(presenter.conference)
+    already = told.get(presenter.pk, set())
     links = presenter.session_presenters.filter(
         confirmed_at__isnull=False
     ).select_related("session")
@@ -573,7 +587,7 @@ def new_shared_files(presenter):
     )
     result = []
     for session in sessions:
-        files = [a for a in team_files(session) if a.pk not in told]
+        files = [a for a in team_files(session) if a.pk not in already]
         if files:
             result.append((session, files))
     return result

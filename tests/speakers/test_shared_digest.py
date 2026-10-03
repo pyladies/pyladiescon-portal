@@ -2,12 +2,16 @@
 5.11): once each, only to presenters who may see them, and the email
 goes out when there are files even with nothing due."""
 
+import importlib
 from datetime import datetime, timedelta, timezone
 from unittest import mock
 
 import pytest
+from django.apps import apps
 from django.contrib.auth.models import User
 from django.core import mail
+from django.db import connection
+from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 
 from common.models import SentEmail
@@ -26,6 +30,7 @@ from .factories import (
 )
 
 NOW = datetime(2026, 11, 20, 12, 0, tzinfo=timezone.utc)
+migration = importlib.import_module("speakers.migrations.0016_file_notices")
 
 
 @pytest.fixture
@@ -264,3 +269,69 @@ class TestTheStamp:
         response = client.get(reverse("admin:speakers_sharedfilenotice_changelist"))
         assert response.status_code == 200
         assert "ada@example.com" in response.content.decode()
+
+
+@pytest.mark.django_db
+class TestStartsQuiet:
+    def test_the_migration_marks_what_is_already_shared_as_told(
+        self, conference, enabled, ada, panel
+    ):
+        """Nine months of shared files are not "new" on the morning after
+        the deploy: the data migration writes a notice for every shared,
+        ready file and every confirmed presenter on its session, stamps
+        when it was last saved, and leaves the rest alone."""
+        grace = make_presenter(conference, display_name="Grace", email="g@x.org")
+        add_presenter(panel, grace, confirmed=True)
+        bystander = make_presenter(conference, display_name="Bo", email="bo@x.org")
+        add_presenter(panel, bystander, confirmed=False)
+        poster = share(panel, variant="square", shared_at=None)
+        old = share(panel, variant="square", version=0, status=MediaStatus.SUPERSEDED)
+        private = share(panel, kind=MediaKind.OTHER, shared_with_speaker=False)
+        migration.start_quiet(apps, None)
+        poster.refresh_from_db()
+        assert poster.shared_at == poster.modified_date
+        told = SharedFileNotice.objects.order_by("presenter__display_name")
+        assert [(n.presenter.display_name, n.asset_id, n.recipient) for n in told] == [
+            ("Ada", poster.pk, "ada@example.com"),
+            ("Grace", poster.pk, "g@x.org"),
+        ]
+        assert not SharedFileNotice.objects.filter(asset__in=[old, private]).exists()
+        assert told.first().conference == conference
+        # Running it again adds nothing, and the first digest has nothing new.
+        migration.start_quiet(apps, None)
+        assert SharedFileNotice.objects.count() == 2
+        assert digest(conference) == 0
+        # What is shared from now on is announced as before.
+        share(panel, kind=MediaKind.PROCESSED_VIDEO)
+        assert digest(conference) == 2
+
+
+@pytest.mark.django_db
+class TestQueries:
+    def test_the_edition_is_read_once_however_many_presenters(
+        self, conference, enabled, panel, ada
+    ):
+        """The switch and the told map are per run, not per presenter: the
+        nightly job walks every presenter of the edition."""
+        share(panel, variant="square")
+        for name in ("Grace", "Hedy", "Ida"):
+            other = make_session(conference, title=f"{name}'s talk")
+            presenter = make_presenter(
+                conference, display_name=name, email=f"{name.lower()}@x.org"
+            )
+            add_presenter(other, presenter, confirmed=True)
+            share(other, variant="square")
+        mail.outbox.clear()
+        with CaptureQueriesContext(connection) as queries:
+            assert send_checklist_digests(conference, now=NOW) == 4
+        sql = [q["sql"] for q in queries.captured_queries]
+        # Three reads of the edition's settings for the whole run, whatever
+        # the presenter count: the organizer digest's timezone, the speaker
+        # side's switch, and the team's reply-to address.
+        assert sum("speakers_speakersettings" in q for q in sql) == 3
+        assert (
+            sum(
+                q.startswith("SELECT") and "speakers_sharedfilenotice" in q for q in sql
+            )
+            == 1
+        )

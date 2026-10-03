@@ -20,14 +20,14 @@ from django.utils import timezone
 from common.send_emails import send_email
 from volunteer.constants import ApplicationStatus
 
-from .constants import OPEN_ITEM_STATUSES, ItemOwner
+from .constants import OPEN_ITEM_STATUSES, ItemOwner, MediaStatus
 from .emails import (
     absolute_url,
     organizer_inbox,
     presenter_email_context,
     team_reply_to,
 )
-from .media import new_shared_files
+from .media import new_shared_files, told_files
 from .models import (
     ChecklistItem,
     Presenter,
@@ -35,6 +35,7 @@ from .models import (
     SessionPresenter,
     SharedFileNotice,
     SpeakerSettings,
+    media_for_speakers,
 )
 
 THRESHOLDS = (7, 3, 1)
@@ -90,7 +91,7 @@ def _presenters_with_shared_files(conference):
             conference=conference,
             confirmed_at__isnull=False,
             session__media_assets__shared_with_speaker=True,
-            session__media_assets__status="READY",
+            session__media_assets__status=MediaStatus.READY,
         ).values("presenter_id"),
     )
 
@@ -138,9 +139,15 @@ def _speaker_digests(conference, items, now, sent):
     for item in items:
         if item.owner == ItemOwner.SPEAKER and item.presenter_id is not None:
             by_presenter[item.presenter].append(item)
-    # A presenter with a new file and nothing due still hears from us.
-    for presenter in _presenters_with_shared_files(conference):
-        by_presenter.setdefault(presenter, [])
+    # A presenter with a new file and nothing due still hears from us. The
+    # edition's switch and who has been told what are read once, not once
+    # per presenter: the nightly run walks every presenter of the edition.
+    media_on = media_for_speakers(conference)
+    told = told_files(conference) if media_on else {}
+    reply_to = team_reply_to(conference)
+    if media_on:
+        for presenter in _presenters_with_shared_files(conference):
+            by_presenter.setdefault(presenter, [])
     emails = DigestCount(0)
     for presenter, presenter_items in by_presenter.items():
         today = now.astimezone(presenter.tzinfo).date()
@@ -148,7 +155,7 @@ def _speaker_digests(conference, items, now, sent):
             (item, _pending_thresholds(item, today, sent)) for item in presenter_items
         ]
         due = [(item, thresholds) for item, thresholds in due if thresholds]
-        shared = new_shared_files(presenter)
+        shared = new_shared_files(presenter, media_on=media_on, told=told)
         if not due and not shared:
             continue
         if not _try_deliver(
@@ -175,7 +182,7 @@ def _speaker_digests(conference, items, now, sent):
             },
             due,
             subject=_digest_subject(conference, due, shared),
-            reply_to=team_reply_to(conference),
+            reply_to=reply_to,
             shared=[(presenter, asset) for _, files in shared for asset in files],
         ):
             emails.failed += 1
