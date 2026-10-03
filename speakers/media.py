@@ -546,6 +546,22 @@ def team_files(session, assets=None):
     return sorted(newest.values(), key=lambda a: (a.creation_date, a.pk), reverse=True)
 
 
+def uploading_presenter(asset):
+    """The presenter whose own upload this is, or None: a file put there by
+    an organizer, on the performer's behalf or otherwise, or made by a job,
+    is the team's doing and no news to the team (design §13.2)."""
+    if asset.uploaded_by_id is None or asset.generated_by:
+        return None
+    if is_speaker_organizer(asset.uploaded_by):
+        return None
+    link = (
+        asset.session.session_presenters.filter(presenter__user_id=asset.uploaded_by_id)
+        .select_related("presenter", "presenter__liaison")
+        .first()
+    )
+    return link.presenter if link else None
+
+
 def told_files(conference):
     """``{presenter_id: {asset_id, ...}}`` of every shared file each
     presenter of the edition has been told about, read once for the

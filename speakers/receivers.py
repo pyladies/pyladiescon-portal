@@ -19,7 +19,7 @@ from .checklists import (
     instantiate_session_checklist,
 )
 from .constants import VIDEO_KINDS, AutoRule
-from .media import MediaBucket, MediaStorageNotConfigured
+from .media import MediaBucket, MediaStorageNotConfigured, uploading_presenter
 from .models import (
     ChecklistItem,
     Handbook,
@@ -215,6 +215,14 @@ def on_asset_ready(sender, asset, **kwargs):
     # and no reviewed transcript is in the way (transcription.py).
     if should_transcribe(asset):
         start_job(asset)
+    # A speaker's own upload is news to their liaison, or to the team
+    # (design §13.2); sent once the row is committed. Checked here so the
+    # team's uploads and a job's outputs queue nothing, and again in the
+    # task, which re-reads the row because it may have changed since.
+    if uploading_presenter(asset) is not None:
+        from .tasks import send_upload_notice_task
+
+        transaction.on_commit(lambda: send_upload_notice_task.delay(asset.pk))
 
 
 def _drop_objects(pk, keys, attached):
