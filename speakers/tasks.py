@@ -10,7 +10,12 @@ from portal.models import Conference
 
 from .constants import ProposalDecision, ZipStatus
 from .emails import (
+    PROPOSAL_APPROVED_TEMPLATE,
+    PROPOSAL_REJECTED_TEMPLATE,
+    acceptance_email_recorded,
+    added_to_session_email_recorded,
     invitation_email_recorded,
+    proposal_reply_recorded,
     send_acceptance_email,
     send_added_to_session_email,
     send_copresenter_suggestion_email,
@@ -106,6 +111,8 @@ def send_added_to_session_email_task(link_id):
     )
     if link is None:
         return f"Session presenter {link_id} is not confirmed"
+    if added_to_session_email_recorded(link):
+        return f"Added-to-session email for {link_id} was already sent"
     send_added_to_session_email(link)
     return f"Sent added-to-session email for {link_id}"
 
@@ -120,6 +127,8 @@ def send_acceptance_email_task(invitation_id):
     )
     if invitation is None or invitation.presenter.user is None:
         return f"Invitation {invitation_id} is not accepted"
+    if acceptance_email_recorded(invitation):
+        return f"Acceptance email for {invitation_id} was already sent"
     send_acceptance_email(invitation)
     return f"Sent acceptance email for {invitation_id}"
 
@@ -240,6 +249,8 @@ def send_proposal_approved_email_task(proposal_id):
     proposal = _proposal(proposal_id, decision=ProposalDecision.APPROVED)
     if proposal is None:
         return f"Proposal {proposal_id} is not approved"
+    if proposal_reply_recorded(proposal, PROPOSAL_APPROVED_TEMPLATE):
+        return f"Approval email for proposal {proposal_id} was already sent"
     send_proposal_approved_email(proposal)
     return f"Sent proposal approval for {proposal_id}"
 
@@ -249,6 +260,8 @@ def send_proposal_rejected_email_task(proposal_id):
     proposal = _proposal(proposal_id, decision=ProposalDecision.REJECTED)
     if proposal is None:
         return f"Proposal {proposal_id} is not rejected"
+    if proposal_reply_recorded(proposal, PROPOSAL_REJECTED_TEMPLATE):
+        return f"Rejection email for proposal {proposal_id} was already sent"
     send_proposal_rejected_email(proposal)
     return f"Sent proposal answer for {proposal_id}"
 

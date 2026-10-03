@@ -21,8 +21,10 @@ def process_name(argv=None):
         return "beat"
     if " worker" in command:
         queues = ""
-        for flag in ("-Q", "--queues"):
-            if flag in argv:
-                queues = argv[argv.index(flag) + 1]
-        return "worker-media" if queues == "media" else "worker"
+        for position, argument in enumerate(argv):
+            if argument in ("-Q", "--queues") and position + 1 < len(argv):
+                queues = argv[position + 1]
+            elif argument.startswith("--queues="):
+                queues = argument.split("=", 1)[1]
+        return "worker-media" if set(queues.split(",")) == {"media"} else "worker"
     return "other"

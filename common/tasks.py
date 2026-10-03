@@ -22,7 +22,10 @@ logger = logging.getLogger(__name__)
 # acknowledged on receipt and a killed worker loses it without a trace, which
 # is how invitations came to be marked sent and never sent. The price is that
 # a task can run twice (a worker that dies after the mail server accepted the
-# message), so each of these tasks checks first whether it already did.
+# message), so each of these tasks checks first whether its send is already
+# on record (``speakers.emails.email_recorded`` and the predicates built on
+# it) and returns without sending again. A task given this decorator without
+# such a check mails its recipient once per delivery.
 #
 # The retries cover a mail server that is down or slow for a while; an
 # address the server refuses, or a login it rejects, will not get better by

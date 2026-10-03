@@ -23,6 +23,10 @@ from .people import user_label
 
 INVITATION_SALT = "speakers.invitation"
 INVITATION_TEMPLATE = "emails/speakers/invitation.md"
+ACCEPTED_TEMPLATE = "emails/speakers/accepted.md"
+ADDED_TO_SESSION_TEMPLATE = "emails/speakers/added_to_session.md"
+PROPOSAL_APPROVED_TEMPLATE = "emails/speakers/proposal_approved.md"
+PROPOSAL_REJECTED_TEMPLATE = "emails/speakers/proposal_rejected.md"
 # The web and the worker keep their own clocks.
 RECORD_CLOCK_SLACK = timedelta(minutes=1)
 # Stands in for the signed token in a preview of an email not yet sent.
@@ -81,26 +85,70 @@ def invitation_context(invitation, *, conference, accept_url, expires_at):
     }
 
 
-def invitation_email_recorded(invitation):
-    """Whether the current send of this invitation already has a successful
-    record. A task redelivered after a worker died holding it asks first, so
-    the presenter is not mailed twice.
+def email_recorded(template, since, **about):
+    """Whether an email of this kind, about these records, already has a
+    successful record from the action stamped at ``since``.
 
-    A record counts only if it is no older than the stamp of this send, with
-    no allowance for clock skew. Maintenance > Invitations forgives a minute
-    (a wrong "recorded" only hides a row there), but here a wrong "recorded"
-    would skip a real email: a resend made within a minute of the last send
-    would find the last send's record and never go out. A worker whose clock
-    runs behind can only cause a harmless second copy.
+    Every email task that is acknowledged late can run twice (a worker that
+    dies after the mail server accepted the message is given the task back),
+    so each asks this before sending. ``about`` names the digest keys the
+    email's context carries (``common.send_emails.DIGEST_KEYS``), and
+    ``since`` is when the action it answers happened, so a record of an
+    earlier action for the same records does not count.
+
+    A record counts only if it is no older than ``since``, with no allowance
+    for clock skew. Maintenance > Invitations forgives a minute (a wrong
+    "recorded" only hides a row there), but here a wrong "recorded" would
+    skip a real email: a resend made within a minute of the last send would
+    find the last send's record and never go out. A worker whose clock runs
+    behind can only cause a harmless second copy.
     """
-    if invitation.sent_at is None:
+    if since is None:
         return False
+    keyed = {f"context_digest__{key}": row.pk for key, row in about.items()}
     return SentEmail.objects.filter(
-        template=INVITATION_TEMPLATE,
+        template=template,
         status=SentEmailStatus.SENT,
-        context_digest__invitation=invitation.pk,
-        sent_at__gte=invitation.sent_at,
+        sent_at__gte=since,
+        **keyed,
     ).exists()
+
+
+def invitation_email_recorded(invitation):
+    """Whether the current send of this invitation already went out."""
+    return email_recorded(
+        INVITATION_TEMPLATE, invitation.sent_at, invitation=invitation
+    )
+
+
+def acceptance_email_recorded(invitation):
+    """Whether this acceptance's welcome email already went out. Its context
+    carries no invitation, so the record is matched by presenter."""
+    return email_recorded(
+        ACCEPTED_TEMPLATE, invitation.accepted_at, presenter=invitation.presenter
+    )
+
+
+def added_to_session_email_recorded(link):
+    """Whether this session-presenter link's email already went out. Removing
+    and re-adding a presenter makes a new link, hence the link's own
+    creation date as the anchor."""
+    return email_recorded(
+        ADDED_TO_SESSION_TEMPLATE,
+        link.creation_date,
+        presenter=link.presenter,
+        session=link.session,
+    )
+
+
+def proposal_reply_recorded(proposal, template):
+    """Whether the reply to this proposal's decision already went out."""
+    return email_recorded(
+        template,
+        proposal.decided_at,
+        presenter=proposal.presenter,
+        session=proposal.session,
+    )
 
 
 def send_invitation_email(invitation):
@@ -254,7 +302,7 @@ def send_acceptance_email(invitation):
         f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} Welcome aboard, "
         f"{presenter.display_name}!",
         [presenter.email],
-        markdown_template="emails/speakers/accepted.md",
+        markdown_template=ACCEPTED_TEMPLATE,
         context={
             "presenter": presenter,
             "user": presenter.user,
@@ -280,7 +328,7 @@ def send_added_to_session_email(link):
         f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} You've been added to "
         f"{session.title}",
         [presenter.email],
-        markdown_template="emails/speakers/added_to_session.md",
+        markdown_template=ADDED_TO_SESSION_TEMPLATE,
         context={
             "presenter": presenter,
             "conference": link.conference,
@@ -376,7 +424,7 @@ def send_proposal_approved_email(proposal):
         f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} Your session is in: "
         f"{session.title}",
         [presenter.email],
-        markdown_template="emails/speakers/proposal_approved.md",
+        markdown_template=PROPOSAL_APPROVED_TEMPLATE,
         context={
             "presenter": presenter,
             "conference": proposal.conference,
@@ -398,7 +446,7 @@ def send_proposal_rejected_email(proposal):
         f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} About your proposal: "
         f"{proposal.session.title}",
         [presenter.email],
-        markdown_template="emails/speakers/proposal_rejected.md",
+        markdown_template=PROPOSAL_REJECTED_TEMPLATE,
         context={
             "presenter": presenter,
             "conference": proposal.conference,
