@@ -142,6 +142,12 @@ the session's liaisons fetch anything, a presenter on an accepted session
 their own raw video and whatever the team has marked `shared_with_speaker`
 (`MediaShareView`, a button on the file row; design §8.6), while it is
 the current version: a replaced version loses the flag and is withdrawn.
+Sharing stamps `MediaAsset.shared_at`, and the daily checklist digest
+(`reminders.py`) tells each presenter about the files newly shared with
+them, once each (`SharedFileNotice`, `media.new_shared_files`; design
+§13.2): a presenter with new files and nothing due still gets the email,
+the subject names what is inside, and nothing goes out when there is
+neither.
 The speaker's session page lists the shared files (`media.team_files`)
 and the earlier raw versions without the reviewer notes, which are the
 team's (`show_notes` on the row partial). Promo materials are `PROMO` assets with a free `variant`

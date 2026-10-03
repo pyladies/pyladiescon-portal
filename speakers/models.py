@@ -1919,6 +1919,9 @@ class MediaAsset(TimestampedModel):
     # The team's files are theirs until they say otherwise: a shared file
     # shows on the speaker's session page and can be fetched by them.
     shared_with_speaker = models.BooleanField(default=False, db_default=False)
+    # When the flag last went on; cleared when it goes off or the version is
+    # withdrawn. What the file rows and the daily digest say (design §13.2).
+    shared_at = models.DateTimeField(null=True, blank=True)
     version = models.PositiveIntegerField(default=1)
     status = models.CharField(
         max_length=16, choices=MediaStatus.choices, default=MediaStatus.UPLOADING
@@ -2431,4 +2434,40 @@ class ReminderLog(TimestampedModel):
 
     def save(self, *args, **kwargs):
         self.conference_id = self.item.conference_id
+        super().save(*args, **kwargs)
+
+
+class SharedFileNotice(TimestampedModel):
+    """One shared file told to one presenter, in their daily digest
+    (design §13.2). The unique constraint is what keeps a file from being
+    announced twice; a file with no row for the presenter is new to them.
+    """
+
+    conference = models.ForeignKey(
+        "portal.Conference",
+        on_delete=models.PROTECT,
+        related_name="shared_file_notices",
+        editable=False,
+    )
+    presenter = models.ForeignKey(
+        Presenter, on_delete=models.CASCADE, related_name="file_notices"
+    )
+    asset = models.ForeignKey(
+        MediaAsset, on_delete=models.CASCADE, related_name="notices"
+    )
+    recipient = models.EmailField()
+    sent_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["presenter", "asset"], name="speakers_file_notice_once"
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.asset.display_title} to {self.recipient}"
+
+    def save(self, *args, **kwargs):
+        self.conference_id = self.asset.conference_id
         super().save(*args, **kwargs)

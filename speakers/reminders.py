@@ -1,10 +1,12 @@
-"""Daily checklist digests (design §9.4).
+"""Daily checklist digests (design §9.4), and the files the team shared.
 
 One email per presenter with their open items due within 7, 3 or 1 days,
-computed against today in the presenter's own timezone; one email per
-assignee (or the organizers list) with open organizer items. Every
-(item, threshold) pair is logged so the same reminder never goes out
-twice, however often the job runs.
+computed against today in the presenter's own timezone, and the files
+the team has shared with them since they were last told (design §13.2);
+one email per assignee (or the organizers list) with open organizer
+items. Every (item, threshold) pair and every (presenter, file) pair is
+logged so the same reminder, and the same file, never goes out twice,
+however often the job runs.
 """
 
 import logging
@@ -25,7 +27,15 @@ from .emails import (
     presenter_email_context,
     team_reply_to,
 )
-from .models import ChecklistItem, ReminderLog, SpeakerSettings
+from .media import new_shared_files
+from .models import (
+    ChecklistItem,
+    Presenter,
+    ReminderLog,
+    SessionPresenter,
+    SharedFileNotice,
+    SpeakerSettings,
+)
 
 THRESHOLDS = (7, 3, 1)
 
@@ -64,6 +74,41 @@ def _queue_url():
     return absolute_url(reverse("speakers:checklist_queue"))
 
 
+def _session_files_url(session):
+    return absolute_url(
+        reverse("speakers:my_session_detail", args=[session.slug]) + "#files"
+    )
+
+
+def _presenters_with_shared_files(conference):
+    """Presenters who might have a file to hear about: a confirmed link on a
+    session that has a shared, ready file. ``new_shared_files`` then says
+    which of those files they have not been told of."""
+    return Presenter.objects.filter(
+        conference=conference,
+        pk__in=SessionPresenter.objects.filter(
+            conference=conference,
+            confirmed_at__isnull=False,
+            session__media_assets__shared_with_speaker=True,
+            session__media_assets__status="READY",
+        ).values("presenter_id"),
+    )
+
+
+def _digest_subject(conference, due, shared):
+    """What is inside, in the subject: the todos, the files, or both."""
+    parts = []
+    if due:
+        parts.append(f"{len(due)} todo(s) with deadlines coming up")
+    if shared:
+        count = sum(len(files) for _, files in shared)
+        parts.append(f"{count} new file(s) from the team")
+    return (
+        f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} {conference.name}: "
+        + " and ".join(parts)
+    )
+
+
 def send_checklist_digests(conference, now=None):
     """Send today's digests for one edition. Returns the number of emails."""
     now = now or timezone.now()
@@ -93,6 +138,9 @@ def _speaker_digests(conference, items, now, sent):
     for item in items:
         if item.owner == ItemOwner.SPEAKER and item.presenter_id is not None:
             by_presenter[item.presenter].append(item)
+    # A presenter with a new file and nothing due still hears from us.
+    for presenter in _presenters_with_shared_files(conference):
+        by_presenter.setdefault(presenter, [])
     emails = DigestCount(0)
     for presenter, presenter_items in by_presenter.items():
         today = now.astimezone(presenter.tzinfo).date()
@@ -100,7 +148,8 @@ def _speaker_digests(conference, items, now, sent):
             (item, _pending_thresholds(item, today, sent)) for item in presenter_items
         ]
         due = [(item, thresholds) for item, thresholds in due if thresholds]
-        if not due:
+        shared = new_shared_files(presenter)
+        if not due and not shared:
             continue
         if not _try_deliver(
             conference,
@@ -110,6 +159,14 @@ def _speaker_digests(conference, items, now, sent):
                 "name": presenter.display_name,
                 "conference": conference,
                 "items": [item for item, _ in due],
+                "shared_sessions": [
+                    {
+                        "title": session.title,
+                        "link": _session_files_url(session),
+                        "files": files,
+                    }
+                    for session, files in shared
+                ],
                 "today": today,
                 "timezone": presenter.timezone,
                 "link": _dashboard_url(),
@@ -117,9 +174,9 @@ def _speaker_digests(conference, items, now, sent):
                 **presenter_email_context(presenter),
             },
             due,
-            subject=f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} {conference.name}: "
-            f"{len(due)} todo(s) with deadlines coming up",
+            subject=_digest_subject(conference, due, shared),
             reply_to=team_reply_to(conference),
+            shared=[(presenter, asset) for _, files in shared for asset in files],
         ):
             emails.failed += 1
             continue
@@ -191,13 +248,29 @@ class DigestCount(int):
 
 
 def _try_deliver(
-    conference, recipients, template, context, due, subject, user=None, reply_to=None
+    conference,
+    recipients,
+    template,
+    context,
+    due,
+    subject,
+    user=None,
+    reply_to=None,
+    shared=(),
 ):
     """Deliver one digest; a failure is logged and reported, never raised,
     so one bad mailbox does not stop everyone after it in the loop."""
     try:
         _deliver(
-            conference, recipients, template, context, due, subject, user, reply_to
+            conference,
+            recipients,
+            template,
+            context,
+            due,
+            subject,
+            user,
+            reply_to,
+            shared,
         )
     except Exception:  # noqa: BLE001 - anything the mail backend raises
         logger.exception("Digest to %s failed", recipients)
@@ -219,16 +292,29 @@ def _team_emails(team):
 
 
 def _deliver(
-    conference, recipients, template, context, due, subject, user=None, reply_to=None
+    conference,
+    recipients,
+    template,
+    context,
+    due,
+    subject,
+    user=None,
+    reply_to=None,
+    shared=(),
 ):
-    """Send one digest and log every (item, threshold) it covered, atomically
-    so a crash mid-way never leaves a reminder half-recorded."""
+    """Send one digest and log every (item, threshold) and every shared
+    file it covered, atomically so a crash mid-way never leaves a reminder
+    or a file half-recorded."""
     with transaction.atomic():
         for item, thresholds in due:
             for threshold in thresholds:
                 ReminderLog.objects.create(
                     item=item, threshold_days=threshold, recipient=recipients[0]
                 )
+        for presenter, asset in shared:
+            SharedFileNotice.objects.create(
+                presenter=presenter, asset=asset, recipient=recipients[0]
+            )
         send_email(
             subject,
             recipients,

@@ -30,6 +30,7 @@ from .constants import (
     VIDEO_KINDS,
     MediaKind,
     MediaStatus,
+    SessionStatus,
     TranscriptionStatus,
     UploadStatus,
 )
@@ -38,6 +39,7 @@ from .models import (
     ActivityLog,
     MediaAsset,
     MediaUpload,
+    SharedFileNotice,
     SpeakerSettings,
     TranscriptionJob,
     media_for_speakers,
@@ -544,6 +546,39 @@ def team_files(session, assets=None):
     return sorted(newest.values(), key=lambda a: (a.creation_date, a.pk), reverse=True)
 
 
+def new_shared_files(presenter):
+    """What the daily digest tells this presenter about (design §13.2):
+    ``[(session, [asset, ...]), ...]`` of the files the team has shared on
+    their accepted, uncancelled sessions that they have not been told of,
+    the newest ready version of each line. Empty when the edition's
+    speaker side is off, since the page would show them nothing."""
+    if not media_for_speakers(presenter.conference):
+        return []
+    told = set(
+        SharedFileNotice.objects.filter(presenter=presenter).values_list(
+            "asset_id", flat=True
+        )
+    )
+    links = presenter.session_presenters.filter(
+        confirmed_at__isnull=False
+    ).select_related("session")
+    sessions = sorted(
+        {
+            link.session
+            for link in links
+            if not link.session.is_a_proposal
+            and link.session.status != SessionStatus.CANCELLED
+        },
+        key=lambda session: session.title,
+    )
+    result = []
+    for session in sessions:
+        files = [a for a in team_files(session) if a.pk not in told]
+        if files:
+            result.append((session, files))
+    return result
+
+
 def open_uploads(session, user):
     """The caller's uploads on this session still in flight, newest first:
     the page tells them which file to pick again to carry on."""
@@ -818,7 +853,7 @@ def record_asset(
     # what the team shared was the line, and the new version is shared
     # again from its own row.
     previous.filter(status=MediaStatus.READY).exclude(pk=asset.pk).update(
-        status=MediaStatus.SUPERSEDED, shared_with_speaker=False
+        status=MediaStatus.SUPERSEDED, shared_with_speaker=False, shared_at=None
     )
     if announce:
         asset_ready.send(sender=MediaAsset, asset=asset)

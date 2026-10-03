@@ -16,6 +16,7 @@ from django.core.exceptions import PermissionDenied
 from django.http import Http404, HttpResponse, HttpResponseRedirect, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
+from django.utils import timezone
 from django.views import View
 
 from .constants import UPLOAD_PART_URL_BATCH, VIDEO_KINDS, TranscriptionStatus
@@ -323,7 +324,8 @@ class MediaShareView(LoginRequiredMixin, SpeakerModuleRequiredMixin, View):
             raise PermissionDenied("Only organizers share files with speakers.")
         asset = get_object_or_404(MediaAsset, pk=pk, session=session)
         asset.shared_with_speaker = request.POST.get("shared") == "1"
-        asset.save(update_fields=["shared_with_speaker", "modified_date"])
+        asset.shared_at = timezone.now() if asset.shared_with_speaker else None
+        asset.save(update_fields=["shared_with_speaker", "shared_at", "modified_date"])
         return _row_or_files(
             request,
             session,

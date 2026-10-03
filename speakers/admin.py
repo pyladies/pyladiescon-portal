@@ -22,6 +22,7 @@ from .models import (
     Session,
     SessionPresenter,
     SessionType,
+    SharedFileNotice,
     SpeakerSettings,
 )
 
@@ -379,6 +380,15 @@ class ReminderLogAdmin(admin.ModelAdmin):
     list_filter = (ActiveConferenceFilter, "threshold_days")
     search_fields = ("recipient", "item__title")
     list_select_related = ("item", "conference")
+    readonly_fields = ("sent_at",)
+
+
+@admin.register(SharedFileNotice)
+class SharedFileNoticeAdmin(admin.ModelAdmin):
+    list_display = ("asset", "presenter", "recipient", "sent_at", "conference")
+    list_filter = (ActiveConferenceFilter,)
+    search_fields = ("recipient", "presenter__display_name", "asset__title")
+    list_select_related = ("asset", "presenter", "conference")
     readonly_fields = ("sent_at",)
 
 
