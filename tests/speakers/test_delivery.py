@@ -1,8 +1,10 @@
 import importlib
 import logging
+import smtplib
 from datetime import timedelta
 
 import pytest
+from celery.exceptions import Retry
 from django.apps import apps
 from django.contrib.auth.models import Group, User
 from django.core import mail
@@ -17,6 +19,8 @@ from common.workers import Worker, WorkerReport, email_code_version
 from portal.models import Conference
 from portal_account.permissions import MAINTAINERS_GROUP
 from speakers import delivery, delivery_views
+from speakers import tasks as delivery_tasks
+from speakers.constants import ProposalDecision
 from speakers.delivery import (
     CLOCK_SLACK,
     GONE,
@@ -30,14 +34,21 @@ from speakers.delivery import (
     retriggered_history,
     unrecorded_invitations,
 )
-from speakers.emails import INVITATION_TEMPLATE
+from speakers.emails import INVITATION_TEMPLATE, invitation_email_recorded
 from speakers.models import ActivityLog, Invitation
-from speakers.tasks import send_invitation_email_task
+from speakers.tasks import (
+    send_acceptance_email_task,
+    send_added_to_session_email_task,
+    send_invitation_email_task,
+    send_proposal_approved_email_task,
+    send_proposal_rejected_email_task,
+)
 
 from .factories import (
     add_presenter,
     make_invitation,
     make_presenter,
+    make_proposal,
     make_session,
     make_settings,
 )
@@ -472,6 +483,195 @@ class TestInvitationTaskLogging:
                 send_invitation_email_task.apply(args=[invitation.pk])
         assert f"invitation {invitation.pk} failed" in caplog.text
         assert "smtp down" in caplog.text
+
+
+@pytest.mark.django_db
+class TestRedeliveredInvitationTask:
+    """The task is acknowledged late, so a worker that dies holding it gets it
+    back; it must not mail the presenter a second time."""
+
+    def test_one_already_on_record_is_not_sent_again(self, conference, enabled, caplog):
+        began()
+        invitation = sent_invitation(conference, "Ada")
+        record(invitation)
+        with caplog.at_level(logging.INFO, logger="speakers"):
+            result = send_invitation_email_task.apply(args=[invitation.pk]).get()
+        assert result == f"Invitation email for {invitation.pk} was already sent"
+        assert "already has a successful record" in caplog.text
+        assert mail.outbox == []
+
+    def test_a_record_of_an_earlier_send_does_not_stop_a_new_one(
+        self, conference, enabled
+    ):
+        """A resend issues a new link; the old record is not this send."""
+        began()
+        invitation = sent_invitation(conference, "Ada")
+        record(invitation, after=invitation.sent_at - timedelta(minutes=30))
+        send_invitation_email_task.apply(args=[invitation.pk]).get()
+        assert [m.to for m in mail.outbox] == [["ada@example.com"]]
+
+    def test_a_resend_within_a_minute_of_the_last_send_still_goes_out(
+        self, conference, enabled
+    ):
+        """The audit page forgives a minute of clock skew; this must not, or a
+        quick resend finds the previous send's record and is skipped."""
+        began()
+        invitation = sent_invitation(conference, "Ada")
+        record(invitation, after=invitation.sent_at - timedelta(seconds=30))
+        send_invitation_email_task.apply(args=[invitation.pk]).get()
+        assert [m.to for m in mail.outbox] == [["ada@example.com"]]
+
+    def test_a_failed_record_does_not_stop_it(self, conference, enabled):
+        began()
+        invitation = sent_invitation(conference, "Ada")
+        record(invitation, SentEmailStatus.FAILED, error="down")
+        send_invitation_email_task.apply(args=[invitation.pk]).get()
+        assert len(mail.outbox) == 1
+
+    def test_a_draft_invitation_is_not_on_record(self, conference, enabled):
+        session = make_session(conference, kind="WORKSHOP", title="Draft")
+        presenter = make_presenter(conference, display_name="Dee", email="dee@x.org")
+        draft = make_invitation(presenter, session)
+        assert draft.sent_at is None
+        assert invitation_email_recorded(draft) is False
+
+    def test_a_down_mail_server_is_tried_again_and_mailed_once(
+        self, conference, enabled, monkeypatch
+    ):
+        invitation = sent_invitation(conference, "Ada")
+        real = delivery_tasks.send_invitation_email
+        calls = []
+
+        def flaky(inv):
+            calls.append(inv.pk)
+            if len(calls) == 1:
+                raise ConnectionError("mail server unreachable")
+            return real(inv)
+
+        monkeypatch.setattr(delivery_tasks, "send_invitation_email", flaky)
+        with pytest.raises(Retry):
+            send_invitation_email_task.apply(args=[invitation.pk])
+        assert mail.outbox == []
+        send_invitation_email_task.apply(args=[invitation.pk], retries=1).get()
+        assert len(calls) == 2
+        assert len(mail.outbox) == 1
+
+    def test_a_refused_address_is_not_tried_again(
+        self, conference, enabled, monkeypatch
+    ):
+        invitation = sent_invitation(conference, "Ada")
+        calls = []
+
+        def refused(inv):
+            calls.append(inv.pk)
+            raise smtplib.SMTPRecipientsRefused({"a@x.org": (550, b"no")})
+
+        monkeypatch.setattr(delivery_tasks, "send_invitation_email", refused)
+        with pytest.raises(smtplib.SMTPRecipientsRefused):
+            send_invitation_email_task.apply(args=[invitation.pk])
+        assert len(calls) == 1
+
+
+@pytest.mark.django_db
+class TestRedeliveredOtherEmailTasks:
+    """Every task under ``email_task`` can be delivered twice; each must mail
+    its person once. Run the task, then run it again, as a redelivery after
+    a lost worker does."""
+
+    def accepted_presenter(self, conference, name):
+        user = User.objects.create_user(
+            username=name.lower(), email=f"{name.lower()}@example.com"
+        )
+        presenter = make_presenter(
+            conference,
+            display_name=name,
+            email=f"{name.lower()}@example.com",
+            user=user,
+        )
+        return presenter
+
+    def test_acceptance_email_is_sent_once(self, conference, enabled):
+        presenter = self.accepted_presenter(conference, "Ada")
+        invitation = make_invitation(presenter, accepted_at=timezone.now())
+        for expected in (1, 1):
+            result = send_acceptance_email_task.apply(args=[invitation.pk]).get()
+            assert len(mail.outbox) == expected
+        assert "already sent" in result
+
+    def test_a_second_acceptance_still_gets_its_email(self, conference, enabled):
+        """The guard is anchored on this acceptance, not on the presenter
+        ever having been welcomed."""
+        presenter = self.accepted_presenter(conference, "Ada")
+        earlier = make_invitation(
+            presenter, accepted_at=timezone.now() - timedelta(days=2)
+        )
+        send_acceptance_email_task.apply(args=[earlier.pk]).get()
+        later = make_invitation(presenter, accepted_at=timezone.now())
+        send_acceptance_email_task.apply(args=[later.pk]).get()
+        assert len(mail.outbox) == 2
+
+    def test_added_to_session_email_is_sent_once(self, conference, enabled):
+        session = make_session(conference, kind="WORKSHOP", title="Talk")
+        presenter = self.accepted_presenter(conference, "Grace")
+        link = add_presenter(session, presenter, confirmed=True)
+        for expected in (1, 1):
+            result = send_added_to_session_email_task.apply(args=[link.pk]).get()
+            assert len(mail.outbox) == expected
+        assert "already sent" in result
+
+    def test_a_presenter_re_added_is_told_again(self, conference, enabled):
+        """Removing and re-adding makes a new link; its email must not be
+        blocked by the earlier link's record."""
+        session = make_session(conference, kind="WORKSHOP", title="Talk")
+        presenter = self.accepted_presenter(conference, "Grace")
+        first = add_presenter(session, presenter, confirmed=True)
+        send_added_to_session_email_task.apply(args=[first.pk]).get()
+        first.delete()
+        again = add_presenter(session, presenter, confirmed=True)
+        send_added_to_session_email_task.apply(args=[again.pk]).get()
+        assert len(mail.outbox) == 2
+
+    @pytest.mark.parametrize(
+        "decision, task",
+        [
+            (ProposalDecision.APPROVED, send_proposal_approved_email_task),
+            (ProposalDecision.REJECTED, send_proposal_rejected_email_task),
+        ],
+    )
+    def test_each_proposal_reply_is_sent_once(
+        self, conference, enabled, decision, task
+    ):
+        session = make_session(conference, kind="WORKSHOP", title="Talk")
+        presenter = make_presenter(
+            conference, display_name="Rosa", email="rosa@example.com"
+        )
+        proposal = make_proposal(
+            session, presenter, decision=decision, decided_at=timezone.now()
+        )
+        for expected in (1, 1):
+            result = task.apply(args=[proposal.pk]).get()
+            assert len(mail.outbox) == expected
+        assert "already sent" in result
+
+    def test_a_record_from_before_the_decision_does_not_block_the_reply(
+        self, conference, enabled
+    ):
+        """A proposal decided again sends again: the anchor is decided_at."""
+        session = make_session(conference, kind="WORKSHOP", title="Talk")
+        presenter = make_presenter(
+            conference, display_name="Rosa", email="rosa@example.com"
+        )
+        proposal = make_proposal(
+            session,
+            presenter,
+            decision=ProposalDecision.APPROVED,
+            decided_at=timezone.now() - timedelta(days=1),
+        )
+        send_proposal_approved_email_task.apply(args=[proposal.pk]).get()
+        proposal.decided_at = timezone.now()
+        proposal.save()
+        send_proposal_approved_email_task.apply(args=[proposal.pk]).get()
+        assert len(mail.outbox) == 2
 
 
 @pytest.mark.django_db

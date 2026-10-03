@@ -5,10 +5,17 @@ from django.conf import settings
 from django.utils import timezone
 
 from common.send_emails import send_email
+from common.tasks import email_task
 from portal.models import Conference
 
 from .constants import ProposalDecision, ZipStatus
 from .emails import (
+    PROPOSAL_APPROVED_TEMPLATE,
+    PROPOSAL_REJECTED_TEMPLATE,
+    acceptance_email_recorded,
+    added_to_session_email_recorded,
+    invitation_email_recorded,
+    proposal_reply_recorded,
     send_acceptance_email,
     send_added_to_session_email,
     send_copresenter_suggestion_email,
@@ -41,13 +48,15 @@ from .transcription import fail_stale_jobs, transcribe
 logger = logging.getLogger(__name__)
 
 
-@shared_task(bind=True)
+@email_task(bind=True)
 def send_invitation_email_task(self, invitation_id):
     """Send the invitation email for ``invitation_id``.
 
     Logs when it starts, when it ends and why it failed, each with the task
     id that ``enqueue`` logged, so the worker's log can say what became of an
     invitation the presenter page calls sent. The address is never logged.
+    Acknowledged late and retried (see ``common.tasks.email_task``), so a
+    redelivered task first checks that this send is not already on record.
     """
     task_id = self.request.id
     invitation = (
@@ -62,6 +71,14 @@ def send_invitation_email_task(self, invitation_id):
             task_id,
         )
         return f"Invitation with id {invitation_id} not found"
+    if invitation_email_recorded(invitation):
+        logger.info(
+            "Invitation email: invitation %s already has a successful record, "
+            "not sending again (task %s)",
+            invitation_id,
+            task_id,
+        )
+        return f"Invitation email for {invitation_id} was already sent"
     logger.info(
         "Invitation email: sending invitation %s to presenter %s (task %s)",
         invitation_id,
@@ -84,7 +101,7 @@ def send_invitation_email_task(self, invitation_id):
     return f"Sent invitation email for {invitation_id}"
 
 
-@shared_task
+@email_task()
 def send_added_to_session_email_task(link_id):
     """Tell an already-accepted presenter they were added to a session."""
     link = (
@@ -94,11 +111,13 @@ def send_added_to_session_email_task(link_id):
     )
     if link is None:
         return f"Session presenter {link_id} is not confirmed"
+    if added_to_session_email_recorded(link):
+        return f"Added-to-session email for {link_id} was already sent"
     send_added_to_session_email(link)
     return f"Sent added-to-session email for {link_id}"
 
 
-@shared_task
+@email_task()
 def send_acceptance_email_task(invitation_id):
     """Send the welcome email once an invitation has been accepted."""
     invitation = (
@@ -108,6 +127,8 @@ def send_acceptance_email_task(invitation_id):
     )
     if invitation is None or invitation.presenter.user is None:
         return f"Invitation {invitation_id} is not accepted"
+    if acceptance_email_recorded(invitation):
+        return f"Acceptance email for {invitation_id} was already sent"
     send_acceptance_email(invitation)
     return f"Sent acceptance email for {invitation_id}"
 
@@ -223,20 +244,24 @@ def send_proposal_received_email_task(proposal_id):
     return f"Sent proposal receipt and notice to {sent} recipient(s)"
 
 
-@shared_task
+@email_task()
 def send_proposal_approved_email_task(proposal_id):
     proposal = _proposal(proposal_id, decision=ProposalDecision.APPROVED)
     if proposal is None:
         return f"Proposal {proposal_id} is not approved"
+    if proposal_reply_recorded(proposal, PROPOSAL_APPROVED_TEMPLATE):
+        return f"Approval email for proposal {proposal_id} was already sent"
     send_proposal_approved_email(proposal)
     return f"Sent proposal approval for {proposal_id}"
 
 
-@shared_task
+@email_task()
 def send_proposal_rejected_email_task(proposal_id):
     proposal = _proposal(proposal_id, decision=ProposalDecision.REJECTED)
     if proposal is None:
         return f"Proposal {proposal_id} is not rejected"
+    if proposal_reply_recorded(proposal, PROPOSAL_REJECTED_TEMPLATE):
+        return f"Rejection email for proposal {proposal_id} was already sent"
     send_proposal_rejected_email(proposal)
     return f"Sent proposal answer for {proposal_id}"
 

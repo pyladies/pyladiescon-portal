@@ -1,13 +1,77 @@
 import logging
+import smtplib
 
 from celery import shared_task
+from celery.exceptions import SoftTimeLimitExceeded
+from celery.signals import worker_ready
 from celery.worker.control import control_command
 from kombu.exceptions import OperationalError
+
+from portal.process import process_name
 
 from .models import prune_sent_emails
 from .workers import email_code_version
 
 logger = logging.getLogger(__name__)
+
+
+# What a task that sends one email to one person needs, beyond a plain task.
+#
+# ``acks_late`` and ``reject_on_worker_lost``: a worker killed or restarted
+# while it holds the task puts it back on the queue. Without them the task is
+# acknowledged on receipt and a killed worker loses it without a trace, which
+# is how invitations came to be marked sent and never sent. The price is that
+# a task can run twice (a worker that dies after the mail server accepted the
+# message), so each of these tasks checks first whether its send is already
+# on record (``speakers.emails.email_recorded`` and the predicates built on
+# it) and returns without sending again. A task given this decorator without
+# such a check mails its recipient once per delivery.
+#
+# The retries cover a mail server that is down or slow for a while; an
+# address the server refuses, or a login it rejects, will not get better by
+# waiting. ``SMTPException`` is an ``OSError``, hence the exclusions.
+EMAIL_TASK_OPTIONS = {
+    "acks_late": True,
+    "reject_on_worker_lost": True,
+    "autoretry_for": (OSError, SoftTimeLimitExceeded),
+    "dont_autoretry_for": (
+        smtplib.SMTPRecipientsRefused,
+        smtplib.SMTPSenderRefused,
+        smtplib.SMTPAuthenticationError,
+        smtplib.SMTPNotSupportedError,
+    ),
+    "max_retries": 4,
+    "retry_backoff": 30,
+    "retry_backoff_max": 900,
+    "retry_jitter": True,
+    # A connection that stalls must not hold a worker process for ever.
+    "soft_time_limit": 90,
+    "time_limit": 120,
+}
+
+
+def email_task(**options):
+    """``shared_task`` for a task that sends one email to one person.
+
+    Not for a task that sends to several people (a digest, a notice to the
+    organizers): a retry would send again to those who already have it.
+    """
+    return shared_task(**{**EMAIL_TASK_OPTIONS, **options})
+
+
+@worker_ready.connect
+def log_worker_ready(sender=None, **kwargs):
+    """One line when a worker starts: which process, which email code.
+
+    A worker that restarts every few minutes (killed for memory, say) shows
+    here as a run of these lines, and each says which code it came up with.
+    """
+    logger.info(
+        "Worker ready: %s process=%s email_code=%s",
+        getattr(sender, "hostname", "?"),
+        process_name(),
+        email_code_version(),
+    )
 
 
 @control_command()
