@@ -324,7 +324,7 @@ All times are stored in UTC. `SpeakerSettings.conference_timezone` (one row per 
 
 Promo materials belong to a **session**, not a person: a speaker on a panel and a workshop gets a poster for each. And there are several per session: square, landscape and vertical images, a video, a gif. So they are `MediaAsset` rows of kind `PROMO` with a free **`variant`** label ("square", "landscape", "vertical", "video", "gif", or whatever next year's formats are; the upload panel suggests those five). Versions count per kind, language and variant, so re-uploading the square poster supersedes the old square poster and nothing else. Organizers upload them on the session's Files section like any other file (the team's Canva workflow produces them; the presenter list exports to Canva's bulk-create CSV); the design team's bulk download (5.6) collects them.
 
-**Sharing is a flag, not a kind.** Every file the team uploads is the team's until an organizer marks it **shared with the speaker** (`MediaAsset.shared_with_speaker`, a button on the file's row). A shared file appears on the speaker's session page under "Files from the team", with the newest shared version of each kind, language and variant, a download link, and no reviewer notes: those stay with the team. Unsharing takes it back. A presenter may fetch their own raw video and whatever is shared; nothing else, however they got the link. Two seeded organizer lines follow the flag: "Promo materials prepared" completes when the first promo file is on the session, "Promo materials shared with presenter" when the first one is shared. The performer's "Approve the final cut" waits until the processed video is not only in but shared, since that is when they can watch it.
+**Sharing is a flag, not a kind.** Every file the team uploads is the team's until an organizer marks it **shared with the speaker** (`MediaAsset.shared_with_speaker`, a button on the file's row). A shared file appears on the speaker's session page under "Files from the team", with the newest shared version of each kind, language and variant, a download link, and no reviewer notes: those stay with the team. Unsharing takes it back. The speaker hears about newly shared files in the daily digest, when there are any (§13.2). A presenter may fetch their own raw video and whatever is shared; nothing else, however they got the link. Two seeded organizer lines follow the flag: "Promo materials prepared" completes when the first promo file is on the session, "Promo materials shared with presenter" when the first one is shared. The performer's "Approve the final cut" waits until the processed video is not only in but shared, since that is when they can watch it.
 
 Generating cards in the portal is a possible later addition.
 
@@ -553,7 +553,7 @@ A finished item never waits, whatever its sources say. A waiting item is **count
 
 ### 9.4 Reminders
 
-A daily job emails each presenter one digest of their open items due within 7, 3, and 1 days, in their own timezone. Organizer items go to the assignee, or to the organizers list if unassigned. Every send is logged so the same reminder never goes out twice.
+A daily job emails each presenter one digest of their open items due within 7, 3, and 1 days, in their own timezone. Organizer items go to the assignee, or to the organizers list if unassigned. Every send is logged so the same reminder never goes out twice. The same email carries the files the team newly shared, and a speaker's upload is announced to the team at once (§13.2).
 
 ### 9.5 What the speaker sees
 
@@ -726,6 +726,38 @@ The trail has two readers. A **Maintenance** page, beside Accounts, gated on `is
 Bodies are personal data: they are kept for the edition plus a year and pruned nightly, which both pages say. Delivery receipts, opens and bounces are not part of this: they need the mail provider's webhooks, and the record's job is to say what the portal sent, not what the recipient's server did with it.
 
 ---
+
+### 13.2 File notifications: the speaker's digest, and the team's upload notice
+
+> The digest half is **built** (task 5.11, 2 October 2026). The upload notice (task 5.12) is designed, not yet built.
+
+Two things happen to files that someone should hear about, and today the portal says nothing about either. The team shares a poster, a transcript, the final cut, and the speaker finds out only by opening their session page. A performer uploads their video, or a new take of it, and the liaison finds out by checking the board. Both get an email; they are shaped differently because the traffic is different.
+
+#### What the team shared, in the daily digest
+
+A share is a click on a file row, and the design team shares in sittings: every poster for the edition in one afternoon, then the final cuts as they finish. An email per click would be noise. The speaker already gets one daily email from the portal, the checklist digest (§9.4), so newly shared files **ride in that email** rather than in one of their own: a "New files from the team" section, present only when there is something in it, and **no email at all when there is nothing due and nothing new**. At most one portal email per speaker per day, and the final cut arrives in the same message as the "Approve the final cut" reminder it opens. The cost is up to a day's wait between the share and the email; the page shows the file at once, and a poster or a transcript is not urgent. An hourly digest of its own, with a quiet period to bundle a sitting, was the alternative and is the fallback if the delay turns out to matter.
+
+**What the digest changes.** Today it goes only to presenters with a reminder due at one of the thresholds. It now also goes to a presenter who has new files and nothing due, so the loop walks both sets. The subject says what is inside: "2 todos due soon and 3 new files from the team", or one half when only one applies. The reminder rows and the file-notice rows are written in the one transaction with the send, the `_deliver` pattern, so a crash never leaves either half-recorded. The organizer digest is untouched.
+
+**What counts as new.** Not a timestamp on the presenter, but a row per file told: `SharedFileNotice(presenter, asset, sent_at)`, unique per pair, the shape `ReminderLog` already uses so the same thing is never sent twice. A file is due when it is the newest `READY` version of its line, marked shared, and has no notice row for this presenter. That definition answers the edge cases without special cases: a presenter added to a panel later is told about the files already shared there, because they have no rows for them; a replaced version is a new asset row, so a re-shared final cut v2 is announced; a file unshared and shared again is not announced twice, since the row stays. A file unshared before the digest ran is simply not shared, and is not mentioned. `MediaAsset` gains `shared_at`, set when the flag goes on and cleared when it goes off or the version is withdrawn, so the file rows and the digest can say when.
+
+**Who gets it.** Every presenter with a confirmed link on the session, on an accepted session rather than a proposal, in an edition whose speaker side is on (`media_for_speakers`); the same rule as `media.can_download`, since the email must not announce a file the page would refuse. A cancelled session is skipped. The address is `Presenter.email`, as for every other speaker email, and the record is attached to the presenter and the user so it shows under "Emails we sent you" (§13.1).
+
+**What it says.** Under the digest's reminders, a heading per session with a line per file: the title when the line has one, else the kind, with the variant and language, the version, and when it was shared. A link to the session page's Files tab, where the file is previewed and fetched. **No download links**: a presigned link expires in minutes and the record keeps the body, so the email points at the page and the page mints the link on the click.
+
+#### A speaker uploaded, told at once
+
+A speaker's upload is rare and wanted: one video, perhaps a second take, and the team is waiting for it. So it is **one email per upload, sent when the upload completes**, not bundled. The trigger is `asset_ready` for a file whose uploader is a presenter on the session rather than an organizer, which under `media.can_upload` means their raw video. A machine transcript landing is not an upload and sends nothing; an organizer uploading on the performer's behalf sends nothing either, since the team did it.
+
+**Who gets it.** The uploading presenter's liaison. Without one, the edition's organizers address (`SpeakerSettings.organizers_email`); with neither, nothing is sent and the gap is logged, the fallback the organizer checklist digest already uses. The email is recorded against the session so it shows on the trail.
+
+**What it says.** Who uploaded what for which session, the file name and size, and whether it is the first video or replaces an earlier version ("v2, replacing v1"). The length is probed after the upload on the media queue, so the email does not wait for it; it says the length is being checked and the page will show it against the limit. A link to the organizer's session page, Files section, and to the post-production board. Subject: "Maria uploaded a video for A PyJam set". Reply-to is the presenter's address, so the liaison can answer them directly.
+
+**Delivery.** The receiver queues a task with `transaction.on_commit`, like the invitation email, with the same retry on a mail failure; the asset is looked up again in the task, and an asset deleted in between sends nothing.
+
+#### What neither does
+
+No per-presenter opt-out in the first version, matching the checklist digest; it is one email per sitting at most. No email to the speaker when their own upload completes; the page tells them. No bundling of upload notices; if performers turn out to upload takes in bursts, a quiet period like the digest's is the fix, and the record will show whether it is needed.
 
 ## 14. Build order
 
