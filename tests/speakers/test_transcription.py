@@ -589,7 +589,7 @@ class TestOnThePage:
         client.force_login(organizer)
         html = client.get(session.get_absolute_url()).content.decode()
         assert f'<option value="{job.output.variant}">' in html
-        assert "To replace a machine transcript" in html
+        assert "Pick a listed variant to replace a machine transcript" in html
 
     def test_refusals(self, client, world, engine, bucket, organizer, settings):
         session = world["session"]
