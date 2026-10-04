@@ -11,8 +11,8 @@ from speakers.constants import (
 )
 from speakers.models import (
     ActivityLog,
-    DiscordChannel,
     Presenter,
+    Room,
     ScheduleSlot,
     Session,
     SessionPresenter,
@@ -22,9 +22,9 @@ from speakers.models import (
 
 from .factories import (
     add_presenter,
-    make_channel,
     make_presenter,
     make_proposal,
+    make_room,
     make_session,
     make_settings,
     make_slot,
@@ -90,11 +90,11 @@ class TestIsolation:
         assert list(conference.session_presenters.all()) == [link]
         assert list(conference.schedule_slots.all()) == [slot]
 
-    def test_channels_scoped(self, conference, other_conference):
-        make_channel(conference, name="stage-1")
-        make_channel(other_conference, name="stage-1")
-        assert conference.discord_channels.count() == 1
-        assert DiscordChannel.objects.count() == 2
+    def test_rooms_scoped(self, conference, other_conference):
+        make_room(conference, name="stage-1")
+        make_room(other_conference, name="stage-1")
+        assert conference.rooms.count() == 1
+        assert Room.objects.count() == 2
 
 
 @pytest.mark.django_db
@@ -339,8 +339,8 @@ class TestScheduleSlotShell:
         slot.save()
         assert ScheduleSlot.objects.get(pk=slot.pk).end_utc == end
 
-    def test_channel_str(self, conference):
-        assert str(make_channel(conference, name="stage-1")) == "stage-1"
+    def test_room_str(self, conference):
+        assert str(make_room(conference, name="stage-1")) == "stage-1"
 
 
 @pytest.mark.django_db

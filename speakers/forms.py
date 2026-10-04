@@ -483,7 +483,7 @@ class SessionTypeForm(forms.ModelForm):
             "is_content",
             "default_duration_minutes",
             "default_delivery",
-            "spans_all_channels",
+            "spans_all_rooms",
             "open_for_proposals",
             "roles",
             "default_role",

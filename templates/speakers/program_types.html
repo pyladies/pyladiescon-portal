@@ -11,7 +11,7 @@
     {% include "portal/_organize_rail.html" with active="program_types" %}
 {% endblock sidebar %}
 {% block content %}
-    {% trans "Takes the whole schedule grid" as all_channels_hint %}
+    {% trans "Takes the whole schedule grid" as all_rooms_hint %}
     <h1 class="h3 mb-1">
         {% trans "Session types and roles" %}
     </h1>
@@ -64,8 +64,8 @@
                             {% if not type.is_active %}
                                 <span class="badge text-bg-secondary">{% trans "inactive" %}</span>
                             {% endif %}
-                            {% if type.spans_all_channels %}
-                                <span class="badge text-bg-light border" title="{{ all_channels_hint }}">{% trans "all channels" %}</span>
+                            {% if type.spans_all_rooms %}
+                                <span class="badge text-bg-light border" title="{{ all_rooms_hint }}">{% trans "all rooms" %}</span>
                             {% endif %}
                             {% if type.open_for_proposals %}
                                 {% trans "People may propose one of these" as proposals_hint %}

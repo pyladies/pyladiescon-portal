@@ -1011,9 +1011,13 @@ installed; this app keeps small factory functions in `tests/speakers/factories.p
   covers every model, which is what caught them.) Join and child rows (`SessionPresenter`, `ScheduleSlot`,
   `Proposal`) carry a non-editable `conference` copied from their session
   on save.
+- The schedule's places are `Room` rows (renamed from `DiscordChannel`,
+  migration `0017_rooms`): deliberately generic, because only the name
+  was Discord-specific. `url` and `discord_id` record which Discord
+  channel a room is when the edition is online; nothing else cares.
 - The schedule grid's overlap rules live on `ScheduleSlot` (design §8.5):
-  `clean()` runs on every save and refuses a slot sharing a channel with
-  another, or crossing an all-channel band, except that two program-kind
+  `clean()` runs on every save and refuses a slot sharing a room with
+  another, or crossing an every-room band, except that two program-kind
   bands (`is_content` off on both types) may coexist. A cancelled session's
   slot stays as a record but frees its time (`OFF_SCHEDULE_STATUSES`). A
   presenter booked twice at once is deliberately NOT an error, because a
@@ -1028,7 +1032,7 @@ installed; this app keeps small factory functions in `tests/speakers/factories.p
   to gate that.
 - Enumerations live in `speakers/constants.py` as `TextChoices`, except
   session types and presenter roles, which are rows: `SessionType` (code,
-  name, `is_content`, default duration and delivery, `spans_all_channels`,
+  name, `is_content`, default duration and delivery, `spans_all_rooms`,
   the allowed `roles` and a `default_role`) and `PresenterRole` (code, name,
   `email_word`), both per edition. `speakers/program_types.py` seeds the
   defaults (`seed_program_types`, also run when a `SpeakerSettings` row is

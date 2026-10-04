@@ -9,9 +9,9 @@ from speakers.constants import ItemOwner
 
 from .factories import (
     add_presenter,
-    make_channel,
     make_presenter,
     make_proposal,
+    make_room,
     make_session,
     make_settings,
     make_slot,
@@ -26,7 +26,7 @@ class TestSpeakersAdmin:
             "session",
             "presenter",
             "sessionpresenter",
-            "discordchannel",
+            "room",
             "scheduleslot",
             "activitylog",
             "speakersettings",
@@ -39,7 +39,7 @@ class TestSpeakersAdmin:
         session = make_session(conference, title="Listed talk")
         presenter = make_presenter(conference, display_name="Listed presenter")
         add_presenter(session, presenter)
-        make_slot(session, channel=make_channel(conference))
+        make_slot(session, room=make_room(conference))
         make_proposal(session, presenter)
         client.force_login(admin_user)
         response = client.get(reverse(f"admin:speakers_{model}_changelist"))

@@ -24,7 +24,7 @@ PyLadiesCon 2026 is a special edition built around workshops, panels, and PyJam 
 - Organizers add sessions and the people presenting them, and send invitations.
 - Speakers accept, fill in their bio and session details, and see exactly what they need to do and by when.
 - Organizers see exactly what *they* owe each speaker — emails, promo materials, scheduling — and speakers can see that too.
-- The schedule is built in the portal, assigned to Discord channels, and shown to everyone in their own timezone.
+- The schedule is built in the portal, placed in rooms (Discord channels, for an online edition), and shown to everyone in their own timezone.
 - The conference website shows the schedule and speakers by embedding a widget from the portal, so there is one source of truth.
 - PyJam performers upload their videos to the portal and the team tracks each video through post-production to YouTube.
 
@@ -44,7 +44,7 @@ The portal is the system of record for the program. There is no external CFP too
 
 ### 1.2 Scope
 
-**In:** session and presenter management, invitations, speaker self-service profile and session editing, two-sided checklists with reminders, scheduling with Discord channel assignment, public schedule and speaker embeds with calendar feeds, promo asset storage, video upload and post-production tracking for pre-recorded sessions, CSV/JSON export, pretix registration sync.
+**In:** session and presenter management, invitations, speaker self-service profile and session editing, two-sided checklists with reminders, scheduling with room assignment, public schedule and speaker embeds with calendar feeds, promo asset storage, video upload and post-production tracking for pre-recorded sessions, CSV/JSON export, pretix registration sync.
 
 **Out:** call for proposals and review, automated transcription/translation/video rendering (uploads and tracking are in; processing is manual), speaker certificates, translation of the portal UI, Discord bot automation (channel and role management stay manual; an estimate is in §12.2), payments or honoraria.
 
@@ -113,7 +113,7 @@ Checklists are templates the team edits in the portal — items can be renamed, 
 
 ### 3.4 Building the schedule
 
-A grid with Discord channels as columns and 15-minute steps as rows. Unscheduled sessions wait on the side and are dragged in; a "+ program item" button drops an opening or break straight onto the grid, spanning all channels. Conflicts — two sessions in one channel, a presenter double-booked — are highlighted where they happen.
+A grid with the rooms as columns and 15-minute steps as rows. Unscheduled sessions wait on the side and are dragged in; a "+ program item" button drops an opening or break straight onto the grid, spanning every room. Conflicts — two sessions in one room, a presenter double-booked — are highlighted where they happen.
 
 The timezone switcher shows the grid as a specific presenter would see it, which is how "we scheduled her at 3 a.m." gets caught before the confirmation email.
 
@@ -254,7 +254,7 @@ portal.Conference
  ├── SessionType ──── PresenterRole (which roles a type allows)
  ├── Session ──────────────── SessionPresenter ──── Presenter ──── User (optional)
  │     │                        (role, order)          │
- │     ├── ScheduleSlot ──── DiscordChannel            └── ChecklistItem (owner=SPEAKER)
+ │     ├── ScheduleSlot ──── Room                   └── ChecklistItem (owner=SPEAKER)
  │     ├── MediaAsset (pre-recorded sessions)
  │     ├── PromoAsset (M5, not built)
  │     └── ChecklistItem (owner=ORGANIZER; per presenter or per session)
@@ -275,13 +275,13 @@ One row per **anything that appears on the schedule**: workshops, panels, PyJam 
 
 | Field | Notes |
 |---|---|
-| `kind` | A **`SessionType` row** per edition, not an enumeration: the list above became the seeded defaults (`WORKSHOP` · `PANEL` · `PYJAM` · `TALK` · `LIGHTNING`, and the program types `OPENING` · `CLOSING` · `KEYNOTE` · `ANNOUNCEMENT` · `BREAK` · `SOCIAL` · `OTHER`), and organizers add their own on the "Types and roles" page without a deploy. The row carries what the code used to switch on: `is_content`, the default duration and delivery, whether it spans all channels, and which `PresenterRole` rows it allows. |
+| `kind` | A **`SessionType` row** per edition, not an enumeration: the list above became the seeded defaults (`WORKSHOP` · `PANEL` · `PYJAM` · `TALK` · `LIGHTNING`, and the program types `OPENING` · `CLOSING` · `KEYNOTE` · `ANNOUNCEMENT` · `BREAK` · `SOCIAL` · `OTHER`), and organizers add their own on the "Types and roles" page without a deploy. The row carries what the code used to switch on: `is_content`, the default duration and delivery, whether it spans all rooms, and which `PresenterRole` rows it allows. |
 | `delivery` | `LIVE` (default) or `PRE_RECORDED`. PyJam defaults to pre-recorded; any kind can be switched. Pre-recorded sessions get the media pipeline (§8.8) and a post-production checklist (§9.7). |
 | `is_content` | read from the type row: a content type needs at least one presenter to be confirmed; a program type can be confirmed with none (a break) or with hosts (the opening) |
 | `title` | required — the only required field |
 | `summary_md`, `outline_md`, `prerequisites_md`, `audience_md`, `notes_md` | Markdown, all optional |
 | `level`, `language`, `duration_minutes` | optional; duration defaults from kind (workshop 90, panel 60) |
-| `video_length_limit_minutes`, `youtube_url`, `youtube_publish_at`, `premiere_location` | pre-recorded only. `premiere_location` is `DISCORD` (watch party in the slot's channel) or `YOUTUBE` (YouTube Premiere at the slot time), defaulting from the edition's speaker settings; it changes what the public card links to and nothing else, so the team can decide per session or late. |
+| `video_length_limit_minutes`, `youtube_url`, `youtube_publish_at`, `premiere_location` | pre-recorded only. `premiere_location` is `DISCORD` (watch party in the slot's room) or `YOUTUBE` (YouTube Premiere at the slot time), defaulting from the edition's speaker settings; it changes what the public card links to and nothing else, so the team can decide per session or late. |
 | `status` | `DRAFT` → `INVITED` → `CONFIRMED` → `SCHEDULED` → `PUBLISHED`, plus `CANCELLED`. Program kinds skip `INVITED`. |
 | `is_public` | explicit publish switch; nothing reaches the website without it (§11.5) |
 | `slug` | stable public identifier used in URLs and calendar feeds |
@@ -312,11 +312,11 @@ An organizer invites a presenter to a specific session (or, for panelists, to th
 
 > **Built** (M3, 3 October 2026): the models and the validation below, in `ScheduleSlot.clean()` and `ScheduleSlot.presenter_clashes()`. The editor and the schedule views are §10, not yet built.
 
-**DiscordChannel** — `name`, `channel_id`, `url`, `kind` (`STAGE`, `VOICE`, `TEXT`, `FORUM`), `is_active`. Channels are created on Discord by hand and recorded here.
+**Room** — `name`, `discord_id`, `url`, `kind` (`STAGE`, `VOICE`, `TEXT`, `FORUM`), `is_active`. Deliberately generic: for an online edition a room is typically a Discord channel, created on Discord by hand and recorded here, but nothing else in the portal cares where a room actually is.
 
-**ScheduleSlot** — one per session: `channel` (nullable — null means *all channels*, so the opening or a break spans the whole grid), `start_utc`, `end_utc`. `end_utc` defaults from the session duration.
+**ScheduleSlot** — one per session: `room` (nullable — null means *every room*, so the opening or a break spans the whole grid), `start_utc`, `end_utc`. `end_utc` defaults from the session duration.
 
-Validation: no two slots overlap on one channel (an all-channel slot conflicts with everything in its window, except other program-kind bands); a presenter in two overlapping slots is flagged as a warning, not blocked — a moderator moving between rooms is legitimate.
+Validation: no two slots overlap in one room (an every-room slot conflicts with everything in its window, except other program-kind bands); a presenter in two overlapping slots is flagged as a warning, not blocked — a moderator moving between rooms is legitimate.
 
 All times are stored in UTC. `SpeakerSettings.conference_timezone` (one row per conference) is only the organizer's default display; the conference itself has no timezone.
 
@@ -608,7 +608,7 @@ A pre-recorded session still takes a schedule slot — the premiere or watch-par
 
 > **Not built** (M3). `ScheduleSlot` rows exist, the sample data writes them and the overlap rules are enforced (§8.5), but there is no editor and the presenter's schedule page is a placeholder.
 
-**Organizer editor** — a day-by-time grid: columns are Discord channels, rows are 15-minute steps across the conference days. Unscheduled sessions wait in a sidebar and are dragged onto the grid; dragging moves a session, resizing changes its duration. A "+ program item" button on any cell creates an opening, break, or social inline, so the skeleton of a day is built without leaving the grid. All-channel slots render as full-width bands. Conflicts — channel overlap, a presenter double-booked — are highlighted in place.
+**Organizer editor** — a day-by-time grid: columns are the rooms, rows are 15-minute steps across the conference days. Unscheduled sessions wait in a sidebar and are dragged onto the grid; dragging moves a session, resizing changes its duration. A "+ program item" button on any cell creates an opening, break, or social inline, so the skeleton of a day is built without leaving the grid. Every-room slots render as full-width bands. Conflicts — room overlap, a presenter double-booked — are highlighted in place.
 
 A timezone switcher on the grid shows the whole schedule as a specific presenter would see it. That is how the team catches "we scheduled her at 3 a.m." before sending the confirmation.
 
@@ -629,7 +629,7 @@ The conference website is static. The portal exposes read-only data and a drop-i
 ```
 GET /api/v1/<conference>/sessions/            published sessions with presenters and slot
 GET /api/v1/<conference>/presenters/          public presenters with their sessions
-GET /api/v1/<conference>/schedule/            slots by day, plus channels
+GET /api/v1/<conference>/schedule/            slots by day, plus rooms
 GET /api/v1/<conference>/sessions/<slug>/     one session
 ```
 
@@ -653,7 +653,7 @@ Attendees can put a single workshop or panel in their calendar and have it stay 
 ```
 GET /api/v1/<conference>/schedule.ics                          everything (subscribable)
 GET /api/v1/<conference>/schedule.ics?sessions=a,b,c           a personal selection (subscribable)
-GET /api/v1/<conference>/schedule.ics?kind=WORKSHOP&channel=…  filtered
+GET /api/v1/<conference>/schedule.ics?kind=WORKSHOP&room=…  filtered
 GET /api/v1/<conference>/sessions/<slug>.ics                   one session
 GET /api/v1/<conference>/presenters/<slug>.ics                 everything one presenter is on
 ```
@@ -787,7 +787,7 @@ the storage work (bucket and presigned URLs, then the upload tasks 4.1 to
 | **M1 — Presenters and invitations** | Session, Presenter, SessionPresenter, Invitation; invitation email and accept flow; speaker profile and session editing; admin; isolation tests | late September | **Built** |
 | **M2 — Checklists** | template editor and seed defaults; instances; auto-completion; speaker dashboard; organizer board and queue; pretix sync; reminder digests | early–mid October | **Built**, plus readiness (§9.3a) which the proposal did not have |
 | **M2b — Permissions** | permission catalogue and team-derived grants (§7.1); every app on `has_perm`; team permission pickers and presets; `Role` dropped; media permissions land with M3b | mid October, before M3 | **Not built.** Access is still `is_staff`/`is_superuser` plus team membership |
-| **M3 — Scheduling** | Discord channels, slots, program items, conflict checks, drag-and-drop editor, presenter schedule view, calendar feeds | mid–late October | **Not built.** `ScheduleSlot` exists and is written by the sample data; there is no editor, and the presenter's schedule page is a placeholder |
+| **M3 — Scheduling** | Rooms, slots, program items, conflict checks, drag-and-drop editor, presenter schedule view, calendar feeds | mid–late October | **Not built.** `ScheduleSlot` exists and is written by the sample data; there is no editor, and the presenter's schedule page is a placeholder |
 | **M3b — Media** | video upload, duration check, performer upload panel, session-scoped templates, post-production board | late October, alongside M3 | **Not built.** `MediaAsset` exists as a shell and the video-length rule reads it; nothing uploads |
 | **M4 — Public** | JSON API, widget, iframe, draft/preview/publish, data export; wired into the conference site | early November | **Not built.** None of the URLs in §11 exist yet |
 | **M5 — Hardening** | promo assets, reminder tuning, load test on the public endpoints, documentation | mid November | **Not built**, except this page |

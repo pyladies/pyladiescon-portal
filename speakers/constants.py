@@ -88,7 +88,7 @@ class PremiereLocation(models.TextChoices):
     YOUTUBE = "YOUTUBE", "YouTube Premiere"
 
 
-class ChannelKind(models.TextChoices):
+class RoomKind(models.TextChoices):
     STAGE = "STAGE", "Stage"
     VOICE = "VOICE", "Voice"
     TEXT = "TEXT", "Text"

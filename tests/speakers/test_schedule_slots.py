@@ -1,6 +1,6 @@
 """The overlap rules on the schedule grid (task 4.1, design §8.5).
 
-Two slots may not share a channel, and an all-channel band blocks the whole
+Two slots may not share a room, and an all-room band blocks the whole
 grid, except that two program-kind bands may coexist. A presenter booked
 twice at once is a warning, never an error.
 """
@@ -15,8 +15,8 @@ from speakers.models import ScheduleSlot
 
 from .factories import (
     add_presenter,
-    make_channel,
     make_presenter,
+    make_room,
     make_session,
     make_slot,
 )
@@ -43,28 +43,28 @@ def place(session, minutes=0, length=None, **kwargs):
 
 @pytest.mark.django_db
 class TestChannelOverlap:
-    def test_two_slots_on_one_channel_may_not_overlap(self, conference):
-        channel = make_channel(conference)
-        place(make_session(conference, title="Shapely tables"), channel=channel)
+    def test_two_slots_on_one_room_may_not_overlap(self, conference):
+        room = make_room(conference)
+        place(make_session(conference, title="Shapely tables"), room=room)
         with pytest.raises(ValidationError) as excinfo:
-            place(make_session(conference), minutes=60, channel=channel)
+            place(make_session(conference), minutes=60, room=room)
         assert "Shapely tables" in str(excinfo.value)
         assert "14:00 to 15:30 UTC" in str(excinfo.value)
         assert ScheduleSlot.objects.count() == 1
 
     def test_back_to_back_slots_are_fine(self, conference):
-        channel = make_channel(conference)
-        place(make_session(conference), channel=channel)
-        place(make_session(conference), minutes=90, channel=channel)
+        room = make_room(conference)
+        place(make_session(conference), room=room)
+        place(make_session(conference), minutes=90, room=room)
         assert ScheduleSlot.objects.count() == 2
 
-    def test_parallel_channels_are_fine(self, conference):
-        place(make_session(conference), channel=make_channel(conference))
-        place(make_session(conference), channel=make_channel(conference))
+    def test_parallel_rooms_are_fine(self, conference):
+        place(make_session(conference), room=make_room(conference))
+        place(make_session(conference), room=make_room(conference))
         assert ScheduleSlot.objects.count() == 2
 
     def test_moving_a_slot_does_not_collide_with_itself(self, conference):
-        slot = place(make_session(conference), channel=make_channel(conference))
+        slot = place(make_session(conference), room=make_room(conference))
         slot.start_utc += timedelta(minutes=15)
         slot.end_utc += timedelta(minutes=15)
         slot.save()
@@ -73,11 +73,11 @@ class TestChannelOverlap:
         )
 
     def test_a_cancelled_session_frees_its_time(self, conference):
-        channel = make_channel(conference)
+        room = make_room(conference)
         cancelled = make_session(conference)
-        place(cancelled, channel=channel)
+        place(cancelled, room=room)
         cancelled.cancel()
-        place(make_session(conference), channel=channel)
+        place(make_session(conference), room=room)
         assert ScheduleSlot.objects.count() == 2
 
     def test_another_edition_is_another_grid(self, conference, other_conference):
@@ -88,13 +88,13 @@ class TestChannelOverlap:
 
 @pytest.mark.django_db
 class TestAllChannelBands:
-    def test_a_band_blocks_a_channel_slot(self, conference):
+    def test_a_band_blocks_a_room_slot(self, conference):
         place(make_session(conference, kind="BREAK"))
         with pytest.raises(ValidationError):
-            place(make_session(conference), length=10, channel=make_channel(conference))
+            place(make_session(conference), length=10, room=make_room(conference))
 
-    def test_a_channel_slot_blocks_a_band(self, conference):
-        place(make_session(conference), channel=make_channel(conference))
+    def test_a_room_slot_blocks_a_band(self, conference):
+        place(make_session(conference), room=make_room(conference))
         with pytest.raises(ValidationError):
             place(make_session(conference, kind="BREAK"))
 
@@ -137,8 +137,8 @@ class TestPresenterClashes:
         second = make_session(conference, title="Second")
         add_presenter(first, ada)
         add_presenter(second, ada)
-        place(first, channel=make_channel(conference))
-        slot = place(second, minutes=30, channel=make_channel(conference))
+        place(first, room=make_room(conference))
+        slot = place(second, minutes=30, room=make_room(conference))
         clashes = list(slot.presenter_clashes())
         assert [(link.presenter, link.session) for link in clashes] == [(ada, first)]
         assert [link.session for link in first.slot.presenter_clashes()] == [second]
@@ -149,8 +149,8 @@ class TestPresenterClashes:
         second = make_session(conference)
         add_presenter(first, ada)
         add_presenter(second, ada)
-        place(first, channel=make_channel(conference))
-        slot = place(second, minutes=90, channel=make_channel(conference))
+        place(first, room=make_room(conference))
+        slot = place(second, minutes=90, room=make_room(conference))
         assert list(slot.presenter_clashes()) == []
 
     def test_someone_elses_booking_is_not_a_clash(self, conference):
@@ -158,6 +158,6 @@ class TestPresenterClashes:
         second = make_session(conference)
         add_presenter(first, make_presenter(conference))
         add_presenter(second, make_presenter(conference))
-        place(first, channel=make_channel(conference))
-        slot = place(second, minutes=30, channel=make_channel(conference))
+        place(first, room=make_room(conference))
+        slot = place(second, minutes=30, room=make_room(conference))
         assert list(slot.presenter_clashes()) == []

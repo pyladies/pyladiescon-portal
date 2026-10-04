@@ -47,7 +47,7 @@ class SessionQuerySet(models.QuerySet):
         """Everything the sessions list renders, in a fixed number of queries."""
         from .models import SessionPresenter
 
-        return self.select_related("kind", "slot", "slot__channel").prefetch_related(
+        return self.select_related("kind", "slot", "slot__room").prefetch_related(
             models.Prefetch(
                 "session_presenters",
                 queryset=SessionPresenter.objects.select_related(

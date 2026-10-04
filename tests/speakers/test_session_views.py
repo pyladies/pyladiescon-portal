@@ -19,8 +19,8 @@ from speakers.program_types import session_type
 
 from .factories import (
     add_presenter,
-    make_channel,
     make_presenter,
+    make_room,
     make_session,
     make_settings,
     make_slot,
@@ -119,7 +119,7 @@ class TestAccess:
 class TestSessionList:
     def test_columns(self, client, organizer, sessions, conference):
         stage_slot = make_slot(
-            sessions["theirs"], channel=make_channel(conference, name="stage")
+            sessions["theirs"], room=make_room(conference, name="stage")
         )
         # An hour later: a band may not run under the stage slot (§8.5).
         make_slot(sessions["coffee"], start_utc=stage_slot.end_utc)
@@ -131,7 +131,7 @@ class TestSessionList:
         assert "Lena" in content  # liaison column
         assert 'text-bg-secondary">Draft</span>' in content
         assert "14:00 UTC · stage" in content
-        assert "15:00 UTC · all channels" in content
+        assert "15:00 UTC · all rooms" in content
 
     def test_filters(self, client, organizer, sessions, conference):
         sessions["theirs"].confirm()
@@ -153,7 +153,7 @@ class TestSessionList:
         for n in range(6):
             session = make_session(conference, title=f"Extra {n}")
             add_presenter(session, make_presenter(conference, liaison=organizer))
-            # Spaced out: six all-channel bands at once would collide (§8.5).
+            # Spaced out: six every-room bands at once would collide (§8.5).
             make_slot(
                 session,
                 start_utc=datetime(2026, 12, 6, 8, 0, tzinfo=timezone.utc)

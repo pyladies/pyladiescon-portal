@@ -23,7 +23,7 @@ DEFAULT_ROLES = [
 ]
 
 # code, name, is_content, default duration, default delivery, spans all
-# channels, allowed role codes (first one is the default), sort order.
+# rooms, allowed role codes (first one is the default), sort order.
 # The two a stranger may propose are opened below, after the table.
 DEFAULT_SESSION_TYPES = [
     ("WORKSHOP", "Workshop", True, 90, Delivery.LIVE, False, ["PRESENTER"], 10),
@@ -94,7 +94,7 @@ def seed_program_types(conference):
                 "is_content": is_content,
                 "default_duration_minutes": duration,
                 "default_delivery": delivery,
-                "spans_all_channels": spans,
+                "spans_all_rooms": spans,
                 "sort_order": order,
                 "default_role": roles[role_codes[0]] if role_codes else None,
             },
@@ -161,7 +161,7 @@ def clone_program_types(target, source):
                 "is_content": session_type.is_content,
                 "default_duration_minutes": session_type.default_duration_minutes,
                 "default_delivery": session_type.default_delivery,
-                "spans_all_channels": session_type.spans_all_channels,
+                "spans_all_rooms": session_type.spans_all_rooms,
                 "open_for_proposals": session_type.open_for_proposals,
                 "sort_order": session_type.sort_order,
                 "is_active": session_type.is_active,
