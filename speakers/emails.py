@@ -4,6 +4,7 @@ Kept apart from ``services`` so the Celery tasks can import it without a
 cycle: services enqueue tasks, tasks send emails, emails import neither.
 """
 
+import logging
 from datetime import timedelta
 
 from django.conf import settings
@@ -18,7 +19,7 @@ from common.markdown_emails import MarkdownEmailRenderer
 from common.models import SentEmail, SentEmailStatus
 from common.send_emails import send_email
 
-from .models import SpeakerSettings
+from .models import MediaAsset, SpeakerSettings
 from .people import user_label
 
 INVITATION_SALT = "speakers.invitation"
@@ -31,6 +32,9 @@ PROPOSAL_REJECTED_TEMPLATE = "emails/speakers/proposal_rejected.md"
 RECORD_CLOCK_SLACK = timedelta(minutes=1)
 # Stands in for the signed token in a preview of an email not yet sent.
 PREVIEW_LINK_PLACEHOLDER = "personal-link"
+
+
+logger = logging.getLogger(__name__)
 
 
 def signed_invitation_token(invitation):
@@ -344,6 +348,70 @@ def send_added_to_session_email(link):
             "dashboard_url": absolute_url(reverse("speakers:my_dashboard")),
         },
         reply_to=team_reply_to(link.conference),
+    )
+
+
+UPLOAD_NOTICE_TEMPLATE = "emails/speakers/upload_notice.md"
+
+
+def upload_notice_recorded(asset):
+    """Whether this upload's notice already went out: a record of this
+    template about this asset, no older than the asset itself."""
+    return email_recorded(UPLOAD_NOTICE_TEMPLATE, asset.creation_date, asset=asset)
+
+
+def send_upload_notice_email(asset, presenter):
+    """A speaker's upload just completed: tell their liaison, or the team
+    when they have none (design §13.2, task 5.12). The length is probed on
+    the media queue after this goes out, so the email says the page will
+    show it. Recorded against the session; a reply goes to the speaker.
+
+    With no liaison, no team address and no staff account that has an
+    address, there is nobody to tell: nothing is sent, nothing is recorded
+    as sent, and the gap is logged. Returns the record, or None then.
+    """
+    session = asset.session
+    liaison = presenter.liaison_email
+    recipients = [liaison] if liaison else organizer_inbox(session.conference)
+    if not recipients:
+        logger.warning(
+            "Upload notice for asset %s on session %s has nobody to go to: no "
+            "liaison, no organizers address, no staff address",
+            asset.pk,
+            session.slug,
+        )
+        return None
+    # The version this one replaced: the highest below it still on the
+    # line, which is the row record_asset just superseded. Not version - 1,
+    # which after a deletion by hand would name a version long gone.
+    earlier = (
+        MediaAsset.objects.filter(
+            session=session,
+            kind=asset.kind,
+            language=asset.language,
+            variant=asset.variant,
+            version__lt=asset.version,
+        )
+        .order_by("-version")
+        .values_list("version", flat=True)
+        .first()
+    )
+    return send_email(
+        f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX} {presenter.display_name} "
+        f"uploaded a video for {session.title}",
+        recipients,
+        markdown_template=UPLOAD_NOTICE_TEMPLATE,
+        context={
+            "presenter": presenter,
+            "session": session,
+            "conference": session.conference,
+            "asset": asset,
+            "previous": earlier,
+            "to_liaison": bool(liaison),
+            "files_url": absolute_url(session.get_absolute_url() + "#files"),
+            "board_url": absolute_url(reverse("speakers:checklist_board")),
+        },
+        reply_to=[presenter.email] if presenter.email else None,
     )
 
 

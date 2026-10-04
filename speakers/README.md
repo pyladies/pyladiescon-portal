@@ -151,7 +151,14 @@ neither. "Once" is per presenter and file row: a file unshared and shared
 again is the same file and is not announced twice, while a replaced
 version is a new row and is. The migration that adds the table marks
 everything already shared as told, so the first digest after a deploy
-announces only what is shared from then on.
+announces only what is shared from then on. The other direction is
+immediate: a speaker's own completed upload (`media.uploading_presenter`:
+not the team's, not a job's) queues `send_upload_notice_task` on commit
+from `on_asset_ready`, and `emails.send_upload_notice_email` tells their
+liaison, or the team's inbox without one, with the version it replaces and
+a link to the Files section; reply-to is the speaker. With nobody to tell
+(no liaison, no team address, no staff address) nothing is sent and the
+gap is logged; the task is an `email_task` and checks the record first.
 The speaker's session page lists the shared files (`media.team_files`)
 and the earlier raw versions without the reviewer notes, which are the
 team's (`show_notes` on the row partial). Promo materials are `PROMO` assets with a free `variant`

@@ -23,9 +23,11 @@ from .emails import (
     send_proposal_approved_email,
     send_proposal_received_email,
     send_proposal_rejected_email,
+    send_upload_notice_email,
+    upload_notice_recorded,
 )
 from .exports import build_zip, expire_zips, zip_url
-from .media import expire_abandoned_uploads
+from .media import expire_abandoned_uploads, uploading_presenter
 from .models import (
     Invitation,
     MediaAsset,
@@ -99,6 +101,51 @@ def send_invitation_email_task(self, invitation_id):
         task_id,
     )
     return f"Sent invitation email for {invitation_id}"
+
+
+@email_task(bind=True)
+def send_upload_notice_task(self, asset_id):
+    """Tell the liaison, or the team, that a speaker's upload completed
+    (design §13.2). Queued on commit by ``on_asset_ready``; an asset gone
+    by the time this runs sends nothing, and so does one that turns out not
+    to be a speaker's. Acknowledged late and retried like the other email
+    tasks, so a redelivered task first checks that this notice is not
+    already on record.
+
+    ``email_task`` is meant for one email to one person, and the no-liaison
+    fallback can address several staff accounts. It is still one message
+    in one send: a retry happens only when that send raised, which is
+    when nobody got it, so the decorator's re-mailing worry does not arise
+    here the way it does for a digest that sends in a loop.
+    """
+    task_id = self.request.id
+    asset = (
+        MediaAsset.objects.filter(pk=asset_id)
+        .select_related("session", "session__conference", "uploaded_by")
+        .first()
+    )
+    if asset is None:
+        logger.warning("Upload notice: asset %s not found (task %s)", asset_id, task_id)
+        return f"Asset with id {asset_id} not found"
+    presenter = uploading_presenter(asset)
+    if presenter is None:
+        return f"Asset {asset_id} is not a speaker's upload"
+    if upload_notice_recorded(asset):
+        logger.info(
+            "Upload notice: asset %s already has a successful record, not "
+            "sending again (task %s)",
+            asset_id,
+            task_id,
+        )
+        return f"Upload notice for asset {asset_id} was already sent"
+    try:
+        record = send_upload_notice_email(asset, presenter)
+    except Exception:
+        logger.exception("Upload notice: asset %s failed (task %s)", asset_id, task_id)
+        raise
+    if record is None:
+        return f"Upload notice for asset {asset_id} had nobody to go to"
+    return f"Sent upload notice for asset {asset_id}"
 
 
 @email_task()

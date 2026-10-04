@@ -729,7 +729,7 @@ Bodies are personal data: they are kept for the edition plus a year and pruned n
 
 ### 13.2 File notifications: the speaker's digest, and the team's upload notice
 
-> The digest half is **built** (task 5.11, 2 October 2026). The upload notice (task 5.12) is designed, not yet built.
+> **Built**: the digest (task 5.11, 2 October 2026) and the upload notice (task 5.12, 3 October 2026).
 
 Two things happen to files that someone should hear about, and today the portal says nothing about either. The team shares a poster, a transcript, the final cut, and the speaker finds out only by opening their session page. A performer uploads their video, or a new take of it, and the liaison finds out by checking the board. Both get an email; they are shaped differently because the traffic is different.
 
@@ -749,11 +749,11 @@ A share is a click on a file row, and the design team shares in sittings: every 
 
 A speaker's upload is rare and wanted: one video, perhaps a second take, and the team is waiting for it. So it is **one email per upload, sent when the upload completes**, not bundled. The trigger is `asset_ready` for a file whose uploader is a presenter on the session rather than an organizer, which under `media.can_upload` means their raw video. A machine transcript landing is not an upload and sends nothing; an organizer uploading on the performer's behalf sends nothing either, since the team did it.
 
-**Who gets it.** The uploading presenter's liaison. Without one, the edition's organizers address (`SpeakerSettings.organizers_email`); with neither, nothing is sent and the gap is logged, the fallback the organizer checklist digest already uses. The email is recorded against the session so it shows on the trail.
+**Who gets it.** The uploading presenter's liaison. Without one, the team's inbox the way every organizer-facing email finds it (`emails.organizer_inbox`): the edition's organizers address, else the staff accounts. With none of those either, nothing is sent, nothing is recorded as sent, and the gap is logged at warning. The email says whether it went to the liaison or to the team. It is recorded against the session, so it shows on the session's trail but not under the speaker's own "Emails we sent you": it is the team's mail about them, not mail to them.
 
-**What it says.** Who uploaded what for which session, the file name and size, and whether it is the first video or replaces an earlier version ("v2, replacing v1"). The length is probed after the upload on the media queue, so the email does not wait for it; it says the length is being checked and the page will show it against the limit. A link to the organizer's session page, Files section, and to the post-production board. Subject: "Maria uploaded a video for A PyJam set". Reply-to is the presenter's address, so the liaison can answer them directly.
+**What it says.** Who uploaded what for which session, the file name and size, and whether it is the first video or replaces an earlier version ("v2, replacing v1"). The length is probed after the upload on the media queue, so the email does not wait for it; it says the length is being checked and the page will show it against the limit. A link to the organizer's session page, Files section, and to the checklist board. Subject: "Maria uploaded a video for A PyJam set". Reply-to is the presenter's address, so the liaison can answer them directly.
 
-**Delivery.** The receiver queues a task with `transaction.on_commit`, like the invitation email, with the same retry on a mail failure; the asset is looked up again in the task, and an asset deleted in between sends nothing.
+**Delivery.** The receiver queues a task with `transaction.on_commit`, like the invitation email, acknowledged late and retried the same way (`common.tasks.email_task`), and like them it checks the email record before sending so a redelivered task does not send twice; the asset is looked up again in the task, and an asset deleted in between sends nothing. The no-liaison fallback can address several staff accounts, which that decorator warns against, but it is one message in one send: a retry happens only when the send raised, which is when nobody got it.
 
 #### What neither does
 

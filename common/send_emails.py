@@ -60,7 +60,15 @@ def withhold_credentials(text):
 # Context keys whose ids say what an email was about. They go in the digest
 # whether or not the email was sent to them: the organizers' copy of a
 # proposal is about the proposer without being theirs.
-DIGEST_KEYS = ("presenter", "session", "invitation", "proposal", "item", "profile")
+DIGEST_KEYS = (
+    "presenter",
+    "session",
+    "invitation",
+    "proposal",
+    "item",
+    "profile",
+    "asset",
+)
 
 
 def send_email(
