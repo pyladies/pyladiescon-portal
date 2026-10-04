@@ -5,10 +5,11 @@ resizes; the pencil opens the keyboard form. Params: card (schedule.py's
 dict), lanes, days.
 {% endcomment %}
 {# djlint:off #}
-<div class="schedule-card {% if card.is_band %}schedule-band{% endif %} {% if card.warnings %}schedule-warned{% endif %}"
+<div class="schedule-card {% if card.is_band %}schedule-band{% endif %} {% if card.warnings %}schedule-warned{% endif %} {% if card.span < 2 %}schedule-card-tight{% endif %}"
      draggable="true"
      data-slot-url="{% url 'speakers:session_slot' card.session.slug %}"
      data-minutes="{{ card.minutes }}"
+     title="{{ card.session.title }} · {{ card.slot.start_utc|date:'H:i' }} to {{ card.slot.end_utc|date:'H:i' }} UTC"
      style="grid-row: {{ card.row }} / span {{ card.span }};
             grid-column: {{ card.start_column }} / {{ card.end_column }}">
 {# djlint:on #}
@@ -16,7 +17,7 @@ dict), lanes, days.
     <div class="schedule-card-body">
         <a href="{{ card.session.get_absolute_url }}"
            class="fw-semibold schedule-card-title">{{ card.session.title }}</a>
-        <div class="small text-secondary">
+        <div class="small text-secondary schedule-card-meta">
             <span data-utc="{{ card.slot.start_utc.isoformat }}">{{ card.slot.start_utc|date:"H:i" }}</span>
             –
             <span data-utc="{{ card.slot.end_utc.isoformat }}">{{ card.slot.end_utc|date:"H:i" }}</span>
