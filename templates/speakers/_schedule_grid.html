@@ -28,6 +28,7 @@ sit on top with inline grid positions computed in speakers/schedule.py.
                 <div class="schedule-cell {% if row.is_hour %}schedule-cell-hour{% endif %}"
                      data-time="{{ row.utc.isoformat }}"
                      data-room="{{ lane.pk }}"
+                     data-room-name="{{ lane.name }}"
                      style="grid-row: {{ row.index }};
                             grid-column: {{ lane.column }}">
                 </div>

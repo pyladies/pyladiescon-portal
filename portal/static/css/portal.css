@@ -550,3 +550,33 @@ details.card[open] > summary.card-header::before {
 .schedule-card-warnings {
     line-height: 1.2;
 }
+
+/* A grid item's minimum size is its content unless told otherwise, so a
+   long title would push a card past its column; the meta line clips the
+   same way the title does. */
+.schedule-card {
+    min-width: 0;
+}
+.schedule-card-body {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+.schedule-card-meta {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+/* The click-to-add panel, floated at the clicked cell. */
+.schedule-cell-panel {
+    position: fixed;
+    z-index: 40;
+    width: 17.5rem;
+}
+.schedule-cell-options {
+    max-height: 14rem;
+    overflow: auto;
+}
+.schedule-cell {
+    cursor: pointer;
+}

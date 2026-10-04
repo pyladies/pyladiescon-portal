@@ -467,3 +467,93 @@ class TestUnscheduleTransition:
         assert session.status == SessionStatus.CONFIRMED
         with pytest.raises(TransitionError):
             make_session(conference).unschedule()
+
+
+@pytest.mark.django_db
+class TestCellPanel:
+    """Clicking an empty cell adds something right there (the panel's
+    server half: the JS fills start and room from the cell)."""
+
+    def test_the_board_offers_the_panel(self, client, organizer, enabled, conference):
+        make_session(conference, title="Still waiting")
+        client.force_login(organizer)
+        content = client.get(EDITOR, {"board": "1"}).content.decode()
+        assert "schedule-cell-panel" in content
+        assert "schedule-place-option" in content
+        assert "data-room-name" in content
+
+    def test_a_program_item_lands_on_the_clicked_cell(
+        self, client, organizer, enabled, conference
+    ):
+        room = make_room(conference)
+        client.force_login(organizer)
+        response = client.post(
+            EDITOR + "?day=2026-12-05",
+            {
+                "kind": session_type(conference, "BREAK").pk,
+                "title": "Lunch here",
+                "start": T0.isoformat(),
+                "room": room.pk,
+            },
+        )
+        assertRedirects(response, EDITOR + "?day=2026-12-05")
+        lunch = Session.objects.get(title="Lunch here")
+        assert lunch.status == SessionStatus.SCHEDULED
+        assert lunch.slot.room == room
+        assert lunch.slot.start_utc == T0
+        assert ActivityLog.objects.filter(
+            action="session.scheduled", object_id=lunch.pk
+        ).exists()
+
+    def test_no_room_means_every_room(self, client, organizer, enabled, conference):
+        client.force_login(organizer)
+        client.post(
+            EDITOR,
+            {
+                "kind": session_type(conference, "SOCIAL").pk,
+                "title": "Hallway",
+                "start": T0.isoformat(),
+                "room": "",
+            },
+        )
+        hallway = Session.objects.get(title="Hallway")
+        assert hallway.slot.room is None
+        assert hallway.status == SessionStatus.SCHEDULED
+
+    def test_a_refused_window_keeps_the_item_unscheduled(
+        self, client, organizer, enabled, conference
+    ):
+        room = make_room(conference)
+        make_slot(make_session(conference), room=room, start_utc=T0)
+        client.force_login(organizer)
+        response = client.post(
+            EDITOR,
+            {
+                "kind": session_type(conference, "BREAK").pk,
+                "title": "Clashing break",
+                "start": T0.isoformat(),
+                "room": room.pk,
+            },
+            follow=True,
+        )
+        clashing = Session.objects.get(title="Clashing break")
+        assert clashing.status == SessionStatus.CONFIRMED
+        assert clashing.has_slot is False
+        assert "could not place it" in response.content.decode()
+
+    def test_a_broken_start_keeps_the_item(
+        self, client, organizer, enabled, conference
+    ):
+        client.force_login(organizer)
+        response = client.post(
+            EDITOR,
+            {
+                "kind": session_type(conference, "BREAK").pk,
+                "title": "Sometime",
+                "start": "whenever",
+            },
+            follow=True,
+        )
+        sometime = Session.objects.get(title="Sometime")
+        assert sometime.has_slot is False
+        assert "could not place it" in response.content.decode()

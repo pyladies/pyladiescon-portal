@@ -155,6 +155,77 @@
         });
     });
 
+    /* Click an empty cell to add something right there. */
+    var panelCell = null;
+
+    function cellPanel() {
+        return document.getElementById("schedule-cell-panel");
+    }
+
+    function hideCellPanel() {
+        var panel = cellPanel();
+        if (panel) panel.classList.add("d-none");
+        panelCell = null;
+    }
+
+    function timeLabel(iso) {
+        var select = document.getElementById("schedule-timezone");
+        var zone = select && select.value !== "local" ? select.value : undefined;
+        try {
+            return new Intl.DateTimeFormat(undefined, {
+                weekday: "short",
+                hour: "2-digit",
+                minute: "2-digit",
+                hour12: false,
+                timeZone: zone
+            }).format(new Date(iso));
+        } catch (error) {
+            return iso;
+        }
+    }
+
+    document.addEventListener("click", function (event) {
+        if (event.target.closest("[data-action=cell-panel-close]")) {
+            hideCellPanel();
+            return;
+        }
+        var option = event.target.closest(".schedule-place-option");
+        if (option && panelCell) {
+            send(option.dataset.slotUrl, "PATCH", {
+                room: panelCell.dataset.room || null,
+                start: panelCell.dataset.time
+            });
+            hideCellPanel();
+        }
+    });
+
+    document.addEventListener("click", function (event) {
+        var panel = cellPanel();
+        if (!panel) return;
+        if (event.target.closest("#schedule-cell-panel")) return;
+        var cell = event.target.closest(".schedule-cell");
+        if (!cell || event.target.closest(".schedule-card")) {
+            hideCellPanel();
+            return;
+        }
+        panelCell = cell;
+        panel.querySelector("[data-role=cell-start]").value =
+            cell.dataset.time;
+        panel.querySelector("[data-role=cell-room]").value =
+            cell.dataset.room || "";
+        panel.querySelector("[data-role=cell-label]").textContent =
+            timeLabel(cell.dataset.time) + " \u00b7 " + cell.dataset.roomName;
+        panel.classList.remove("d-none");
+        panel.style.left =
+            Math.min(event.clientX, window.innerWidth - 300) + "px";
+        panel.style.top =
+            Math.min(event.clientY, window.innerHeight - 340) + "px";
+    });
+
+    document.addEventListener("keydown", function (event) {
+        if (event.key === "Escape") hideCellPanel();
+    });
+
     /* The timezone switcher relabels every [data-utc] element. */
     function applyTimezone() {
         var select = document.getElementById("schedule-timezone");

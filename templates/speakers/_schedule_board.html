@@ -63,3 +63,64 @@ Unscheduled list and its open popover goes with it.
         </div>
     </div>
 </div>
+{% comment %}
+The click-to-add panel: schedule-editor.js opens it on an empty cell,
+fills the hidden start/room fields from the cell, and places an
+unscheduled session through its slot endpoint or creates a program
+item right there through the editor's POST.
+{% endcomment %}
+{% trans "Add to the schedule" as panel_label %}
+{% trans "Close" as close_label %}
+{% trans "Title" as title_label %}
+<div class="card shadow schedule-cell-panel d-none"
+     id="schedule-cell-panel"
+     role="dialog"
+     aria-label="{{ panel_label }}">
+    <div class="card-header d-flex justify-content-between align-items-center gap-2">
+        <span data-role="cell-label"></span>
+        <button type="button"
+                class="btn-close"
+                data-action="cell-panel-close"
+                aria-label="{{ close_label }}">
+        </button>
+    </div>
+    {% if unscheduled %}
+        <div class="list-group list-group-flush schedule-cell-options">
+            {% for session in unscheduled %}
+                <button type="button"
+                        class="list-group-item list-group-item-action schedule-place-option"
+                        data-slot-url="{% url 'speakers:session_slot' session.slug %}">
+                    {{ session.title }}
+                    <span class="small text-secondary">· {{ session.kind.name }} · {{ session.duration_minutes }} {% trans "min" %}</span>
+                </button>
+            {% endfor %}
+        </div>
+    {% endif %}
+    <div class="card-body">
+        <form method="post"
+              action="?day={{ day|date:'Y-m-d' }}"
+              class="vstack gap-2">
+            {% csrf_token %}
+            <input type="hidden" name="start" data-role="cell-start" value="" />
+            <input type="hidden" name="room" data-role="cell-room" value="" />
+            <label class="form-label small mb-0">
+                {% trans "New program item" %}
+                <select class="form-select form-select-sm" name="kind">
+                    {% for kind in program_item_form.fields.kind.queryset %}
+                        <option value="{{ kind.pk }}">
+                            {{ kind.name }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </label>
+            <input class="form-control form-control-sm"
+                   type="text"
+                   name="title"
+                   required
+                   placeholder="{{ title_label }}" />
+            <button class="btn btn-outline-primary btn-sm" type="submit">
+                {% trans "Add it here" %}
+            </button>
+        </form>
+    </div>
+</div>
