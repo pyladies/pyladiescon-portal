@@ -142,6 +142,26 @@
         closeCardMenus(event.target.closest("details.schedule-card-menu"));
     });
 
+    /* A card clips its own content (long titles), which would clip an
+     * open popover to the card's height too; while a menu is open the
+     * card lifts the clipping and stacks above its neighbours. The
+     * toggle event does not bubble, so it is captured. */
+    document.addEventListener(
+        "toggle",
+        function (event) {
+            var menu = event.target;
+            if (!menu.classList ||
+                    !menu.classList.contains("schedule-card-menu")) {
+                return;
+            }
+            var card = menu.closest(".schedule-card, .schedule-pending");
+            if (card) {
+                card.classList.toggle("schedule-card-open", menu.open);
+            }
+        },
+        true
+    );
+
     /* The keyboard form: Place applies every field, Remove unschedules,
      * Cancel folds the popover away. */
     document.addEventListener("click", function (event) {

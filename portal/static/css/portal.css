@@ -580,3 +580,14 @@ details.card[open] > summary.card-header::before {
 .schedule-cell {
     cursor: pointer;
 }
+
+/* While a card's popover is open, the card stops clipping (the popover
+   would otherwise be cut to the card's height) and rises above its
+   neighbours; schedule-editor.js toggles the class with the menu. */
+.schedule-card.schedule-card-open {
+    overflow: visible;
+    z-index: 20;
+}
+.schedule-pending.schedule-card-open {
+    z-index: 20;
+}
