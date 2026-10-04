@@ -129,12 +129,31 @@
         resizing = null;
     });
 
-    /* The keyboard form: Place applies every field, Remove unschedules. */
+    /* Open card popovers close on Cancel, Escape, or a click elsewhere. */
+    function closeCardMenus(except) {
+        document.querySelectorAll(
+            "details.schedule-card-menu[open]"
+        ).forEach(function (menu) {
+            if (menu !== except) menu.removeAttribute("open");
+        });
+    }
+
+    document.addEventListener("click", function (event) {
+        closeCardMenus(event.target.closest("details.schedule-card-menu"));
+    });
+
+    /* The keyboard form: Place applies every field, Remove unschedules,
+     * Cancel folds the popover away. */
     document.addEventListener("click", function (event) {
         var button = event.target.closest("[data-action]");
         if (!button) return;
         var form = button.closest("[data-slot-form]");
         if (!form) return;
+        if (button.dataset.action === "slot-cancel") {
+            var menu = button.closest("details.schedule-card-menu");
+            if (menu) menu.removeAttribute("open");
+            return;
+        }
         if (button.dataset.action === "slot-remove") {
             send(form.dataset.url, "DELETE");
             return;
@@ -223,7 +242,9 @@
     });
 
     document.addEventListener("keydown", function (event) {
-        if (event.key === "Escape") hideCellPanel();
+        if (event.key !== "Escape") return;
+        hideCellPanel();
+        closeCardMenus();
     });
 
     /* The timezone switcher relabels every [data-utc] element. */
