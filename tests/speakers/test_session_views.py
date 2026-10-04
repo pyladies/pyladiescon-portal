@@ -1,3 +1,5 @@
+from datetime import datetime, timedelta, timezone
+
 import pytest
 from django.contrib.auth.models import AnonymousUser, User
 from django.core.exceptions import ValidationError
@@ -116,8 +118,11 @@ class TestAccess:
 @pytest.mark.django_db
 class TestSessionList:
     def test_columns(self, client, organizer, sessions, conference):
-        make_slot(sessions["theirs"], channel=make_channel(conference, name="stage"))
-        make_slot(sessions["coffee"])
+        stage_slot = make_slot(
+            sessions["theirs"], channel=make_channel(conference, name="stage")
+        )
+        # An hour later: a band may not run under the stage slot (§8.5).
+        make_slot(sessions["coffee"], start_utc=stage_slot.end_utc)
         client.force_login(organizer)
         content = client.get(LIST).content.decode()
         assert "Ada" in content and "Presenter" in content
@@ -126,7 +131,7 @@ class TestSessionList:
         assert "Lena" in content  # liaison column
         assert 'text-bg-secondary">Draft</span>' in content
         assert "14:00 UTC · stage" in content
-        assert "14:00 UTC · all channels" in content
+        assert "15:00 UTC · all channels" in content
 
     def test_filters(self, client, organizer, sessions, conference):
         sessions["theirs"].confirm()
@@ -148,7 +153,12 @@ class TestSessionList:
         for n in range(6):
             session = make_session(conference, title=f"Extra {n}")
             add_presenter(session, make_presenter(conference, liaison=organizer))
-            make_slot(session)
+            # Spaced out: six all-channel bands at once would collide (§8.5).
+            make_slot(
+                session,
+                start_utc=datetime(2026, 12, 6, 8, 0, tzinfo=timezone.utc)
+                + timedelta(hours=2 * n),
+            )
         with CaptureQueriesContext(connection) as after:
             client.get(LIST)
         assert len(after) == len(before)

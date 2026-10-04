@@ -1011,6 +1011,14 @@ installed; this app keeps small factory functions in `tests/speakers/factories.p
   covers every model, which is what caught them.) Join and child rows (`SessionPresenter`, `ScheduleSlot`,
   `Proposal`) carry a non-editable `conference` copied from their session
   on save.
+- The schedule grid's overlap rules live on `ScheduleSlot` (design §8.5):
+  `clean()` runs on every save and refuses a slot sharing a channel with
+  another, or crossing an all-channel band, except that two program-kind
+  bands (`is_content` off on both types) may coexist. A cancelled session's
+  slot stays as a record but frees its time (`OFF_SCHEDULE_STATUSES`). A
+  presenter booked twice at once is deliberately NOT an error, because a
+  moderator moving between rooms is legitimate; `presenter_clashes()` hands
+  the editor the links to warn about.
 - Status changes are model methods on `Session` (`mark_invited`, `confirm`,
   `schedule`, `publish`, `cancel`) that raise `speakers.models.TransitionError`
   when a precondition fails; views turn that into a message. Accepting an

@@ -310,6 +310,8 @@ An organizer invites a presenter to a specific session (or, for panelists, to th
 
 ### 8.5 Scheduling
 
+> **Built** (M3, 3 October 2026): the models and the validation below, in `ScheduleSlot.clean()` and `ScheduleSlot.presenter_clashes()`. The editor and the schedule views are §10, not yet built.
+
 **DiscordChannel** — `name`, `channel_id`, `url`, `kind` (`STAGE`, `VOICE`, `TEXT`, `FORUM`), `is_active`. Channels are created on Discord by hand and recorded here.
 
 **ScheduleSlot** — one per session: `channel` (nullable — null means *all channels*, so the opening or a break spans the whole grid), `start_utc`, `end_utc`. `end_utc` defaults from the session duration.
@@ -604,7 +606,7 @@ A pre-recorded session still takes a schedule slot — the premiere or watch-par
 
 ## 10. Scheduling UI
 
-> **Not built** (M3). `ScheduleSlot` rows exist and the sample data writes them, but there is no editor and the presenter's schedule page is a placeholder.
+> **Not built** (M3). `ScheduleSlot` rows exist, the sample data writes them and the overlap rules are enforced (§8.5), but there is no editor and the presenter's schedule page is a placeholder.
 
 **Organizer editor** — a day-by-time grid: columns are Discord channels, rows are 15-minute steps across the conference days. Unscheduled sessions wait in a sidebar and are dragged onto the grid; dragging moves a session, resizing changes its duration. A "+ program item" button on any cell creates an opening, break, or social inline, so the skeleton of a day is built without leaving the grid. All-channel slots render as full-width bands. Conflicts — channel overlap, a presenter double-booked — are highlighted in place.
 
