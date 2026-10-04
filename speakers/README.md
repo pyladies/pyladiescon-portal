@@ -1018,7 +1018,7 @@ installed; this app keeps small factory functions in `tests/speakers/factories.p
 - The schedule editor (design §10) is `speakers/schedule.py` (the grid's
   layout, day tabs, bulk double-booking warnings and timezone options,
   all in flat queries) and `speakers/schedule_views.py`: one page
-  (`schedule/`, organizer-only, `?grid=1` returns the grid partial for
+  (`schedule/`, organizer-only, `?board=1` returns the grid-plus-sidebar partial for
   refresh) and ONE mutation endpoint, `sessions/<slug>/slot/`, where
   PATCH upserts the slot (a drag sends room and start, a resize sends
   duration, the keyboard form everything; a move without an end keeps

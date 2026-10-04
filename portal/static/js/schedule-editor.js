@@ -2,7 +2,7 @@
  *
  * Every mutation goes through the one slot endpoint each card carries in
  * data-slot-url: drops and the keyboard form PATCH, "Remove" DELETEs. On
- * success the grid partial is refetched whole, so the server's layout and
+ * success the board partial (grid plus sidebar) is refetched whole, so the
  * warnings are always what is shown. Times are UTC end to end; the
  * timezone switcher only relabels the [data-utc] elements.
  */
@@ -13,8 +13,8 @@
     var dragged = null;
     var resizing = null;
 
-    function grid() {
-        return document.getElementById("schedule-grid");
+    function board() {
+        return document.getElementById("schedule-board");
     }
 
     function csrfToken() {
@@ -35,11 +35,11 @@
     }
 
     function refresh() {
-        var url = grid().dataset.gridUrl;
+        var url = board().dataset.boardUrl;
         return fetch(url)
             .then(function (response) { return response.text(); })
             .then(function (html) {
-                grid().innerHTML = html;
+                board().innerHTML = html;
                 applyTimezone();
             });
     }
@@ -102,7 +102,7 @@
         var handle = event.target.closest(".schedule-resize");
         if (!handle) return;
         var card = handle.closest(".schedule-card");
-        var cell = grid().querySelector(".schedule-cell");
+        var cell = board().querySelector(".schedule-cell");
         resizing = {
             url: card.dataset.slotUrl,
             minutes: parseInt(card.dataset.minutes, 10),

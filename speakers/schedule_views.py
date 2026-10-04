@@ -3,7 +3,9 @@
 One page, one mutation endpoint. Every grid change, dragged or typed,
 goes through ``SlotView``: PATCH upserts the session's slot and DELETE
 removes it, both answering JSON so the page can show a refusal where it
-happened. The grid itself re-renders as a partial after each change.
+happened. The board (the grid and the unscheduled sidebar together)
+re-renders as one partial after each change, so a placed session leaves
+the sidebar and any open popover goes with it.
 """
 
 import json
@@ -67,8 +69,8 @@ class ScheduleEditorView(
     template_name = "speakers/schedule_editor.html"
 
     def get_template_names(self):
-        if self.request.GET.get("grid"):
-            return ["speakers/_schedule_grid.html"]
+        if self.request.GET.get("board"):
+            return ["speakers/_schedule_board.html"]
         return [self.template_name]
 
     def get_context_data(self, **kwargs):

@@ -59,67 +59,9 @@
          role="status"
          aria-live="polite">
     </div>
-    <div class="row g-3">
-        <div class="col-lg-9">
-            <div id="schedule-grid"
-                 data-grid-url="{% url 'speakers:schedule_editor' %}?day={{ day|date:'Y-m-d' }}&amp;grid=1">
-                {% include "speakers/_schedule_grid.html" %}
-            </div>
-        </div>
-        <div class="col-lg-3">
-            <div class="card mb-3">
-                <div class="card-header">
-                    {% trans "Unscheduled" %}
-                </div>
-                <div class="list-group list-group-flush schedule-unscheduled">
-                    {% for session in unscheduled %}
-                        <div class="list-group-item schedule-pending"
-                             draggable="true"
-                             data-slot-url="{% url 'speakers:session_slot' session.slug %}">
-                            <div class="d-flex justify-content-between align-items-start gap-1">
-                                <div>
-                                    <a href="{{ session.get_absolute_url }}" class="fw-semibold">{{ session.title }}</a>
-                                    <div class="small text-secondary">
-                                        {{ session.kind.name }} · {{ session.duration_minutes }} {% trans "min" %} · {{ session.get_status_display }}
-                                    </div>
-                                </div>
-                                <details class="schedule-card-menu">
-                                    <summary class="btn btn-sm btn-outline-secondary schedule-card-edit"
-                                             aria-label="{% blocktrans with title=session.title %}Place {{ title }}{% endblocktrans %}">
-                                        <i class="fa-solid fa-calendar-plus" aria-hidden="true"></i>
-                                    </summary>
-                                    <div class="schedule-card-popover card shadow">
-                                        {% url 'speakers:session_slot' session.slug as slot_url %}
-                                        {% include "speakers/_slot_form.html" with url=slot_url lanes=lanes days=days sel_room="" sel_date=day|date:"Y-m-d" sel_time="14:00" minutes=session.duration_minutes removable=False only %}
-                                    </div>
-                                </details>
-                            </div>
-                        </div>
-                    {% empty %}
-                        <div class="list-group-item text-secondary small">
-                            {% trans "Everything placeable is on the grid." %}
-                        </div>
-                    {% endfor %}
-                </div>
-            </div>
-            <div class="card">
-                <div class="card-header">
-                    {% trans "+ Program item" %}
-                </div>
-                <div class="card-body">
-                    <p class="small text-secondary">
-                        {% trans "An opening, break or social, born confirmed; it appears above, ready to drag." %}
-                    </p>
-                    <form method="post" action="?day={{ day|date:'Y-m-d' }}">
-                        {% csrf_token %}
-                        {{ program_item_form.as_div }}
-                        <button class="btn btn-outline-primary btn-sm" type="submit">
-                            {% trans "Add to the program" %}
-                        </button>
-                    </form>
-                </div>
-            </div>
-        </div>
+    <div id="schedule-board"
+         data-board-url="{% url 'speakers:schedule_editor' %}?day={{ day|date:'Y-m-d' }}&amp;board=1">
+        {% include "speakers/_schedule_board.html" %}
     </div>
 {% endblock content %}
 {% block extra_head %}

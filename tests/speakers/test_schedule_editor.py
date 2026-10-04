@@ -119,10 +119,15 @@ class TestEditorPage:
         assert client.get(EDITOR, {"day": "not-a-day"}).context["day"] == first
         assert client.get(EDITOR, {"day": "1999-01-01"}).context["day"] == first
 
-    def test_grid_partial(self, client, organizer, enabled):
+    def test_board_partial(self, client, organizer, enabled, conference):
+        """The refresh region holds the grid AND the sidebar, so placing a
+        session updates the Unscheduled list in the same swap."""
+        make_session(conference, title="Still waiting")
         client.force_login(organizer)
-        content = client.get(EDITOR, {"grid": "1"}).content.decode()
+        content = client.get(EDITOR, {"board": "1"}).content.decode()
         assert "schedule-grid" in content
+        assert "Still waiting" in content
+        assert "Unscheduled" in content
         assert "<h1" not in content
 
     def test_cards_sit_where_their_slot_says(self, conference, enabled):
