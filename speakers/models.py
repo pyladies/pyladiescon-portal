@@ -941,6 +941,20 @@ class Session(TimestampedModel):
         if save:
             self.save(update_fields=["status"])
 
+    def unschedule(self, save=True):
+        """SCHEDULED -> CONFIRMED when the slot is taken away.
+
+        The editor's reverse gear: pulling a session off the grid returns
+        it to CONFIRMED, which also reopens the identity fields the
+        scheduling had locked (task 2.11). A published session never comes
+        back through here: it needs its slot, so the slot removal is
+        refused before this is reached.
+        """
+        self._require_status(SessionStatus.SCHEDULED, SessionStatus.CONFIRMED)
+        self.status = SessionStatus.CONFIRMED
+        if save:
+            self.save(update_fields=["status"])
+
     def publish(self, save=True):
         """SCHEDULED -> PUBLISHED and flips ``is_public`` on."""
         self._require_status(SessionStatus.SCHEDULED, SessionStatus.PUBLISHED)

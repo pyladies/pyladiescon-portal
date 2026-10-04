@@ -1,0 +1,64 @@
+{% load i18n %}
+{% comment %}
+One placed session on the grid. Dragged whole; the handle at the bottom
+resizes; the pencil opens the keyboard form. Params: card (schedule.py's
+dict), lanes, days.
+{% endcomment %}
+{# djlint:off #}
+<div class="schedule-card {% if card.is_band %}schedule-band{% endif %} {% if card.warnings %}schedule-warned{% endif %}"
+     draggable="true"
+     data-slot-url="{% url 'speakers:session_slot' card.session.slug %}"
+     data-minutes="{{ card.minutes }}"
+     style="grid-row: {{ card.row }} / span {{ card.span }};
+            grid-column: {{ card.start_column }} / {{ card.end_column }}">
+{# djlint:on #}
+<div class="d-flex justify-content-between align-items-start gap-1">
+    <div class="schedule-card-body">
+        <a href="{{ card.session.get_absolute_url }}"
+           class="fw-semibold schedule-card-title">{{ card.session.title }}</a>
+        <div class="small text-secondary">
+            <span data-utc="{{ card.slot.start_utc.isoformat }}">{{ card.slot.start_utc|date:"H:i" }}</span>
+            –
+            <span data-utc="{{ card.slot.end_utc.isoformat }}">{{ card.slot.end_utc|date:"H:i" }}</span>
+            · {{ card.session.kind.name }}
+        </div>
+    </div>
+    <div class="d-flex gap-1">
+        {% if card.warnings %}
+            {% trans "Presenter double-booked" as double_booked %}
+            <span class="text-warning-emphasis"
+                  tabindex="0"
+                  role="img"
+                  aria-label="{{ double_booked }}"
+                  title="{% for warning in card.warnings %}{{ warning }}{% if not forloop.last %}; {% endif %}{% endfor %}">
+                <i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i>
+            </span>
+        {% endif %}
+        <details class="schedule-card-menu">
+            <summary class="btn btn-sm btn-outline-secondary schedule-card-edit"
+                     aria-label="{% blocktrans with title=card.session.title %}Move {{ title }}{% endblocktrans %}">
+                <i class="fa-solid fa-pen" aria-hidden="true"></i>
+            </summary>
+            <div class="schedule-card-popover card shadow">
+                {% url 'speakers:session_slot' card.session.slug as slot_url %}
+                {% include "speakers/_slot_form.html" with url=slot_url lanes=lanes days=days sel_channel=card.slot.channel_id|default_if_none:"" sel_date=card.slot.start_utc|date:"Y-m-d" sel_time=card.slot.start_utc|date:"H:i" minutes=card.minutes removable=True only %}
+            </div>
+        </details>
+    </div>
+</div>
+{% if card.warnings %}
+    <div class="small text-warning-emphasis schedule-card-warnings">
+        {% for warning in card.warnings %}
+            <div>
+                {{ warning }}
+            </div>
+        {% endfor %}
+    </div>
+{% endif %}
+{% trans "Drag to change the length" as resize_hint %}
+<div class="schedule-resize"
+     role="separator"
+     aria-hidden="true"
+     title="{{ resize_hint }}">
+</div>
+</div>

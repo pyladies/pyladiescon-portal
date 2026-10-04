@@ -1,0 +1,62 @@
+{% load i18n %}
+{% comment %}
+The keyboard path onto the grid: pick a channel, a day, a UTC time and a
+length, no dragging needed. Params: url (the slot endpoint), lanes, days,
+sel_channel, sel_date (Y-m-d), sel_time (H:i), minutes, removable.
+The buttons are wired in static/js/schedule-editor.js.
+{% endcomment %}
+<div class="schedule-slot-form vstack gap-2 p-2"
+     data-slot-form
+     data-url="{{ url }}">
+    <label class="form-label small mb-0">
+        {% trans "Channel" %}
+        <select class="form-select form-select-sm" data-field="channel">
+            {% for lane in lanes %}
+                <option value="{{ lane.pk }}"
+                        {% if lane.pk|stringformat:"s" == sel_channel|stringformat:"s" %}selected{% endif %}>
+                    {{ lane.name }}
+                </option>
+            {% endfor %}
+        </select>
+    </label>
+    <label class="form-label small mb-0">
+        {% trans "Day" %}
+        <select class="form-select form-select-sm" data-field="date">
+            {% for d in days %}
+                <option value="{{ d|date:'Y-m-d' }}"
+                        {% if d|date:'Y-m-d' == sel_date %}selected{% endif %}>
+                    {{ d|date:"D j M" }}
+                </option>
+            {% endfor %}
+        </select>
+    </label>
+    <label class="form-label small mb-0">
+        {% trans "Start (UTC)" %}
+        <input class="form-control form-control-sm"
+               type="time"
+               step="900"
+               data-field="time"
+               value="{{ sel_time }}" />
+    </label>
+    <label class="form-label small mb-0">
+        {% trans "Minutes" %}
+        <input class="form-control form-control-sm"
+               type="number"
+               min="15"
+               step="15"
+               data-field="duration"
+               value="{{ minutes }}" />
+    </label>
+    <div class="d-flex gap-2">
+        <button type="button" class="btn btn-primary btn-sm" data-action="slot-apply">
+            {% trans "Place" %}
+        </button>
+        {% if removable %}
+            <button type="button"
+                    class="btn btn-outline-danger btn-sm"
+                    data-action="slot-remove">
+                {% trans "Remove" %}
+            </button>
+        {% endif %}
+    </div>
+</div>

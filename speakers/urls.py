@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import export_views, upload_views, views
+from . import export_views, schedule_views, upload_views, views
 from .webhooks import pretix_webhook
 
 app_name = "speakers"
@@ -13,6 +13,16 @@ urlpatterns = [
         name="invitation",
     ),
     path("sessions/", views.SessionListView.as_view(), name="session_list"),
+    path(
+        "schedule/",
+        schedule_views.ScheduleEditorView.as_view(),
+        name="schedule_editor",
+    ),
+    path(
+        "sessions/<slug:slug>/slot/",
+        schedule_views.SlotView.as_view(),
+        name="session_slot",
+    ),
     path("sessions/new/", views.SessionCreateView.as_view(), name="session_create"),
     path(
         "sessions/new-program-item/",
