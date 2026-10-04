@@ -91,7 +91,7 @@
         if (!dragged || !cell) return;
         event.preventDefault();
         send(dragged, "PATCH", {
-            channel: cell.dataset.channel || null,
+            room: cell.dataset.room || null,
             start: cell.dataset.time
         });
         dragged = null;
@@ -149,7 +149,7 @@
             return;
         }
         send(form.dataset.url, "PATCH", {
-            channel: value("channel") || null,
+            room: value("room") || null,
             start: value("date") + "T" + time + ":00+00:00",
             duration: parseInt(value("duration"), 10) || STEP_MINUTES
         });

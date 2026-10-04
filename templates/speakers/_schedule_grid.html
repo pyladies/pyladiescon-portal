@@ -1,14 +1,14 @@
 {% load i18n %}
 {% comment %}
 The day's grid alone, so the page can refetch it after every change
-(?grid=1). Columns: hour gutter, the all-channels lane, one per channel.
+(?grid=1). Columns: hour gutter, the all-rooms lane, one per room.
 Rows: 15-minute steps across the UTC day. Cells are drop targets; cards
 sit on top with inline grid positions computed in speakers/schedule.py.
 {% endcomment %}
 <div class="schedule-scroll">
     {# djlint:off #}
     <div class="schedule-grid"
-         style="--schedule-columns: {{ channels|length }}">
+         style="--schedule-columns: {{ rooms|length }}">
         <div class="schedule-head" style="grid-column: 1">
         </div>
         {% for lane in lanes %}
@@ -27,7 +27,7 @@ sit on top with inline grid positions computed in speakers/schedule.py.
             {% for lane in lanes %}
                 <div class="schedule-cell {% if row.is_hour %}schedule-cell-hour{% endif %}"
                      data-time="{{ row.utc.isoformat }}"
-                     data-channel="{{ lane.pk }}"
+                     data-room="{{ lane.pk }}"
                      style="grid-row: {{ row.index }};
                             grid-column: {{ lane.column }}">
                 </div>
@@ -39,8 +39,8 @@ sit on top with inline grid positions computed in speakers/schedule.py.
     </div>
     {# djlint:on #}
 </div>
-{% if not channels %}
+{% if not rooms %}
     <p class="text-secondary small mt-2 mb-0">
-        {% trans "No Discord channels are recorded for this edition yet; only the all-channels lane is available. Channels are added in the admin." %}
+        {% trans "No rooms are recorded for this edition yet; only the all-rooms lane is available. Rooms are added in the admin, and for an online edition a room is usually a Discord channel." %}
     </p>
 {% endif %}

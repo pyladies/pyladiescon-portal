@@ -42,7 +42,7 @@ dict), lanes, days.
             </summary>
             <div class="schedule-card-popover card shadow">
                 {% url 'speakers:session_slot' card.session.slug as slot_url %}
-                {% include "speakers/_slot_form.html" with url=slot_url lanes=lanes days=days sel_channel=card.slot.channel_id|default_if_none:"" sel_date=card.slot.start_utc|date:"Y-m-d" sel_time=card.slot.start_utc|date:"H:i" minutes=card.minutes removable=True only %}
+                {% include "speakers/_slot_form.html" with url=slot_url lanes=lanes days=days sel_room=card.slot.room_id|default_if_none:"" sel_date=card.slot.start_utc|date:"Y-m-d" sel_time=card.slot.start_utc|date:"H:i" minutes=card.minutes removable=True only %}
             </div>
         </details>
     </div>

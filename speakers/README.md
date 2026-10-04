@@ -1020,7 +1020,7 @@ installed; this app keeps small factory functions in `tests/speakers/factories.p
   all in flat queries) and `speakers/schedule_views.py`: one page
   (`schedule/`, organizer-only, `?grid=1` returns the grid partial for
   refresh) and ONE mutation endpoint, `sessions/<slug>/slot/`, where
-  PATCH upserts the slot (a drag sends channel and start, a resize sends
+  PATCH upserts the slot (a drag sends room and start, a resize sends
   duration, the keyboard form everything; a move without an end keeps
   the length) and DELETE removes it. Placing a CONFIRMED session calls
   `Session.schedule()`; removing a SCHEDULED one calls `unschedule()`

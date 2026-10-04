@@ -14,8 +14,8 @@ from speakers.constants import SessionStatus
 from speakers.models import ActivityLog, ScheduleSlot, Session, TransitionError
 from speakers.program_types import session_type
 from speakers.schedule import (
-    ALL_CHANNELS_COLUMN,
-    FIRST_CHANNEL_COLUMN,
+    ALL_ROOMS_COLUMN,
+    FIRST_ROOM_COLUMN,
     FIRST_TIME_ROW,
     grid_for_day,
     schedule_days,
@@ -24,8 +24,8 @@ from speakers.schedule import (
 
 from .factories import (
     add_presenter,
-    make_channel,
     make_presenter,
+    make_room,
     make_session,
     make_settings,
     make_slot,
@@ -128,9 +128,9 @@ class TestEditorPage:
     def test_cards_sit_where_their_slot_says(self, conference, enabled):
         conference.start_date = conference.end_date = date(2026, 12, 5)
         conference.save()
-        channel = make_channel(conference)
+        room = make_room(conference)
         talk = make_session(conference, kind="TALK")
-        make_slot(talk, channel=channel, start_utc=T0)
+        make_slot(talk, room=room, start_utc=T0)
         band = make_session(conference, kind="BREAK")
         make_slot(band, start_utc=T0 + timedelta(hours=2))
         grid = grid_for_day(conference, date(2026, 12, 5))
@@ -138,11 +138,11 @@ class TestEditorPage:
         placed = by_session[talk.pk]
         assert placed["row"] == FIRST_TIME_ROW + 14 * 4
         assert placed["span"] == 2
-        assert placed["start_column"] == FIRST_CHANNEL_COLUMN
-        assert placed["end_column"] == FIRST_CHANNEL_COLUMN + 1
+        assert placed["start_column"] == FIRST_ROOM_COLUMN
+        assert placed["end_column"] == FIRST_ROOM_COLUMN + 1
         spanning = by_session[band.pk]
         assert spanning["is_band"] is True
-        assert spanning["start_column"] == ALL_CHANNELS_COLUMN
+        assert spanning["start_column"] == ALL_ROOMS_COLUMN
         assert spanning["end_column"] == grid["last_column"]
 
     def test_midnight_crosser_is_clipped(self, conference, enabled):
@@ -153,11 +153,11 @@ class TestEditorPage:
         assert card["row"] == FIRST_TIME_ROW + 94
         assert card["span"] == 2
 
-    def test_inactive_channel_slot_still_renders(self, conference, enabled):
-        channel = make_channel(conference, is_active=False)
-        make_slot(make_session(conference), channel=channel, start_utc=T0)
+    def test_inactive_room_slot_still_renders(self, conference, enabled):
+        room = make_room(conference, is_active=False)
+        make_slot(make_session(conference), room=room, start_utc=T0)
         grid = grid_for_day(conference, date(2026, 12, 5))
-        assert grid["cards"][0]["start_column"] == ALL_CHANNELS_COLUMN
+        assert grid["cards"][0]["start_column"] == ALL_ROOMS_COLUMN
 
     def test_double_booking_is_flagged_on_both_cards(
         self, client, organizer, enabled, conference
@@ -167,8 +167,8 @@ class TestEditorPage:
         second = make_session(conference, title="Second")
         add_presenter(first, ada)
         add_presenter(second, ada)
-        make_slot(first, channel=make_channel(conference), start_utc=T0)
-        make_slot(second, channel=make_channel(conference), start_utc=T0)
+        make_slot(first, room=make_room(conference), start_utc=T0)
+        make_slot(second, room=make_room(conference), start_utc=T0)
         client.force_login(organizer)
         content = client.get(EDITOR, {"day": "2026-12-05"}).content.decode()
         assert "Ada is also in" in content
@@ -229,8 +229,8 @@ class TestEditorPage:
         assert response.context["program_item_form"].errors
 
     def test_query_count_is_flat(self, client, organizer, enabled, conference):
-        channel = make_channel(conference)
-        make_slot(make_session(conference), channel=channel, start_utc=T0)
+        room = make_room(conference)
+        make_slot(make_session(conference), room=room, start_utc=T0)
         make_session(conference, title="Waiting A")
         client.force_login(organizer)
         with CaptureQueriesContext(connection) as before:
@@ -238,9 +238,7 @@ class TestEditorPage:
         for n in range(4):
             session = make_session(conference, title=f"Extra {n}")
             add_presenter(session, make_presenter(conference))
-            make_slot(
-                session, channel=channel, start_utc=T0 + timedelta(hours=2 * (n + 1))
-            )
+            make_slot(session, room=room, start_utc=T0 + timedelta(hours=2 * (n + 1)))
             make_session(conference, title=f"Waiting {n}")
         with CaptureQueriesContext(connection) as after:
             client.get(EDITOR, {"day": "2026-12-05"})
@@ -252,7 +250,7 @@ class TestSlotPatch:
     def test_placing_schedules_a_confirmed_session(
         self, client, organizer, enabled, conference
     ):
-        channel = make_channel(conference)
+        room = make_room(conference)
         session = make_session(conference, title="Ready", kind="PANEL")
         add_presenter(session, make_presenter(conference), confirmed=True)
         session.confirm()
@@ -260,7 +258,7 @@ class TestSlotPatch:
         response = send(
             client,
             session,
-            {"channel": channel.pk, "start": T0.isoformat()},
+            {"room": room.pk, "start": T0.isoformat()},
         )
         assert response.status_code == 200
         data = response.json()
@@ -269,7 +267,7 @@ class TestSlotPatch:
         session.refresh_from_db()
         assert session.status == SessionStatus.SCHEDULED
         slot = session.slot
-        assert slot.channel == channel
+        assert slot.room == room
         assert slot.end_utc == T0 + timedelta(minutes=60)
         assert ActivityLog.objects.filter(
             action="session.scheduled", object_id=session.pk
@@ -286,17 +284,15 @@ class TestSlotPatch:
         assert session.has_slot is True
 
     def test_conflict_is_refused_as_json(self, client, organizer, enabled, conference):
-        channel = make_channel(conference)
+        room = make_room(conference)
         make_slot(
             make_session(conference, title="Sitting here"),
-            channel=channel,
+            room=room,
             start_utc=T0,
         )
         session = make_session(conference)
         client.force_login(organizer)
-        response = send(
-            client, session, {"channel": channel.pk, "start": T0.isoformat()}
-        )
+        response = send(client, session, {"room": room.pk, "start": T0.isoformat()})
         assert response.status_code == 400
         assert "Sitting here" in response.json()["errors"][0]
         assert not ScheduleSlot.objects.filter(session=session).exists()
@@ -344,24 +340,24 @@ class TestSlotPatch:
             minutes=30
         )
 
-    def test_channel_changes_and_the_all_channels_lane(
+    def test_room_changes_and_the_all_rooms_lane(
         self, client, organizer, enabled, conference
     ):
-        channel = make_channel(conference)
+        room = make_room(conference)
         session = make_session(conference, kind="BREAK")
-        make_slot(session, channel=channel, start_utc=T0)
+        make_slot(session, room=room, start_utc=T0)
         client.force_login(organizer)
-        assert send(client, session, {"channel": None}).status_code == 200
-        assert ScheduleSlot.objects.get(session=session).channel is None
+        assert send(client, session, {"room": None}).status_code == 200
+        assert ScheduleSlot.objects.get(session=session).room is None
 
-    def test_unknown_or_foreign_channel_is_refused(
+    def test_unknown_or_foreign_room_is_refused(
         self, client, organizer, enabled, conference
     ):
         session = make_session(conference)
         client.force_login(organizer)
-        response = send(client, session, {"channel": 9999, "start": T0.isoformat()})
+        response = send(client, session, {"room": 9999, "start": T0.isoformat()})
         assert response.status_code == 400
-        assert "channel" in response.json()["errors"][0]
+        assert "room" in response.json()["errors"][0]
 
     def test_bad_bodies_are_refused(self, client, organizer, enabled, conference):
         session = make_session(conference)
@@ -400,12 +396,12 @@ class TestSlotPatch:
         second = make_session(conference, title="Second")
         add_presenter(first, ada)
         add_presenter(second, ada)
-        make_slot(first, channel=make_channel(conference), start_utc=T0)
+        make_slot(first, room=make_room(conference), start_utc=T0)
         client.force_login(organizer)
         response = send(
             client,
             second,
-            {"channel": make_channel(conference).pk, "start": T0.isoformat()},
+            {"room": make_room(conference).pk, "start": T0.isoformat()},
         )
         assert response.json()["warnings"] == ["Ada is also in “First”"]
 

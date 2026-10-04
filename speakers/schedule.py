@@ -1,6 +1,6 @@
 """Building the schedule editor's grid (design §10, task 4.2).
 
-Channels across, 15-minute steps down, one day at a time. Everything is
+Rooms across, 15-minute steps down, one day at a time. Everything is
 computed in UTC; the browser relabels the times in whatever timezone the
 organizer picks (``static/js/schedule-editor.js`` reads the ``data-utc``
 attributes this module's cards carry).
@@ -11,8 +11,8 @@ from datetime import datetime, timedelta, timezone
 from .clock import today
 from .constants import OFF_SCHEDULE_STATUSES
 from .models import (
-    DiscordChannel,
     Presenter,
+    Room,
     ScheduleSlot,
     Session,
     SessionPresenter,
@@ -22,11 +22,11 @@ from .models import (
 STEP_MINUTES = 15
 ROWS_PER_DAY = 24 * 60 // STEP_MINUTES
 
-# The grid's first two columns: the hour gutter and the all-channels lane
-# where the opening and the breaks go. Channels start in the third.
+# The grid's first two columns: the hour gutter and the all-rooms lane
+# where the opening and the breaks go. Rooms start in the third.
 GUTTER_COLUMN = 1
-ALL_CHANNELS_COLUMN = 2
-FIRST_CHANNEL_COLUMN = 3
+ALL_ROOMS_COLUMN = 2
+FIRST_ROOM_COLUMN = 3
 
 # The header row is row 1; the day's first quarter hour is row 2.
 FIRST_TIME_ROW = 2
@@ -72,34 +72,30 @@ def _row_of(moment, day_start):
 def grid_for_day(conference, day):
     """Everything the grid template needs for one day, in flat queries."""
     day_start, day_end = day_bounds(day)
-    channels = list(
-        DiscordChannel.objects.filter(conference=conference, is_active=True)
-    )
-    lanes = [{"pk": "", "name": "All channels", "column": ALL_CHANNELS_COLUMN}] + [
-        {"pk": channel.pk, "name": channel.name, "column": FIRST_CHANNEL_COLUMN + i}
-        for i, channel in enumerate(channels)
+    rooms = list(Room.objects.filter(conference=conference, is_active=True))
+    lanes = [{"pk": "", "name": "All rooms", "column": ALL_ROOMS_COLUMN}] + [
+        {"pk": room.pk, "name": room.name, "column": FIRST_ROOM_COLUMN + i}
+        for i, room in enumerate(rooms)
     ]
-    last_column = FIRST_CHANNEL_COLUMN + len(channels)
+    last_column = FIRST_ROOM_COLUMN + len(rooms)
     slots = list(
         ScheduleSlot.objects.filter(
             conference=conference, start_utc__lt=day_end, end_utc__gt=day_start
         )
         .exclude(session__status__in=OFF_SCHEDULE_STATUSES)
-        .select_related("session__kind", "channel")
+        .select_related("session__kind", "room")
         .order_by("start_utc")
     )
     warnings = presenter_warnings(slots)
-    column = {
-        channel.pk: FIRST_CHANNEL_COLUMN + i for i, channel in enumerate(channels)
-    }
+    column = {room.pk: FIRST_ROOM_COLUMN + i for i, room in enumerate(rooms)}
     cards = []
     for slot in slots:
         row = _row_of(slot.start_utc, day_start)
         span = max(1, _row_of(slot.end_utc, day_start) - row)
-        if slot.channel_id is None:
-            start_column, end_column = ALL_CHANNELS_COLUMN, last_column
+        if slot.room_id is None:
+            start_column, end_column = ALL_ROOMS_COLUMN, last_column
         else:
-            start_column = column.get(slot.channel_id, ALL_CHANNELS_COLUMN)
+            start_column = column.get(slot.room_id, ALL_ROOMS_COLUMN)
             end_column = start_column + 1
         cards.append(
             {
@@ -109,7 +105,7 @@ def grid_for_day(conference, day):
                 "span": span,
                 "start_column": start_column,
                 "end_column": end_column,
-                "is_band": slot.channel_id is None,
+                "is_band": slot.room_id is None,
                 "minutes": int((slot.end_utc - slot.start_utc).total_seconds() // 60),
                 "warnings": warnings.get(slot.pk, []),
             }
@@ -123,7 +119,7 @@ def grid_for_day(conference, day):
         for i in range(ROWS_PER_DAY)
     ]
     return {
-        "channels": channels,
+        "rooms": rooms,
         "lanes": lanes,
         "last_column": last_column,
         "rows": rows,

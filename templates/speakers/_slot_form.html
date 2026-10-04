@@ -1,19 +1,19 @@
 {% load i18n %}
 {% comment %}
-The keyboard path onto the grid: pick a channel, a day, a UTC time and a
+The keyboard path onto the grid: pick a room, a day, a UTC time and a
 length, no dragging needed. Params: url (the slot endpoint), lanes, days,
-sel_channel, sel_date (Y-m-d), sel_time (H:i), minutes, removable.
+sel_room, sel_date (Y-m-d), sel_time (H:i), minutes, removable.
 The buttons are wired in static/js/schedule-editor.js.
 {% endcomment %}
 <div class="schedule-slot-form vstack gap-2 p-2"
      data-slot-form
      data-url="{{ url }}">
     <label class="form-label small mb-0">
-        {% trans "Channel" %}
-        <select class="form-select form-select-sm" data-field="channel">
+        {% trans "Room" %}
+        <select class="form-select form-select-sm" data-field="room">
             {% for lane in lanes %}
                 <option value="{{ lane.pk }}"
-                        {% if lane.pk|stringformat:"s" == sel_channel|stringformat:"s" %}selected{% endif %}>
+                        {% if lane.pk|stringformat:"s" == sel_room|stringformat:"s" %}selected{% endif %}>
                     {{ lane.name }}
                 </option>
             {% endfor %}

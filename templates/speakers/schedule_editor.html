@@ -90,7 +90,7 @@
                                     </summary>
                                     <div class="schedule-card-popover card shadow">
                                         {% url 'speakers:session_slot' session.slug as slot_url %}
-                                        {% include "speakers/_slot_form.html" with url=slot_url lanes=lanes days=days sel_channel="" sel_date=day|date:"Y-m-d" sel_time="14:00" minutes=session.duration_minutes removable=False only %}
+                                        {% include "speakers/_slot_form.html" with url=slot_url lanes=lanes days=days sel_room="" sel_date=day|date:"Y-m-d" sel_time="14:00" minutes=session.duration_minutes removable=False only %}
                                     </div>
                                 </details>
                             </div>

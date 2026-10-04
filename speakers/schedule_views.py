@@ -22,7 +22,7 @@ from django.views.generic import TemplateView
 from .constants import OFF_SCHEDULE_STATUSES, SessionStatus
 from .forms import ProgramItemForm
 from .mixins import SpeakerOrganizerRequiredMixin
-from .models import ActivityLog, DiscordChannel, ScheduleSlot, Session
+from .models import ActivityLog, Room, ScheduleSlot, Session
 from .schedule import (
     STEP_MINUTES,
     grid_for_day,
@@ -142,7 +142,7 @@ class SlotView(LoginRequiredMixin, SpeakerOrganizerRequiredMixin, View):
             actor=request.user,
             start=slot.start_utc.isoformat(),
             end=slot.end_utc.isoformat(),
-            channel=slot.channel.name if slot.channel_id else "all channels",
+            room=slot.room.name if slot.room_id else "all rooms",
         )
         return JsonResponse(
             {
@@ -198,9 +198,9 @@ class SlotView(LoginRequiredMixin, SpeakerOrganizerRequiredMixin, View):
     def apply(self, session, payload):
         """Upsert the session's slot from the payload and save it.
 
-        ``channel`` (a pk, or null for all channels), ``start`` and either
+        ``room`` (a pk, or null for all rooms), ``start`` and either
         ``end`` or ``duration`` (minutes) are each optional: a drag sends
-        channel and start, a resize sends duration, the keyboard form sends
+        room and start, a resize sends duration, the keyboard form sends
         everything. A move without an explicit end keeps the slot's length;
         a fresh slot without one gets the session's default duration.
         """
@@ -211,8 +211,8 @@ class SlotView(LoginRequiredMixin, SpeakerOrganizerRequiredMixin, View):
         if created:
             slot = ScheduleSlot(session=session)
         length = None if created else slot.end_utc - slot.start_utc
-        if "channel" in payload:
-            slot.channel = self.resolve_channel(payload["channel"])
+        if "room" in payload:
+            slot.room = self.resolve_room(payload["room"])
         if "start" in payload:
             slot.start_utc = _parse_moment(payload["start"], "start")
             slot.end_utc = slot.start_utc + length if length else None
@@ -233,13 +233,11 @@ class SlotView(LoginRequiredMixin, SpeakerOrganizerRequiredMixin, View):
         slot.save()
         return slot, created
 
-    def resolve_channel(self, value):
-        """A channel of this edition, or None for the all-channels lane."""
+    def resolve_room(self, value):
+        """A room of this edition, or None for the all-rooms lane."""
         if value in (None, ""):
             return None
-        channel = DiscordChannel.objects.filter(
-            conference=self.conference, pk=value
-        ).first()
-        if channel is None:
-            raise SlotError("That channel does not exist in this edition.")
-        return channel
+        room = Room.objects.filter(conference=self.conference, pk=value).first()
+        if room is None:
+            raise SlotError("That room does not exist in this edition.")
+        return room
