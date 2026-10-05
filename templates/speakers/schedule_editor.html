@@ -44,7 +44,7 @@
                 </summary>
                 <div class="schedule-card-popover card shadow p-2 vstack gap-2 text-start">
                     <span class="small">
-                        {% blocktrans with day=day|date:"D j M" %}Takes every session on {{ day }} off the grid, back to Unscheduled. Published sessions keep their slot.{% endblocktrans %}
+                        {% blocktrans with day=day|date:"D j M" %}Takes every session on {{ day }} (the UTC day, as the tabs count) off the grid, back to Unscheduled. Published sessions keep their slot.{% endblocktrans %}
                     </span>
                     <form method="post" action="{% url 'speakers:schedule_clear_day' %}">
                         {% csrf_token %}
