@@ -521,8 +521,11 @@ details.card[open] > summary.card-header::before {
 .schedule-card-title:hover {
     text-decoration: underline;
 }
+/* The popover hangs off the pencil itself, so it opens where the
+   organizer clicked; anchored to the card, a band's popover sat at the
+   card's far right edge, off screen once the grid scrolls. */
 .schedule-card-menu {
-    position: static;
+    position: relative;
 }
 .schedule-card-menu > summary {
     list-style: none;
@@ -531,10 +534,17 @@ details.card[open] > summary.card-header::before {
 }
 .schedule-card-popover {
     position: absolute;
-    top: 0.25rem;
-    right: 0.25rem;
+    top: calc(100% + 0.25rem);
+    right: 0;
     z-index: 5;
     width: 14rem;
+}
+/* A band's pencil sits at the grid's left edge, where a right-aligned
+   popover would poke into space the scroller cannot reach; it opens
+   rightward instead. */
+.schedule-band .schedule-card-popover {
+    right: auto;
+    left: 0;
 }
 .schedule-resize {
     position: absolute;
