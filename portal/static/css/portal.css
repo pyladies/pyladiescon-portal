@@ -474,8 +474,10 @@ details.card[open] > summary.card-header::before {
     overflow: hidden;
     font-size: 0.8rem;
     line-height: 1.25;
-    background: var(--bs-primary-bg-subtle, #fdeaee);
-    border: 1px solid var(--bs-primary-border-subtle, #f5a8bb);
+    /* Calendar blue, not the brand red: a placed session is an event,
+       not an alert (Bootstrap's blue-100/200). */
+    background: #cfe2ff;
+    border: 1px solid #9ec5fe;
     border-radius: 0.35rem;
     cursor: grab;
 }
@@ -508,8 +510,10 @@ details.card[open] > summary.card-header::before {
     display: none;
 }
 .schedule-band {
-    background: var(--bs-secondary-bg-subtle, #eef0f2);
-    border-color: var(--bs-border-color);
+    /* Lavender, not grey: a band is the program's own furniture (the
+       opening, a break), and grey read as disabled (purple-100/200). */
+    background: #e2d9f3;
+    border-color: #c5b3e6;
 }
 .schedule-warned {
     border-color: var(--bs-warning-border-subtle, #ffe69c);
