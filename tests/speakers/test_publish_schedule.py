@@ -97,6 +97,23 @@ class TestPublishService:
         assert session.status == SessionStatus.CANCELLED
         assert not PublishedSlot.objects.filter(session=session).exists()
 
+    def test_the_str_and_the_tasks_lost_payloads(self, conference, enabled, organizer):
+        from speakers.tasks import send_schedule_update_task
+
+        session = confirmed_session(conference)
+        make_slot(session, start_utc=T0)
+        publish_schedule(conference, organizer, notify=False)
+        row = session.published_slot
+        assert "published for 2026-12-05 14:00 UTC" in str(row)
+        stamp = row.published_at.isoformat()
+        assert "is gone" in send_schedule_update_task(
+            10**6, [[session.pk, "moved"]], stamp
+        )
+        bystander = make_presenter(conference)
+        assert "Nothing left" in send_schedule_update_task(
+            bystander.pk, [[10**6, "moved"]], stamp
+        )
+
     def test_publishing_twice_changes_nothing(self, conference, enabled, organizer):
         session = confirmed_session(conference)
         make_slot(session, start_utc=T0)
