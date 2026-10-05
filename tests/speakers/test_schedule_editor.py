@@ -583,9 +583,7 @@ class TestUnscheduleAll:
         assert draft.has_slot is False
         assert draft.status == SessionStatus.DRAFT
         assert other_day.has_slot is True
-        assert (
-            ActivityLog.objects.filter(action="session.unscheduled").count() == 2
-        )
+        assert ActivityLog.objects.filter(action="session.unscheduled").count() == 2
 
     def test_published_sessions_keep_their_slot(
         self, client, organizer, enabled, conference

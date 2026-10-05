@@ -166,9 +166,7 @@ class ScheduleEditorView(
         return slot
 
 
-class ScheduleClearDayView(
-    LoginRequiredMixin, SpeakerOrganizerRequiredMixin, View
-):
+class ScheduleClearDayView(LoginRequiredMixin, SpeakerOrganizerRequiredMixin, View):
     """POST: take every slot off the shown day in one go.
 
     A published session keeps its slot, since publishing requires one;
@@ -199,9 +197,7 @@ class ScheduleClearDayView(
             )
             cleared += 1
         label = day.strftime("%A %-d %B")
-        messages.success(
-            request, f"Took {cleared} session(s) off {label}."
-        )
+        messages.success(request, f"Took {cleared} session(s) off {label}.")
         if kept:
             messages.warning(
                 request,
