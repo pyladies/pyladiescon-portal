@@ -64,6 +64,7 @@
                 var freshList = board().querySelector(".schedule-unscheduled");
                 if (freshList) freshList.scrollTop = kept.list;
                 applyTimezone();
+                applyDensity();
             });
     }
 
@@ -393,7 +394,54 @@
         });
     }
 
+    /* The density switch: row height by name, or computed to fit the
+     * viewport (design §10.2). */
+    function applyDensity() {
+        var select = document.getElementById("schedule-density");
+        var grid = board() && board().querySelector(".schedule-grid");
+        if (!select || !grid) return;
+        grid.classList.toggle(
+            "schedule-density-compact", select.value !== "comfortable"
+        );
+        if (select.value === "comfortable") {
+            grid.style.removeProperty("--schedule-row-height");
+        } else if (select.value === "compact") {
+            grid.style.setProperty("--schedule-row-height", "0.55rem");
+        } else {
+            var rows = parseInt(grid.dataset.rows, 10) || 1;
+            var room = window.innerHeight -
+                grid.getBoundingClientRect().top - 40;
+            var height = Math.max(3, Math.floor(room / rows));
+            grid.style.setProperty(
+                "--schedule-row-height", height + "px"
+            );
+        }
+    }
+
     document.addEventListener("DOMContentLoaded", function () {
+        var density = document.getElementById("schedule-density");
+        if (density) {
+            var rememberedDensity = null;
+            try {
+                rememberedDensity =
+                    window.localStorage.getItem("schedule-density");
+            } catch (error) {
+                rememberedDensity = null;
+            }
+            if (rememberedDensity) density.value = rememberedDensity;
+            density.addEventListener("change", function () {
+                try {
+                    window.localStorage.setItem(
+                        "schedule-density", density.value
+                    );
+                } catch (error) {
+                    /* Private windows forget the choice. */
+                }
+                applyDensity();
+            });
+            window.addEventListener("resize", applyDensity);
+            applyDensity();
+        }
         var select = document.getElementById("schedule-timezone");
         if (!select) return;
         var remembered = null;

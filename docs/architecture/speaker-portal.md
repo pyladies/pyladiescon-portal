@@ -642,7 +642,7 @@ A timezone switcher on the grid shows the whole schedule as a specific presenter
 
 ### 10.2 Seeing the whole program at once
 
-> **Designed** (5 October 2026), not built. The editor's comfortable row height wins for editing one afternoon and loses to a spreadsheet for seeing the shape of a day.
+> **Built** (5 October 2026). The editor's comfortable row height wins for editing one afternoon and loses to a spreadsheet for seeing the shape of a day; the trim and the density switch below close that gap (the all-days view remains listed, not promised).
 
 Three view-layer changes, no model impact:
 

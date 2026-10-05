@@ -139,7 +139,7 @@ class TestEditorPage:
         make_slot(talk, room=room, start_utc=T0)
         band = make_session(conference, kind="BREAK")
         make_slot(band, start_utc=T0 + timedelta(hours=2))
-        grid = grid_for_day(conference, date(2026, 12, 5))
+        grid = grid_for_day(conference, date(2026, 12, 5), full_day=True)
         by_session = {card["session"].pk: card for card in grid["cards"]}
         placed = by_session[talk.pk]
         assert placed["row"] == FIRST_TIME_ROW + 14 * 4
@@ -154,7 +154,7 @@ class TestEditorPage:
     def test_midnight_crosser_is_clipped(self, conference, enabled):
         session = make_session(conference)
         make_slot(session, start_utc=datetime(2026, 12, 5, 23, 30, tzinfo=timezone.utc))
-        grid = grid_for_day(conference, date(2026, 12, 5))
+        grid = grid_for_day(conference, date(2026, 12, 5), full_day=True)
         card = grid["cards"][0]
         assert card["row"] == FIRST_TIME_ROW + 94
         assert card["span"] == 2
@@ -742,3 +742,51 @@ class TestReviewHardening:
         )
         assert response.status_code == 302
         assert "not-a-day" not in response.url
+
+
+@pytest.mark.django_db
+class TestTrimmedWindow:
+    """The grid shows the program, not the empty night (task 4.6)."""
+
+    def test_the_day_trims_around_the_program(self, conference, enabled):
+        session = make_session(conference, kind="TALK")
+        make_slot(session, start_utc=T0)
+        grid = grid_for_day(conference, date(2026, 12, 5))
+        assert grid["trimmed"] is True
+        assert grid["rows"][0]["utc"].hour == 13
+        assert len(grid["rows"]) == 12
+        assert grid["cards"][0]["row"] == FIRST_TIME_ROW + 4
+
+    def test_full_day_on_request_and_when_empty(self, conference, enabled):
+        empty = grid_for_day(conference, date(2026, 12, 5))
+        assert empty["trimmed"] is False
+        assert len(empty["rows"]) == 96
+        session = make_session(conference, kind="TALK")
+        make_slot(session, start_utc=T0)
+        full = grid_for_day(conference, date(2026, 12, 5), full_day=True)
+        assert full["trimmed"] is False
+        assert len(full["rows"]) == 96
+        assert full["cards"][0]["row"] == FIRST_TIME_ROW + 14 * 4
+
+    def test_the_window_clamps_to_the_day(self, conference, enabled):
+        early = make_session(conference, kind="TALK")
+        make_slot(early, start_utc=datetime(2026, 12, 5, 0, 15, tzinfo=timezone.utc))
+        late = make_session(conference, kind="TALK")
+        make_slot(late, start_utc=datetime(2026, 12, 5, 23, 30, tzinfo=timezone.utc))
+        grid = grid_for_day(conference, date(2026, 12, 5))
+        assert grid["trimmed"] is False
+        assert len(grid["rows"]) == 96
+
+    def test_the_page_offers_the_toggle_and_the_density_switch(
+        self, client, organizer, enabled, conference
+    ):
+        make_slot(make_session(conference), start_utc=T0)
+        client.force_login(organizer)
+        content = client.get(EDITOR, {"day": "2026-12-05"}).content.decode()
+        assert "Show the whole day" in content
+        assert "schedule-density" in content
+        assert "data-rows=" in content
+        content = client.get(
+            EDITOR, {"day": "2026-12-05", "full": "1"}
+        ).content.decode()
+        assert "Trim to the program" in content

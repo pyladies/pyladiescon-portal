@@ -104,13 +104,15 @@ class ScheduleEditorView(
         context = super().get_context_data(**kwargs)
         days = schedule_days(self.conference)
         day = _parse_day(self.request.GET.get("day"), days)
-        context.update(grid_for_day(self.conference, day))
+        full_day = bool(self.request.GET.get("full"))
+        context.update(grid_for_day(self.conference, day, full_day=full_day))
         context.update(
             {
                 "conference": self.conference,
                 "rail_active": "schedule",
                 "days": days,
                 "day": day,
+                "full_day": full_day,
                 "unscheduled": unscheduled_sessions(self.conference),
                 "timezones": timezone_options(self.conference),
                 "unpublished": (

@@ -72,13 +72,31 @@ def day_bounds(day):
     return start, start + timedelta(days=1)
 
 
-def _row_of(moment, day_start):
-    """The grid row a UTC moment falls in, clamped to the day."""
-    offset = (moment - day_start).total_seconds() // (STEP_MINUTES * 60)
-    return FIRST_TIME_ROW + int(max(0, min(ROWS_PER_DAY, offset)))
+def _row_of(moment, window_start, row_count):
+    """The grid row a UTC moment falls in, clamped to the window."""
+    offset = (moment - window_start).total_seconds() // (STEP_MINUTES * 60)
+    return FIRST_TIME_ROW + int(max(0, min(row_count, offset)))
 
 
-def grid_for_day(conference, day):
+def _window(day_start, day_end, slots, full_day):
+    """The hours the grid renders: the program plus an hour each side.
+
+    A conference day occupies a fraction of its 96 quarter-hours; the
+    page shows the part that matters (design §10.2) unless asked for the
+    whole day, or when there is nothing placed yet to trim around.
+    """
+    if full_day or not slots:
+        return day_start, day_end
+    first = max(min(slot.start_utc for slot in slots), day_start)
+    last = min(max(slot.end_utc for slot in slots), day_end)
+    start = max(day_start, first.replace(minute=0) - timedelta(hours=1))
+    end = last.replace(minute=0) + timedelta(hours=1)
+    if last.minute or last.second:
+        end += timedelta(hours=1)
+    return start, min(end, day_end)
+
+
+def grid_for_day(conference, day, full_day=False):
     """Everything the grid template needs for one day, in flat queries."""
     day_start, day_end = day_bounds(day)
     rooms = list(Room.objects.filter(conference=conference, is_active=True))
@@ -106,6 +124,8 @@ def grid_for_day(conference, day):
         for i, room in enumerate(rooms)
     ]
     last_column = FIRST_ROOM_COLUMN + len(rooms)
+    window_start, window_end = _window(day_start, day_end, slots, full_day)
+    row_count = int((window_end - window_start).total_seconds() // (STEP_MINUTES * 60))
     warnings = presenter_warnings(slots)
     published = {
         row.session_id: row
@@ -114,8 +134,8 @@ def grid_for_day(conference, day):
     column = {room.pk: FIRST_ROOM_COLUMN + i for i, room in enumerate(rooms)}
     cards = []
     for slot in slots:
-        row = _row_of(slot.start_utc, day_start)
-        span = max(1, _row_of(slot.end_utc, day_start) - row)
+        row = _row_of(slot.start_utc, window_start, row_count)
+        span = max(1, _row_of(slot.end_utc, window_start, row_count) - row)
         if slot.room_id is None:
             start_column, end_column = ALL_ROOMS_COLUMN, last_column
         else:
@@ -146,12 +166,15 @@ def grid_for_day(conference, day):
     rows = [
         {
             "index": FIRST_TIME_ROW + i,
-            "utc": day_start + timedelta(minutes=STEP_MINUTES * i),
-            "is_hour": i % 4 == 0,
+            "utc": window_start + timedelta(minutes=STEP_MINUTES * i),
+            "is_hour": (window_start.minute == 0 and i % 4 == 0)
+            or (window_start + timedelta(minutes=STEP_MINUTES * i)).minute == 0,
         }
-        for i in range(ROWS_PER_DAY)
+        for i in range(row_count)
     ]
     return {
+        "trimmed": (window_start, window_end) != (day_start, day_end),
+        "has_slots": bool(slots),
         "rooms": rooms,
         "lanes": lanes,
         "last_column": last_column,
