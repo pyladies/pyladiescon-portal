@@ -12,6 +12,7 @@ from speakers.models import (
     Presenter,
     PresenterRole,
     Proposal,
+    PublishedSlot,
     Room,
     ScheduleSlot,
     Session,
@@ -91,6 +92,23 @@ def make_slot(session, **kwargs):
         "start_utc", datetime(2026, 12, 5, 14, 0, tzinfo=timezone.utc) + timedelta()
     )
     return ScheduleSlot.objects.create(session=session, **kwargs)
+
+
+def make_published_slot(session, **kwargs):
+    """The speakers' snapshot of a session's slot (design §10.1).
+
+    Copies the working slot when one exists, so a test can place then
+    "publish" without going through the service.
+    """
+    slot = getattr(session, "slot", None)
+    if slot is not None:
+        kwargs.setdefault("room", slot.room)
+        kwargs.setdefault("start_utc", slot.start_utc)
+        kwargs.setdefault("end_utc", slot.end_utc)
+    kwargs.setdefault("start_utc", datetime(2026, 12, 5, 14, 0, tzinfo=timezone.utc))
+    kwargs.setdefault("end_utc", kwargs["start_utc"] + timedelta(minutes=30))
+    kwargs.setdefault("published_at", datetime.now(tz=timezone.utc))
+    return PublishedSlot.objects.create(session=session, **kwargs)
 
 
 def make_invitation(presenter, session=None, **kwargs):

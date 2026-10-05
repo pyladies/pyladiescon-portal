@@ -14,6 +14,7 @@ from speakers.schedule import presenter_schedule
 from .factories import (
     add_presenter,
     make_presenter,
+    make_published_slot,
     make_room,
     make_session,
     make_settings,
@@ -40,11 +41,13 @@ def speaker(db, conference, enabled):
     add_presenter(session, presenter, confirmed=True)
     session.confirm()
     make_slot(session, room=make_room(conference, name="main-stage"), start_utc=T0)
+    make_published_slot(session)
     session.schedule()
     return presenter
 
 
 def publish(session):
+    make_published_slot(session)
     session.schedule()
     session.publish()
     return session
@@ -125,6 +128,7 @@ class TestPresenterTimezone:
         add_presenter(late, speaker, confirmed=True)
         late.confirm()
         make_slot(late, start_utc=datetime(2026, 12, 5, 23, 30, tzinfo=timezone.utc))
+        make_published_slot(late)
         client.force_login(speaker.user)
         content = client.get(SCHEDULE).content.decode()
         assert "15:00–16:00" in content

@@ -25,6 +25,7 @@ from speakers.schedule import (
 from .factories import (
     add_presenter,
     make_presenter,
+    make_published_slot,
     make_room,
     make_session,
     make_settings,
@@ -257,9 +258,11 @@ class TestEditorPage:
 
 @pytest.mark.django_db
 class TestSlotPatch:
-    def test_placing_schedules_a_confirmed_session(
+    def test_placing_is_a_draft_until_the_publish(
         self, client, organizer, enabled, conference
     ):
+        """The grid is the organizers' scratchpad (§10.1): placing a
+        confirmed session changes nothing a speaker sees."""
         room = make_room(conference)
         session = make_session(conference, title="Ready", kind="PANEL")
         add_presenter(session, make_presenter(conference), confirmed=True)
@@ -273,14 +276,15 @@ class TestSlotPatch:
         assert response.status_code == 200
         data = response.json()
         assert data["ok"] is True
-        assert data["status"] == SessionStatus.SCHEDULED
+        assert data["status"] == SessionStatus.CONFIRMED
         session.refresh_from_db()
-        assert session.status == SessionStatus.SCHEDULED
+        assert session.status == SessionStatus.CONFIRMED
+        assert session.has_published_slot is False
         slot = session.slot
         assert slot.room == room
         assert slot.end_utc == T0 + timedelta(minutes=60)
         assert ActivityLog.objects.filter(
-            action="session.scheduled", object_id=session.pk
+            action="slot.placed", object_id=session.pk
         ).exists()
 
     def test_placing_a_draft_leaves_its_status(
@@ -316,7 +320,7 @@ class TestSlotPatch:
         slot = ScheduleSlot.objects.get(session=session)
         assert slot.end_utc - slot.start_utc == timedelta(minutes=45)
         assert ActivityLog.objects.filter(
-            action="session.rescheduled", object_id=session.pk
+            action="slot.moved", object_id=session.pk
         ).exists()
 
     def test_resize_sets_the_duration(self, client, organizer, enabled, conference):
@@ -418,22 +422,26 @@ class TestSlotPatch:
 
 @pytest.mark.django_db
 class TestSlotDelete:
-    def test_unscheduling_returns_to_confirmed(
+    def test_removing_a_working_slot_leaves_the_published_schedule(
         self, client, organizer, enabled, conference
     ):
+        """Un-gridding is a draft edit: speakers keep their snapshot and
+        the status until the next publish (§10.1)."""
         session = make_session(conference, kind="PANEL")
         add_presenter(session, make_presenter(conference), confirmed=True)
         session.confirm()
         make_slot(session, start_utc=T0)
+        make_published_slot(session)
         session.schedule()
         client.force_login(organizer)
         response = send(client, session, {}, method="delete")
         assert response.status_code == 200
         session.refresh_from_db()
-        assert session.status == SessionStatus.CONFIRMED
+        assert session.status == SessionStatus.SCHEDULED
         assert session.has_slot is False
+        assert session.has_published_slot is True
         assert ActivityLog.objects.filter(
-            action="session.unscheduled", object_id=session.pk
+            action="slot.removed", object_id=session.pk
         ).exists()
 
     def test_a_draft_keeps_its_status(self, client, organizer, enabled, conference):
@@ -444,13 +452,14 @@ class TestSlotDelete:
         session.refresh_from_db()
         assert session.status == SessionStatus.DRAFT
 
-    def test_published_sessions_keep_their_slot(
+    def test_public_sessions_keep_their_slot(
         self, client, organizer, enabled, conference
     ):
         session = make_session(conference, kind="PANEL")
         add_presenter(session, make_presenter(conference), confirmed=True)
         session.confirm()
         make_slot(session, start_utc=T0)
+        make_published_slot(session)
         session.schedule()
         session.publish()
         client.force_login(organizer)
@@ -503,11 +512,12 @@ class TestCellPanel:
         )
         assertRedirects(response, EDITOR + "?day=2026-12-05")
         lunch = Session.objects.get(title="Lunch here")
-        assert lunch.status == SessionStatus.SCHEDULED
+        assert lunch.status == SessionStatus.CONFIRMED
+        assert lunch.has_published_slot is False
         assert lunch.slot.room == room
         assert lunch.slot.start_utc == T0
         assert ActivityLog.objects.filter(
-            action="session.scheduled", object_id=lunch.pk
+            action="slot.placed", object_id=lunch.pk
         ).exists()
 
     def test_no_room_means_every_room(self, client, organizer, enabled, conference):
@@ -523,7 +533,7 @@ class TestCellPanel:
         )
         hallway = Session.objects.get(title="Hallway")
         assert hallway.slot.room is None
-        assert hallway.status == SessionStatus.SCHEDULED
+        assert hallway.status == SessionStatus.CONFIRMED
 
     def test_a_refused_window_keeps_the_item_unscheduled(
         self, client, organizer, enabled, conference
@@ -571,6 +581,7 @@ class TestUnscheduleAll:
         add_presenter(scheduled, make_presenter(conference), confirmed=True)
         scheduled.confirm()
         make_slot(scheduled, room=make_room(conference), start_utc=T0)
+        make_published_slot(scheduled)
         scheduled.schedule()
         draft = make_session(conference)
         make_slot(draft, start_utc=T0 + timedelta(hours=4))
@@ -583,12 +594,13 @@ class TestUnscheduleAll:
         assertRedirects(response, EDITOR + "?day=2026-12-05")
         scheduled.refresh_from_db()
         draft.refresh_from_db()
-        assert scheduled.status == SessionStatus.CONFIRMED
+        assert scheduled.status == SessionStatus.SCHEDULED
+        assert scheduled.has_published_slot is True
         assert scheduled.has_slot is False
         assert draft.has_slot is False
         assert draft.status == SessionStatus.DRAFT
         assert other_day.has_slot is True
-        assert ActivityLog.objects.filter(action="session.unscheduled").count() == 2
+        assert ActivityLog.objects.filter(action="slot.removed").count() == 2
 
     def test_published_sessions_keep_their_slot(
         self, client, organizer, enabled, conference
@@ -597,6 +609,7 @@ class TestUnscheduleAll:
         add_presenter(published, make_presenter(conference), confirmed=True)
         published.confirm()
         make_slot(published, start_utc=T0)
+        make_published_slot(published)
         published.schedule()
         published.publish()
         client.force_login(organizer)
@@ -699,20 +712,25 @@ class TestReviewHardening:
         assert "longer than a day" in response.json()["errors"][0]
         assert send(client, session, {"duration": 1440}).status_code == 200
 
-    def test_moving_a_published_session_says_so(
+    def test_moving_a_public_session_leaves_the_snapshot(
         self, client, organizer, enabled, conference
     ):
+        """Even a public session's working slot is a draft: the speakers'
+        and the public's times hold until the next publish (§10.1)."""
         session = make_session(conference, kind="PANEL")
         add_presenter(session, make_presenter(conference), confirmed=True)
         session.confirm()
         make_slot(session, start_utc=T0)
+        make_published_slot(session)
         session.schedule()
         session.publish()
         client.force_login(organizer)
         later = T0 + timedelta(hours=2)
         response = send(client, session, {"start": later.isoformat()})
         assert response.status_code == 200
-        assert any("published" in w for w in response.json()["warnings"])
+        assert response.json()["warnings"] == []
+        session.refresh_from_db()
+        assert session.published_slot.start_utc == T0
 
     def test_the_redirect_day_is_sanitised(
         self, client, organizer, enabled, conference

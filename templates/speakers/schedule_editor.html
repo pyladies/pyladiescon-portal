@@ -39,6 +39,36 @@
                 <i class="fa-solid fa-eye" aria-hidden="true"></i> {% trans "Preview as public" %}
             </button>
             <details class="schedule-card-menu">
+                <summary class="btn btn-primary btn-sm">
+                    <i class="fa-solid fa-bullhorn" aria-hidden="true"></i> {% trans "Publish schedule" %}
+                    {% if unpublished_total %}
+                        <span class="badge text-bg-light ms-1">{{ unpublished_total }}</span>
+                    {% endif %}
+                </summary>
+                <div class="schedule-card-popover card shadow p-2 vstack gap-2 text-start">
+                    <span class="small">
+                        {% blocktrans with placed=unpublished.placed moved=unpublished.moved removed=unpublished.removed %}Snapshots the whole grid for the speakers: {{ placed }} placed, {{ moved }} moved, {{ removed }} taken off. This is when sessions become scheduled and checklists open.{% endblocktrans %}
+                    </span>
+                    <form method="post"
+                          action="{% url 'speakers:schedule_publish' %}?day={{ day|date:'Y-m-d' }}">
+                        {% csrf_token %}
+                        <div class="form-check">
+                            <input class="form-check-input"
+                                   type="checkbox"
+                                   name="notify"
+                                   id="publish-notify"
+                                   checked />
+                            <label class="form-check-label small" for="publish-notify">
+                                {% trans "Email the affected speakers" %}
+                            </label>
+                        </div>
+                        <button class="btn btn-primary btn-sm mt-2" type="submit">
+                            {% trans "Publish schedule" %}
+                        </button>
+                    </form>
+                </div>
+            </details>
+            <details class="schedule-card-menu">
                 <summary class="btn btn-outline-danger btn-sm">
                     <i class="fa-solid fa-calendar-xmark" aria-hidden="true"></i> {% trans "Unschedule all" %}
                 </summary>

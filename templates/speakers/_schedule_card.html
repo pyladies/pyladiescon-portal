@@ -5,7 +5,7 @@ resizes; the pencil opens the keyboard form. Params: card (schedule.py's
 dict), lanes, days.
 {% endcomment %}
 {# djlint:off #}
-<div class="schedule-card {% if card.is_band %}schedule-band{% endif %} {% if card.warnings %}schedule-warned{% endif %} {% if card.span < 2 %}schedule-card-tight{% endif %}"
+<div class="schedule-card {% if card.is_band %}schedule-band{% endif %} {% if card.warnings %}schedule-warned{% endif %} {% if card.span < 2 %}schedule-card-tight{% endif %} {% if card.is_dirty %}schedule-card-dirty{% endif %}"
      draggable="true"
      data-slot-url="{% url 'speakers:session_slot' card.session.slug %}"
      data-minutes="{{ card.minutes }}"

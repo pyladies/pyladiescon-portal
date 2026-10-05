@@ -32,6 +32,8 @@ from .schedule import (
     also_in,
     day_bounds,
     grid_for_day,
+    publish_schedule,
+    schedule_changes,
     schedule_days,
     timezone_options,
     unscheduled_sessions,
@@ -111,6 +113,13 @@ class ScheduleEditorView(
                 "day": day,
                 "unscheduled": unscheduled_sessions(self.conference),
                 "timezones": timezone_options(self.conference),
+                "unpublished": (
+                    counts := {
+                        kind: len(rows)
+                        for kind, rows in schedule_changes(self.conference).items()
+                    }
+                ),
+                "unpublished_total": sum(counts.values()),
                 "step_minutes": STEP_MINUTES,
                 "program_item_form": kwargs.get("program_item_form")
                 or ProgramItemForm(conference=self.conference),
@@ -175,17 +184,20 @@ class ScheduleEditorView(
                 f"Added “{session.title}”, but could not place it: {reasons}",
             )
             return None
-        session.schedule()
         ActivityLog.record(
             self.conference,
-            "session.scheduled",
+            "slot.placed",
             target=session,
             actor=request.user,
             start=slot.start_utc.isoformat(),
             end=slot.end_utc.isoformat(),
             room=slot.room.name if slot.room_id else "all rooms",
         )
-        messages.success(request, f"Added “{session.title}” to the grid.")
+        messages.success(
+            request,
+            f"Added “{session.title}” to the grid; speakers see it when the "
+            "schedule is published.",
+        )
         return slot
 
 
@@ -223,11 +235,9 @@ class ScheduleClearDayView(LoginRequiredMixin, SpeakerOrganizerRequiredMixin, Vi
                     kept += 1
                     continue
                 slot.delete()
-                if session.status == SessionStatus.SCHEDULED:
-                    session.unschedule()
                 ActivityLog.record(
                     self.conference,
-                    "session.unscheduled",
+                    "slot.removed",
                     target=session,
                     actor=request.user,
                 )
@@ -240,6 +250,31 @@ class ScheduleClearDayView(LoginRequiredMixin, SpeakerOrganizerRequiredMixin, Vi
                 f"{kept} published session(s) kept their slot; a published "
                 "session needs one.",
             )
+        return redirect(f"{url}?day={day:%Y-%m-%d}")
+
+
+class SchedulePublishView(LoginRequiredMixin, SpeakerOrganizerRequiredMixin, View):
+    """POST: snapshot the grid for the speakers (design §10.1)."""
+
+    def post(self, request):
+        notify = bool(request.POST.get("notify"))
+        result = publish_schedule(self.conference, request.user, notify=notify)
+        if result["placed"] or result["moved"] or result["removed"]:
+            told = (
+                f" {result['told']} presenter(s) were emailed."
+                if notify
+                else " No emails were sent."
+            )
+            messages.success(
+                request,
+                "Schedule published: "
+                f"{result['placed']} placed, {result['moved']} moved, "
+                f"{result['removed']} taken off.{told}",
+            )
+        else:
+            messages.info(request, "The published schedule already matches the grid.")
+        day = _parse_day(request.GET.get("day"), schedule_days(self.conference))
+        url = reverse("speakers:schedule_editor")
         return redirect(f"{url}?day={day:%Y-%m-%d}")
 
 
@@ -260,11 +295,9 @@ class SlotView(LoginRequiredMixin, SpeakerOrganizerRequiredMixin, View):
             payload = self.read(request)
             with transaction.atomic():
                 slot, created = self.apply(session, payload)
-                if session.status == SessionStatus.CONFIRMED:
-                    session.schedule()
                 ActivityLog.record(
                     self.conference,
-                    "session.scheduled" if created else "session.rescheduled",
+                    "slot.placed" if created else "slot.moved",
                     target=session,
                     actor=request.user,
                     start=slot.start_utc.isoformat(),
@@ -278,10 +311,6 @@ class SlotView(LoginRequiredMixin, SpeakerOrganizerRequiredMixin, View):
         warnings = [
             also_in(link.presenter, link.session) for link in slot.presenter_clashes()
         ]
-        if session.status == SessionStatus.PUBLISHED:
-            warnings.insert(
-                0, "This session is published: the public schedule just moved."
-            )
         return JsonResponse(
             {
                 "ok": True,
@@ -302,19 +331,16 @@ class SlotView(LoginRequiredMixin, SpeakerOrganizerRequiredMixin, View):
             return JsonResponse(
                 {
                     "errors": [
-                        "A published session needs its slot; cancel the "
-                        "session or unpublish the program first."
+                        "A public session needs its slot; cancel the " "session first."
                     ]
                 },
                 status=400,
             )
         with transaction.atomic():
             slot.delete()
-            if session.status == SessionStatus.SCHEDULED:
-                session.unschedule()
             ActivityLog.record(
                 self.conference,
-                "session.unscheduled",
+                "slot.removed",
                 target=session,
                 actor=request.user,
             )

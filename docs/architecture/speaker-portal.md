@@ -618,7 +618,7 @@ A timezone switcher on the grid shows the whole schedule as a specific presenter
 
 ### 10.1 The working grid and the published schedule
 
-> **Designed** (5 October 2026), decisions confirmed by the team the same day, not built. The grid the organizers drag around is a draft; speakers see a snapshot that only changes when an organizer publishes the schedule.
+> **Built** (5 October 2026, the same day it was designed and confirmed). The grid the organizers drag around is a draft; speakers see a snapshot that only changes when an organizer publishes the schedule.
 
 **The problem.** The grid is simultaneously the organizers' scratchpad and the speakers' truth. Placing a slot advances the session to `SCHEDULED` — which locks its title and slug, opens the speaker's "Confirm your scheduled slot" line, ticks the organizer's "Session scheduled" item and starts reminders — and every later move shows up live on the speaker's schedule page. Organizers build a program the way people fill a spreadsheet: everything goes on the grid, gets moved up and down for days, and goes out when it holds together. The portal must not narrate the shuffling.
 

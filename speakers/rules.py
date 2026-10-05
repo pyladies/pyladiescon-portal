@@ -21,7 +21,7 @@ from .models import (
     HandbookReadReceipt,
     Invitation,
     MediaAsset,
-    ScheduleSlot,
+    PublishedSlot,
     SessionPresenter,
 )
 
@@ -87,7 +87,8 @@ def invitation_accepted(item):
 
 @rule(AutoRule.SESSION_SCHEDULED)
 def session_scheduled(item):
-    return ScheduleSlot.objects.filter(session_id=item.session_id).exists()
+    """Scheduled means published to the speakers, not drafted (§10.1)."""
+    return PublishedSlot.objects.filter(session_id=item.session_id).exists()
 
 
 @rule(AutoRule.PRETIX_REGISTERED)

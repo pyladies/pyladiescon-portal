@@ -19,6 +19,11 @@ urlpatterns = [
         name="schedule_editor",
     ),
     path(
+        "schedule/publish/",
+        schedule_views.SchedulePublishView.as_view(),
+        name="schedule_publish",
+    ),
+    path(
         "schedule/clear/",
         schedule_views.ScheduleClearDayView.as_view(),
         name="schedule_clear_day",

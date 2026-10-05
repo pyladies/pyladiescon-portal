@@ -39,9 +39,9 @@ from volunteer.models import VolunteerProfile
 from .factories import (
     add_presenter,
     make_presenter,
+    make_published_slot,
     make_session,
     make_settings,
-    make_slot,
 )
 
 GATES = reverse("speakers:readiness_gates")
@@ -94,7 +94,7 @@ class TestWaitSources:
         assert slot_item.waiting_reason == "your slot is not scheduled yet"
         with pytest.raises(ChecklistError, match="not ready yet"):
             complete_item(slot_item, actor=world["ada"].user)
-        make_slot(world["session"])
+        make_published_slot(world["session"])
         assert refresh_for_conference(world["session"].conference) == 1
         slot_item.refresh_from_db()
         assert not slot_item.is_waiting and slot_item.waiting_reason == ""
@@ -588,7 +588,7 @@ class TestSeedsAndCloning:
     def test_the_nightly_task_refreshes_readiness(self, world, conference):
         from speakers.tasks import reevaluate_checklists_task
 
-        make_slot(world["session"])
+        make_published_slot(world["session"])
         assert "changed readiness" in reevaluate_checklists_task()
         assert not item(world["ada"], "Confirm your scheduled slot").is_waiting
 

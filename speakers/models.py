@@ -836,6 +836,11 @@ class Session(TimestampedModel):
     def has_slot(self):
         return ScheduleSlot.objects.filter(session=self).exists()
 
+    @property
+    def has_published_slot(self):
+        """Whether the speakers' schedule carries this session (§10.1)."""
+        return PublishedSlot.objects.filter(session=self).exists()
+
     def get_absolute_url(self):
         return reverse("speakers:session_detail", kwargs={"slug": self.slug})
 
@@ -931,19 +936,25 @@ class Session(TimestampedModel):
         if save:
             self.save(update_fields=["status"])
             session_confirmed.send(sender=Session, session=self)
-            # Pencilled in first, confirmed later: a slot placed while the
-            # session was a draft must schedule it now, or the identity
-            # lock and the slot-confirmation checklist line never happen
-            # (review of #460). With save=False the caller owns the
-            # follow-through, as it owns the signal.
-            if self.has_slot:
+            # Published while a draft, confirmed later: the snapshot
+            # already carries this session, and no later publish would
+            # see a diff to schedule it, so the confirmation finishes
+            # the job (review of #460, re-keyed by §10.1). With
+            # save=False the caller owns the follow-through, as it owns
+            # the signal.
+            if self.has_published_slot:
                 self.schedule()
 
     def schedule(self, save=True):
-        """CONFIRMED -> SCHEDULED once a slot exists."""
+        """CONFIRMED -> SCHEDULED once the published schedule carries it.
+
+        Scheduling means the speakers were told (§10.1): the working grid
+        is a draft, and the lock, the checklist lines and the reminders
+        all wait for "Publish schedule".
+        """
         self._require_status(SessionStatus.CONFIRMED, SessionStatus.SCHEDULED)
-        if not self.has_slot:
-            raise TransitionError("Give the session a schedule slot first.")
+        if not self.has_published_slot:
+            raise TransitionError("Publish the schedule with this session first.")
         self.status = SessionStatus.SCHEDULED
         if save:
             self.save(update_fields=["status"])
@@ -965,8 +976,10 @@ class Session(TimestampedModel):
     def publish(self, save=True):
         """SCHEDULED -> PUBLISHED and flips ``is_public`` on."""
         self._require_status(SessionStatus.SCHEDULED, SessionStatus.PUBLISHED)
-        if not self.has_slot:
-            raise TransitionError("A session needs a schedule slot to be published.")
+        if not self.has_published_slot:
+            raise TransitionError(
+                "A session needs a published schedule slot to go public."
+            )
         self.status = SessionStatus.PUBLISHED
         self.is_public = True
         if save:
@@ -1299,6 +1312,57 @@ class ScheduleSlot(TimestampedModel):
             )
             .select_related("presenter", "session")
             .order_by("presenter__display_name", "session__title")
+        )
+
+
+class PublishedSlot(TimestampedModel):
+    """The schedule as the speakers last saw it (design §10.1).
+
+    A snapshot of the working slot, written only by "Publish schedule":
+    the working grid (``ScheduleSlot``) is the organizers' draft, and
+    nothing a speaker reads — their schedule page, the checklist rules,
+    the calendar feeds, later the public program — looks anywhere but
+    here. ``ics_sequence`` counts the published moves of this session,
+    which is the feeds' SEQUENCE.
+    """
+
+    conference = models.ForeignKey(
+        "portal.Conference",
+        on_delete=models.PROTECT,
+        related_name="published_slots",
+        editable=False,
+    )
+    session = models.OneToOneField(
+        Session, on_delete=models.CASCADE, related_name="published_slot"
+    )
+    room = models.ForeignKey(
+        Room,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="published_slots",
+    )
+    start_utc = models.DateTimeField()
+    end_utc = models.DateTimeField()
+    published_at = models.DateTimeField()
+    ics_sequence = models.PositiveIntegerField(default=0, db_default=0)
+
+    class Meta:
+        ordering = ["start_utc"]
+
+    def __str__(self):
+        return f"{self.session} published for {self.start_utc:%Y-%m-%d %H:%M} UTC"
+
+    def save(self, *args, **kwargs):
+        self.conference_id = self.session.conference_id
+        super().save(*args, **kwargs)
+
+    def matches(self, slot):
+        """Whether the working slot still says what the speakers see."""
+        return (
+            self.room_id == slot.room_id
+            and self.start_utc == slot.start_utc
+            and self.end_utc == slot.end_utc
         )
 
 
