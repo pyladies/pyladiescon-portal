@@ -73,11 +73,6 @@ def grid_for_day(conference, day):
     """Everything the grid template needs for one day, in flat queries."""
     day_start, day_end = day_bounds(day)
     rooms = list(Room.objects.filter(conference=conference, is_active=True))
-    lanes = [{"pk": "", "name": "All rooms", "column": ALL_ROOMS_COLUMN}] + [
-        {"pk": room.pk, "name": room.name, "column": FIRST_ROOM_COLUMN + i}
-        for i, room in enumerate(rooms)
-    ]
-    last_column = FIRST_ROOM_COLUMN + len(rooms)
     slots = list(
         ScheduleSlot.objects.filter(
             conference=conference, start_utc__lt=day_end, end_utc__gt=day_start
@@ -86,6 +81,22 @@ def grid_for_day(conference, day):
         .select_related("session__kind", "room")
         .order_by("start_utc")
     )
+    # A deactivated room that still holds a slot stays a lane, marked
+    # retired, rather than its card being misdrawn in the all-rooms lane.
+    known = {room.pk for room in rooms}
+    for slot in slots:
+        if slot.room_id and slot.room_id not in known:
+            known.add(slot.room_id)
+            rooms.append(slot.room)
+    lanes = [{"pk": "", "name": "All rooms", "column": ALL_ROOMS_COLUMN}] + [
+        {
+            "pk": room.pk,
+            "name": room.name if room.is_active else f"{room.name} (retired)",
+            "column": FIRST_ROOM_COLUMN + i,
+        }
+        for i, room in enumerate(rooms)
+    ]
+    last_column = FIRST_ROOM_COLUMN + len(rooms)
     warnings = presenter_warnings(slots)
     column = {room.pk: FIRST_ROOM_COLUMN + i for i, room in enumerate(rooms)}
     cards = []
@@ -95,7 +106,7 @@ def grid_for_day(conference, day):
         if slot.room_id is None:
             start_column, end_column = ALL_ROOMS_COLUMN, last_column
         else:
-            start_column = column.get(slot.room_id, ALL_ROOMS_COLUMN)
+            start_column = column[slot.room_id]
             end_column = start_column + 1
         cards.append(
             {

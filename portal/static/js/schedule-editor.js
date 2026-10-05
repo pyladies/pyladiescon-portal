@@ -44,8 +44,17 @@
             list: list ? list.scrollTop : 0
         };
         return fetch(url)
-            .then(function (response) { return response.text(); })
+            .then(function (response) {
+                /* A redirect means the session expired: reload for the
+                 * login page rather than injecting it into the grid. */
+                if (response.redirected) {
+                    window.location.reload();
+                    return "";
+                }
+                return response.text();
+            })
             .then(function (html) {
+                if (!html) return;
                 board().innerHTML = html;
                 var freshGrid = board().querySelector(".schedule-scroll");
                 if (freshGrid) {

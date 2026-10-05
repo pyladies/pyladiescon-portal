@@ -158,11 +158,14 @@ class TestEditorPage:
         assert card["row"] == FIRST_TIME_ROW + 94
         assert card["span"] == 2
 
-    def test_inactive_room_slot_still_renders(self, conference, enabled):
-        room = make_room(conference, is_active=False)
+    def test_a_retired_room_with_a_slot_keeps_its_lane(self, conference, enabled):
+        room = make_room(conference, name="old-stage", is_active=False)
         make_slot(make_session(conference), room=room, start_utc=T0)
         grid = grid_for_day(conference, date(2026, 12, 5))
-        assert grid["cards"][0]["start_column"] == ALL_ROOMS_COLUMN
+        lane = [lane for lane in grid["lanes"] if lane["pk"] == room.pk]
+        assert lane and lane[0]["name"] == "old-stage (retired)"
+        assert grid["cards"][0]["start_column"] == lane[0]["column"]
+        assert grid["cards"][0]["is_band"] is False
 
     def test_double_booking_is_flagged_on_both_cards(
         self, client, organizer, enabled, conference
@@ -214,6 +217,8 @@ class TestEditorPage:
         assert schedule_days(conference) == [date.today()]
 
     def test_program_item_created_inline(self, client, organizer, enabled, conference):
+        conference.start_date = conference.end_date = date(2026, 12, 5)
+        conference.save()
         client.force_login(organizer)
         kind = session_type(conference, "BREAK")
         response = client.post(
@@ -618,3 +623,92 @@ class TestUnscheduleAll:
             reverse("speakers:schedule_clear_day"), {"day": "2026-12-05"}
         )
         assert response.status_code == 403
+
+
+@pytest.mark.django_db
+class TestReviewHardening:
+    """The #459 review: strict targets, bounded input, no half-writes."""
+
+    def test_clear_refuses_an_unrecognised_day(
+        self, client, organizer, enabled, conference
+    ):
+        session = make_session(conference)
+        make_slot(session, start_utc=T0)
+        client.force_login(organizer)
+        for value in ("2026-12-20", "garbage", ""):
+            response = client.post(
+                reverse("speakers:schedule_clear_day"), {"day": value}, follow=True
+            )
+            assert "nothing was unscheduled" in response.content.decode()
+        session.refresh_from_db()
+        assert session.has_slot is True
+        assert not ActivityLog.objects.filter(action="session.unscheduled").exists()
+
+    def test_a_stale_room_keeps_the_item_off_the_grid(
+        self, client, organizer, enabled, conference
+    ):
+        client.force_login(organizer)
+        for value in ("9999", "abc"):
+            response = client.post(
+                EDITOR,
+                {
+                    "kind": session_type(conference, "BREAK").pk,
+                    "title": f"Break {value}",
+                    "start": T0.isoformat(),
+                    "room": value,
+                },
+                follow=True,
+            )
+            created = Session.objects.get(title=f"Break {value}")
+            assert created.has_slot is False
+            assert "could not place it" in response.content.decode()
+            assert "does not exist in this edition" in response.content.decode()
+
+    def test_mangled_room_values_answer_400(
+        self, client, organizer, enabled, conference
+    ):
+        session = make_session(conference)
+        client.force_login(organizer)
+        for value in ("abc", ["1"]):
+            response = send(client, session, {"room": value, "start": T0.isoformat()})
+            assert response.status_code == 400
+            assert "does not exist" in response.json()["errors"][0]
+        assert session.has_slot is False
+
+    def test_duration_is_capped_at_a_day(self, client, organizer, enabled, conference):
+        session = make_session(conference)
+        make_slot(session, start_utc=T0)
+        client.force_login(organizer)
+        for minutes in (10**9, 10**12, 1441):
+            assert send(client, session, {"duration": minutes}).status_code == 400
+        end = T0 + timedelta(days=30)
+        response = send(client, session, {"end": end.isoformat()})
+        assert response.status_code == 400
+        assert "longer than a day" in response.json()["errors"][0]
+        assert send(client, session, {"duration": 1440}).status_code == 200
+
+    def test_moving_a_published_session_says_so(
+        self, client, organizer, enabled, conference
+    ):
+        session = make_session(conference, kind="PANEL")
+        add_presenter(session, make_presenter(conference), confirmed=True)
+        session.confirm()
+        make_slot(session, start_utc=T0)
+        session.schedule()
+        session.publish()
+        client.force_login(organizer)
+        later = T0 + timedelta(hours=2)
+        response = send(client, session, {"start": later.isoformat()})
+        assert response.status_code == 200
+        assert any("published" in w for w in response.json()["warnings"])
+
+    def test_the_redirect_day_is_sanitised(
+        self, client, organizer, enabled, conference
+    ):
+        client.force_login(organizer)
+        response = client.post(
+            EDITOR + "?day=not-a-day",
+            {"kind": session_type(conference, "BREAK").pk, "title": "Pause"},
+        )
+        assert response.status_code == 302
+        assert "not-a-day" not in response.url

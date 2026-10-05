@@ -15,6 +15,7 @@ from datetime import timezone as dt_timezone
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import ValidationError
+from django.db import transaction
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse
@@ -26,6 +27,7 @@ from .forms import ProgramItemForm
 from .mixins import SpeakerOrganizerRequiredMixin
 from .models import ActivityLog, Room, ScheduleSlot, Session
 from .schedule import (
+    ROWS_PER_DAY,
     STEP_MINUTES,
     day_bounds,
     grid_for_day,
@@ -34,9 +36,30 @@ from .schedule import (
     unscheduled_sessions,
 )
 
+MAX_SLOT_MINUTES = ROWS_PER_DAY * STEP_MINUTES
+
 
 class SlotError(Exception):
     """A slot mutation the endpoint refuses; the message goes to the page."""
+
+
+def _resolve_room(conference, value):
+    """A room of this edition, or None for the all-rooms lane.
+
+    Strict on purpose, and shared by both write paths: a stale or
+    mangled pk is a refusal with a reason, never a silent fall-back to
+    the all-rooms band (which would block every room) and never a 500.
+    """
+    if value in (None, ""):
+        return None
+    try:
+        pk = int(value)
+    except (TypeError, ValueError):
+        raise SlotError("That room does not exist in this edition.")
+    room = Room.objects.filter(conference=conference, pk=pk).first()
+    if room is None:
+        raise SlotError("That room does not exist in this edition.")
+    return room
 
 
 def _parse_day(value, days):
@@ -107,22 +130,23 @@ class ScheduleEditorView(
                 self.get_context_data(program_item_form=form)
             )
         form.instance.status = SessionStatus.CONFIRMED
-        session = form.save()
-        ActivityLog.record(
-            self.conference,
-            "session.created",
-            target=session,
-            actor=request.user,
-            program_item=True,
-        )
-        placed = self.place(request, session)
+        with transaction.atomic():
+            session = form.save()
+            ActivityLog.record(
+                self.conference,
+                "session.created",
+                target=session,
+                actor=request.user,
+                program_item=True,
+            )
+            placed = self.place(request, session)
         if placed is None:
             messages.success(
                 request, f"Added “{session.title}”; drag it onto the grid."
             )
-        day = self.request.GET.get("day", "")
+        day = _parse_day(self.request.GET.get("day"), schedule_days(self.conference))
         url = reverse("speakers:schedule_editor")
-        return redirect(f"{url}?day={day}" if day else url)
+        return redirect(f"{url}?day={day:%Y-%m-%d}")
 
     def place(self, request, session):
         """Give the fresh program item the clicked cell's slot, if any.
@@ -135,10 +159,8 @@ class ScheduleEditorView(
         if not start:
             return None
         slot = ScheduleSlot(session=session)
-        room = request.POST.get("room")
-        if room:
-            slot.room = Room.objects.filter(conference=self.conference, pk=room).first()
         try:
+            slot.room = _resolve_room(self.conference, request.POST.get("room"))
             slot.start_utc = _parse_moment(start, "start")
             slot.save()
         except (SlotError, ValidationError) as error:
@@ -174,28 +196,41 @@ class ScheduleClearDayView(LoginRequiredMixin, SpeakerOrganizerRequiredMixin, Vi
     """
 
     def post(self, request):
-        days = schedule_days(self.conference)
-        day = _parse_day(request.POST.get("day"), days)
+        url = reverse("speakers:schedule_editor")
+        try:
+            day = date.fromisoformat(request.POST.get("day", ""))
+        except ValueError:
+            day = None
+        if day is None or day not in schedule_days(self.conference):
+            # A destructive endpoint refuses an unrecognised target
+            # rather than picking another: the tabs may have changed
+            # under this organizer since the page rendered.
+            messages.warning(
+                request,
+                "That day is not on the schedule any more; nothing was " "unscheduled.",
+            )
+            return redirect(url)
         start, end = day_bounds(day)
         slots = ScheduleSlot.objects.filter(
             conference=self.conference, start_utc__lt=end, end_utc__gt=start
         ).select_related("session")
         cleared, kept = 0, 0
-        for slot in slots:
-            session = slot.session
-            if session.status == SessionStatus.PUBLISHED:
-                kept += 1
-                continue
-            slot.delete()
-            if session.status == SessionStatus.SCHEDULED:
-                session.unschedule()
-            ActivityLog.record(
-                self.conference,
-                "session.unscheduled",
-                target=session,
-                actor=request.user,
-            )
-            cleared += 1
+        with transaction.atomic():
+            for slot in slots:
+                session = slot.session
+                if session.status == SessionStatus.PUBLISHED:
+                    kept += 1
+                    continue
+                slot.delete()
+                if session.status == SessionStatus.SCHEDULED:
+                    session.unschedule()
+                ActivityLog.record(
+                    self.conference,
+                    "session.unscheduled",
+                    target=session,
+                    actor=request.user,
+                )
+                cleared += 1
         label = day.strftime("%A %-d %B")
         messages.success(request, f"Took {cleared} session(s) off {label}.")
         if kept:
@@ -204,7 +239,6 @@ class ScheduleClearDayView(LoginRequiredMixin, SpeakerOrganizerRequiredMixin, Vi
                 f"{kept} published session(s) kept their slot; a published "
                 "session needs one.",
             )
-        url = reverse("speakers:schedule_editor")
         return redirect(f"{url}?day={day:%Y-%m-%d}")
 
 
@@ -223,22 +257,31 @@ class SlotView(LoginRequiredMixin, SpeakerOrganizerRequiredMixin, View):
         session = self.get_session(slug)
         try:
             payload = self.read(request)
-            slot, created = self.apply(session, payload)
+            with transaction.atomic():
+                slot, created = self.apply(session, payload)
+                if session.status == SessionStatus.CONFIRMED:
+                    session.schedule()
+                ActivityLog.record(
+                    self.conference,
+                    "session.scheduled" if created else "session.rescheduled",
+                    target=session,
+                    actor=request.user,
+                    start=slot.start_utc.isoformat(),
+                    end=slot.end_utc.isoformat(),
+                    room=slot.room.name if slot.room_id else "all rooms",
+                )
         except SlotError as error:
             return JsonResponse({"errors": [str(error)]}, status=400)
         except ValidationError as error:
             return JsonResponse({"errors": error.messages}, status=400)
-        if session.status == SessionStatus.CONFIRMED:
-            session.schedule()
-        ActivityLog.record(
-            self.conference,
-            "session.scheduled" if created else "session.rescheduled",
-            target=session,
-            actor=request.user,
-            start=slot.start_utc.isoformat(),
-            end=slot.end_utc.isoformat(),
-            room=slot.room.name if slot.room_id else "all rooms",
-        )
+        warnings = [
+            f"{link.presenter.display_name} is also in “{link.session.title}”"
+            for link in slot.presenter_clashes()
+        ]
+        if session.status == SessionStatus.PUBLISHED:
+            warnings.insert(
+                0, "This session is published: the public schedule just moved."
+            )
         return JsonResponse(
             {
                 "ok": True,
@@ -246,11 +289,7 @@ class SlotView(LoginRequiredMixin, SpeakerOrganizerRequiredMixin, View):
                 "status": session.status,
                 "start": slot.start_utc.isoformat(),
                 "end": slot.end_utc.isoformat(),
-                "warnings": [
-                    f"{link.presenter.display_name} is also in "
-                    f"“{link.session.title}”"
-                    for link in slot.presenter_clashes()
-                ],
+                "warnings": warnings,
             }
         )
 
@@ -269,15 +308,16 @@ class SlotView(LoginRequiredMixin, SpeakerOrganizerRequiredMixin, View):
                 },
                 status=400,
             )
-        slot.delete()
-        if session.status == SessionStatus.SCHEDULED:
-            session.unschedule()
-        ActivityLog.record(
-            self.conference,
-            "session.unscheduled",
-            target=session,
-            actor=request.user,
-        )
+        with transaction.atomic():
+            slot.delete()
+            if session.status == SessionStatus.SCHEDULED:
+                session.unschedule()
+            ActivityLog.record(
+                self.conference,
+                "session.unscheduled",
+                target=session,
+                actor=request.user,
+            )
         return JsonResponse({"ok": True, "session": session.slug})
 
     def read(self, request):
@@ -307,7 +347,7 @@ class SlotView(LoginRequiredMixin, SpeakerOrganizerRequiredMixin, View):
             slot = ScheduleSlot(session=session)
         length = None if created else slot.end_utc - slot.start_utc
         if "room" in payload:
-            slot.room = self.resolve_room(payload["room"])
+            slot.room = _resolve_room(self.conference, payload["room"])
         if "start" in payload:
             slot.start_utc = _parse_moment(payload["start"], "start")
             slot.end_utc = slot.start_utc + length if length else None
@@ -318,21 +358,18 @@ class SlotView(LoginRequiredMixin, SpeakerOrganizerRequiredMixin, View):
                 minutes = int(payload["duration"])
             except (TypeError, ValueError):
                 minutes = 0
-            if minutes < STEP_MINUTES:
-                raise SlotError(f"A slot is at least {STEP_MINUTES} minutes.")
+            if not STEP_MINUTES <= minutes <= MAX_SLOT_MINUTES:
+                raise SlotError(
+                    f"A slot runs between {STEP_MINUTES} minutes and a day."
+                )
             slot.end_utc = slot.start_utc + timedelta(minutes=minutes)
         elif "end" in payload:
             slot.end_utc = (
                 _parse_moment(payload["end"], "end") if payload["end"] else None
             )
+        if slot.end_utc is not None and slot.end_utc - slot.start_utc > timedelta(
+            minutes=MAX_SLOT_MINUTES
+        ):
+            raise SlotError("A slot cannot run longer than a day.")
         slot.save()
         return slot, created
-
-    def resolve_room(self, value):
-        """A room of this edition, or None for the all-rooms lane."""
-        if value in (None, ""):
-            return None
-        room = Room.objects.filter(conference=self.conference, pk=value).first()
-        if room is None:
-            raise SlotError("That room does not exist in this edition.")
-        return room
