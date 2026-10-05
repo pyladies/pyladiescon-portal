@@ -8,6 +8,8 @@ attributes this module's cards carry).
 
 from datetime import datetime, timedelta, timezone
 
+from django.db.models import Q
+
 from .clock import today
 from .constants import OFF_SCHEDULE_STATUSES
 from .models import (
@@ -169,6 +171,47 @@ def presenter_warnings(slots):
                     f"{presenter.display_name} is also in " f"“{other.session.title}”"
                 )
     return warnings
+
+
+def presenter_schedule(conference, presenter):
+    """The schedule as one presenter may see it, by their local day.
+
+    Public sessions, plus the presenter's own whatever their status short
+    of the off-schedule ones; an unpublished entry of their own carries a
+    draft flag for the "not yet public" badge (design §2.4). Times are
+    pre-formatted in the presenter's timezone, so the template never
+    re-converts them (Django's date filter would pull aware datetimes
+    back to UTC).
+    """
+    mine = set(
+        SessionPresenter.objects.filter(presenter=presenter).values_list(
+            "session_id", flat=True
+        )
+    )
+    slots = (
+        ScheduleSlot.objects.filter(conference=conference)
+        .exclude(session__status__in=OFF_SCHEDULE_STATUSES)
+        .filter(Q(session__is_public=True) | Q(session_id__in=mine))
+        .select_related("session__kind", "room")
+        .order_by("start_utc")
+    )
+    tz = presenter.tzinfo
+    days = []
+    for slot in slots:
+        start = slot.start_utc.astimezone(tz)
+        entry = {
+            "session": slot.session,
+            "room": slot.room,
+            "start_label": start.strftime("%H:%M"),
+            "end_label": slot.end_utc.astimezone(tz).strftime("%H:%M"),
+            "is_mine": slot.session_id in mine,
+            "is_draft": not slot.session.is_public,
+        }
+        if days and days[-1]["day"] == start.date():
+            days[-1]["entries"].append(entry)
+        else:
+            days.append({"day": start.date(), "entries": [entry]})
+    return days
 
 
 def unscheduled_sessions(conference):

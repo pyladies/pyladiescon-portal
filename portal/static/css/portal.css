@@ -677,3 +677,9 @@ details.card[open] > summary.card-header::before {
     pointer-events: none;
     background: var(--bs-body-bg, #fff);
 }
+
+/* The presenter's own rows on their schedule page. */
+.schedule-mine {
+    background: #f6faff;
+    border-left: 0.25rem solid #6ea8fe;
+}

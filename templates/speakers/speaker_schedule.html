@@ -13,10 +13,67 @@
     {% include "speakers/_speaker_rail.html" with active="schedule" %}
 {% endblock sidebar %}
 {% block content %}
-    <h1 class="h3 mb-1">
-        {% trans "Schedule" %}
-    </h1>
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-1">
+        <h1 class="h3 mb-0">
+            {% trans "Schedule" %}
+        </h1>
+        {% trans "Arrives with the calendar feeds (task 4.4)." as feed_hint %}
+        <button class="btn btn-outline-secondary btn-sm"
+                type="button"
+                disabled
+                title="{{ feed_hint }}">
+            <i class="fa-solid fa-calendar-plus" aria-hidden="true"></i> {% trans "Subscribe in your calendar" %}
+        </button>
+    </div>
     <p class="text-secondary">
-        {% blocktranslate with tz=presenter.timezone %}The schedule appears here in your timezone ({{ tz }}) once the organizers start placing sessions.{% endblocktranslate %}
+        {% url 'speakers:my_profile' as profile_url %}
+        {% blocktrans with tz=presenter.timezone %}Times are shown in your timezone, {{ tz }}; change it on <a href="{{ profile_url }}">your profile</a>. Your sessions are marked, and a session that is not public yet is visible only to you.{% endblocktrans %}
     </p>
+    {% for group in schedule_days %}
+        <h2 class="h5 mt-4 mb-2">
+            {{ group.day|date:"l j F" }}
+        </h2>
+        <div class="list-group mb-2">
+            {% for entry in group.entries %}
+                <div class="list-group-item {% if entry.is_mine %}schedule-mine{% endif %}">
+                    <div class="d-flex flex-wrap align-items-baseline gap-2">
+                        <span class="text-nowrap font-monospace small">{{ entry.start_label }}–{{ entry.end_label }}</span>
+                        {% if entry.is_mine %}
+                            <a class="fw-semibold"
+                               href="{% url 'speakers:my_session_detail' entry.session.slug %}">{{ entry.session.title }}</a>
+                        {% else %}
+                            <span>{{ entry.session.title }}</span>
+                        {% endif %}
+                        <span class="small text-secondary">{{ entry.session.kind.name }}
+                            ·
+                            {% if entry.room %}
+                                {{ entry.room.name }}
+                            {% else %}
+                                {% trans "all rooms" %}
+                            {% endif %}
+                        </span>
+                        {% if entry.is_mine %}
+                            <span class="badge text-bg-primary">{% trans "Your session" %}</span>
+                        {% endif %}
+                        {% if entry.is_mine and entry.is_draft %}
+                            <span class="badge text-bg-warning">{% trans "Not yet public" %}</span>
+                        {% endif %}
+                        {% if entry.is_mine %}
+                            {% trans "Arrives with the calendar feeds (task 4.4)." as ics_hint %}
+                            <button class="btn btn-link btn-sm text-secondary ms-auto p-0"
+                                    type="button"
+                                    disabled
+                                    title="{{ ics_hint }}">
+                                {% trans "Add to calendar" %}
+                            </button>
+                        {% endif %}
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    {% empty %}
+        <p class="text-secondary mt-4">
+            {% trans "Nothing is placed on the schedule yet; this page fills in as the organizers build it." %}
+        </p>
+    {% endfor %}
 {% endblock content %}
