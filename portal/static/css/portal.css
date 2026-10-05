@@ -639,15 +639,27 @@ details.card[open] > summary.card-header::before {
 .schedule-drop-preview {
     display: none;
     z-index: 3;
-    padding: 0.1rem 0.4rem;
-    font-size: 0.75rem;
-    font-weight: 600;
-    color: #084298;
+    justify-content: flex-end;
+    align-items: flex-end;
     margin: 1px;
     pointer-events: none;
     background: rgba(207, 226, 255, 0.55);
     border: 2px dashed #6ea8fe;
     border-radius: 0.35rem;
+}
+/* The minute count rides the edge being dragged, on its own chip, so
+   it never sits over the card's title. */
+.schedule-drop-label {
+    margin: 0.15rem;
+    padding: 0 0.35rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #fff;
+    background: #084298;
+    border-radius: 0.25rem;
+}
+.schedule-drop-label:empty {
+    display: none;
 }
 
 /* The off-screen clone a drag's image is painted from: rendered (so

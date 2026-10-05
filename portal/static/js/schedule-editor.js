@@ -77,6 +77,9 @@
         if (!ghost) {
             ghost = document.createElement("div");
             ghost.className = "schedule-drop-preview";
+            var label = document.createElement("span");
+            label.className = "schedule-drop-label";
+            ghost.appendChild(label);
             grid.appendChild(ghost);
         }
         return ghost;
@@ -85,7 +88,10 @@
     function hideDropPreview() {
         var grid = board().querySelector(".schedule-grid");
         var ghost = grid && grid.querySelector(".schedule-drop-preview");
-        if (ghost) ghost.style.display = "none";
+        if (ghost) {
+            ghost.style.display = "none";
+            ghost.querySelector(".schedule-drop-label").textContent = "";
+        }
     }
 
     document.addEventListener("dragstart", function (event) {
@@ -126,7 +132,7 @@
         ghost.style.gridColumn = cell.dataset.room
             ? cell.style.gridColumn
             : "2 / -1";
-        ghost.style.display = "block";
+        ghost.style.display = "flex";
     });
     document.addEventListener("dragleave", function (event) {
         var cell = event.target.closest(".schedule-cell");
@@ -181,8 +187,9 @@
             resizing.row + " / span " +
             Math.max(1, Math.round(minutes / STEP_MINUTES));
         ghost.style.gridColumn = resizing.column;
-        ghost.textContent = minutes + " min";
-        ghost.style.display = "block";
+        ghost.querySelector(".schedule-drop-label").textContent =
+            minutes + " min";
+        ghost.style.display = "flex";
     });
     document.addEventListener("pointerup", function (event) {
         if (!resizing) return;
