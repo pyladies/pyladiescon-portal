@@ -75,6 +75,15 @@
         if (!card) return;
         dragged = card.dataset.slotUrl;
         event.dataTransfer.effectAllowed = "move";
+        /* Pin the ghost to the card alone: with a stray text selection
+         * on the page, Chrome would otherwise drag the whole selection,
+         * sidebar panels and all. */
+        var rect = card.getBoundingClientRect();
+        event.dataTransfer.setDragImage(
+            card,
+            event.clientX - rect.left,
+            event.clientY - rect.top
+        );
     });
     document.addEventListener("dragover", function (event) {
         var cell = event.target.closest(".schedule-cell");

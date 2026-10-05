@@ -624,3 +624,11 @@ details.card[open] > summary.card-header::before {
 .schedule-band .schedule-card-body {
     flex: 0 1 auto;
 }
+
+/* Draggables never join a text selection: a drag that starts inside a
+   selection would carry the whole selection as its ghost, sidebar
+   panels included. */
+.schedule-card,
+.schedule-pending {
+    user-select: none;
+}
