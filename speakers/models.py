@@ -1193,10 +1193,20 @@ class ScheduleSlot(TimestampedModel):
 
         The window must end after it starts, and may not share a room
         with another slot, nor cross an every-room band, except that two
-        program-kind bands may coexist.
+        program-kind bands may coexist. A session still waiting for an
+        answer cannot hold a slot at all: the overlap rules look through
+        PROPOSED and REJECTED on the other side, which is only safe
+        while nothing in those statuses can reach the grid, and
+        ``approve()`` would otherwise carry a quietly conflicting slot
+        straight onto it.
         """
         if self.session_id is None or self.start_utc is None:
             return
+        if self.session.status in UNACCEPTED_STATUSES:
+            raise ValidationError(
+                "This session is waiting for an answer; approve the "
+                "proposal before scheduling it."
+            )
         if not self.end_utc:
             self.end_utc = self.start_utc + timedelta(
                 minutes=self.session.duration_minutes

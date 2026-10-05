@@ -161,3 +161,49 @@ class TestPresenterClashes:
         place(first, room=make_room(conference))
         slot = place(second, minutes=30, room=make_room(conference))
         assert list(slot.presenter_clashes()) == []
+
+
+@pytest.mark.django_db
+class TestProposalsStayOffTheGrid:
+    """An unanswered proposal cannot hold a slot (PR #458 review).
+
+    The overlap rules look through PROPOSED and REJECTED on the other
+    side, so letting one hold a slot would let approve() carry a
+    quietly conflicting slot straight onto the grid.
+    """
+
+    def test_a_proposal_cannot_be_slotted(self, conference):
+        from speakers.constants import SessionStatus
+
+        proposed = make_session(conference, status=SessionStatus.PROPOSED)
+        with pytest.raises(ValidationError) as excinfo:
+            place(proposed)
+        assert "waiting for an answer" in str(excinfo.value)
+        rejected = make_session(conference, status=SessionStatus.REJECTED)
+        with pytest.raises(ValidationError):
+            place(rejected)
+        assert ScheduleSlot.objects.count() == 0
+
+    def test_the_reviewers_scenario_dies_at_step_one(self, conference):
+        """Slot a proposal, slot a live session over it, approve: the
+        first step now refuses, so approve() can never surface a
+        conflicting slot."""
+        from speakers.constants import SessionStatus
+
+        proposed = make_session(conference, status=SessionStatus.PROPOSED)
+        with pytest.raises(ValidationError):
+            place(proposed)
+        live = make_session(conference)
+        place(live)
+        proposed.approve()
+        assert proposed.status == SessionStatus.DRAFT
+        assert ScheduleSlot.objects.count() == 1
+
+    def test_a_cancelled_sessions_slot_is_still_a_record(self, conference):
+        """Cancelled is deliberately not refused: the slot stays as a
+        record (its time is already freed for others)."""
+        session = make_session(conference)
+        slot = place(session)
+        session.cancel()
+        slot.save()
+        assert ScheduleSlot.objects.filter(pk=slot.pk).exists()

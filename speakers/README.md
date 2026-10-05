@@ -1022,7 +1022,12 @@ installed; this app keeps small factory functions in `tests/speakers/factories.p
   slot stays as a record but frees its time (`OFF_SCHEDULE_STATUSES`). A
   presenter booked twice at once is deliberately NOT an error, because a
   moderator moving between rooms is legitimate; `presenter_clashes()` hands
-  the editor the links to warn about.
+  the editor the links to warn about. A session in `UNACCEPTED_STATUSES`
+  cannot hold a slot at all, which is what lets the rules look through
+  those statuses on the other side (an approved proposal would otherwise
+  carry a quietly conflicting slot onto the grid). The checks are
+  application-level; design §8.5 names the Postgres exclusion constraint
+  that would make them a database guarantee.
 - Status changes are model methods on `Session` (`mark_invited`, `confirm`,
   `schedule`, `publish`, `cancel`) that raise `speakers.models.TransitionError`
   when a precondition fails; views turn that into a message. Accepting an
