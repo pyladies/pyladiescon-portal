@@ -58,6 +58,14 @@ class TestWriter:
         assert lines[1] == " " + "S" * 5
         assert fold("short") == ["short"]
 
+    def test_folding_never_splits_a_utf8_sequence(self):
+        """38 two-byte characters put the 75-octet cut mid-sequence; the
+        fold backs off to the character boundary."""
+        lines = fold("é" * 38)
+        assert lines[0] == "é" * 37
+        assert lines[1] == " é"
+        assert all(line.encode("utf-8") for line in lines)
+
 
 @pytest.mark.django_db
 class TestPublicFeed:
