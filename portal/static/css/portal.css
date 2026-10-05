@@ -661,6 +661,11 @@ details.card[open] > summary.card-header::before {
 .schedule-drop-label:empty {
     display: none;
 }
+/* A band spans the whole grid, so a right-hand chip can sit off
+   screen; its chip joins the band's own controls at the left edge. */
+.schedule-drop-preview.schedule-drop-band {
+    justify-content: flex-start;
+}
 
 /* The off-screen clone a drag's image is painted from: rendered (so
    Chrome can rasterize it) but far outside the viewport. Snapshotting

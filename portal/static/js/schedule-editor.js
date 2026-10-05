@@ -36,10 +36,24 @@
 
     function refresh() {
         var url = board().dataset.boardUrl;
+        var grid = board().querySelector(".schedule-scroll");
+        var list = board().querySelector(".schedule-unscheduled");
+        var kept = {
+            top: grid ? grid.scrollTop : 0,
+            left: grid ? grid.scrollLeft : 0,
+            list: list ? list.scrollTop : 0
+        };
         return fetch(url)
             .then(function (response) { return response.text(); })
             .then(function (html) {
                 board().innerHTML = html;
+                var freshGrid = board().querySelector(".schedule-scroll");
+                if (freshGrid) {
+                    freshGrid.scrollTop = kept.top;
+                    freshGrid.scrollLeft = kept.left;
+                }
+                var freshList = board().querySelector(".schedule-unscheduled");
+                if (freshList) freshList.scrollTop = kept.list;
                 applyTimezone();
             });
     }
@@ -90,6 +104,7 @@
         var ghost = grid && grid.querySelector(".schedule-drop-preview");
         if (ghost) {
             ghost.style.display = "none";
+            ghost.classList.remove("schedule-drop-band");
             ghost.querySelector(".schedule-drop-label").textContent = "";
         }
     }
@@ -167,7 +182,8 @@
             rowHeight: cell ? cell.offsetHeight : 18,
             startY: event.clientY,
             row: parseInt(card.style.gridRow, 10),
-            column: card.style.gridColumn
+            column: card.style.gridColumn,
+            band: card.classList.contains("schedule-band")
         };
         event.preventDefault();
     });
@@ -187,6 +203,7 @@
             resizing.row + " / span " +
             Math.max(1, Math.round(minutes / STEP_MINUTES));
         ghost.style.gridColumn = resizing.column;
+        ghost.classList.toggle("schedule-drop-band", resizing.band);
         ghost.querySelector(".schedule-drop-label").textContent =
             minutes + " min";
         ghost.style.display = "flex";
