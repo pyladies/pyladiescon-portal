@@ -591,3 +591,10 @@ details.card[open] > summary.card-header::before {
 .schedule-pending.schedule-card-open {
     z-index: 20;
 }
+
+/* On a full-width band the title block does not grow, so the pencil and
+   the warning sit beside the title in the all-rooms lane instead of
+   drifting over the last room's column. */
+.schedule-band .schedule-card-body {
+    flex: 0 1 auto;
+}

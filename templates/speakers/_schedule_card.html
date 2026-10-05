@@ -13,7 +13,7 @@ dict), lanes, days.
      style="grid-row: {{ card.row }} / span {{ card.span }};
             grid-column: {{ card.start_column }} / {{ card.end_column }}">
 {# djlint:on #}
-<div class="d-flex justify-content-between align-items-start gap-1">
+<div class="d-flex align-items-start gap-1 {% if not card.is_band %}justify-content-between{% endif %}">
     <div class="schedule-card-body">
         <a href="{{ card.session.get_absolute_url }}"
            class="fw-semibold schedule-card-title">{{ card.session.title }}</a>
