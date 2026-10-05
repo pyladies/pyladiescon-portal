@@ -96,15 +96,20 @@
             minutes: parseInt(card.dataset.minutes, 10) || 30
         };
         event.dataTransfer.effectAllowed = "move";
-        /* Pin the ghost to the card alone: with a stray text selection
-         * on the page, Chrome would otherwise drag the whole selection,
-         * sidebar panels and all. */
+        /* The drag image is painted from an off-screen clone: snapshots
+         * of the live element pulled overlapping neighbours (and once,
+         * a stray text selection) into the picture. */
         var rect = card.getBoundingClientRect();
+        var image = card.cloneNode(true);
+        image.classList.add("schedule-drag-image");
+        image.style.width = Math.round(rect.width) + "px";
+        document.body.appendChild(image);
         event.dataTransfer.setDragImage(
-            card,
+            image,
             event.clientX - rect.left,
             event.clientY - rect.top
         );
+        setTimeout(function () { image.remove(); }, 0);
     });
     document.addEventListener("dragover", function (event) {
         if (!dragged) return;
