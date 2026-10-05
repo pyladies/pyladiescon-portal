@@ -17,10 +17,23 @@
         <h1 class="h3 mb-0">
             {% trans "Schedule" %}
         </h1>
-        <a class="btn btn-outline-secondary btn-sm"
-           href="{{ personal_feed_url }}">
-            <i class="fa-solid fa-calendar-plus" aria-hidden="true"></i> {% trans "Subscribe in your calendar" %}
-        </a>
+        <details class="schedule-card-menu">
+            <summary class="btn btn-outline-secondary btn-sm">
+                <i class="fa-solid fa-calendar-plus" aria-hidden="true"></i> {% trans "Subscribe in your calendar" %}
+            </summary>
+            <div class="schedule-card-popover schedule-feed-popover card shadow p-2 vstack gap-2 text-start">
+                <a class="btn btn-primary btn-sm" href="{{ webcal_feed_url }}">
+                    {% trans "Open in your calendar app" %}
+                </a>
+                <label class="small mb-0">
+                    {% trans "Or paste this address into Google Calendar, under Other calendars, From URL. Your calendar then follows every published change by itself." %}
+                    <input class="form-control form-control-sm mt-1"
+                           type="text"
+                           readonly
+                           value="{{ personal_feed_url }}" />
+                </label>
+            </div>
+        </details>
     </div>
     <p class="text-secondary">
         {% url 'speakers:my_profile' as profile_url %}

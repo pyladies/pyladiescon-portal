@@ -203,7 +203,9 @@ class TestPersonalFeed:
         make_published_slot(session)
         client.force_login(user)
         content = client.get(reverse("speakers:my_schedule")).content.decode()
+        assert "webcal://" in content
         assert "/speakers/feeds/" in content
+        assert "From URL" in content
         assert "Add to calendar" in content
         assert "calendar.ics" in content
 

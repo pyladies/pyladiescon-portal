@@ -1559,12 +1559,18 @@ class SpeakerScheduleView(LoginRequiredMixin, PresenterRequiredMixin, TemplateVi
         context["conference"] = self.conference
         context["presenter"] = self.presenter
         context["schedule_days"] = presenter_schedule(self.conference, self.presenter)
-        context["personal_feed_url"] = self.request.build_absolute_uri(
+        feed_url = self.request.build_absolute_uri(
             reverse(
                 "speakers:presenter_feed",
                 args=[presenter_feed_token(self.presenter)],
             )
         )
+        context["personal_feed_url"] = feed_url
+        # webcal:// is how Apple Calendar and Outlook subscribe from a
+        # click; Google Calendar wants the https address pasted instead.
+        context["webcal_feed_url"] = feed_url.replace(
+            "https://", "webcal://", 1
+        ).replace("http://", "webcal://", 1)
         return context
 
 

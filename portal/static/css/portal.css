@@ -714,3 +714,9 @@ details.card[open] > summary.card-header::before {
 .schedule-density-compact .schedule-hour {
     font-size: 0.65rem;
 }
+
+/* The subscribe popover holds a whole URL. */
+.schedule-feed-popover {
+    width: 22rem;
+    max-width: 90vw;
+}
