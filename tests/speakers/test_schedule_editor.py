@@ -816,6 +816,17 @@ class TestTrimmedWindow:
         by_title = {card["session"].pk: card["row"] for card in grid["cards"]}
         assert by_title[clean.pk] == FIRST_TIME_ROW + 5 * 4
 
+    def test_a_trim_that_saves_little_is_not_offered(self, conference, enabled):
+        """Slots near both midnight ends would trim four rows: a no-op
+        with a toggle link attached, so the whole day renders instead."""
+        early = make_session(conference, kind="TALK")
+        make_slot(early, start_utc=datetime(2026, 12, 5, 0, 15, tzinfo=timezone.utc))
+        late = make_session(conference, kind="TALK")
+        make_slot(late, start_utc=datetime(2026, 12, 5, 21, 30, tzinfo=timezone.utc))
+        grid = grid_for_day(conference, date(2026, 12, 5))
+        assert grid["trimmed"] is False
+        assert len(grid["rows"]) == 96
+
     def test_the_page_offers_the_toggle_and_the_density_switch(
         self, client, organizer, enabled, conference
     ):

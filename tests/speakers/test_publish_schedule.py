@@ -288,6 +288,21 @@ class TestPublishEmails:
         assert len(mail.outbox) == 1
         assert "taken off the schedule" in mail.outbox[0].body
 
+    def test_no_presenters_is_said_in_words(
+        self, client, organizer, enabled, conference, django_capture_on_commit_callbacks
+    ):
+        """Moving a presenter-less program item is not "0 emailed"."""
+        item = make_session(conference, kind="BREAK", status=SessionStatus.CONFIRMED)
+        make_slot(item, start_utc=T0 + timedelta(hours=8))
+        client.force_login(organizer)
+        with django_capture_on_commit_callbacks(execute=True):
+            response = client.post(PUBLISH, {"notify": "on"}, follow=True)
+        assert (
+            "The affected sessions have no presenters to email"
+            in response.content.decode()
+        )
+        assert mail.outbox == []
+
     def test_notify_off_is_silent(
         self, client, organizer, enabled, conference, django_capture_on_commit_callbacks
     ):

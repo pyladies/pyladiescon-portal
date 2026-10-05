@@ -262,11 +262,12 @@ class SchedulePublishView(LoginRequiredMixin, SpeakerOrganizerRequiredMixin, Vie
         notify = bool(request.POST.get("notify"))
         result = publish_schedule(self.conference, request.user, notify=notify)
         if result["placed"] or result["moved"] or result["removed"]:
-            told = (
-                f" {result['told']} presenter(s) were emailed."
-                if notify
-                else " No emails were sent."
-            )
+            if not notify:
+                told = " No emails were sent."
+            elif result["told"]:
+                told = f" {result['told']} presenter(s) were emailed."
+            else:
+                told = " The affected sessions have no presenters to email."
             messages.success(
                 request,
                 "Schedule published: "
