@@ -38,6 +38,23 @@
                     title="{{ preview_hint }}">
                 <i class="fa-solid fa-eye" aria-hidden="true"></i> {% trans "Preview as public" %}
             </button>
+            <details class="schedule-card-menu">
+                <summary class="btn btn-outline-danger btn-sm">
+                    <i class="fa-solid fa-calendar-xmark" aria-hidden="true"></i> {% trans "Unschedule all" %}
+                </summary>
+                <div class="schedule-card-popover card shadow p-2 vstack gap-2 text-start">
+                    <span class="small">
+                        {% blocktrans with day=day|date:"D j M" %}Takes every session on {{ day }} off the grid, back to Unscheduled. Published sessions keep their slot.{% endblocktrans %}
+                    </span>
+                    <form method="post" action="{% url 'speakers:schedule_clear_day' %}">
+                        {% csrf_token %}
+                        <input type="hidden" name="day" value="{{ day|date:'Y-m-d' }}" />
+                        <button class="btn btn-danger btn-sm" type="submit">
+                            {% trans "Unschedule all" %}
+                        </button>
+                    </form>
+                </div>
+            </details>
         </div>
     </div>
     <ul class="nav nav-tabs mb-3">

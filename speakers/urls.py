@@ -19,6 +19,11 @@ urlpatterns = [
         name="schedule_editor",
     ),
     path(
+        "schedule/clear/",
+        schedule_views.ScheduleClearDayView.as_view(),
+        name="schedule_clear_day",
+    ),
+    path(
         "sessions/<slug:slug>/slot/",
         schedule_views.SlotView.as_view(),
         name="session_slot",

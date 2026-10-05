@@ -557,3 +557,66 @@ class TestCellPanel:
         sometime = Session.objects.get(title="Sometime")
         assert sometime.has_slot is False
         assert "could not place it" in response.content.decode()
+
+
+@pytest.mark.django_db
+class TestUnscheduleAll:
+    def test_clears_the_shown_day_only(self, client, organizer, enabled, conference):
+        scheduled = make_session(conference, kind="PANEL")
+        add_presenter(scheduled, make_presenter(conference), confirmed=True)
+        scheduled.confirm()
+        make_slot(scheduled, room=make_room(conference), start_utc=T0)
+        scheduled.schedule()
+        draft = make_session(conference)
+        make_slot(draft, start_utc=T0 + timedelta(hours=4))
+        other_day = make_session(conference)
+        make_slot(other_day, start_utc=T0 + timedelta(days=2))
+        client.force_login(organizer)
+        response = client.post(
+            reverse("speakers:schedule_clear_day"), {"day": "2026-12-05"}
+        )
+        assertRedirects(response, EDITOR + "?day=2026-12-05")
+        scheduled.refresh_from_db()
+        draft.refresh_from_db()
+        assert scheduled.status == SessionStatus.CONFIRMED
+        assert scheduled.has_slot is False
+        assert draft.has_slot is False
+        assert draft.status == SessionStatus.DRAFT
+        assert other_day.has_slot is True
+        assert (
+            ActivityLog.objects.filter(action="session.unscheduled").count() == 2
+        )
+
+    def test_published_sessions_keep_their_slot(
+        self, client, organizer, enabled, conference
+    ):
+        published = make_session(conference, kind="PANEL")
+        add_presenter(published, make_presenter(conference), confirmed=True)
+        published.confirm()
+        make_slot(published, start_utc=T0)
+        published.schedule()
+        published.publish()
+        client.force_login(organizer)
+        response = client.post(
+            reverse("speakers:schedule_clear_day"),
+            {"day": "2026-12-05"},
+            follow=True,
+        )
+        published.refresh_from_db()
+        assert published.status == SessionStatus.PUBLISHED
+        assert published.has_slot is True
+        assert "kept their slot" in response.content.decode()
+
+    def test_the_button_is_on_the_page(self, client, organizer, enabled):
+        client.force_login(organizer)
+        content = client.get(EDITOR).content.decode()
+        assert "Unschedule all" in content
+        assert reverse("speakers:schedule_clear_day") in content
+
+    def test_organizer_only(self, client, liaison, enabled, conference):
+        make_presenter(conference, liaison=liaison)
+        client.force_login(liaison)
+        response = client.post(
+            reverse("speakers:schedule_clear_day"), {"day": "2026-12-05"}
+        )
+        assert response.status_code == 403

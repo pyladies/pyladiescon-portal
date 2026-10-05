@@ -27,6 +27,7 @@ from .mixins import SpeakerOrganizerRequiredMixin
 from .models import ActivityLog, Room, ScheduleSlot, Session
 from .schedule import (
     STEP_MINUTES,
+    day_bounds,
     grid_for_day,
     schedule_days,
     timezone_options,
@@ -163,6 +164,52 @@ class ScheduleEditorView(
         )
         messages.success(request, f"Added “{session.title}” to the grid.")
         return slot
+
+
+class ScheduleClearDayView(
+    LoginRequiredMixin, SpeakerOrganizerRequiredMixin, View
+):
+    """POST: take every slot off the shown day in one go.
+
+    A published session keeps its slot, since publishing requires one;
+    the message says how many stayed behind.
+    """
+
+    def post(self, request):
+        days = schedule_days(self.conference)
+        day = _parse_day(request.POST.get("day"), days)
+        start, end = day_bounds(day)
+        slots = ScheduleSlot.objects.filter(
+            conference=self.conference, start_utc__lt=end, end_utc__gt=start
+        ).select_related("session")
+        cleared, kept = 0, 0
+        for slot in slots:
+            session = slot.session
+            if session.status == SessionStatus.PUBLISHED:
+                kept += 1
+                continue
+            slot.delete()
+            if session.status == SessionStatus.SCHEDULED:
+                session.unschedule()
+            ActivityLog.record(
+                self.conference,
+                "session.unscheduled",
+                target=session,
+                actor=request.user,
+            )
+            cleared += 1
+        label = day.strftime("%A %-d %B")
+        messages.success(
+            request, f"Took {cleared} session(s) off {label}."
+        )
+        if kept:
+            messages.warning(
+                request,
+                f"{kept} published session(s) kept their slot; a published "
+                "session needs one.",
+            )
+        url = reverse("speakers:schedule_editor")
+        return redirect(f"{url}?day={day:%Y-%m-%d}")
 
 
 class SlotView(LoginRequiredMixin, SpeakerOrganizerRequiredMixin, View):
