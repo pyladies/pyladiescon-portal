@@ -154,25 +154,43 @@
             url: card.dataset.slotUrl,
             minutes: parseInt(card.dataset.minutes, 10),
             rowHeight: cell ? cell.offsetHeight : 18,
-            startY: event.clientY
+            startY: event.clientY,
+            row: parseInt(card.style.gridRow, 10),
+            column: card.style.gridColumn
         };
         event.preventDefault();
     });
-    document.addEventListener("pointermove", function (event) {
-        if (!resizing) return;
-        event.preventDefault();
-    });
-    document.addEventListener("pointerup", function (event) {
-        if (!resizing) return;
+
+    function resizeMinutes(event) {
         var rows = Math.round(
             (event.clientY - resizing.startY) / resizing.rowHeight
         );
-        var minutes = Math.max(
-            STEP_MINUTES, resizing.minutes + rows * STEP_MINUTES
-        );
+        return Math.max(STEP_MINUTES, resizing.minutes + rows * STEP_MINUTES);
+    }
+    document.addEventListener("pointermove", function (event) {
+        if (!resizing) return;
+        event.preventDefault();
+        var minutes = resizeMinutes(event);
+        var ghost = dropPreview();
+        ghost.style.gridRow =
+            resizing.row + " / span " +
+            Math.max(1, Math.round(minutes / STEP_MINUTES));
+        ghost.style.gridColumn = resizing.column;
+        ghost.textContent = minutes + " min";
+        ghost.style.display = "block";
+    });
+    document.addEventListener("pointerup", function (event) {
+        if (!resizing) return;
+        hideDropPreview();
+        var minutes = resizeMinutes(event);
         if (minutes !== resizing.minutes) {
             send(resizing.url, "PATCH", { duration: minutes });
         }
+        resizing = null;
+    });
+    document.addEventListener("pointercancel", function () {
+        if (!resizing) return;
+        hideDropPreview();
         resizing = null;
     });
 

@@ -638,7 +638,11 @@ details.card[open] > summary.card-header::before {
    no pointer events, or hovering it would cancel the drop. */
 .schedule-drop-preview {
     display: none;
-    z-index: 1;
+    z-index: 3;
+    padding: 0.1rem 0.4rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #084298;
     margin: 1px;
     pointer-events: none;
     background: rgba(207, 226, 255, 0.55);
