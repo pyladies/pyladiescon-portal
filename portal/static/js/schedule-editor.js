@@ -70,10 +70,31 @@
     }
 
     /* Dragging: whole cards onto cells. */
+    /* The dashed footprint showing where a drop would land. */
+    function dropPreview() {
+        var grid = board().querySelector(".schedule-grid");
+        var ghost = grid.querySelector(".schedule-drop-preview");
+        if (!ghost) {
+            ghost = document.createElement("div");
+            ghost.className = "schedule-drop-preview";
+            grid.appendChild(ghost);
+        }
+        return ghost;
+    }
+
+    function hideDropPreview() {
+        var grid = board().querySelector(".schedule-grid");
+        var ghost = grid && grid.querySelector(".schedule-drop-preview");
+        if (ghost) ghost.style.display = "none";
+    }
+
     document.addEventListener("dragstart", function (event) {
         var card = event.target.closest("[data-slot-url]");
         if (!card) return;
-        dragged = card.dataset.slotUrl;
+        dragged = {
+            url: card.dataset.slotUrl,
+            minutes: parseInt(card.dataset.minutes, 10) || 30
+        };
         event.dataTransfer.effectAllowed = "move";
         /* Pin the ghost to the card alone: with a stray text selection
          * on the page, Chrome would otherwise drag the whole selection,
@@ -86,10 +107,21 @@
         );
     });
     document.addEventListener("dragover", function (event) {
+        if (!dragged) return;
         var cell = event.target.closest(".schedule-cell");
-        if (!dragged || !cell) return;
+        if (!cell) {
+            if (!event.target.closest(".schedule-grid")) hideDropPreview();
+            return;
+        }
         event.preventDefault();
         cell.classList.add("schedule-drop");
+        var ghost = dropPreview();
+        var span = Math.max(1, Math.round(dragged.minutes / STEP_MINUTES));
+        ghost.style.gridRow = cell.style.gridRow + " / span " + span;
+        ghost.style.gridColumn = cell.dataset.room
+            ? cell.style.gridColumn
+            : "2 / -1";
+        ghost.style.display = "block";
     });
     document.addEventListener("dragleave", function (event) {
         var cell = event.target.closest(".schedule-cell");
@@ -99,10 +131,16 @@
         var cell = event.target.closest(".schedule-cell");
         if (!dragged || !cell) return;
         event.preventDefault();
-        send(dragged, "PATCH", {
+        hideDropPreview();
+        send(dragged.url, "PATCH", {
             room: cell.dataset.room || null,
             start: cell.dataset.time
         });
+        dragged = null;
+    });
+
+    document.addEventListener("dragend", function () {
+        hideDropPreview();
         dragged = null;
     });
 

@@ -17,6 +17,7 @@ Unscheduled list and its open popover goes with it.
                 {% for session in unscheduled %}
                     <div class="list-group-item schedule-pending"
                          draggable="true"
+                         data-minutes="{{ session.duration_minutes }}"
                          data-slot-url="{% url 'speakers:session_slot' session.slug %}">
                         <div class="d-flex justify-content-between align-items-start gap-1">
                             <div>

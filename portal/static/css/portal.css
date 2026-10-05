@@ -632,3 +632,16 @@ details.card[open] > summary.card-header::before {
 .schedule-pending {
     user-select: none;
 }
+
+/* Where the drop would land: the dragged session's footprint, dashed,
+   in the hovered room (full width over the all-rooms lane). It takes
+   no pointer events, or hovering it would cancel the drop. */
+.schedule-drop-preview {
+    display: none;
+    z-index: 1;
+    margin: 1px;
+    pointer-events: none;
+    background: rgba(207, 226, 255, 0.55);
+    border: 2px dashed #6ea8fe;
+    border-radius: 0.35rem;
+}
