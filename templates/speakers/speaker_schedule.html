@@ -17,13 +17,10 @@
         <h1 class="h3 mb-0">
             {% trans "Schedule" %}
         </h1>
-        {% trans "Arrives with the calendar feeds (task 4.4)." as feed_hint %}
-        <button class="btn btn-outline-secondary btn-sm"
-                type="button"
-                disabled
-                title="{{ feed_hint }}">
+        <a class="btn btn-outline-secondary btn-sm"
+           href="{{ personal_feed_url }}">
             <i class="fa-solid fa-calendar-plus" aria-hidden="true"></i> {% trans "Subscribe in your calendar" %}
-        </button>
+        </a>
     </div>
     <p class="text-secondary">
         {% url 'speakers:my_profile' as profile_url %}
@@ -59,13 +56,10 @@
                             <span class="badge text-bg-warning">{% trans "Not yet public" %}</span>
                         {% endif %}
                         {% if entry.is_mine %}
-                            {% trans "Arrives with the calendar feeds (task 4.4)." as ics_hint %}
-                            <button class="btn btn-link btn-sm text-secondary ms-auto p-0"
-                                    type="button"
-                                    disabled
-                                    title="{{ ics_hint }}">
+                            <a class="btn btn-link btn-sm text-secondary ms-auto p-0"
+                               href="{% url 'speakers:my_session_feed' entry.session.slug %}">
                                 {% trans "Add to calendar" %}
-                            </button>
+                            </a>
                         {% endif %}
                     </div>
                 </div>

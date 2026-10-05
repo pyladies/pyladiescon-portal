@@ -59,6 +59,7 @@ from .constants import (
     SessionStatus,
 )
 from .emails import render_invitation_preview
+from .feeds import presenter_feed_token
 from .filters import PresenterFilter, SessionFilter
 from .forms import (
     DEFAULT_GUIDE_URL,
@@ -1558,6 +1559,12 @@ class SpeakerScheduleView(LoginRequiredMixin, PresenterRequiredMixin, TemplateVi
         context["conference"] = self.conference
         context["presenter"] = self.presenter
         context["schedule_days"] = presenter_schedule(self.conference, self.presenter)
+        context["personal_feed_url"] = self.request.build_absolute_uri(
+            reverse(
+                "speakers:presenter_feed",
+                args=[presenter_feed_token(self.presenter)],
+            )
+        )
         return context
 
 

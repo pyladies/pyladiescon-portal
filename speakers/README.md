@@ -1042,6 +1042,16 @@ installed; this app keeps small factory functions in `tests/speakers/factories.p
   timezone in templates. Nobody else's unpublished sessions appear; the
   viewer's own carry a "not yet public" badge. Calendar links are disabled
   placeholders until the feeds (task 4.4).
+- The calendar feeds (design §11.3) are `speakers/feeds.py` (a hand-
+  rolled ICS writer, like the VTT one: escaping, 75-octet folding, CRLF)
+  and `feed_views.py`: `schedule.ics` (public sessions, `?sessions=`,
+  `?kind=`, `?room=` filters), a per-session download, a presenter's
+  personal feed behind a signed non-expiring token (their sessions,
+  public or not, cancelled ones carried with STATUS:CANCELLED until the
+  next publish removes the row), and an authenticated per-session
+  download on the speaker page. UIDs are stable per session and edition;
+  SEQUENCE is `PublishedSlot.ics_sequence`, bumped only by a publish;
+  responses carry Cache-Control max-age=300.
 - The published schedule (design §10.1) splits the grid from what
   speakers see: `ScheduleSlot` is the organizers' draft, `PublishedSlot`
   the snapshot everything speaker-facing reads (their schedule page and
