@@ -30,6 +30,7 @@ from .constants import (
     CAN_BE_APPROVED,
     DEFAULT_GUIDE_KEY,
     IDENTITY_LOCKED_STATUSES,
+    OFF_SCHEDULE_STATUSES,
     OPEN_ITEM_STATUSES,
     PROPOSER_CAN_EDIT,
     RESERVED_SLUGS,
@@ -40,7 +41,6 @@ from .constants import (
     UNACCEPTED_STATUSES,
     AssigneeDefault,
     AutoRule,
-    ChannelKind,
     ChecklistScope,
     Delivery,
     DueAnchor,
@@ -53,6 +53,7 @@ from .constants import (
     ProposalDecision,
     ReadyOverride,
     ReadyRule,
+    RoomKind,
     SessionLevel,
     SessionStatus,
     TranscriptionStatus,
@@ -382,24 +383,29 @@ class ActivityLog(TimestampedModel):
         ).select_related("actor")
 
 
-class DiscordChannel(TimestampedModel):
-    """A Discord channel the schedule can place sessions in.
+class Room(TimestampedModel):
+    """A room of the venue the schedule can place sessions in (design §8.5).
 
-    Channels are created on Discord by hand and recorded here (design §8.5).
+    Deliberately generic: for an online edition a room is typically a
+    Discord channel (``url`` and ``discord_id`` record which one, both
+    created on Discord by hand), but nothing else in the portal cares
+    where the room actually is.
     """
 
     conference = models.ForeignKey(
         "portal.Conference",
         on_delete=models.PROTECT,
-        related_name="discord_channels",
+        related_name="rooms",
     )
     name = models.CharField(max_length=100)
-    channel_id = models.CharField(
-        max_length=32, blank=True, help_text="The numeric Discord channel id."
+    discord_id = models.CharField(
+        max_length=32,
+        blank=True,
+        help_text="The numeric Discord channel id, when the room is one.",
     )
     url = models.URLField(blank=True)
     kind = models.CharField(
-        max_length=8, choices=ChannelKind.choices, default=ChannelKind.STAGE
+        max_length=8, choices=RoomKind.choices, default=RoomKind.STAGE
     )
     is_active = models.BooleanField(default=True)
 
@@ -407,7 +413,7 @@ class DiscordChannel(TimestampedModel):
         ordering = ["name"]
         constraints = [
             models.UniqueConstraint(
-                fields=["conference", "name"], name="speakers_channel_name_per_edition"
+                fields=["conference", "name"], name="speakers_room_name_per_edition"
             )
         ]
 
@@ -626,9 +632,9 @@ class SessionType(TimestampedModel):
     default_delivery = models.CharField(
         max_length=16, choices=Delivery.choices, default=Delivery.LIVE
     )
-    spans_all_channels = models.BooleanField(
+    spans_all_rooms = models.BooleanField(
         default=False,
-        help_text="On the schedule, takes the whole grid rather than one channel.",
+        help_text="On the schedule, takes the whole grid rather than one room.",
     )
     open_for_proposals = models.BooleanField(
         default=False,
@@ -1146,10 +1152,13 @@ class SessionPresenter(TimestampedModel):
 
 
 class ScheduleSlot(TimestampedModel):
-    """When and where a session happens (design §8.5). Shell for Stage 3.
+    """When and where a session happens (design §8.5).
 
-    ``channel`` null means all channels: the opening or a break spans the
-    whole grid. Overlap validation arrives with task 3.1.
+    ``room`` null means every room: the opening or a break spans the
+    whole grid. ``clean()`` refuses a slot whose window collides with
+    another on the grid; a presenter booked twice at once is a warning
+    (``presenter_clashes``), never an error, because a moderator moving
+    between rooms is legitimate.
     """
 
     conference = models.ForeignKey(
@@ -1161,8 +1170,8 @@ class ScheduleSlot(TimestampedModel):
     session = models.OneToOneField(
         Session, on_delete=models.CASCADE, related_name="slot"
     )
-    channel = models.ForeignKey(
-        DiscordChannel,
+    room = models.ForeignKey(
+        Room,
         on_delete=models.PROTECT,
         null=True,
         blank=True,
@@ -1179,13 +1188,94 @@ class ScheduleSlot(TimestampedModel):
     def __str__(self):
         return f"{self.session} at {self.start_utc:%Y-%m-%d %H:%M} UTC"
 
-    def save(self, *args, **kwargs):
-        self.conference_id = self.session.conference_id
+    def clean(self):
+        """Refuse a slot that collides with another (design §8.5).
+
+        The window must end after it starts, and may not share a room
+        with another slot, nor cross an every-room band, except that two
+        program-kind bands may coexist. A session still waiting for an
+        answer cannot hold a slot at all: the overlap rules look through
+        PROPOSED and REJECTED on the other side, which is only safe
+        while nothing in those statuses can reach the grid, and
+        ``approve()`` would otherwise carry a quietly conflicting slot
+        straight onto it.
+        """
+        if self.session_id is None or self.start_utc is None:
+            return
+        if self.session.status in UNACCEPTED_STATUSES:
+            raise ValidationError(
+                "This session is waiting for an answer; approve the "
+                "proposal before scheduling it."
+            )
         if not self.end_utc:
             self.end_utc = self.start_utc + timedelta(
                 minutes=self.session.duration_minutes
             )
+        if self.end_utc <= self.start_utc:
+            raise ValidationError({"end_utc": "The slot must end after it starts."})
+        clash = self.conflicts().first()
+        if clash is not None:
+            raise ValidationError(
+                f'This time overlaps "{clash.session.title}" '
+                f"({clash.start_utc:%H:%M} to {clash.end_utc:%H:%M} UTC)."
+            )
+
+    def save(self, *args, **kwargs):
+        self.clean()
+        self.conference_id = self.session.conference_id
         super().save(*args, **kwargs)
+
+    def overlapping(self):
+        """Other sessions' slots sharing any time with this one, this edition.
+
+        A cancelled session's slot stays as a record but frees its time, so
+        it and the never-scheduled proposal statuses are looked through.
+        """
+        return (
+            ScheduleSlot.objects.filter(
+                conference_id=self.session.conference_id,
+                start_utc__lt=self.end_utc,
+                end_utc__gt=self.start_utc,
+            )
+            .exclude(session_id=self.session_id)
+            .exclude(session__status__in=OFF_SCHEDULE_STATUSES)
+            .select_related("session__kind", "room")
+        )
+
+    def conflicts(self):
+        """The overlapping slots this one may not share the grid with.
+
+        In a room: the same room and every band that spans them all.
+        Spanning every room: everything, except other program-kind bands
+        when this session is a program kind too (the closing can run over
+        a social).
+        """
+        overlapping = self.overlapping()
+        if self.room_id is not None:
+            return overlapping.filter(
+                models.Q(room_id=self.room_id) | models.Q(room__isnull=True)
+            )
+        if self.session.is_content:
+            return overlapping
+        return overlapping.exclude(room__isnull=True, session__kind__is_content=False)
+
+    def presenter_clashes(self):
+        """This session's presenters already booked in an overlapping slot.
+
+        Material for a warning, never an error (design §8.5): the links on
+        the other sessions, for the editor to point at.
+        """
+        own = SessionPresenter.objects.filter(session_id=self.session_id).values(
+            "presenter_id"
+        )
+        return (
+            SessionPresenter.objects.filter(
+                presenter_id__in=own,
+                session__slot__in=self.overlapping().values("pk"),
+            )
+            .select_related("presenter", "session")
+            .order_by("presenter__display_name", "session__title")
+        )
 
 
 class InvitationStatus(models.TextChoices):

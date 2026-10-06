@@ -41,12 +41,12 @@ from speakers.constants import (
 from speakers.lifecycle import confirm_session_if_ready
 from speakers.models import (
     ChecklistItem,
-    DiscordChannel,
     Handbook,
     MediaAsset,
     Presenter,
     Proposal,
     ReadinessGate,
+    Room,
     ScheduleSlot,
     Session,
     SessionPresenter,
@@ -375,14 +375,12 @@ class Command(BaseCommand):
                 title="Performer guide",
                 url="https://conference.pyladies.com/docs/pyjam/",
             )  # left as a draft on purpose
-        DiscordChannel.objects.get_or_create(
+        Room.objects.get_or_create(
             conference=self.conference,
             name="main-stage",
             defaults={"url": "https://discord.com/channels/1/2"},
         )
-        DiscordChannel.objects.get_or_create(
-            conference=self.conference, name="workshop-room"
-        )
+        Room.objects.get_or_create(conference=self.conference, name="workshop-room")
 
     def _people(self):
         users = {}
@@ -542,9 +540,7 @@ class Command(BaseCommand):
                 withdraw_proposal(proposal, actor=user)
 
     def _schedule(self):
-        stage = DiscordChannel.objects.get(
-            conference=self.conference, name="main-stage"
-        )
+        stage = Room.objects.get(conference=self.conference, name="main-stage")
         start = datetime(self.conference.year, 12, 5, 14, 0, tzinfo=dt_timezone.utc)
         for title, offset in (
             ("Opening", 0),
@@ -556,7 +552,7 @@ class Command(BaseCommand):
             ScheduleSlot.objects.get_or_create(
                 session=session,
                 defaults={
-                    "channel": None if title == "Opening" else stage,
+                    "room": None if title == "Opening" else stage,
                     "start_utc": start + timedelta(hours=offset),
                 },
             )

@@ -78,8 +78,8 @@ class SessionTable(tables.Table):
         slot = getattr(record, "slot", None)
         if slot is None:
             return ""
-        channel = slot.channel.name if slot.channel else "all channels"
-        return format_html("{} · {}", f"{slot.start_utc:%a %H:%M} UTC", channel)
+        room = slot.room.name if slot.room else "all rooms"
+        return format_html("{} · {}", f"{slot.start_utc:%a %H:%M} UTC", room)
 
     def render_videos(self, record):
         """Where a pre-recorded session's video stands: the raw upload and

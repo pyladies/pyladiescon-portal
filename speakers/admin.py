@@ -8,7 +8,6 @@ from .models import (
     ChecklistItem,
     ChecklistTemplate,
     ChecklistTemplateItem,
-    DiscordChannel,
     Handbook,
     HandbookReadReceipt,
     Invitation,
@@ -18,6 +17,7 @@ from .models import (
     Proposal,
     ReadinessGate,
     ReminderLog,
+    Room,
     ScheduleSlot,
     Session,
     SessionPresenter,
@@ -184,7 +184,7 @@ class SessionPresenterInline(admin.TabularInline):
 class ScheduleSlotInline(admin.StackedInline):
     model = ScheduleSlot
     extra = 0
-    fields = ("channel", "start_utc", "end_utc")
+    fields = ("room", "start_utc", "end_utc")
 
 
 @admin.register(Session)
@@ -222,19 +222,19 @@ class SessionPresenterAdmin(admin.ModelAdmin):
     autocomplete_fields = ("session", "presenter")
 
 
-@admin.register(DiscordChannel)
-class DiscordChannelAdmin(admin.ModelAdmin):
-    list_display = ("name", "kind", "channel_id", "is_active", "conference")
+@admin.register(Room)
+class RoomAdmin(admin.ModelAdmin):
+    list_display = ("name", "kind", "discord_id", "is_active", "conference")
     list_filter = (ActiveConferenceFilter, "kind", "is_active")
-    search_fields = ("name", "channel_id")
+    search_fields = ("name", "discord_id")
     list_select_related = ("conference",)
 
 
 @admin.register(ScheduleSlot)
 class ScheduleSlotAdmin(admin.ModelAdmin):
-    list_display = ("session", "channel", "start_utc", "end_utc", "conference")
-    list_filter = (ActiveConferenceFilter, "channel")
-    list_select_related = ("session", "channel", "conference")
+    list_display = ("session", "room", "start_utc", "end_utc", "conference")
+    list_filter = (ActiveConferenceFilter, "room")
+    list_select_related = ("session", "room", "conference")
     autocomplete_fields = ("session",)
 
 

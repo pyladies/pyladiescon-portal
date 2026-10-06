@@ -39,7 +39,7 @@ class TestSeeding:
         pyjam = SessionType.objects.get(conference=conference, code="PYJAM")
         assert pyjam.default_delivery == Delivery.PRE_RECORDED
         coffee = SessionType.objects.get(conference=conference, code="BREAK")
-        assert not coffee.is_content and coffee.spans_all_channels
+        assert not coffee.is_content and coffee.spans_all_rooms
         assert not coffee.has_presenters and coffee.default_role is None
         assert [t.code for t in SessionType.objects.filter(conference=conference)][
             :3

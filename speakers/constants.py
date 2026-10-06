@@ -31,6 +31,12 @@ class SessionStatus(models.TextChoices):
 UNACCEPTED_STATUSES = frozenset({SessionStatus.PROPOSED, SessionStatus.REJECTED})
 
 
+# Sessions whose slot, if one exists, no longer occupies its time: a
+# cancelled session keeps the row as a record, and an unanswered proposal
+# never reached the grid. The overlap rules look through them.
+OFF_SCHEDULE_STATUSES = UNACCEPTED_STATUSES | {SessionStatus.CANCELLED}
+
+
 # What a session's status means to the person giving it. The organizers'
 # vocabulary (draft, invited, confirmed) is about their own work; a speaker
 # wants to know whether it is happening and whether anyone can see it.
@@ -82,7 +88,7 @@ class PremiereLocation(models.TextChoices):
     YOUTUBE = "YOUTUBE", "YouTube Premiere"
 
 
-class ChannelKind(models.TextChoices):
+class RoomKind(models.TextChoices):
     STAGE = "STAGE", "Stage"
     VOICE = "VOICE", "Voice"
     TEXT = "TEXT", "Text"

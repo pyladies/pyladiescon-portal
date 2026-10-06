@@ -8,11 +8,11 @@ from datetime import datetime, timedelta, timezone
 
 from portal_account.models import PortalProfile
 from speakers.models import (
-    DiscordChannel,
     Invitation,
     Presenter,
     PresenterRole,
     Proposal,
+    Room,
     ScheduleSlot,
     Session,
     SessionPresenter,
@@ -80,10 +80,10 @@ def add_presenter(session, presenter, confirmed=False, **kwargs):
     )
 
 
-def make_channel(conference, **kwargs):
+def make_room(conference, **kwargs):
     n = _next()
-    kwargs.setdefault("name", f"channel-{n}")
-    return DiscordChannel.objects.create(conference=conference, **kwargs)
+    kwargs.setdefault("name", f"room-{n}")
+    return Room.objects.create(conference=conference, **kwargs)
 
 
 def make_slot(session, **kwargs):
