@@ -880,3 +880,39 @@ class TestAllDaysView:
         response = client.get(EDITOR, {"day": "2026-12-05"})
         assert response.context["all_days"] is False
         assert "Unschedule all" in response.content.decode()
+
+
+@pytest.mark.django_db
+class TestWideMode:
+    """The spreadsheet view: no rail, no container cap, full-width grid."""
+
+    def test_wide_drops_the_rail_and_widens_the_board(
+        self, client, organizer, enabled, conference
+    ):
+        make_slot(make_session(conference), start_utc=T0)
+        client.force_login(organizer)
+        response = client.get(EDITOR, {"day": "2026-12-05", "wide": "1"})
+        content = response.content.decode()
+        assert response.context["wide"] is True
+        assert "schedule-wide" in content
+        assert "appSidebar" not in content
+        assert "Exit wide" in content
+        assert "wide=1&amp;board=1" in content
+
+    def test_normal_mode_keeps_the_rail_and_offers_wide(
+        self, client, organizer, enabled
+    ):
+        client.force_login(organizer)
+        content = client.get(EDITOR).content.decode()
+        assert "appSidebar" in content
+        assert "wide=1" in content
+        assert "schedule-wide" not in content
+
+    def test_wide_combines_with_all_days(self, client, organizer, enabled, conference):
+        make_slot(make_session(conference), start_utc=T0)
+        client.force_login(organizer)
+        response = client.get(EDITOR, {"days": "all", "wide": "1"})
+        content = response.content.decode()
+        assert response.context["all_days"] is True
+        assert "schedule-wide" in content
+        assert "days=all&amp;wide=1&amp;board=1" in content

@@ -106,6 +106,7 @@ class ScheduleEditorView(
         day = _parse_day(self.request.GET.get("day"), days)
         full_day = bool(self.request.GET.get("full"))
         all_days = self.request.GET.get("days") == "all"
+        wide = bool(self.request.GET.get("wide"))
         if all_days:
             context["day_grids"] = [
                 {"day": one, **grid_for_day(self.conference, one)}
@@ -121,6 +122,13 @@ class ScheduleEditorView(
                 "day": day,
                 "full_day": full_day,
                 "all_days": all_days,
+                "wide": wide,
+                "base_query": (
+                    "days=all"
+                    if all_days
+                    else f"day={day:%Y-%m-%d}"
+                    + ("&full=1" if full_day else "")
+                ),
                 "unscheduled": unscheduled_sessions(self.conference),
                 "timezones": timezone_options(self.conference),
                 "unpublished": (

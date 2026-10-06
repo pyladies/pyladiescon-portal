@@ -740,3 +740,13 @@ details.card[open] > summary.card-header::before {
     font-size: clamp(7px, calc(var(--schedule-row-height, 1.5rem) * 0.7), 0.7rem);
     line-height: 1.1;
 }
+
+/* The wide (spreadsheet) view breaks out of the page container: full
+   viewport width, so every room column gets its share of the screen. */
+.schedule-wide {
+    position: relative;
+    left: 50%;
+    width: 100vw;
+    margin-left: -50vw;
+    padding: 0 1.5rem;
+}
