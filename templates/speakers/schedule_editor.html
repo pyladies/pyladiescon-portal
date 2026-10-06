@@ -82,33 +82,40 @@
                     </form>
                 </div>
             </details>
-            <details class="schedule-card-menu">
-                <summary class="btn btn-outline-danger btn-sm">
-                    <i class="fa-solid fa-calendar-xmark" aria-hidden="true"></i> {% trans "Unschedule all" %}
-                </summary>
-                <div class="schedule-card-popover card shadow p-2 vstack gap-2 text-start">
-                    <span class="small">
-                        {% blocktrans with day=day|date:"D j M" %}Takes every session on {{ day }} (the UTC day, as the tabs count) off the grid, back to Unscheduled. Published sessions keep their slot.{% endblocktrans %}
-                    </span>
-                    <form method="post" action="{% url 'speakers:schedule_clear_day' %}">
-                        {% csrf_token %}
-                        <input type="hidden" name="day" value="{{ day|date:'Y-m-d' }}" />
-                        <button class="btn btn-danger btn-sm" type="submit">
-                            {% trans "Unschedule all" %}
-                        </button>
-                    </form>
-                </div>
-            </details>
+            {% if not all_days %}
+                <details class="schedule-card-menu">
+                    <summary class="btn btn-outline-danger btn-sm">
+                        <i class="fa-solid fa-calendar-xmark" aria-hidden="true"></i> {% trans "Unschedule all" %}
+                    </summary>
+                    <div class="schedule-card-popover card shadow p-2 vstack gap-2 text-start">
+                        <span class="small">
+                            {% blocktrans with day=day|date:"D j M" %}Takes every session on {{ day }} (the UTC day, as the tabs count) off the grid, back to Unscheduled. Published sessions keep their slot.{% endblocktrans %}
+                        </span>
+                        <form method="post" action="{% url 'speakers:schedule_clear_day' %}">
+                            {% csrf_token %}
+                            <input type="hidden" name="day" value="{{ day|date:'Y-m-d' }}" />
+                            <button class="btn btn-danger btn-sm" type="submit">
+                                {% trans "Unschedule all" %}
+                            </button>
+                        </form>
+                    </div>
+                </details>
+            {% endif %}
         </div>
     </div>
     <ul class="nav nav-tabs mb-3">
         {% for d in days %}
             <li class="nav-item">
-                <a class="nav-link {% if d == day %}active{% endif %}"
-                   {% if d == day %}aria-current="page"{% endif %}
+                <a class="nav-link {% if not all_days and d == day %}active{% endif %}"
+                   {% if not all_days and d == day %}aria-current="page"{% endif %}
                    href="?day={{ d|date:'Y-m-d' }}">{{ d|date:"D j M" }}</a>
             </li>
         {% endfor %}
+        <li class="nav-item">
+            <a class="nav-link {% if all_days %}active{% endif %}"
+               {% if all_days %}aria-current="page"{% endif %}
+               href="?days=all">{% trans "All days" %}</a>
+        </li>
     </ul>
     <div class="alert alert-danger d-none"
          id="schedule-alert"
@@ -121,7 +128,7 @@
          aria-live="polite">
     </div>
     <div id="schedule-board"
-         data-board-url="{% url 'speakers:schedule_editor' %}?day={{ day|date:'Y-m-d' }}&amp;board=1{% if full_day %}&amp;full=1{% endif %}">
+         data-board-url="{% url 'speakers:schedule_editor' %}?{% if all_days %}days=all{% else %}day={{ day|date:'Y-m-d' }}{% if full_day %}&amp;full=1{% endif %}{% endif %}&amp;board=1">
         {% include "speakers/_schedule_board.html" %}
     </div>
 {% endblock content %}

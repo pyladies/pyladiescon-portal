@@ -6,7 +6,16 @@ Unscheduled list and its open popover goes with it.
 {% endcomment %}
 <div class="row g-3">
     <div class="col-lg-9">
-        {% include "speakers/_schedule_grid.html" %}
+        {% if all_days %}
+            {% for grid in day_grids %}
+                <h2 class="h5 {% if not forloop.first %}mt-4{% endif %} mb-2">
+                    {{ grid.day|date:"l j F" }}
+                </h2>
+                {% include "speakers/_schedule_grid.html" with rooms=grid.rooms lanes=grid.lanes rows=grid.rows cards=grid.cards trimmed=grid.trimmed has_slots=grid.has_slots day=grid.day days=days full_day=False %}
+            {% endfor %}
+        {% else %}
+            {% include "speakers/_schedule_grid.html" %}
+        {% endif %}
     </div>
     <div class="col-lg-3">
         <div class="card mb-3">

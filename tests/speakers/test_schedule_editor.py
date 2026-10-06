@@ -840,3 +840,43 @@ class TestTrimmedWindow:
             EDITOR, {"day": "2026-12-05", "full": "1"}
         ).content.decode()
         assert "Trim to the program" in content
+
+
+@pytest.mark.django_db
+class TestAllDaysView:
+    """One long view from top to bottom instead of a tab per day."""
+
+    def test_every_day_stacks_with_its_heading(
+        self, client, organizer, enabled, conference
+    ):
+        conference.start_date = date(2026, 12, 5)
+        conference.end_date = date(2026, 12, 6)
+        conference.save()
+        make_slot(make_session(conference, title="Day one talk"), start_utc=T0)
+        make_slot(
+            make_session(conference, title="Day two talk"),
+            start_utc=T0 + timedelta(days=1),
+        )
+        client.force_login(organizer)
+        response = client.get(EDITOR, {"days": "all"})
+        content = response.content.decode()
+        assert content.count('class="schedule-grid"') == 2
+        assert "Saturday 5 December" in content
+        assert "Sunday 6 December" in content
+        assert "Day one talk" in content and "Day two talk" in content
+        assert "days=all&amp;board=1" in content
+        assert "Unschedule all" not in content
+        assert response.context["all_days"] is True
+
+    def test_the_tab_row_offers_all_days(self, client, organizer, enabled):
+        client.force_login(organizer)
+        content = client.get(EDITOR).content.decode()
+        assert "?days=all" in content
+        assert "All days" in content
+
+    def test_single_day_is_unchanged(self, client, organizer, enabled, conference):
+        make_slot(make_session(conference), start_utc=T0)
+        client.force_login(organizer)
+        response = client.get(EDITOR, {"day": "2026-12-05"})
+        assert response.context["all_days"] is False
+        assert "Unschedule all" in response.content.decode()
