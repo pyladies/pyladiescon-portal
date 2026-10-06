@@ -256,6 +256,25 @@ class TestPublishEmails:
         assert "Back again" in body
         assert "14:00" in body
 
+    def test_a_cancelled_session_is_worded_as_cancelled(
+        self, conference, enabled, organizer, django_capture_on_commit_callbacks
+    ):
+        """Cancelling emails nobody, so the publish is how the speaker
+        hears, and it must not promise a new time (review of #461)."""
+        ada = make_presenter(conference, email="ada@example.com")
+        session = confirmed_session(conference, title="Doomed panel", presenter=ada)
+        make_slot(session, start_utc=T0)
+        publish_schedule(conference, organizer, notify=False)
+        session.refresh_from_db()
+        session.cancel()
+        with django_capture_on_commit_callbacks(execute=True):
+            publish_schedule(conference, organizer, notify=True)
+        assert len(mail.outbox) == 1
+        body = mail.outbox[0].body
+        assert "Doomed panel" in body
+        assert "cancelled, so it is off the schedule." in body
+        assert "new time" not in body
+
     def test_a_removed_session_is_worded_as_removed(
         self, conference, enabled, organizer, django_capture_on_commit_callbacks
     ):
@@ -321,3 +340,17 @@ class TestPublishView:
         publish_schedule(conference, organizer, notify=False)
         content = client.get(EDITOR, {"day": "2026-12-05"}).content.decode()
         assert "schedule-card-dirty" not in content
+
+    def test_a_draft_card_is_pencilled_not_dirty(
+        self, client, organizer, enabled, conference
+    ):
+        """The card and the counter agree: a draft is neither counted nor
+        dashed, it carries its own marker (review of #461)."""
+        session = make_session(conference, title="Pencilled", kind="PANEL")
+        make_slot(session, start_utc=T0)
+        client.force_login(organizer)
+        content = client.get(EDITOR, {"day": "2026-12-05"}).content.decode()
+        assert "schedule-card-dirty" not in content
+        assert "schedule-card-pencilled" in content
+        assert "Pencilled in, publishes once confirmed" in content
+        assert "0 placed, 0 moved, 0 taken off" in content

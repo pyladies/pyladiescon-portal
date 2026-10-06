@@ -5,7 +5,7 @@ resizes; the pencil opens the keyboard form. Params: card (schedule.py's
 dict), lanes, days.
 {% endcomment %}
 {# djlint:off #}
-<div class="schedule-card {% if card.is_band %}schedule-band{% endif %} {% if card.warnings %}schedule-warned{% endif %} {% if card.span < 2 %}schedule-card-tight{% endif %} {% if card.is_dirty %}schedule-card-dirty{% endif %}"
+<div class="schedule-card {% if card.is_band %}schedule-band{% endif %} {% if card.warnings %}schedule-warned{% endif %} {% if card.span < 2 %}schedule-card-tight{% endif %} {% if card.is_dirty %}schedule-card-dirty{% endif %} {% if card.is_pencilled %}schedule-card-pencilled{% endif %}"
      draggable="true"
      data-slot-url="{% url 'speakers:session_slot' card.session.slug %}"
      data-minutes="{{ card.minutes }}"
@@ -23,6 +23,11 @@ dict), lanes, days.
             <span data-utc="{{ card.slot.end_utc.isoformat }}">{{ card.slot.end_utc|date:"H:i" }}</span>
             · {{ card.session.kind.name }}
         </div>
+        {% if card.is_pencilled %}
+            <div class="small text-secondary fst-italic schedule-card-meta">
+                {% trans "Pencilled in, publishes once confirmed" %}
+            </div>
+        {% endif %}
     </div>
     <div class="d-flex gap-1">
         {% if card.warnings %}

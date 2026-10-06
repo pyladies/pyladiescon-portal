@@ -131,7 +131,12 @@ def grid_for_day(conference, day):
                 "end_column": end_column,
                 "is_band": slot.room_id is None,
                 "minutes": int((slot.end_utc - slot.start_utc).total_seconds() // 60),
-                "is_dirty": (
+                # Only what a publish would carry is "unpublished"; a
+                # DRAFT or INVITED card is pencilled in and waits for
+                # its confirmation instead (review of #461).
+                "is_pencilled": slot.session.status not in PUBLISHABLE_STATUSES,
+                "is_dirty": slot.session.status in PUBLISHABLE_STATUSES
+                and (
                     slot.session_id not in published
                     or not published[slot.session_id].matches(slot)
                 ),

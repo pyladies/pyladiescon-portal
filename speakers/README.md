@@ -1044,10 +1044,13 @@ installed; this app keeps small factory functions in `tests/speakers/factories.p
   session on the grid is the organizers' pencil, stays out of every
   publish, and nobody is emailed about a session they have not accepted;
   once it is confirmed, the next publish picks it up as a placement. The
+  editor marks such a card "pencilled in" (dotted), never as unpublished
+  (dashed), so cards and the publish counter agree. The
   update email likewise goes only to presenters with a confirmed link,
   and it words each line from the snapshot as it stands when the task
   runs, so a session a later publish restored is not announced as taken
-  off. `schedule.publish_schedule`
+  off, and a cancelled session is worded as cancelled (cancelling sends
+  nothing itself, so this is how its speakers hear). `schedule.publish_schedule`
   diffs the grid against the snapshot and applies it in one transaction:
   this is when CONFIRMED becomes SCHEDULED (so `Session.schedule()` and
   `publish()` now require a PUBLISHED slot), when identity locks, when

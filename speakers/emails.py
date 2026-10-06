@@ -19,6 +19,7 @@ from common.markdown_emails import MarkdownEmailRenderer
 from common.models import SentEmail, SentEmailStatus
 from common.send_emails import send_email
 
+from .constants import SessionStatus
 from .models import MediaAsset, SpeakerSettings
 from .people import user_label
 
@@ -380,7 +381,16 @@ def send_schedule_update_email(presenter, session_changes, published_at):
         # back before this email went out (review of #461).
         row = getattr(session, "published_slot", None)
         if row is None:
-            lines.append({"title": session.title, "when": "", "removed": True})
+            lines.append(
+                {
+                    "title": session.title,
+                    "when": "",
+                    "removed": True,
+                    # Cancelling sends nothing itself, so this line is how
+                    # the speaker hears; it must not promise a new time.
+                    "cancelled": session.status == SessionStatus.CANCELLED,
+                }
+            )
             continue
         start = row.start_utc.astimezone(presenter.tzinfo)
         end = row.end_utc.astimezone(presenter.tzinfo)

@@ -689,3 +689,8 @@ details.card[open] > summary.card-header::before {
 .schedule-card-dirty {
     border-style: dashed;
 }
+
+.schedule-card-pencilled {
+    border-style: dotted;
+    opacity: 0.75;
+}

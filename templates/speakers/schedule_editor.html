@@ -47,7 +47,7 @@
                 </summary>
                 <div class="schedule-card-popover card shadow p-2 vstack gap-2 text-start">
                     <span class="small">
-                        {% blocktrans with placed=unpublished.placed moved=unpublished.moved removed=unpublished.removed %}Snapshots the whole grid for the speakers: {{ placed }} placed, {{ moved }} moved, {{ removed }} taken off. This is when sessions become scheduled and checklists open.{% endblocktrans %}
+                        {% blocktrans with placed=unpublished.placed moved=unpublished.moved removed=unpublished.removed %}Snapshots the whole grid for the speakers: {{ placed }} placed, {{ moved }} moved, {{ removed }} taken off. This is when sessions become scheduled and checklists open. Pencilled-in sessions (draft or invited) stay out until they are confirmed.{% endblocktrans %}
                     </span>
                     <form method="post"
                           action="{% url 'speakers:schedule_publish' %}?day={{ day|date:'Y-m-d' }}">
