@@ -64,7 +64,8 @@ class PresenterFeedView(SpeakerModuleRequiredMixin, View):
         presenter = presenter_from_token(token)
         if presenter is None or presenter.conference_id != self.conference.pk:
             raise Http404("No such feed.")
-        rows = presenter_rows(self.conference, presenter)
+        sessions = [slug for slug in request.GET.get("sessions", "").split(",") if slug]
+        rows = presenter_rows(self.conference, presenter, sessions=sessions or None)
         return calendar_response(
             render_calendar(f"{self.conference.name}: your sessions", rows)
         )

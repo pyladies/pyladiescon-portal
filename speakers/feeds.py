@@ -135,12 +135,14 @@ def public_rows(conference, sessions=None, kind=None, room=None):
     return rows.order_by("start_utc")
 
 
-def presenter_rows(conference, presenter):
+def presenter_rows(conference, presenter, sessions=None):
     """A presenter's own feed: their sessions, public or not, including a
-    cancelled one still on the snapshot so their calendar hears of it."""
-    return (
-        feed_rows(conference)
-        .filter(session__session_presenters__presenter=presenter)
-        .distinct()
-        .order_by("start_utc")
+    cancelled one still on the snapshot so their calendar hears of it.
+    ``sessions`` narrows to named slugs, which is how one session gets a
+    subscribable URL of its own."""
+    rows = feed_rows(conference).filter(
+        session__session_presenters__presenter=presenter
     )
+    if sessions:
+        rows = rows.filter(session__slug__in=sessions)
+    return rows.distinct().order_by("start_utc")

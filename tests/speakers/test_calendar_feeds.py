@@ -186,6 +186,25 @@ class TestPersonalFeed:
         assert "Theirs hidden" not in text
         assert "Someone publics" not in text
 
+    def test_the_sessions_filter_gives_one_session_its_own_feed(
+        self, client, enabled, conference
+    ):
+        user = User.objects.create_user(username="ada", email="a@example.com")
+        ada = make_presenter(conference, user=user)
+        first = make_session(conference, title="First of mine", kind="PANEL")
+        add_presenter(first, ada, confirmed=True)
+        make_slot(first, room=make_room(conference), start_utc=T0)
+        make_published_slot(first)
+        second = make_session(conference, title="Second of mine", kind="PANEL")
+        add_presenter(second, ada, confirmed=True)
+        make_slot(second, start_utc=T0 + timedelta(hours=3))
+        make_published_slot(second)
+        token = presenter_feed_token(ada)
+        url = reverse("speakers:presenter_feed", args=[token])
+        text = client.get(url, {"sessions": first.slug}).content.decode()
+        assert "First of mine" in text
+        assert "Second of mine" not in text
+
     def test_bad_or_foreign_tokens_are_404(self, client, enabled, conference):
         other = Conference.objects.create(
             year=2024, name="PyLadiesCon 2024", slug="2024"
@@ -212,6 +231,8 @@ class TestPersonalFeed:
         client.force_login(user)
         content = client.get(reverse("speakers:my_schedule")).content.decode()
         assert "webcal://" in content
+        assert "?sessions=" in content
+        assert "Download .ics" in content
         assert "/speakers/feeds/" in content
         assert "From URL" in content
         assert "Add to calendar" in content
