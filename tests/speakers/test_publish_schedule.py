@@ -6,10 +6,13 @@ from datetime import datetime, timedelta, timezone
 import pytest
 from django.contrib.auth.models import User
 from django.core import mail
+from django.db import connection
+from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 
 from common.models import SentEmail
 from speakers.constants import SessionStatus
+from speakers.emails import send_schedule_update_email
 from speakers.models import ActivityLog, PublishedSlot
 from speakers.schedule import publish_schedule, schedule_changes
 
@@ -122,6 +125,60 @@ class TestPublishService:
         assert result == {"placed": 0, "moved": 0, "removed": 0, "told": 0}
         assert session.published_slot.ics_sequence == 0
 
+    def test_a_draft_on_the_grid_never_publishes(
+        self, conference, enabled, organizer, django_capture_on_commit_callbacks
+    ):
+        """Only confirmed sessions publish (§10.1, review of #461): the
+        pencilled-in draft stays out of the snapshot and its presenter,
+        who was never asked, out of the mail; once confirmed, the next
+        publish places it like anything else."""
+        session = make_session(conference, title="Pencilled", kind="PANEL")
+        link = add_presenter(session, make_presenter(conference))
+        make_slot(session, start_utc=T0)
+        with django_capture_on_commit_callbacks(execute=True):
+            result = publish_schedule(conference, organizer, notify=True)
+        assert result == {"placed": 0, "moved": 0, "removed": 0, "told": 0}
+        session.refresh_from_db()
+        assert session.status == SessionStatus.DRAFT
+        assert not PublishedSlot.objects.filter(session=session).exists()
+        assert mail.outbox == []
+
+        link.confirm()
+        session.confirm()
+        result = publish_schedule(conference, organizer, notify=False)
+        assert result["placed"] == 1
+        session.refresh_from_db()
+        assert session.status == SessionStatus.SCHEDULED
+
+    def test_moved_sessions_cost_a_flat_three_queries_each(
+        self, conference, enabled, organizer
+    ):
+        """A publish reads the snapshot once; each moved session then
+        costs only the row UPDATE, the rules receiver's checklist read
+        and the activity log INSERT. The per-move session re-read is
+        gone (review of #461)."""
+
+        def shuffled_publish(count):
+            sessions = [
+                confirmed_session(conference, title=f"Moved {count}-{i}")
+                for i in range(count)
+            ]
+            for i, session in enumerate(sessions):
+                make_slot(session, start_utc=T0 + timedelta(hours=2 * i))
+            publish_schedule(conference, organizer, notify=False)
+            for session in sessions:
+                session.slot.start_utc += timedelta(minutes=30)
+                session.slot.end_utc = None
+                session.slot.save()
+            with CaptureQueriesContext(connection) as context:
+                publish_schedule(conference, organizer, notify=False)
+            for session in sessions:
+                session.slot.delete()
+            publish_schedule(conference, organizer, notify=False)
+            return len(context)
+
+        assert shuffled_publish(4) - shuffled_publish(2) == 2 * 3
+
 
 @pytest.mark.django_db
 class TestPublishEmails:
@@ -166,6 +223,38 @@ class TestPublishEmails:
         assert SentEmail.objects.filter(
             template="emails/speakers/schedule_update.md"
         ).exists()
+
+    def test_an_unaccepted_presenter_is_not_told(
+        self, conference, enabled, organizer, django_capture_on_commit_callbacks
+    ):
+        """The confirmed co-panelist hears about the publish; the one
+        still deciding does not (review of #461)."""
+        ada = make_presenter(conference, email="ada@example.com")
+        undecided = make_presenter(conference, email="undecided@example.com")
+        session = confirmed_session(conference, presenter=ada)
+        add_presenter(session, undecided, role="PANELIST")
+        make_slot(session, start_utc=T0)
+        with django_capture_on_commit_callbacks(execute=True):
+            result = publish_schedule(conference, organizer, notify=True)
+        assert result["told"] == 1
+        assert [message.to for message in mail.outbox] == [["ada@example.com"]]
+
+    def test_a_restored_session_is_worded_from_the_present(
+        self, conference, enabled, organizer
+    ):
+        """A stale task payload can say "removed" about a session a later
+        publish put back; the email trusts the snapshot as it stands and
+        gives the time instead (review of #461)."""
+        ada = make_presenter(conference, email="ada@example.com")
+        session = confirmed_session(conference, title="Back again", presenter=ada)
+        make_slot(session, start_utc=T0)
+        publish_schedule(conference, organizer, notify=False)
+        send_schedule_update_email(ada, [(session, "removed")], T0)
+        assert len(mail.outbox) == 1
+        body = mail.outbox[0].body
+        assert "taken off the schedule" not in body
+        assert "Back again" in body
+        assert "14:00" in body
 
     def test_a_removed_session_is_worded_as_removed(
         self, conference, enabled, organizer, django_capture_on_commit_callbacks

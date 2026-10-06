@@ -250,18 +250,30 @@ def presenter_schedule(conference, presenter):
     return days
 
 
+# What a publish may carry to the speakers: sessions somebody said yes
+# to. A DRAFT or INVITED session on the grid is the organizers' pencil,
+# and publishing it would email people who may never have been asked
+# (review of #461).
+PUBLISHABLE_STATUSES = (
+    SessionStatus.CONFIRMED,
+    SessionStatus.SCHEDULED,
+    SessionStatus.PUBLISHED,
+)
+
+
 def schedule_changes(conference):
     """The diff between the working grid and the published schedule.
 
     ``placed`` and ``moved`` hold working slots, ``removed`` the published
-    rows whose session left the grid (or stopped being on the program:
-    a cancelled session's published row is removed on the next publish).
+    rows whose session left the grid or stopped being publishable (a
+    cancelled session's published row is removed on the next publish; so
+    is anything that somehow regressed below CONFIRMED).
     """
     working = {
         slot.session_id: slot
-        for slot in ScheduleSlot.objects.filter(conference=conference)
-        .exclude(session__status__in=OFF_SCHEDULE_STATUSES)
-        .select_related("session", "room")
+        for slot in ScheduleSlot.objects.filter(
+            conference=conference, session__status__in=PUBLISHABLE_STATUSES
+        ).select_related("session", "room")
     }
     published = {
         row.session_id: row
@@ -291,6 +303,15 @@ def publish_schedule(conference, actor, notify=True):
     now = dj_timezone.now()
     with transaction.atomic():
         changes = schedule_changes(conference)
+        # One read for every row a move will touch: save() re-reads the
+        # session for its conference otherwise, which made a publish
+        # cost extra queries per moved session (review of #461).
+        published = {
+            row.session_id: row
+            for row in PublishedSlot.objects.filter(
+                conference=conference
+            ).select_related("session")
+        }
         affected = []
         for slot in changes["placed"]:
             PublishedSlot.objects.create(
@@ -311,7 +332,7 @@ def publish_schedule(conference, actor, notify=True):
             )
             affected.append((slot.session, "placed"))
         for slot in changes["moved"]:
-            row = slot.session.published_slot
+            row = published[slot.session_id]
             row.room = slot.room
             row.start_utc = slot.start_utc
             row.end_utc = slot.end_utc
@@ -353,7 +374,8 @@ def publish_schedule(conference, actor, notify=True):
         if notify and affected:
             by_presenter = {}
             links = SessionPresenter.objects.filter(
-                session__in=[session.pk for session, _ in affected]
+                session__in=[session.pk for session, _ in affected],
+                confirmed_at__isnull=False,
             ).values_list("presenter_id", "session_id")
             change_of = {session.pk: change for session, change in affected}
             for presenter_id, session_id in links:

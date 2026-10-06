@@ -936,14 +936,6 @@ class Session(TimestampedModel):
         if save:
             self.save(update_fields=["status"])
             session_confirmed.send(sender=Session, session=self)
-            # Published while a draft, confirmed later: the snapshot
-            # already carries this session, and no later publish would
-            # see a diff to schedule it, so the confirmation finishes
-            # the job (review of #460, re-keyed by §10.1). With
-            # save=False the caller owns the follow-through, as it owns
-            # the signal.
-            if self.has_published_slot:
-                self.schedule()
 
     def schedule(self, save=True):
         """CONFIRMED -> SCHEDULED once the published schedule carries it.

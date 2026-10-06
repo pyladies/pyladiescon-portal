@@ -215,11 +215,11 @@ class TestSessionTransitions:
         with pytest.raises(TransitionError):
             session.mark_invited()
 
-    def test_confirm_continues_to_scheduled_when_published_first(self, conference):
-        """Published while a draft, confirmed later (review of #460,
-        re-keyed by §10.1): the confirmation finishes the scheduling
-        when the speakers' snapshot already carries the session, since
-        no later publish would see a diff to do it."""
+    def test_confirm_never_schedules(self, conference):
+        """Only confirmed sessions publish (§10.1, review of #461), so a
+        snapshot row cannot predate the confirmation; and even against a
+        fabricated one, confirm() stops at CONFIRMED. The publish is the
+        only scheduler."""
         session = make_session(conference, kind="PANEL")
         make_slot(session)
         make_published_slot(session)
@@ -227,8 +227,7 @@ class TestSessionTransitions:
         link.confirm()
         session.confirm()
         session.refresh_from_db()
-        assert session.status == SessionStatus.SCHEDULED
-        assert session.identity_locked is True
+        assert session.status == SessionStatus.CONFIRMED
 
     def test_confirm_stays_confirmed_while_only_drafted(self, conference):
         """A working slot alone is the organizers' pencil (§10.1): the

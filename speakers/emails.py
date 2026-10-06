@@ -374,9 +374,12 @@ def send_schedule_update_email(presenter, session_changes, published_at):
     sessions, times in their own timezone. Returns the record.
     """
     lines = []
-    for session, change in session_changes:
+    for session, _ in session_changes:
+        # Worded from the snapshot as it stands NOW, not as it stood at
+        # publish time: a later publish may have put a removed session
+        # back before this email went out (review of #461).
         row = getattr(session, "published_slot", None)
-        if change == "removed" or row is None:
+        if row is None:
             lines.append({"title": session.title, "when": "", "removed": True})
             continue
         start = row.start_utc.astimezone(presenter.tzinfo)

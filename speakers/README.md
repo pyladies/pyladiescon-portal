@@ -1039,7 +1039,15 @@ installed; this app keeps small factory functions in `tests/speakers/factories.p
   speakers see: `ScheduleSlot` is the organizers' draft, `PublishedSlot`
   the snapshot everything speaker-facing reads (their schedule page and
   session pages, `presenter_email_context`, both SESSION_SCHEDULED rules,
-  later the feeds and the public program). `schedule.publish_schedule`
+  later the feeds and the public program). Only sessions from CONFIRMED
+  on publish (`schedule.PUBLISHABLE_STATUSES`): a DRAFT or INVITED
+  session on the grid is the organizers' pencil, stays out of every
+  publish, and nobody is emailed about a session they have not accepted;
+  once it is confirmed, the next publish picks it up as a placement. The
+  update email likewise goes only to presenters with a confirmed link,
+  and it words each line from the snapshot as it stands when the task
+  runs, so a session a later publish restored is not announced as taken
+  off. `schedule.publish_schedule`
   diffs the grid against the snapshot and applies it in one transaction:
   this is when CONFIRMED becomes SCHEDULED (so `Session.schedule()` and
   `publish()` now require a PUBLISHED slot), when identity locks, when
