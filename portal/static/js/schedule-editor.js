@@ -403,6 +403,9 @@
         grid.classList.toggle(
             "schedule-density-compact", select.value !== "comfortable"
         );
+        grid.classList.toggle(
+            "schedule-density-fit", select.value === "fit"
+        );
         if (select.value === "comfortable") {
             grid.style.removeProperty("--schedule-row-height");
         } else if (select.value === "compact") {

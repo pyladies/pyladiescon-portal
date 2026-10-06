@@ -722,3 +722,21 @@ details.card[open] > summary.card-header::before {
     width: 22rem;
     max-width: 90vw;
 }
+
+/* Fit shrinks the lettering with the rows: the text follows the
+   computed row height, floored where it stops being readable. */
+.schedule-density-fit .schedule-card {
+    padding: 0 0.2rem;
+    font-size: clamp(7px, calc(var(--schedule-row-height, 1.5rem) * 0.72), 0.7rem);
+    line-height: 1.15;
+    border-radius: 0.2rem;
+}
+.schedule-density-fit .schedule-hour {
+    font-size: clamp(7px, calc(var(--schedule-row-height, 1.5rem) * 0.72), 0.65rem);
+}
+.schedule-density-fit .schedule-card-edit,
+.schedule-density-fit .schedule-card .text-warning-emphasis[role="img"] {
+    padding: 0 0.15rem;
+    font-size: clamp(7px, calc(var(--schedule-row-height, 1.5rem) * 0.7), 0.7rem);
+    line-height: 1.1;
+}
