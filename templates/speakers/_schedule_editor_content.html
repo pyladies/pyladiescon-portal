@@ -69,7 +69,7 @@ mode (spreadsheet view): header controls, day tabs, alerts, the board.
                     {% blocktrans with placed=unpublished.placed moved=unpublished.moved removed=unpublished.removed %}Snapshots the whole grid for the speakers: {{ placed }} placed, {{ moved }} moved, {{ removed }} taken off. This is when sessions become scheduled and checklists open. Pencilled-in sessions (draft or invited) stay out until they are confirmed.{% endblocktrans %}
                 </span>
                 <form method="post"
-                      action="{% url 'speakers:schedule_publish' %}?day={{ day|date:'Y-m-d' }}">
+                      action="{% url 'speakers:schedule_publish' %}?{{ base_query }}{% if wide %}&amp;wide=1{% endif %}">
                     {% csrf_token %}
                     <div class="form-check">
                         <input class="form-check-input"
@@ -96,7 +96,8 @@ mode (spreadsheet view): header controls, day tabs, alerts, the board.
                     <span class="small">
                         {% blocktrans with day=day|date:"D j M" %}Takes every session on {{ day }} (the UTC day, as the tabs count) off the grid, back to Unscheduled. Published sessions keep their slot.{% endblocktrans %}
                     </span>
-                    <form method="post" action="{% url 'speakers:schedule_clear_day' %}">
+                    <form method="post"
+                          action="{% url 'speakers:schedule_clear_day' %}?{{ base_query }}{% if wide %}&amp;wide=1{% endif %}">
                         {% csrf_token %}
                         <input type="hidden" name="day" value="{{ day|date:'Y-m-d' }}" />
                         <button class="btn btn-danger btn-sm" type="submit">

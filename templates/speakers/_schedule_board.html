@@ -62,7 +62,8 @@ Unscheduled list and its open popover goes with it.
                 <p class="small text-secondary">
                     {% trans "An opening, break or social, born confirmed; it appears above, ready to drag." %}
                 </p>
-                <form method="post" action="?day={{ day|date:'Y-m-d' }}">
+                <form method="post"
+                      action="?{{ base_query }}{% if wide %}&amp;wide=1{% endif %}">
                     {% csrf_token %}
                     {% bootstrap_form program_item_form size="sm" %}
                     <button class="btn btn-outline-primary btn-sm" type="submit">

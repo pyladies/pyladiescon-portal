@@ -77,6 +77,23 @@ def _parse_day(value, days):
     return days[0]
 
 
+def _editor_query(request, conference, day=None):
+    """The query string that returns the organizer to the view they were
+    in: the shown day (or the all-days mode), the full-day flag and the
+    wide flag all survive a POST round-trip."""
+    params = []
+    if request.GET.get("days") == "all":
+        params.append("days=all")
+    else:
+        shown = day or _parse_day(request.GET.get("day"), schedule_days(conference))
+        params.append(f"day={shown:%Y-%m-%d}")
+        if request.GET.get("full"):
+            params.append("full=1")
+    if request.GET.get("wide"):
+        params.append("wide=1")
+    return "&".join(params)
+
+
 def _parse_moment(value, field):
     """An aware UTC datetime from an ISO string; naive means UTC."""
     try:
@@ -109,8 +126,7 @@ class ScheduleEditorView(
         wide = bool(self.request.GET.get("wide"))
         if all_days:
             context["day_grids"] = [
-                {"day": one, **grid_for_day(self.conference, one)}
-                for one in days
+                {"day": one, **grid_for_day(self.conference, one)} for one in days
             ]
         else:
             context.update(grid_for_day(self.conference, day, full_day=full_day))
@@ -126,8 +142,7 @@ class ScheduleEditorView(
                 "base_query": (
                     "days=all"
                     if all_days
-                    else f"day={day:%Y-%m-%d}"
-                    + ("&full=1" if full_day else "")
+                    else f"day={day:%Y-%m-%d}" + ("&full=1" if full_day else "")
                 ),
                 "unscheduled": unscheduled_sessions(self.conference),
                 "timezones": timezone_options(self.conference),
@@ -172,9 +187,8 @@ class ScheduleEditorView(
             messages.success(
                 request, f"Added “{session.title}”; drag it onto the grid."
             )
-        day = _parse_day(self.request.GET.get("day"), schedule_days(self.conference))
         url = reverse("speakers:schedule_editor")
-        return redirect(f"{url}?day={day:%Y-%m-%d}")
+        return redirect(f"{url}?{_editor_query(request, self.conference)}")
 
     def place(self, request, session):
         """Give the fresh program item the clicked cell's slot, if any.
@@ -240,7 +254,7 @@ class ScheduleClearDayView(LoginRequiredMixin, SpeakerOrganizerRequiredMixin, Vi
                 request,
                 "That day is not on the schedule any more; nothing was " "unscheduled.",
             )
-            return redirect(url)
+            return redirect(f"{url}?{_editor_query(request, self.conference)}")
         start, end = day_bounds(day)
         slots = ScheduleSlot.objects.filter(
             conference=self.conference, start_utc__lt=end, end_utc__gt=start
@@ -268,7 +282,7 @@ class ScheduleClearDayView(LoginRequiredMixin, SpeakerOrganizerRequiredMixin, Vi
                 f"{kept} published session(s) kept their slot; a published "
                 "session needs one.",
             )
-        return redirect(f"{url}?day={day:%Y-%m-%d}")
+        return redirect(f"{url}?{_editor_query(request, self.conference, day=day)}")
 
 
 class SchedulePublishView(LoginRequiredMixin, SpeakerOrganizerRequiredMixin, View):
@@ -292,9 +306,8 @@ class SchedulePublishView(LoginRequiredMixin, SpeakerOrganizerRequiredMixin, Vie
             )
         else:
             messages.info(request, "The published schedule already matches the grid.")
-        day = _parse_day(request.GET.get("day"), schedule_days(self.conference))
         url = reverse("speakers:schedule_editor")
-        return redirect(f"{url}?day={day:%Y-%m-%d}")
+        return redirect(f"{url}?{_editor_query(request, self.conference)}")
 
 
 class SlotView(LoginRequiredMixin, SpeakerOrganizerRequiredMixin, View):

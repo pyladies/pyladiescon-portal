@@ -916,3 +916,55 @@ class TestWideMode:
         assert response.context["all_days"] is True
         assert "schedule-wide" in content
         assert "days=all&amp;wide=1&amp;board=1" in content
+
+
+@pytest.mark.django_db
+class TestViewModeStickiness:
+    """A POST round-trip lands back in the view it came from."""
+
+    def test_publish_keeps_wide_and_all_days(
+        self, client, organizer, enabled, conference
+    ):
+        make_slot(make_session(conference), start_utc=T0)
+        client.force_login(organizer)
+        response = client.post(
+            reverse("speakers:schedule_publish") + "?days=all&wide=1", {}
+        )
+        assert response.url == EDITOR + "?days=all&wide=1"
+        response = client.post(
+            reverse("speakers:schedule_publish") + "?day=2026-12-05&full=1&wide=1",
+            {},
+        )
+        assert response.url == EDITOR + "?day=2026-12-05&full=1&wide=1"
+
+    def test_program_item_keeps_wide(self, client, organizer, enabled, conference):
+        conference.start_date = conference.end_date = date(2026, 12, 5)
+        conference.save()
+        client.force_login(organizer)
+        response = client.post(
+            EDITOR + "?day=2026-12-05&wide=1",
+            {"kind": session_type(conference, "BREAK").pk, "title": "Pause"},
+        )
+        assert response.url == EDITOR + "?day=2026-12-05&wide=1"
+
+    def test_unschedule_all_keeps_wide(self, client, organizer, enabled, conference):
+        make_slot(make_session(conference), start_utc=T0)
+        client.force_login(organizer)
+        response = client.post(
+            reverse("speakers:schedule_clear_day") + "?day=2026-12-05&wide=1",
+            {"day": "2026-12-05"},
+        )
+        assert response.url == EDITOR + "?day=2026-12-05&wide=1"
+        response = client.post(
+            reverse("speakers:schedule_clear_day") + "?wide=1", {"day": "garbage"}
+        )
+        assert "wide=1" in response.url
+
+    def test_the_forms_carry_the_mode(self, client, organizer, enabled, conference):
+        make_slot(make_session(conference), start_utc=T0)
+        client.force_login(organizer)
+        content = client.get(
+            EDITOR, {"day": "2026-12-05", "wide": "1"}
+        ).content.decode()
+        assert "schedule/publish/?day=2026-12-05&amp;wide=1" in content
+        assert "schedule/clear/?day=2026-12-05&amp;wide=1" in content
