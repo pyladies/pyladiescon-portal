@@ -436,7 +436,7 @@ details.card[open] > summary.card-header::before {
 .schedule-grid {
     display: grid;
     grid-template-columns: 4.5rem 7rem repeat(var(--schedule-columns, 0), minmax(12rem, 1fr));
-    grid-auto-rows: 1.5rem;
+    grid-auto-rows: var(--schedule-row-height, 1.5rem);
     position: relative;
 }
 .schedule-head {
@@ -693,4 +693,24 @@ details.card[open] > summary.card-header::before {
 .schedule-card-pencilled {
     border-style: dotted;
     opacity: 0.75;
+}
+
+/* Compact and Fit densities (design §10.2): one-line cards, the detail
+   stays in the tooltip and the pencil. */
+.schedule-density-compact .schedule-card {
+    padding-top: 0;
+    padding-bottom: 0;
+    font-size: 0.7rem;
+}
+.schedule-density-compact .schedule-card-meta,
+.schedule-density-compact .schedule-card-warnings {
+    display: none;
+}
+.schedule-density-compact .schedule-card-title {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+.schedule-density-compact .schedule-hour {
+    font-size: 0.65rem;
 }

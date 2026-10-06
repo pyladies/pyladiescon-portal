@@ -1028,6 +1028,13 @@ installed; this app keeps small factory functions in `tests/speakers/factories.p
   session keeps its slot. Everything is UTC end to end: the browser only
   relabels `data-utc` elements (`static/js/schedule-editor.js`), so the
   timezone switcher never touches what is stored or sent.
+- The grid shows a trimmed day (design §10.2): `schedule._window` renders
+  the program plus an hour each side, always on whole hours, and
+  `ScheduleSlot.clean()` stores whole minutes, because every row time is
+  derived from the window's start and a stray second would shift the
+  grid. A drag can only reach an hour past the current window; the
+  window grows after each change, so stretching further takes a few
+  drags, or "Show the whole day".
 - The presenter's schedule page (design §2.4) is `schedule.presenter_schedule`:
   public sessions plus the viewer's own in any on-schedule status, grouped
   by the presenter's LOCAL day with times pre-formatted in Python, because

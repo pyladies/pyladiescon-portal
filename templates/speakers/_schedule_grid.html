@@ -8,6 +8,7 @@ sit on top with inline grid positions computed in speakers/schedule.py.
 <div class="schedule-scroll">
     {# djlint:off #}
     <div class="schedule-grid"
+         data-rows="{{ rows|length }}"
          style="--schedule-columns: {{ rooms|length }}">
         <div class="schedule-head" style="grid-column: 1">
         </div>
@@ -40,6 +41,16 @@ sit on top with inline grid positions computed in speakers/schedule.py.
     </div>
     {# djlint:on #}
 </div>
+{% if has_slots %}
+    <p class="small text-secondary mt-1 mb-0">
+        {% if trimmed %}
+            {% trans "The grid is trimmed to the program." %}
+            <a href="?day={{ day|date:'Y-m-d' }}&amp;full=1">{% trans "Show the whole day" %}</a>
+        {% elif full_day %}
+            <a href="?day={{ day|date:'Y-m-d' }}">{% trans "Trim to the program" %}</a>
+        {% endif %}
+    </p>
+{% endif %}
 {% if not rooms %}
     <p class="text-secondary small mt-2 mb-0">
         {% trans "No rooms are recorded for this edition yet; only the all-rooms lane is available. Rooms are added in the admin, and for an online edition a room is usually a Discord channel." %}
