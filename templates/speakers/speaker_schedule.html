@@ -69,21 +69,12 @@
                             <span class="badge text-bg-warning">{% trans "Not yet public" %}</span>
                         {% endif %}
                         {% if entry.is_mine %}
-                            <details class="schedule-card-menu ms-auto">
-                                <summary class="btn btn-link btn-sm text-secondary p-0">
-                                    {% trans "Add to calendar" %}
-                                </summary>
-                                <div class="schedule-card-popover card shadow p-2 vstack gap-2 text-start">
-                                    <a class="btn btn-primary btn-sm"
-                                       href="{{ webcal_feed_url }}?sessions={{ entry.session.slug }}">
-                                        {% trans "Subscribe: follows reschedules" %}
-                                    </a>
-                                    <a class="btn btn-outline-secondary btn-sm"
-                                       href="{% url 'speakers:my_session_feed' entry.session.slug %}">
-                                        {% trans "Download .ics: a one-time copy" %}
-                                    </a>
-                                </div>
-                            </details>
+                            {% trans "Subscribes your calendar to this session; it follows reschedules by itself." as add_hint %}
+                            <a class="btn btn-link btn-sm text-secondary ms-auto p-0"
+                               href="{{ webcal_feed_url }}?sessions={{ entry.session.slug }}"
+                               title="{{ add_hint }}">
+                                {% trans "Add to calendar" %}
+                            </a>
                         {% endif %}
                     </div>
                 </div>

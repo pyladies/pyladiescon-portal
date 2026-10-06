@@ -147,11 +147,14 @@ class TestPublicFeed:
 
 @pytest.mark.django_db
 class TestSessionFeed:
-    def test_public_session_downloads(self, client, enabled, conference):
+    def test_public_session_serves_inline(self, client, enabled, conference):
+        """A per-session feed is a subscription target, never a download:
+        a saved copy is stale the moment a publish moves anything."""
         session = public_session(conference)
         response = client.get(reverse("speakers:session_feed", args=[session.slug]))
         assert response.status_code == 200
-        assert "attachment" in response["Content-Disposition"]
+        assert "Content-Disposition" not in response
+        assert response["Cache-Control"] == "max-age=300"
 
     def test_unpublished_is_404(self, client, enabled, conference):
         session = make_session(conference, kind="PANEL")
@@ -232,38 +235,8 @@ class TestPersonalFeed:
         content = client.get(reverse("speakers:my_schedule")).content.decode()
         assert "webcal://" in content
         assert "?sessions=" in content
-        assert "Download .ics" in content
+        assert "Download" not in content
         assert "/speakers/feeds/" in content
         assert "From URL" in content
         assert "Add to calendar" in content
         assert "calendar.ics" in content
-
-
-@pytest.mark.django_db
-class TestMySessionFeed:
-    def test_own_unpublished_download(self, client, enabled, conference):
-        user = User.objects.create_user(username="ada", email="a@example.com")
-        ada = make_presenter(conference, user=user)
-        session = make_session(conference, title="Mine", kind="PANEL")
-        add_presenter(session, ada, confirmed=True)
-        session.confirm()
-        make_slot(session, start_utc=T0)
-        make_published_slot(session)
-        client.force_login(user)
-        response = client.get(reverse("speakers:my_session_feed", args=[session.slug]))
-        assert response.status_code == 200
-        assert "SUMMARY:Mine" in response.content.decode()
-
-    def test_not_mine_or_not_published_is_404(self, client, enabled, conference):
-        user = User.objects.create_user(username="ada", email="a@example.com")
-        ada = make_presenter(conference, user=user)
-        onboarding = make_session(conference, kind="PANEL")
-        add_presenter(onboarding, ada, confirmed=True)
-        someone = public_session(conference, title="Someone elses")
-        unpublished = make_session(conference, title="No snapshot", kind="PANEL")
-        add_presenter(unpublished, ada, confirmed=True)
-        make_slot(unpublished, start_utc=T0 + timedelta(hours=6))
-        client.force_login(user)
-        for slug in (someone.slug, unpublished.slug):
-            response = client.get(reverse("speakers:my_session_feed", args=[slug]))
-            assert response.status_code == 404

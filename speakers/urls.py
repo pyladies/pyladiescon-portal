@@ -34,11 +34,6 @@ urlpatterns = [
         name="presenter_feed",
     ),
     path(
-        "me/sessions/<slug:slug>/calendar.ics",
-        feed_views.MySessionFeedView.as_view(),
-        name="my_session_feed",
-    ),
-    path(
         "schedule/publish/",
         schedule_views.SchedulePublishView.as_view(),
         name="schedule_publish",
