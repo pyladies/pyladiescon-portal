@@ -428,8 +428,10 @@ details.card[open] > summary.card-header::before {
    all-channels lane, one column per channel, 15-minute rows. Cards carry
    their grid position inline, computed in speakers/schedule.py. */
 .schedule-scroll {
-    max-height: 70vh;
-    overflow: auto;
+    /* Full height on purpose: the page scrolls a long day, not a box
+       within it (the rooms still scroll horizontally when they must,
+       and Compact or Fit put the whole day on one screen). */
+    overflow-x: auto;
     border: 1px solid var(--bs-border-color);
     border-radius: 0.5rem;
 }
