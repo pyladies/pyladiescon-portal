@@ -21,18 +21,7 @@
             <summary class="btn btn-outline-secondary btn-sm">
                 <i class="fa-solid fa-calendar-plus" aria-hidden="true"></i> {% trans "Subscribe in your calendar" %}
             </summary>
-            <div class="schedule-card-popover schedule-feed-popover card shadow p-2 vstack gap-2 text-start">
-                <a class="btn btn-primary btn-sm" href="{{ webcal_feed_url }}">
-                    {% trans "Open in your calendar app" %}
-                </a>
-                <label class="small mb-0">
-                    {% trans "Or paste this address into Google Calendar, under Other calendars, From URL. Your calendar then follows every published change by itself." %}
-                    <input class="form-control form-control-sm mt-1"
-                           type="text"
-                           readonly
-                           value="{{ personal_feed_url }}" />
-                </label>
-            </div>
+            {% include "speakers/_subscribe_links.html" with subscribe=subscribe only %}
         </details>
     </div>
     <p class="text-secondary">
@@ -69,12 +58,12 @@
                             <span class="badge text-bg-warning">{% trans "Not yet public" %}</span>
                         {% endif %}
                         {% if entry.is_mine %}
-                            {% trans "Subscribes your calendar to this session; it follows reschedules by itself." as add_hint %}
-                            <a class="btn btn-link btn-sm text-secondary ms-auto p-0"
-                               href="{{ webcal_feed_url }}?sessions={{ entry.session.slug }}"
-                               title="{{ add_hint }}">
-                                {% trans "Add to calendar" %}
-                            </a>
+                            <details class="schedule-card-menu ms-auto">
+                                <summary class="btn btn-link btn-sm text-secondary p-0">
+                                    {% trans "Add to calendar" %}
+                                </summary>
+                                {% include "speakers/_subscribe_links.html" with subscribe=entry.subscribe only %}
+                            </details>
                         {% endif %}
                     </div>
                 </div>

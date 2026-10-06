@@ -8,7 +8,12 @@ from django.urls import reverse
 
 from portal.models import Conference
 from speakers.constants import PremiereLocation
-from speakers.feeds import escape_text, fold, presenter_feed_token
+from speakers.feeds import (
+    escape_text,
+    fold,
+    presenter_feed_token,
+    subscribe_links,
+)
 from speakers.schedule import publish_schedule
 
 from .factories import (
@@ -57,6 +62,20 @@ class TestWriter:
         assert lines[0] == "S" * 75
         assert lines[1] == " " + "S" * 5
         assert fold("short") == ["short"]
+
+    def test_subscribe_links_cover_every_app(self):
+        links = subscribe_links(
+            "https://portal.example/speakers/feeds/t0k/calendar.ics",
+            "PyLadiesCon: your sessions",
+        )
+        assert links["webcal"].startswith("webcal://portal.example/")
+        assert links["google"].startswith(
+            "https://calendar.google.com/calendar/r?cid=webcal%3A%2F%2F"
+        )
+        assert "addfromweb?url=https%3A%2F%2F" in links["outlook"]
+        assert "name=PyLadiesCon%3A%20your%20sessions" in links["outlook"]
+        assert links["office"].startswith("https://outlook.office.com/")
+        assert links["url"].startswith("https://")
 
     def test_folding_never_splits_a_utf8_sequence(self):
         """38 two-byte characters put the 75-octet cut mid-sequence; the
@@ -234,9 +253,11 @@ class TestPersonalFeed:
         client.force_login(user)
         content = client.get(reverse("speakers:my_schedule")).content.decode()
         assert "webcal://" in content
-        assert "?sessions=" in content
+        assert "%3Fsessions%3D" in content  # the per-session Google link
         assert "Download" not in content
         assert "/speakers/feeds/" in content
-        assert "From URL" in content
+        assert "calendar.google.com/calendar/r?cid=webcal%3A" in content
+        assert "outlook.live.com/calendar/0/addfromweb" in content
+        assert "outlook.office.com/calendar/0/addfromweb" in content
         assert "Add to calendar" in content
         assert "calendar.ics" in content

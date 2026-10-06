@@ -59,7 +59,7 @@ from .constants import (
     SessionStatus,
 )
 from .emails import render_invitation_preview
-from .feeds import presenter_feed_token
+from .feeds import presenter_feed_token, subscribe_links
 from .filters import PresenterFilter, SessionFilter
 from .forms import (
     DEFAULT_GUIDE_URL,
@@ -1558,19 +1558,24 @@ class SpeakerScheduleView(LoginRequiredMixin, PresenterRequiredMixin, TemplateVi
         context = super().get_context_data(**kwargs)
         context["conference"] = self.conference
         context["presenter"] = self.presenter
-        context["schedule_days"] = presenter_schedule(self.conference, self.presenter)
+        days = presenter_schedule(self.conference, self.presenter)
         feed_url = self.request.build_absolute_uri(
             reverse(
                 "speakers:presenter_feed",
                 args=[presenter_feed_token(self.presenter)],
             )
         )
-        context["personal_feed_url"] = feed_url
-        # webcal:// is how Apple Calendar and Outlook subscribe from a
-        # click; Google Calendar wants the https address pasted instead.
-        context["webcal_feed_url"] = feed_url.replace(
-            "https://", "webcal://", 1
-        ).replace("http://", "webcal://", 1)
+        context["schedule_days"] = days
+        context["subscribe"] = subscribe_links(
+            feed_url, f"{self.conference.name}: your sessions"
+        )
+        for group in days:
+            for entry in group["entries"]:
+                if entry["is_mine"]:
+                    entry["subscribe"] = subscribe_links(
+                        f"{feed_url}?sessions={entry['session'].slug}",
+                        entry["session"].title,
+                    )
         return context
 
 

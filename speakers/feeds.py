@@ -8,6 +8,8 @@ here is a header, one VEVENT per slot, text escaping and 75-octet line
 folding, which is less code than a dependency pinned into three images.
 """
 
+from urllib.parse import quote
+
 from django.core import signing
 
 from .constants import PremiereLocation, SessionStatus
@@ -37,6 +39,37 @@ def presenter_from_token(token):
     from .models import Presenter
 
     return Presenter.objects.filter(pk=payload.get("presenter")).first()
+
+
+def subscribe_links(url, name):
+    """Every door into a calendar app, from one feed URL.
+
+    Subscribing is three mechanisms wearing one trenchcoat: Apple
+    Calendar and desktop Outlook register the webcal:// protocol,
+    Google Calendar and Outlook on the web each want their own deep
+    link carrying the URL, and everything accepts the address pasted
+    into its subscribe dialog.
+    """
+    webcal = url.replace("https://", "webcal://", 1).replace("http://", "webcal://", 1)
+    return {
+        "url": url,
+        "webcal": webcal,
+        "google": (
+            "https://calendar.google.com/calendar/r?cid=" + quote(webcal, safe="")
+        ),
+        "outlook": (
+            "https://outlook.live.com/calendar/0/addfromweb?url="
+            + quote(url, safe="")
+            + "&name="
+            + quote(name, safe="")
+        ),
+        "office": (
+            "https://outlook.office.com/calendar/0/addfromweb?url="
+            + quote(url, safe="")
+            + "&name="
+            + quote(name, safe="")
+        ),
+    }
 
 
 def escape_text(value):
