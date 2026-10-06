@@ -11,7 +11,7 @@ from datetime import datetime, timedelta, timezone
 from django.db.models import Q
 
 from .clock import today
-from .constants import OFF_SCHEDULE_STATUSES
+from .constants import OFF_SCHEDULE_STATUSES, SessionStatus
 from .models import (
     Presenter,
     Room,
@@ -141,6 +141,11 @@ def grid_for_day(conference, day):
     }
 
 
+def also_in(presenter, session):
+    """The double-booking warning line, one wording everywhere."""
+    return f"{presenter.display_name} is also in “{session.title}”"
+
+
 def presenter_warnings(slots):
     """``{slot.pk: ["Ada Lovelace is also in “X”", ...]}`` for one day.
 
@@ -168,7 +173,7 @@ def presenter_warnings(slots):
             ]
             for presenter in shared:
                 warnings.setdefault(slot.pk, []).append(
-                    f"{presenter.display_name} is also in " f"“{other.session.title}”"
+                    also_in(presenter, other.session)
                 )
     return warnings
 
@@ -188,10 +193,25 @@ def presenter_schedule(conference, presenter):
             "session_id", flat=True
         )
     )
+    # A DRAFT or INVITED link means nobody has asked them yet: a
+    # pencilled-in speaker is not told through their schedule page
+    # (review of #460), so their own sessions appear from CONFIRMED on.
     slots = (
         ScheduleSlot.objects.filter(conference=conference)
         .exclude(session__status__in=OFF_SCHEDULE_STATUSES)
-        .filter(Q(session__is_public=True) | Q(session_id__in=mine))
+        .filter(
+            Q(session__is_public=True)
+            | (
+                Q(session_id__in=mine)
+                & Q(
+                    session__status__in=(
+                        SessionStatus.CONFIRMED,
+                        SessionStatus.SCHEDULED,
+                        SessionStatus.PUBLISHED,
+                    )
+                )
+            )
+        )
         .select_related("session__kind", "room")
         .order_by("start_utc")
     )

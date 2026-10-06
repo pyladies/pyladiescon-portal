@@ -91,6 +91,16 @@ class TestVisibility:
         assert "Shipping Django" not in content
         assert "Not yet public" not in content
 
+    def test_a_pencilled_in_draft_is_not_shown(self, client, speaker, conference):
+        """A DRAFT link means nobody has asked them yet (review of
+        #460): the schedule page says nothing about it."""
+        secret = make_session(conference, title="Secret draft")
+        add_presenter(secret, speaker)
+        make_slot(secret, start_utc=T0 + timedelta(hours=5))
+        client.force_login(speaker.user)
+        content = client.get(SCHEDULE).content.decode()
+        assert "Secret draft" not in content
+
     def test_a_cancelled_session_disappears(self, client, speaker):
         speaker.session_presenters.get().session.cancel()
         client.force_login(speaker.user)

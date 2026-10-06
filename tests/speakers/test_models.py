@@ -213,6 +213,19 @@ class TestSessionTransitions:
         with pytest.raises(TransitionError):
             session.mark_invited()
 
+    def test_confirm_continues_to_scheduled_when_pencilled_in(self, conference):
+        """Placed while a draft, confirmed later: the confirmation must
+        finish the scheduling, or the identity lock and the slot
+        checklist line never happen (review of #460)."""
+        session = make_session(conference, kind="PANEL")
+        make_slot(session)
+        link = add_presenter(session, make_presenter(conference))
+        link.confirm()
+        session.confirm()
+        session.refresh_from_db()
+        assert session.status == SessionStatus.SCHEDULED
+        assert session.identity_locked is True
+
     def test_schedule_rejects_without_slot(self, conference):
         session = make_session(conference, kind="BREAK")
         session.confirm()
