@@ -683,3 +683,14 @@ details.card[open] > summary.card-header::before {
     background: #f6faff;
     border-left: 0.25rem solid #6ea8fe;
 }
+
+/* A card whose working position differs from what the speakers see:
+   dashed until the next Publish schedule. */
+.schedule-card-dirty {
+    border-style: dashed;
+}
+
+.schedule-card-pencilled {
+    border-style: dotted;
+    opacity: 0.75;
+}

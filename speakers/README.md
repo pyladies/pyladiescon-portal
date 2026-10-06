@@ -1035,6 +1035,34 @@ installed; this app keeps small factory functions in `tests/speakers/factories.p
   timezone in templates. Nobody else's unpublished sessions appear; the
   viewer's own carry a "not yet public" badge. Calendar links are disabled
   placeholders until the feeds (task 4.4).
+- The published schedule (design §10.1) splits the grid from what
+  speakers see: `ScheduleSlot` is the organizers' draft, `PublishedSlot`
+  the snapshot everything speaker-facing reads (their schedule page and
+  session pages, `presenter_email_context`, both SESSION_SCHEDULED rules,
+  later the feeds and the public program). Only sessions from CONFIRMED
+  on publish (`schedule.PUBLISHABLE_STATUSES`): a DRAFT or INVITED
+  session on the grid is the organizers' pencil, stays out of every
+  publish, and nobody is emailed about a session they have not accepted;
+  once it is confirmed, the next publish picks it up as a placement. The
+  editor marks such a card "pencilled in" (dotted), never as unpublished
+  (dashed), so cards and the publish counter agree. The
+  update email likewise goes only to presenters with a confirmed link,
+  and it words each line from the snapshot as it stands when the task
+  runs, so a session a later publish restored is not announced as taken
+  off, and a cancelled session is worded as cancelled (cancelling sends
+  nothing itself, so this is how its speakers hear). `schedule.publish_schedule`
+  diffs the grid against the snapshot and applies it in one transaction:
+  this is when CONFIRMED becomes SCHEDULED (so `Session.schedule()` and
+  `publish()` now require a PUBLISHED slot), when identity locks, when
+  `ics_sequence` bumps on moves, and when removals return a session to
+  CONFIRMED. The editor's grid mutations log `slot.placed`/`slot.moved`/
+  `slot.removed` (drafting); the session-level `session.scheduled`/
+  `session.rescheduled`/`session.unscheduled` entries are written by the
+  publish. "Email the affected speakers" (default on) sends one recorded
+  mail per affected presenter via `send_schedule_update_task`; the
+  presenter row rides in the email context because the resend guard keys
+  on the record's context digest. Organizer pages (sessions list, session
+  detail) deliberately keep showing the working grid.
 - The schedule grid's overlap rules live on `ScheduleSlot` (design §8.5):
   `clean()` runs on every save and refuses a slot sharing a room with
   another, or crossing an every-room band, except that two program-kind

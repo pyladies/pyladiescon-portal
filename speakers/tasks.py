@@ -1,4 +1,5 @@
 import logging
+from datetime import datetime
 
 from celery import shared_task
 from django.conf import settings
@@ -16,6 +17,7 @@ from .emails import (
     added_to_session_email_recorded,
     invitation_email_recorded,
     proposal_reply_recorded,
+    schedule_update_recorded,
     send_acceptance_email,
     send_added_to_session_email,
     send_copresenter_suggestion_email,
@@ -23,6 +25,7 @@ from .emails import (
     send_proposal_approved_email,
     send_proposal_received_email,
     send_proposal_rejected_email,
+    send_schedule_update_email,
     send_upload_notice_email,
     upload_notice_recorded,
 )
@@ -149,11 +152,48 @@ def send_upload_notice_task(self, asset_id):
 
 
 @email_task()
+def send_schedule_update_task(presenter_id, rows, published_at):
+    """One presenter's schedule-update email after a publish (§10.1).
+
+    ``rows`` is ``[[session_id, change], ...]`` with change one of
+    placed, moved, removed; the published times are read fresh here, so
+    a redelivered task tells the truth as of sending.
+    """
+    presenter = (
+        Presenter.objects.filter(pk=presenter_id)
+        .select_related("conference", "user")
+        .first()
+    )
+    if presenter is None:
+        return f"Presenter {presenter_id} is gone"
+    stamp = datetime.fromisoformat(published_at)
+    if schedule_update_recorded(presenter, stamp):
+        return f"Schedule update for presenter {presenter_id} was already sent"
+    sessions = {
+        session.pk: session
+        for session in Session.objects.filter(
+            pk__in=[session_id for session_id, _ in rows]
+        ).select_related("published_slot", "published_slot__room")
+    }
+    changes = [
+        (sessions[session_id], change)
+        for session_id, change in rows
+        if session_id in sessions
+    ]
+    if not changes:
+        return f"Nothing left to tell presenter {presenter_id}"
+    send_schedule_update_email(presenter, changes, stamp)
+    return f"Sent schedule update to presenter {presenter_id}"
+
+
+@email_task()
 def send_added_to_session_email_task(link_id):
     """Tell an already-accepted presenter they were added to a session."""
     link = (
         SessionPresenter.objects.filter(pk=link_id, confirmed_at__isnull=False)
-        .select_related("presenter", "role", "session", "session__slot", "conference")
+        .select_related(
+            "presenter", "role", "session", "session__published_slot", "conference"
+        )
         .first()
     )
     if link is None:

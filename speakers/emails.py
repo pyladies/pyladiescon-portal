@@ -19,6 +19,7 @@ from common.markdown_emails import MarkdownEmailRenderer
 from common.models import SentEmail, SentEmailStatus
 from common.send_emails import send_email
 
+from .constants import SessionStatus
 from .models import MediaAsset, SpeakerSettings
 from .people import user_label
 
@@ -360,6 +361,69 @@ def upload_notice_recorded(asset):
     return email_recorded(UPLOAD_NOTICE_TEMPLATE, asset.creation_date, asset=asset)
 
 
+SCHEDULE_UPDATE_TEMPLATE = "emails/speakers/schedule_update.md"
+
+
+def schedule_update_recorded(presenter, published_at):
+    """Whether this publish's update already reached this presenter."""
+    return email_recorded(SCHEDULE_UPDATE_TEMPLATE, published_at, presenter=presenter)
+
+
+def send_schedule_update_email(presenter, session_changes, published_at):
+    """The schedule was published and this presenter's sessions moved on
+    it (design §10.1): one email listing their placed, moved and removed
+    sessions, times in their own timezone. Returns the record.
+    """
+    lines = []
+    for session, _ in session_changes:
+        # Worded from the snapshot as it stands NOW, not as it stood at
+        # publish time: a later publish may have put a removed session
+        # back before this email went out (review of #461).
+        row = getattr(session, "published_slot", None)
+        if row is None:
+            lines.append(
+                {
+                    "title": session.title,
+                    "when": "",
+                    "removed": True,
+                    # Cancelling sends nothing itself, so this line is how
+                    # the speaker hears; it must not promise a new time.
+                    "cancelled": session.status == SessionStatus.CANCELLED,
+                }
+            )
+            continue
+        start = row.start_utc.astimezone(presenter.tzinfo)
+        end = row.end_utc.astimezone(presenter.tzinfo)
+        where = row.room.name if row.room_id else "all rooms"
+        lines.append(
+            {
+                "title": session.title,
+                "when": (
+                    f"{start:%A %d %B}, {start:%H:%M}–{end:%H:%M} "
+                    f"({presenter.timezone}) · {where}"
+                ),
+                "removed": False,
+            }
+        )
+    return send_email(
+        "The conference schedule was updated",
+        [presenter.email],
+        markdown_template=SCHEDULE_UPDATE_TEMPLATE,
+        context={
+            # The row itself rides along for the record's context digest,
+            # which is what schedule_update_recorded keys the resend
+            # guard on.
+            "presenter": presenter,
+            "presenter_name": presenter.display_name,
+            "lines": lines,
+            "schedule_url": absolute_url(reverse("speakers:my_schedule")),
+        },
+        conference=presenter.conference,
+        presenter=presenter,
+        user=presenter.user,
+    )
+
+
 def send_upload_notice_email(asset, presenter):
     """A speaker's upload just completed: tell their liaison, or the team
     when they have none (design §13.2, task 5.12). The length is probed on
@@ -420,7 +484,7 @@ def presenter_email_context(presenter):
     their sessions with the scheduled time in their timezone, if any."""
     links = list(
         presenter.session_presenters.select_related(
-            "session", "session__kind", "session__slot", "role"
+            "session", "session__kind", "session__published_slot", "role"
         ).order_by("session__title")
     )
     # Each role carries the word to call its people by (PresenterRole.
@@ -428,7 +492,7 @@ def presenter_email_context(presenter):
     roles = {link.role.email_word or "speaker" for link in links}
     sessions = []
     for link in links:
-        slot = getattr(link.session, "slot", None)
+        slot = getattr(link.session, "published_slot", None)
         sessions.append(
             {
                 "title": link.session.title,

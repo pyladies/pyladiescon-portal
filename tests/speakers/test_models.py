@@ -24,6 +24,7 @@ from .factories import (
     add_presenter,
     make_presenter,
     make_proposal,
+    make_published_slot,
     make_room,
     make_session,
     make_settings,
@@ -173,6 +174,7 @@ class TestSessionTransitions:
         session.confirm()
         assert session.status == SessionStatus.CONFIRMED
         make_slot(session)
+        make_published_slot(session)
         session.schedule()
         assert session.status == SessionStatus.SCHEDULED
         session.publish()
@@ -213,28 +215,43 @@ class TestSessionTransitions:
         with pytest.raises(TransitionError):
             session.mark_invited()
 
-    def test_confirm_continues_to_scheduled_when_pencilled_in(self, conference):
-        """Placed while a draft, confirmed later: the confirmation must
-        finish the scheduling, or the identity lock and the slot
-        checklist line never happen (review of #460)."""
+    def test_confirm_never_schedules(self, conference):
+        """Only confirmed sessions publish (§10.1, review of #461), so a
+        snapshot row cannot predate the confirmation; and even against a
+        fabricated one, confirm() stops at CONFIRMED. The publish is the
+        only scheduler."""
+        session = make_session(conference, kind="PANEL")
+        make_slot(session)
+        make_published_slot(session)
+        link = add_presenter(session, make_presenter(conference))
+        link.confirm()
+        session.confirm()
+        session.refresh_from_db()
+        assert session.status == SessionStatus.CONFIRMED
+
+    def test_confirm_stays_confirmed_while_only_drafted(self, conference):
+        """A working slot alone is the organizers' pencil (§10.1): the
+        publish is what schedules, not the confirmation."""
         session = make_session(conference, kind="PANEL")
         make_slot(session)
         link = add_presenter(session, make_presenter(conference))
         link.confirm()
         session.confirm()
-        session.refresh_from_db()
-        assert session.status == SessionStatus.SCHEDULED
-        assert session.identity_locked is True
+        assert session.status == SessionStatus.CONFIRMED
 
-    def test_schedule_rejects_without_slot(self, conference):
+    def test_schedule_rejects_without_published_slot(self, conference):
+        """A working slot is a draft (§10.1): scheduling waits for the
+        publish."""
         session = make_session(conference, kind="BREAK")
         session.confirm()
-        with pytest.raises(TransitionError, match="slot"):
+        make_slot(session)
+        with pytest.raises(TransitionError, match="Publish the schedule"):
             session.schedule()
 
     def test_schedule_rejects_draft(self, conference):
         session = make_session(conference, kind="BREAK")
         make_slot(session)
+        make_published_slot(session)
         with pytest.raises(TransitionError, match="from status Draft"):
             session.schedule()
 
@@ -248,16 +265,18 @@ class TestSessionTransitions:
     def test_publish_rejects_when_slot_removed(self, conference):
         session = make_session(conference, kind="BREAK")
         session.confirm()
-        slot = make_slot(session)
+        make_slot(session)
+        published = make_published_slot(session)
         session.schedule()
-        slot.delete()
-        with pytest.raises(TransitionError, match="slot"):
+        published.delete()
+        with pytest.raises(TransitionError, match="published schedule slot"):
             session.publish()
 
     def test_cancel_unpublishes(self, conference):
         session = make_session(conference, kind="BREAK")
         session.confirm()
         make_slot(session)
+        make_published_slot(session)
         session.schedule()
         session.publish()
         session.cancel()

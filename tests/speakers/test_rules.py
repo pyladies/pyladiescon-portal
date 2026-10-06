@@ -32,6 +32,7 @@ from .factories import (
     add_presenter,
     make_invitation,
     make_presenter,
+    make_published_slot,
     make_session,
     make_settings,
     make_slot,
@@ -183,12 +184,16 @@ class TestInvitationRules:
 
 @pytest.mark.django_db
 class TestSessionScheduled:
-    def test_slot_create_and_delete(self, conference):
+    def test_published_slot_create_and_delete(self, conference):
+        """The rule reads the published snapshot: a working slot is a
+        draft and ticks nothing (§10.1)."""
         session = make_session(conference)
         item = auto_item(conference, AutoRule.SESSION_SCHEDULED, session=session)
-        slot = make_slot(session)
+        make_slot(session)
+        assert status_of(item) == ItemStatus.TODO
+        published = make_published_slot(session)
         assert status_of(item) == ItemStatus.DONE
-        slot.delete()
+        published.delete()
         assert status_of(item) == ItemStatus.TODO
 
 

@@ -1417,7 +1417,7 @@ class SpeakerSessionDetailView(SpeakerSessionMixin, TemplateView):
                 "co_presenters": session.session_presenters.exclude(
                     presenter=self.presenter
                 ).select_related("presenter"),
-                "slot": getattr(session, "slot", None),
+                "slot": getattr(session, "published_slot", None),
                 "speaker_items": [
                     i for i in checklist["speaker"] if i.session_id == session.pk
                 ],

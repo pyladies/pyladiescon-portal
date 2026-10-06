@@ -17,9 +17,9 @@ from volunteer.models import Team, VolunteerProfile
 from .factories import (
     add_presenter,
     make_presenter,
+    make_published_slot,
     make_session,
     make_settings,
-    make_slot,
 )
 
 
@@ -36,7 +36,7 @@ class TestChangeNotices:
         )
         session = make_session(conference, title="Django 101")
         add_presenter(session, ada)
-        make_slot(session)  # 14:00 UTC
+        make_published_slot(session)  # 14:00 UTC, as speakers see it
         add_adhoc_item(conference, "Bring cookies", ItemOwner.SPEAKER, presenter=ada)
         mail.outbox.clear()
         assert send_checklist_change_notices(conference) == 1

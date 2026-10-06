@@ -19,9 +19,9 @@ from volunteer.models import Team, VolunteerProfile
 from .factories import (
     add_presenter,
     make_presenter,
+    make_published_slot,
     make_session,
     make_settings,
-    make_slot,
 )
 
 NOW = datetime(2026, 11, 20, 12, 0, tzinfo=timezone.utc)
@@ -116,7 +116,7 @@ class TestSpeakerDigest:
         ada = make_presenter(conference, timezone="Europe/Lisbon")
         session = make_session(conference, title="Careers panel", kind="PANEL")
         add_presenter(session, ada, role="PANELIST")
-        make_slot(session)  # 2026-12-05 14:00 UTC
+        make_published_slot(session)  # 2026-12-05 14:00 UTC, as speakers see it
         add_adhoc_item(
             conference, "Bio", ItemOwner.SPEAKER, presenter=ada, due_date=days(2)
         )

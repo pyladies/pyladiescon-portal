@@ -28,7 +28,7 @@ from .models import (
     MediaAsset,
     MediaUpload,
     Presenter,
-    ScheduleSlot,
+    PublishedSlot,
     Session,
     SessionPresenter,
 )
@@ -120,9 +120,10 @@ def session_presenter_changed(sender, instance, **kwargs):
     )
 
 
-@receiver(post_save, sender=ScheduleSlot, dispatch_uid="speakers.rules.slot_saved")
-@receiver(post_delete, sender=ScheduleSlot, dispatch_uid="speakers.rules.slot_deleted")
-def slot_changed(sender, instance, **kwargs):
+@receiver(post_save, sender=PublishedSlot, dispatch_uid="speakers.rules.slot_saved")
+@receiver(post_delete, sender=PublishedSlot, dispatch_uid="speakers.rules.slot_deleted")
+def published_slot_changed(sender, instance, **kwargs):
+    """Publishing the schedule is what schedules a session (§10.1)."""
     evaluate_items(items_for_session(instance.session, [AutoRule.SESSION_SCHEDULED]))
 
 

@@ -45,6 +45,7 @@ from speakers.models import (
     MediaAsset,
     Presenter,
     Proposal,
+    PublishedSlot,
     ReadinessGate,
     Room,
     ScheduleSlot,
@@ -549,11 +550,21 @@ class Command(BaseCommand):
         ):
             session = self.sessions[title]
             session.refresh_from_db()
-            ScheduleSlot.objects.get_or_create(
+            slot, _ = ScheduleSlot.objects.get_or_create(
                 session=session,
                 defaults={
                     "room": None if title == "Opening" else stage,
                     "start_utc": start + timedelta(hours=offset),
+                },
+            )
+            # The sample schedule is published: speakers read the snapshot.
+            PublishedSlot.objects.get_or_create(
+                session=session,
+                defaults={
+                    "room": slot.room,
+                    "start_utc": slot.start_utc,
+                    "end_utc": slot.end_utc,
+                    "published_at": timezone.now(),
                 },
             )
             if session.status == SessionStatus.CONFIRMED:

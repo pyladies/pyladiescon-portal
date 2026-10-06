@@ -22,9 +22,9 @@ from volunteer.models import Team
 from .factories import (
     add_presenter,
     make_presenter,
+    make_published_slot,
     make_session,
     make_settings,
-    make_slot,
 )
 
 DASHBOARD = reverse("speakers:my_dashboard")
@@ -515,7 +515,7 @@ class TestSessionDetail:
     def test_detail_empty_description_and_slot(
         self, client, speaker, presenter, session, conference
     ):
-        make_slot(session)
+        make_published_slot(session)
         client.force_login(speaker)
         content = client.get(
             reverse("speakers:my_session_detail", args=[session.slug])

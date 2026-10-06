@@ -27,8 +27,8 @@ from .models import (
     ChecklistItem,
     Handbook,
     MediaAsset,
+    PublishedSlot,
     ReadinessGate,
-    ScheduleSlot,
     SpeakerSettings,
 )
 
@@ -45,10 +45,10 @@ def ready_rule(name):
 
 @ready_rule(ReadyRule.SESSION_SCHEDULED)
 def session_scheduled(item):
-    """The session has a slot, so there is a time to confirm."""
+    """The published schedule carries the session: a time to confirm."""
     if item.session_id is None:
         return False
-    return ScheduleSlot.objects.filter(session_id=item.session_id).exists()
+    return PublishedSlot.objects.filter(session_id=item.session_id).exists()
 
 
 @ready_rule(ReadyRule.GUIDE_PUBLISHED)

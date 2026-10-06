@@ -8,18 +8,25 @@ attributes this module's cards carry).
 
 from datetime import datetime, timedelta, timezone
 
+from django.db import transaction
 from django.db.models import Q
+from django.utils import timezone as dj_timezone
 
 from .clock import today
 from .constants import OFF_SCHEDULE_STATUSES, SessionStatus
 from .models import (
+    ActivityLog,
+    ChecklistItem,
     Presenter,
+    PublishedSlot,
     Room,
     ScheduleSlot,
     Session,
     SessionPresenter,
     SpeakerSettings,
 )
+from .readiness import refresh_readiness
+from .tasks import send_schedule_update_task
 
 STEP_MINUTES = 15
 ROWS_PER_DAY = 24 * 60 // STEP_MINUTES
@@ -100,6 +107,10 @@ def grid_for_day(conference, day):
     ]
     last_column = FIRST_ROOM_COLUMN + len(rooms)
     warnings = presenter_warnings(slots)
+    published = {
+        row.session_id: row
+        for row in PublishedSlot.objects.filter(conference=conference)
+    }
     column = {room.pk: FIRST_ROOM_COLUMN + i for i, room in enumerate(rooms)}
     cards = []
     for slot in slots:
@@ -120,6 +131,15 @@ def grid_for_day(conference, day):
                 "end_column": end_column,
                 "is_band": slot.room_id is None,
                 "minutes": int((slot.end_utc - slot.start_utc).total_seconds() // 60),
+                # Only what a publish would carry is "unpublished"; a
+                # DRAFT or INVITED card is pencilled in and waits for
+                # its confirmation instead (review of #461).
+                "is_pencilled": slot.session.status not in PUBLISHABLE_STATUSES,
+                "is_dirty": slot.session.status in PUBLISHABLE_STATUSES
+                and (
+                    slot.session_id not in published
+                    or not published[slot.session_id].matches(slot)
+                ),
                 "warnings": warnings.get(slot.pk, []),
             }
         )
@@ -181,8 +201,9 @@ def presenter_warnings(slots):
 def presenter_schedule(conference, presenter):
     """The schedule as one presenter may see it, by their local day.
 
-    Public sessions, plus the presenter's own whatever their status short
-    of the off-schedule ones; an unpublished entry of their own carries a
+    Reads the published schedule only (§10.1): the working grid is the
+    organizers' draft. Public sessions, plus the presenter's own; an
+    entry of their own that is not on the public site yet carries a
     draft flag for the "not yet public" badge (design §2.4). Times are
     pre-formatted in the presenter's timezone, so the template never
     re-converts them (Django's date filter would pull aware datetimes
@@ -197,7 +218,7 @@ def presenter_schedule(conference, presenter):
     # pencilled-in speaker is not told through their schedule page
     # (review of #460), so their own sessions appear from CONFIRMED on.
     slots = (
-        ScheduleSlot.objects.filter(conference=conference)
+        PublishedSlot.objects.filter(conference=conference)
         .exclude(session__status__in=OFF_SCHEDULE_STATUSES)
         .filter(
             Q(session__is_public=True)
@@ -232,6 +253,154 @@ def presenter_schedule(conference, presenter):
         else:
             days.append({"day": start.date(), "entries": [entry]})
     return days
+
+
+# What a publish may carry to the speakers: sessions somebody said yes
+# to. A DRAFT or INVITED session on the grid is the organizers' pencil,
+# and publishing it would email people who may never have been asked
+# (review of #461).
+PUBLISHABLE_STATUSES = (
+    SessionStatus.CONFIRMED,
+    SessionStatus.SCHEDULED,
+    SessionStatus.PUBLISHED,
+)
+
+
+def schedule_changes(conference):
+    """The diff between the working grid and the published schedule.
+
+    ``placed`` and ``moved`` hold working slots, ``removed`` the published
+    rows whose session left the grid or stopped being publishable (a
+    cancelled session's published row is removed on the next publish; so
+    is anything that somehow regressed below CONFIRMED).
+    """
+    working = {
+        slot.session_id: slot
+        for slot in ScheduleSlot.objects.filter(
+            conference=conference, session__status__in=PUBLISHABLE_STATUSES
+        ).select_related("session", "room")
+    }
+    published = {
+        row.session_id: row
+        for row in PublishedSlot.objects.filter(conference=conference).select_related(
+            "session", "room"
+        )
+    }
+    placed = [slot for key, slot in working.items() if key not in published]
+    moved = [
+        slot
+        for key, slot in working.items()
+        if key in published and not published[key].matches(slot)
+    ]
+    removed = [row for key, row in published.items() if key not in working]
+    return {"placed": placed, "moved": moved, "removed": removed}
+
+
+def publish_schedule(conference, actor, notify=True):
+    """Snapshot the working grid for the speakers (design §10.1).
+
+    One whole-edition action, one transaction: this is the moment a
+    session becomes SCHEDULED, its identity locks, its checklist lines
+    open, and the feeds' SEQUENCE moves. With ``notify``, one email per
+    affected presenter is queued on commit. Returns the change counts
+    plus how many presenters were told.
+    """
+    now = dj_timezone.now()
+    with transaction.atomic():
+        changes = schedule_changes(conference)
+        # One read for every row a move will touch: save() re-reads the
+        # session for its conference otherwise, which made a publish
+        # cost extra queries per moved session (review of #461).
+        published = {
+            row.session_id: row
+            for row in PublishedSlot.objects.filter(
+                conference=conference
+            ).select_related("session")
+        }
+        affected = []
+        for slot in changes["placed"]:
+            PublishedSlot.objects.create(
+                session=slot.session,
+                room=slot.room,
+                start_utc=slot.start_utc,
+                end_utc=slot.end_utc,
+                published_at=now,
+            )
+            if slot.session.status == SessionStatus.CONFIRMED:
+                slot.session.schedule()
+            ActivityLog.record(
+                conference,
+                "session.scheduled",
+                target=slot.session,
+                actor=actor,
+                start=slot.start_utc.isoformat(),
+            )
+            affected.append((slot.session, "placed"))
+        for slot in changes["moved"]:
+            row = published[slot.session_id]
+            row.room = slot.room
+            row.start_utc = slot.start_utc
+            row.end_utc = slot.end_utc
+            row.published_at = now
+            row.ics_sequence += 1
+            row.save()
+            ActivityLog.record(
+                conference,
+                "session.rescheduled",
+                target=slot.session,
+                actor=actor,
+                start=slot.start_utc.isoformat(),
+            )
+            affected.append((slot.session, "moved"))
+        for row in changes["removed"]:
+            session = row.session
+            row.delete()
+            if session.status == SessionStatus.SCHEDULED:
+                session.unschedule()
+            ActivityLog.record(
+                conference, "session.unscheduled", target=session, actor=actor
+            )
+            affected.append((session, "removed"))
+        refresh_readiness(
+            ChecklistItem.objects.filter(
+                session__in=[session.pk for session, _ in affected]
+            )
+        )
+        ActivityLog.record(
+            conference,
+            "schedule.published",
+            actor=actor,
+            placed=len(changes["placed"]),
+            moved=len(changes["moved"]),
+            removed=len(changes["removed"]),
+            emailed=notify,
+        )
+        told = 0
+        if notify and affected:
+            by_presenter = {}
+            links = SessionPresenter.objects.filter(
+                session__in=[session.pk for session, _ in affected],
+                confirmed_at__isnull=False,
+            ).values_list("presenter_id", "session_id")
+            change_of = {session.pk: change for session, change in affected}
+            for presenter_id, session_id in links:
+                by_presenter.setdefault(presenter_id, []).append(
+                    [session_id, change_of[session_id]]
+                )
+            told = len(by_presenter)
+            stamp = now.isoformat()
+            for presenter_id, rows in by_presenter.items():
+                transaction.on_commit(
+                    lambda p=presenter_id, r=rows: (
+                        send_schedule_update_task.delay(p, r, stamp)
+                    )
+                )
+    return {
+        "placed": len(changes["placed"]),
+        "moved": len(changes["moved"]),
+        "removed": len(changes["removed"]),
+        "told": told,
+    }
 
 
 def unscheduled_sessions(conference):
