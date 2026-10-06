@@ -1228,6 +1228,12 @@ class ScheduleSlot(TimestampedModel):
         """
         if self.session_id is None or self.start_utc is None:
             return
+        # The grid works in whole minutes; the admin form and the PATCH
+        # endpoint accept seconds, which would otherwise ride into every
+        # row time derived from the slot.
+        self.start_utc = self.start_utc.replace(second=0, microsecond=0)
+        if self.end_utc:
+            self.end_utc = self.end_utc.replace(second=0, microsecond=0)
         if self.session.status in UNACCEPTED_STATUSES:
             raise ValidationError(
                 "This session is waiting for an answer; approve the "

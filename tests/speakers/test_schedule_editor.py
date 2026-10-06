@@ -2,6 +2,7 @@
 
 import json
 from datetime import date, datetime, timedelta, timezone
+from types import SimpleNamespace
 
 import pytest
 from django.contrib.auth.models import User
@@ -17,6 +18,8 @@ from speakers.schedule import (
     ALL_ROOMS_COLUMN,
     FIRST_ROOM_COLUMN,
     FIRST_TIME_ROW,
+    _window,
+    day_bounds,
     grid_for_day,
     schedule_days,
     timezone_options,
@@ -776,6 +779,42 @@ class TestTrimmedWindow:
         grid = grid_for_day(conference, date(2026, 12, 5))
         assert grid["trimmed"] is False
         assert len(grid["rows"]) == 96
+
+    def test_a_stray_second_cannot_shift_the_window(self):
+        """Review of #462: a 10:00:30 start moved every row time to :30
+        seconds and drew a clean 14:00 slot a row early."""
+        day_start, day_end = day_bounds(date(2026, 12, 5))
+
+        def at(h, m=0, s=0, us=0):
+            return datetime(2026, 12, 5, h, m, s, us, tzinfo=timezone.utc)
+
+        slots = [
+            SimpleNamespace(start_utc=at(14), end_utc=at(15)),
+            SimpleNamespace(start_utc=at(10, 0, 30), end_utc=at(11, 0, 30)),
+        ]
+        assert _window(day_start, day_end, slots, False) == (at(9), at(16))
+        slots.append(SimpleNamespace(start_utc=at(14), end_utc=at(15, 0, 0, 1)))
+        assert _window(day_start, day_end, slots, False)[1] == at(17)
+
+    def test_slots_store_whole_minutes(self, conference, enabled):
+        """The admin form and the PATCH endpoint accept seconds; the
+        stored slot drops them, so the grid stays on its quarter-hours."""
+        clean = make_session(conference, kind="TALK")
+        make_slot(clean, start_utc=T0)
+        stray = make_session(conference, kind="TALK")
+        slot = make_slot(
+            stray,
+            start_utc=datetime(2026, 12, 5, 10, 0, 30, tzinfo=timezone.utc),
+            end_utc=datetime(2026, 12, 5, 11, 0, 30, 5, tzinfo=timezone.utc),
+        )
+        slot.refresh_from_db()
+        assert (slot.start_utc.second, slot.end_utc.second) == (0, 0)
+        assert slot.end_utc.microsecond == 0
+        grid = grid_for_day(conference, date(2026, 12, 5))
+        assert grid["rows"][0]["utc"] == datetime(2026, 12, 5, 9, tzinfo=timezone.utc)
+        assert all(row["utc"].second == 0 for row in grid["rows"])
+        by_title = {card["session"].pk: card["row"] for card in grid["cards"]}
+        assert by_title[clean.pk] == FIRST_TIME_ROW + 5 * 4
 
     def test_the_page_offers_the_toggle_and_the_density_switch(
         self, client, organizer, enabled, conference

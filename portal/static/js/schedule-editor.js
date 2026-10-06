@@ -409,8 +409,10 @@
             grid.style.setProperty("--schedule-row-height", "0.55rem");
         } else {
             var rows = parseInt(grid.dataset.rows, 10) || 1;
-            var room = window.innerHeight -
-                grid.getBoundingClientRect().top - 40;
+            /* From the grid's place on the page, not on the screen, so
+             * switching while scrolled down sizes it the same. */
+            var top = grid.getBoundingClientRect().top + window.scrollY;
+            var room = window.innerHeight - top - 40;
             var height = Math.max(3, Math.floor(room / rows));
             grid.style.setProperty(
                 "--schedule-row-height", height + "px"

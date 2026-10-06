@@ -78,6 +78,12 @@ def _row_of(moment, window_start, row_count):
     return FIRST_TIME_ROW + int(max(0, min(row_count, offset)))
 
 
+def _hour_of(moment):
+    """The hour a moment falls in. Every row time derives from the
+    window's start, so a stray second here would shift the whole grid."""
+    return moment.replace(minute=0, second=0, microsecond=0)
+
+
 def _window(day_start, day_end, slots, full_day):
     """The hours the grid renders: the program plus an hour each side.
 
@@ -89,9 +95,9 @@ def _window(day_start, day_end, slots, full_day):
         return day_start, day_end
     first = max(min(slot.start_utc for slot in slots), day_start)
     last = min(max(slot.end_utc for slot in slots), day_end)
-    start = max(day_start, first.replace(minute=0) - timedelta(hours=1))
-    end = last.replace(minute=0) + timedelta(hours=1)
-    if last.minute or last.second:
+    start = max(day_start, _hour_of(first) - timedelta(hours=1))
+    end = _hour_of(last) + timedelta(hours=1)
+    if last != _hour_of(last):
         end += timedelta(hours=1)
     return start, min(end, day_end)
 
@@ -167,8 +173,7 @@ def grid_for_day(conference, day, full_day=False):
         {
             "index": FIRST_TIME_ROW + i,
             "utc": window_start + timedelta(minutes=STEP_MINUTES * i),
-            "is_hour": (window_start.minute == 0 and i % 4 == 0)
-            or (window_start + timedelta(minutes=STEP_MINUTES * i)).minute == 0,
+            "is_hour": i % 4 == 0,
         }
         for i in range(row_count)
     ]
