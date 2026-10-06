@@ -63,6 +63,20 @@ class TestWriter:
         assert lines[1] == " " + "S" * 5
         assert fold("short") == ["short"]
 
+    def test_a_bare_carriage_return_cannot_start_a_line(self):
+        """Review of #463: a lone CR reads as a line break to some apps,
+        so "Evil\\rBEGIN:VEVENT" could smuggle in an event."""
+        escaped = escape_text("Evil\rBEGIN:VEVENT\r\nSUMMARY:Injected")
+        assert "\r" not in escaped
+        assert escaped == "Evil\\nBEGIN:VEVENT\\nSUMMARY:Injected"
+
+    def test_continuation_lines_stay_within_75_octets(self):
+        """Review of #463: the leading space counts, so a continuation
+        carries 74 octets of content."""
+        lines = fold("S" * 200)
+        assert [len(line.encode("utf-8")) for line in lines] == [75, 75, 52]
+        assert "".join(line.removeprefix(" ") for line in lines) == "S" * 200
+
     def test_subscribe_links_cover_every_app(self):
         links = subscribe_links(
             "https://portal.example/speakers/feeds/t0k/calendar.ics",
@@ -119,6 +133,11 @@ class TestPublicFeed:
         assert "Filtered panel" in client.get(FEED, {"kind": "PANEL"}).content.decode()
         text = client.get(FEED, {"room": room.pk}).content.decode()
         assert "Filtered panel" in text and "Other panel" not in text
+
+    def test_a_mangled_room_answers_400(self, client, enabled, conference):
+        """Review of #463: this used to be a public 500."""
+        public_session(conference)
+        assert client.get(FEED, {"room": "abc"}).status_code == 400
 
     def test_sequence_bumps_when_a_publish_moves(
         self, client, enabled, conference, organizer
@@ -207,6 +226,32 @@ class TestPersonalFeed:
         assert "Mine\\, early" in text
         assert "Theirs hidden" not in text
         assert "Someone publics" not in text
+
+    def test_a_pending_invitation_stays_out_and_the_feed_is_private(
+        self, client, enabled, conference
+    ):
+        """Review of #463: only sessions the presenter accepted reach their
+        calendar, the #461 rule for the update email; and a personal feed
+        must not sit in a shared cache."""
+        user = User.objects.create_user(username="ada", email="a@example.com")
+        ada = make_presenter(conference, user=user)
+        accepted = public_session(
+            conference,
+            title="Accepted panel",
+            presenter=ada,
+            room=make_room(conference),
+        )
+        pending = public_session(
+            conference, title="Pending panel", room=make_room(conference)
+        )
+        add_presenter(pending, ada, role="PANELIST")
+        response = client.get(
+            reverse("speakers:presenter_feed", args=[presenter_feed_token(ada)])
+        )
+        text = response.content.decode()
+        assert accepted.title in text
+        assert "Pending panel" not in text
+        assert response["Cache-Control"] == "private, max-age=300"
 
     def test_the_sessions_filter_gives_one_session_its_own_feed(
         self, client, enabled, conference

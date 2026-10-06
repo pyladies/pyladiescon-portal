@@ -73,7 +73,9 @@ def subscribe_links(url, name):
 
 
 def escape_text(value):
-    """RFC 5545 TEXT escaping."""
+    """RFC 5545 TEXT escaping. A bare CR is a line break to some
+    calendar apps, so every line ending becomes one escaped newline."""
+    value = value.replace("\r\n", "\n").replace("\r", "\n")
     value = value.replace("\\", "\\\\")
     value = value.replace(";", "\\;")
     value = value.replace(",", "\\,")
@@ -87,7 +89,8 @@ def fold(line):
         return [line]
     parts = []
     while raw:
-        cut = min(75, len(raw))
+        # A continuation line's leading space counts toward its 75.
+        cut = min(75 if not parts else 74, len(raw))
         # Never split inside a UTF-8 sequence.
         while cut < len(raw) and (raw[cut] & 0xC0) == 0x80:
             cut -= 1
@@ -173,8 +176,12 @@ def presenter_rows(conference, presenter, sessions=None):
     cancelled one still on the snapshot so their calendar hears of it.
     ``sessions`` narrows to named slugs, which is how one session gets a
     subscribable URL of its own."""
+    # One filter() call, so both conditions hold on the same link: a
+    # presenter who has not accepted this session is not told its time
+    # (the #461 rule for the update email).
     rows = feed_rows(conference).filter(
-        session__session_presenters__presenter=presenter
+        session__session_presenters__presenter=presenter,
+        session__session_presenters__confirmed_at__isnull=False,
     )
     if sessions:
         rows = rows.filter(session__slug__in=sessions)

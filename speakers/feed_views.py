@@ -5,7 +5,7 @@ rules arrive; a presenter's own feed rides a signed token, because a
 calendar app cannot log in. Everything reads the published schedule.
 """
 
-from django.http import Http404, HttpResponse
+from django.http import Http404, HttpResponse, HttpResponseBadRequest
 from django.views import View
 
 from .feeds import (
@@ -17,7 +17,7 @@ from .feeds import (
 from .mixins import SpeakerModuleRequiredMixin
 
 
-def calendar_response(text):
+def calendar_response(text, private=False):
     """text/calendar with the five-minute cache §11.3 asks for.
 
     Served inline on purpose: every one of these is a subscription
@@ -25,7 +25,8 @@ def calendar_response(text):
     anything — which is why there is no download variant at all.
     """
     response = HttpResponse(text, content_type="text/calendar; charset=utf-8")
-    response["Cache-Control"] = "max-age=300"
+    # A personal feed must not sit in a shared cache.
+    response["Cache-Control"] = ("private, " if private else "") + "max-age=300"
     return response
 
 
@@ -34,11 +35,17 @@ class ScheduleFeedView(SpeakerModuleRequiredMixin, View):
 
     def get(self, request):
         sessions = [slug for slug in request.GET.get("sessions", "").split(",") if slug]
+        room = request.GET.get("room") or None
+        if room is not None:
+            try:
+                room = int(room)
+            except ValueError:
+                return HttpResponseBadRequest("Unknown room.")
         rows = public_rows(
             self.conference,
             sessions=sessions or None,
             kind=request.GET.get("kind") or None,
-            room=request.GET.get("room") or None,
+            room=room,
         )
         return calendar_response(
             render_calendar(f"{self.conference.name} schedule", rows)
@@ -65,5 +72,6 @@ class PresenterFeedView(SpeakerModuleRequiredMixin, View):
         sessions = [slug for slug in request.GET.get("sessions", "").split(",") if slug]
         rows = presenter_rows(self.conference, presenter, sessions=sessions or None)
         return calendar_response(
-            render_calendar(f"{self.conference.name}: your sessions", rows)
+            render_calendar(f"{self.conference.name}: your sessions", rows),
+            private=True,
         )
