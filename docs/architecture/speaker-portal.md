@@ -606,7 +606,7 @@ A pre-recorded session still takes a schedule slot — the premiere or watch-par
 
 ## 10. Scheduling UI
 
-> **Not built** (M3). `ScheduleSlot` rows exist, the sample data writes them and the overlap rules are enforced (§8.5), but there is no editor and the presenter's schedule page is a placeholder.
+> **Partly built** (M3). The organizer editor below is built (4 October 2026): the grid, dragging, resizing, a keyboard form per card, the inline program item, the timezone switcher and the double-booking warnings, all through one slot endpoint per session (`PATCH`/`DELETE sessions/<slug>/slot/`, JSON errors). "Preview as public" waits for the public program work (§11), and the presenter's schedule page is still a placeholder (task 4.3).
 
 **Organizer editor** — a day-by-time grid: columns are the rooms, rows are 15-minute steps across the conference days. Unscheduled sessions wait in a sidebar and are dragged onto the grid; dragging moves a session, resizing changes its duration. A "+ program item" button on any cell creates an opening, break, or social inline, so the skeleton of a day is built without leaving the grid. Every-room slots render as full-width bands. Conflicts — room overlap, a presenter double-booked — are highlighted in place.
 

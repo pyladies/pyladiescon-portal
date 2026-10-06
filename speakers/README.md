@@ -1015,6 +1015,19 @@ installed; this app keeps small factory functions in `tests/speakers/factories.p
   migration `0017_rooms`): deliberately generic, because only the name
   was Discord-specific. `url` and `discord_id` record which Discord
   channel a room is when the edition is online; nothing else cares.
+- The schedule editor (design §10) is `speakers/schedule.py` (the grid's
+  layout, day tabs, bulk double-booking warnings and timezone options,
+  all in flat queries) and `speakers/schedule_views.py`: one page
+  (`schedule/`, organizer-only, `?board=1` returns the grid-plus-sidebar partial for
+  refresh) and ONE mutation endpoint, `sessions/<slug>/slot/`, where
+  PATCH upserts the slot (a drag sends room and start, a resize sends
+  duration, the keyboard form everything; a move without an end keeps
+  the length) and DELETE removes it. Placing a CONFIRMED session calls
+  `Session.schedule()`; removing a SCHEDULED one calls `unschedule()`
+  (back to CONFIRMED, which reopens the identity fields); a PUBLISHED
+  session keeps its slot. Everything is UTC end to end: the browser only
+  relabels `data-utc` elements (`static/js/schedule-editor.js`), so the
+  timezone switcher never touches what is stored or sent.
 - The schedule grid's overlap rules live on `ScheduleSlot` (design §8.5):
   `clean()` runs on every save and refuses a slot sharing a room with
   another, or crossing an every-room band, except that two program-kind

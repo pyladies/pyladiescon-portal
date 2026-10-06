@@ -1,0 +1,127 @@
+{% load i18n django_bootstrap5 %}
+{% comment %}
+The refreshable part of the editor: the grid AND the sidebar, fetched
+whole after every mutation (?board=1), so a placed session leaves the
+Unscheduled list and its open popover goes with it.
+{% endcomment %}
+<div class="row g-3">
+    <div class="col-lg-9">
+        {% include "speakers/_schedule_grid.html" %}
+    </div>
+    <div class="col-lg-3">
+        <div class="card mb-3">
+            <div class="card-header">
+                {% trans "Unscheduled" %}
+            </div>
+            <div class="list-group list-group-flush schedule-unscheduled">
+                {% for session in unscheduled %}
+                    <div class="list-group-item schedule-pending"
+                         draggable="true"
+                         data-minutes="{{ session.duration_minutes }}"
+                         data-slot-url="{% url 'speakers:session_slot' session.slug %}">
+                        <div class="d-flex justify-content-between align-items-start gap-1">
+                            <div>
+                                <a href="{{ session.get_absolute_url }}" class="fw-semibold">{{ session.title }}</a>
+                                <div class="small text-secondary">
+                                    {{ session.kind.name }} · {{ session.duration_minutes }} {% trans "min" %} · {{ session.get_status_display }}
+                                </div>
+                            </div>
+                            <details class="schedule-card-menu">
+                                <summary class="btn btn-sm btn-outline-secondary schedule-card-edit"
+                                         aria-label="{% blocktrans with title=session.title %}Place {{ title }}{% endblocktrans %}">
+                                    <i class="fa-solid fa-calendar-plus" aria-hidden="true"></i>
+                                </summary>
+                                <div class="schedule-card-popover card shadow">
+                                    {% url 'speakers:session_slot' session.slug as slot_url %}
+                                    {% include "speakers/_slot_form.html" with url=slot_url lanes=lanes days=days sel_room="" sel_date=day|date:"Y-m-d" sel_time="14:00" minutes=session.duration_minutes removable=False only %}
+                                </div>
+                            </details>
+                        </div>
+                    </div>
+                {% empty %}
+                    <div class="list-group-item text-secondary small">
+                        {% trans "Everything placeable is on the grid." %}
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+        <div class="card">
+            <div class="card-header">
+                {% trans "+ Program item" %}
+            </div>
+            <div class="card-body">
+                <p class="small text-secondary">
+                    {% trans "An opening, break or social, born confirmed; it appears above, ready to drag." %}
+                </p>
+                <form method="post" action="?day={{ day|date:'Y-m-d' }}">
+                    {% csrf_token %}
+                    {% bootstrap_form program_item_form size="sm" %}
+                    <button class="btn btn-outline-primary btn-sm" type="submit">
+                        {% trans "Add to the program" %}
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% comment %}
+The click-to-add panel: schedule-editor.js opens it on an empty cell,
+fills the hidden start/room fields from the cell, and places an
+unscheduled session through its slot endpoint or creates a program
+item right there through the editor's POST.
+{% endcomment %}
+{% trans "Add to the schedule" as panel_label %}
+{% trans "Close" as close_label %}
+{% trans "Title" as title_label %}
+<div class="card shadow schedule-cell-panel d-none"
+     id="schedule-cell-panel"
+     role="dialog"
+     aria-label="{{ panel_label }}">
+    <div class="card-header d-flex justify-content-between align-items-center gap-2">
+        <span data-role="cell-label"></span>
+        <button type="button"
+                class="btn-close"
+                data-action="cell-panel-close"
+                aria-label="{{ close_label }}">
+        </button>
+    </div>
+    {% if unscheduled %}
+        <div class="list-group list-group-flush schedule-cell-options">
+            {% for session in unscheduled %}
+                <button type="button"
+                        class="list-group-item list-group-item-action schedule-place-option"
+                        data-slot-url="{% url 'speakers:session_slot' session.slug %}">
+                    {{ session.title }}
+                    <span class="small text-secondary">· {{ session.kind.name }} · {{ session.duration_minutes }} {% trans "min" %}</span>
+                </button>
+            {% endfor %}
+        </div>
+    {% endif %}
+    <div class="card-body">
+        <form method="post"
+              action="?day={{ day|date:'Y-m-d' }}"
+              class="vstack gap-2">
+            {% csrf_token %}
+            <input type="hidden" name="start" data-role="cell-start" value="" />
+            <input type="hidden" name="room" data-role="cell-room" value="" />
+            <label class="form-label small mb-0">
+                {% trans "New program item" %}
+                <select class="form-select form-select-sm" name="kind">
+                    {% for kind in program_item_form.fields.kind.queryset %}
+                        <option value="{{ kind.pk }}">
+                            {{ kind.name }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </label>
+            <input class="form-control form-control-sm"
+                   type="text"
+                   name="title"
+                   required
+                   placeholder="{{ title_label }}" />
+            <button class="btn btn-outline-primary btn-sm" type="submit">
+                {% trans "Add it here" %}
+            </button>
+        </form>
+    </div>
+</div>

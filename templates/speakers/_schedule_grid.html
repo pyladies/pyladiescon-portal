@@ -1,0 +1,47 @@
+{% load i18n %}
+{% comment %}
+The day's grid alone, so the page can refetch it after every change
+(?grid=1). Columns: hour gutter, the all-rooms lane, one per room.
+Rows: 15-minute steps across the UTC day. Cells are drop targets; cards
+sit on top with inline grid positions computed in speakers/schedule.py.
+{% endcomment %}
+<div class="schedule-scroll">
+    {# djlint:off #}
+    <div class="schedule-grid"
+         style="--schedule-columns: {{ rooms|length }}">
+        <div class="schedule-head" style="grid-column: 1">
+        </div>
+        {% for lane in lanes %}
+            <div class="schedule-head" style="grid-column: {{ lane.column }}">
+                {{ lane.name }}
+            </div>
+        {% endfor %}
+        {% for row in rows %}
+            {% if row.is_hour %}
+                <div class="schedule-hour"
+                     style="grid-row: {{ row.index }} / span 4;
+                            grid-column: 1">
+                    <span data-utc="{{ row.utc.isoformat }}">{{ row.utc|date:"H:i" }}</span>
+                </div>
+            {% endif %}
+            {% for lane in lanes %}
+                <div class="schedule-cell {% if row.is_hour %}schedule-cell-hour{% endif %}"
+                     data-time="{{ row.utc.isoformat }}"
+                     data-room="{{ lane.pk }}"
+                     data-room-name="{{ lane.name }}"
+                     style="grid-row: {{ row.index }};
+                            grid-column: {{ lane.column }}">
+                </div>
+            {% endfor %}
+        {% endfor %}
+        {% for card in cards %}
+            {% include "speakers/_schedule_card.html" with card=card lanes=lanes days=days %}
+        {% endfor %}
+    </div>
+    {# djlint:on #}
+</div>
+{% if not rooms %}
+    <p class="text-secondary small mt-2 mb-0">
+        {% trans "No rooms are recorded for this edition yet; only the all-rooms lane is available. Rooms are added in the admin, and for an online edition a room is usually a Discord channel." %}
+    </p>
+{% endif %}

@@ -423,3 +423,257 @@ details.card[open] > summary.card-header::before {
 .media-preview-text {
     height: 20rem;
 }
+
+/* The schedule editor's grid (speakers, task 4.2): the hour gutter, the
+   all-channels lane, one column per channel, 15-minute rows. Cards carry
+   their grid position inline, computed in speakers/schedule.py. */
+.schedule-scroll {
+    max-height: 70vh;
+    overflow: auto;
+    border: 1px solid var(--bs-border-color);
+    border-radius: 0.5rem;
+}
+.schedule-grid {
+    display: grid;
+    grid-template-columns: 4.5rem 7rem repeat(var(--schedule-columns, 0), minmax(12rem, 1fr));
+    grid-auto-rows: 1.5rem;
+    position: relative;
+}
+.schedule-head {
+    grid-row: 1;
+    position: sticky;
+    top: 0;
+    z-index: 3;
+    background: var(--bs-body-bg);
+    border-bottom: 1px solid var(--bs-border-color);
+    font-weight: 600;
+    font-size: 0.85rem;
+    padding: 0.25rem 0.5rem;
+    white-space: nowrap;
+}
+.schedule-hour {
+    font-size: 0.75rem;
+    color: var(--bs-secondary-color);
+    border-top: 1px solid var(--bs-border-color-translucent);
+    padding: 0 0.25rem;
+}
+.schedule-cell {
+    border-left: 1px solid var(--bs-border-color-translucent);
+}
+.schedule-cell-hour {
+    border-top: 1px solid var(--bs-border-color-translucent);
+}
+.schedule-cell.schedule-drop {
+    background: var(--bs-primary-bg-subtle);
+}
+.schedule-card {
+    position: relative;
+    z-index: 2;
+    margin: 1px;
+    padding: 0.1rem 0.4rem;
+    overflow: hidden;
+    font-size: 0.8rem;
+    line-height: 1.25;
+    /* Calendar blue, not the brand red: a placed session is an event,
+       not an alert (Bootstrap's blue-100/200). */
+    background: #cfe2ff;
+    border: 1px solid #9ec5fe;
+    border-radius: 0.35rem;
+    cursor: grab;
+}
+/* A card is as tall as its slot, so the title may wrap and use that
+   height; the card's own overflow clips whatever still does not fit.
+   Only the quarter-hour card keeps the single clipped line. */
+.schedule-card-title {
+    display: block;
+    overflow-wrap: anywhere;
+}
+.schedule-card-tight .schedule-card-title {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+.schedule-card-edit,
+.schedule-card .text-warning-emphasis[role="img"] {
+    padding: 0 0.3rem;
+    font-size: 0.7rem;
+    line-height: 1.3;
+}
+/* A quarter-hour card has one row of pixels: title only, on one line,
+   with the full text and times in the tooltip. */
+.schedule-card-tight {
+    padding-top: 0;
+    padding-bottom: 0;
+}
+.schedule-card-tight .schedule-card-meta,
+.schedule-card-tight .schedule-card-warnings {
+    display: none;
+}
+.schedule-band {
+    /* Lavender, not grey: a band is the program's own furniture (the
+       opening, a break), and grey read as disabled (purple-100/200). */
+    background: #e2d9f3;
+    border-color: #c5b3e6;
+}
+.schedule-warned {
+    border-color: var(--bs-warning-border-subtle, #ffe69c);
+}
+.schedule-card-title {
+    color: inherit;
+    text-decoration: none;
+}
+.schedule-card-title:hover {
+    text-decoration: underline;
+}
+/* The popover hangs off the pencil itself, so it opens where the
+   organizer clicked; anchored to the card, a band's popover sat at the
+   card's far right edge, off screen once the grid scrolls. */
+.schedule-card-menu {
+    position: relative;
+}
+.schedule-card-menu > summary {
+    list-style: none;
+    padding: 0 0.3rem;
+    line-height: 1.2;
+}
+.schedule-card-popover {
+    position: absolute;
+    top: calc(100% + 0.25rem);
+    right: 0;
+    z-index: 5;
+    width: 14rem;
+}
+/* A band's pencil sits at the grid's left edge, where a right-aligned
+   popover would poke into space the scroller cannot reach; it opens
+   rightward instead. */
+.schedule-band .schedule-card-popover {
+    right: auto;
+    left: 0;
+}
+.schedule-resize {
+    position: absolute;
+    inset: auto 0 0 0;
+    height: 0.45rem;
+    cursor: ns-resize;
+}
+.schedule-pending {
+    cursor: grab;
+}
+.schedule-pending .schedule-card-popover {
+    width: 13rem;
+}
+/* The unscheduled list grows with the page on purpose: its own
+   scrollbar would clip the place flyouts, which cannot escape an
+   overflow container. */
+/* text-warning-emphasis is a Bootstrap 5.3 utility; this portal runs
+   5.2, so the warning colour is set here with the same 5.3 value. */
+.schedule-card-warnings,
+.schedule-card .text-warning-emphasis {
+    color: var(--bs-warning-text-emphasis, #997404);
+}
+.schedule-card-warnings {
+    line-height: 1.2;
+}
+
+/* A grid item's minimum size is its content unless told otherwise, so a
+   long title would push a card past its column; the meta line clips the
+   same way the title does. */
+.schedule-card {
+    min-width: 0;
+}
+.schedule-card-body {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+.schedule-card-meta {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+/* The click-to-add panel, floated at the clicked cell. */
+.schedule-cell-panel {
+    position: fixed;
+    z-index: 40;
+    width: 17.5rem;
+}
+.schedule-cell-options {
+    max-height: 14rem;
+    overflow: auto;
+}
+.schedule-cell {
+    cursor: pointer;
+}
+
+/* While a card's popover is open, the card stops clipping (the popover
+   would otherwise be cut to the card's height) and rises above its
+   neighbours; schedule-editor.js toggles the class with the menu. */
+.schedule-card.schedule-card-open {
+    overflow: visible;
+    z-index: 20;
+}
+.schedule-pending.schedule-card-open {
+    position: relative;
+    z-index: 20;
+}
+
+/* On a full-width band the title block does not grow, so the pencil and
+   the warning sit beside the title in the all-rooms lane instead of
+   drifting over the last room's column. */
+.schedule-band .schedule-card-body {
+    flex: 0 1 auto;
+}
+
+/* Draggables never join a text selection: a drag that starts inside a
+   selection would carry the whole selection as its ghost, sidebar
+   panels included. */
+.schedule-card,
+.schedule-pending {
+    user-select: none;
+}
+
+/* Where the drop would land: the dragged session's footprint, dashed,
+   in the hovered room (full width over the all-rooms lane). It takes
+   no pointer events, or hovering it would cancel the drop. */
+.schedule-drop-preview {
+    display: none;
+    z-index: 3;
+    justify-content: flex-end;
+    align-items: flex-end;
+    margin: 1px;
+    pointer-events: none;
+    background: rgba(207, 226, 255, 0.55);
+    border: 2px dashed #6ea8fe;
+    border-radius: 0.35rem;
+}
+/* The minute count rides the edge being dragged, on its own chip, so
+   it never sits over the card's title. */
+.schedule-drop-label {
+    margin: 0.15rem;
+    padding: 0 0.35rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #fff;
+    background: #084298;
+    border-radius: 0.25rem;
+}
+.schedule-drop-label:empty {
+    display: none;
+}
+/* A band spans the whole grid, so a right-hand chip can sit off
+   screen; its chip joins the band's own controls at the left edge. */
+.schedule-drop-preview.schedule-drop-band {
+    justify-content: flex-start;
+}
+
+/* The off-screen clone a drag's image is painted from: rendered (so
+   Chrome can rasterize it) but far outside the viewport. Snapshotting
+   the live list item dragged its neighbours into the picture. */
+.schedule-drag-image {
+    position: fixed;
+    top: -200vh;
+    left: 0;
+    z-index: -1;
+    pointer-events: none;
+    background: var(--bs-body-bg, #fff);
+}
