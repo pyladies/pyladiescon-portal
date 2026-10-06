@@ -664,6 +664,18 @@ class TestReviewHardening:
             assert "could not place it" in response.content.decode()
             assert "does not exist in this edition" in response.content.decode()
 
+    def test_a_retired_room_is_not_droppable(
+        self, client, organizer, enabled, conference
+    ):
+        """The retired lane exists so an old card is not misdrawn, not
+        as a target: retirement closes the room (review of #460)."""
+        room = make_room(conference, is_active=False)
+        session = make_session(conference)
+        client.force_login(organizer)
+        response = send(client, session, {"room": room.pk, "start": T0.isoformat()})
+        assert response.status_code == 400
+        assert "does not exist" in response.json()["errors"][0]
+
     def test_mangled_room_values_answer_400(
         self, client, organizer, enabled, conference
     ):

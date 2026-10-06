@@ -1028,6 +1028,13 @@ installed; this app keeps small factory functions in `tests/speakers/factories.p
   session keeps its slot. Everything is UTC end to end: the browser only
   relabels `data-utc` elements (`static/js/schedule-editor.js`), so the
   timezone switcher never touches what is stored or sent.
+- The presenter's schedule page (design §2.4) is `schedule.presenter_schedule`:
+  public sessions plus the viewer's own in any on-schedule status, grouped
+  by the presenter's LOCAL day with times pre-formatted in Python, because
+  Django's date filter converts aware datetimes back to the current (UTC)
+  timezone in templates. Nobody else's unpublished sessions appear; the
+  viewer's own carry a "not yet public" badge. Calendar links are disabled
+  placeholders until the feeds (task 4.4).
 - The schedule grid's overlap rules live on `ScheduleSlot` (design §8.5):
   `clean()` runs on every save and refuses a slot sharing a room with
   another, or crossing an every-room band, except that two program-kind

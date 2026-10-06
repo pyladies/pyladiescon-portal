@@ -137,6 +137,7 @@ from .pretix import (
 )
 from .readiness import apply_readiness, refresh_for_conference, refresh_readiness
 from .rules import evaluate_items
+from .schedule import presenter_schedule
 from .seeds import seed_checklists
 from .services import (
     InvitationError,
@@ -1544,7 +1545,11 @@ class SuggestCoPresenterView(SpeakerSessionMixin, View):
 
 
 class SpeakerScheduleView(LoginRequiredMixin, PresenterRequiredMixin, TemplateView):
-    """Placeholder until Stage 3 renders the schedule in the presenter's zone."""
+    """The schedule, read-only, in the presenter's own timezone (§2.4, §10).
+
+    Everything public, plus the presenter's own sessions before they are
+    public, badged "not yet public"; nobody else's drafts.
+    """
 
     template_name = "speakers/speaker_schedule.html"
 
@@ -1552,6 +1557,7 @@ class SpeakerScheduleView(LoginRequiredMixin, PresenterRequiredMixin, TemplateVi
         context = super().get_context_data(**kwargs)
         context["conference"] = self.conference
         context["presenter"] = self.presenter
+        context["schedule_days"] = presenter_schedule(self.conference, self.presenter)
         return context
 
 

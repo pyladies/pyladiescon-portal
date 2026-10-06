@@ -606,7 +606,7 @@ A pre-recorded session still takes a schedule slot — the premiere or watch-par
 
 ## 10. Scheduling UI
 
-> **Partly built** (M3). The organizer editor below is built (4 October 2026): the grid, dragging, resizing, a keyboard form per card, the inline program item, the timezone switcher and the double-booking warnings, all through one slot endpoint per session (`PATCH`/`DELETE sessions/<slug>/slot/`, JSON errors). "Preview as public" waits for the public program work (§11), and the presenter's schedule page is still a placeholder (task 4.3).
+> **Partly built** (M3). The organizer editor below is built (4 October 2026): the grid, dragging, resizing, a keyboard form per card, the inline program item, the timezone switcher and the double-booking warnings, all through one slot endpoint per session (`PATCH`/`DELETE sessions/<slug>/slot/`, JSON errors). "Preview as public" waits for the public program work (§11). The presenter view below is built (5 October 2026): everything public plus their own unpublished sessions badged "not yet public", grouped by their local day; its calendar links are placeholders until the feeds (task 4.4).
 
 **Organizer editor** — a day-by-time grid: columns are the rooms, rows are 15-minute steps across the conference days. Unscheduled sessions wait in a sidebar and are dragged onto the grid; dragging moves a session, resizing changes its duration. A "+ program item" button on any cell creates an opening, break, or social inline, so the skeleton of a day is built without leaving the grid. Every-room slots render as full-width bands. Conflicts — room overlap, a presenter double-booked — are highlighted in place.
 
@@ -615,6 +615,38 @@ A timezone switcher on the grid shows the whole schedule as a specific presenter
 **Presenter view** — the same schedule, read-only, in the presenter's own timezone with their sessions highlighted, visible before publication with a "not yet public" badge, with an add-to-calendar link per session and a personal calendar feed.
 
 **Timezone handling** — UTC everywhere in storage and the API; rendering uses the browser's timezone (overridable, remembered). No timezone arithmetic in templates.
+
+### 10.1 The working grid and the published schedule
+
+> **Designed** (5 October 2026), decisions confirmed by the team the same day, not built. The grid the organizers drag around is a draft; speakers see a snapshot that only changes when an organizer publishes the schedule.
+
+**The problem.** The grid is simultaneously the organizers' scratchpad and the speakers' truth. Placing a slot advances the session to `SCHEDULED` — which locks its title and slug, opens the speaker's "Confirm your scheduled slot" line, ticks the organizer's "Session scheduled" item and starts reminders — and every later move shows up live on the speaker's schedule page. Organizers build a program the way people fill a spreadsheet: everything goes on the grid, gets moved up and down for days, and goes out when it holds together. The portal must not narrate the shuffling.
+
+**The shape: a snapshot, not a flag.** A per-slot "visible" flag would still leak every move made after the flag went on. So the schedule has three audiences and two copies:
+
+| Audience | Reads | Changes when |
+|---|---|---|
+| Organizers (the editor) | `ScheduleSlot` — the working grid | every drag |
+| Speakers (their schedule page, checklists, feeds) | **`PublishedSlot`** — the snapshot | an organizer clicks **Publish schedule** |
+| The public (§11, later) | `PublishedSlot` of public sessions | ditto, behind `program_visibility` |
+
+`PublishedSlot` is one row per session, same shape as the working slot (`room` nullable, `start_utc`, `end_utc`) plus `published_at` and `ics_sequence` — the feeds (§11.3) serve published times, so the `SEQUENCE` counter lives here and bumps when a publish moves a session, never while organizers shuffle. One word, two scopes, said explicitly wherever it matters: the **schedule** is published to speakers; a **session** is published to the world (`PUBLISHED` status, §11). Publishing the schedule exposes nothing to the public side.
+
+**Publishing** is one action for the whole edition, never per day: a snapshot of half a schedule would show speakers a grid that contradicts itself. It diffs the working grid against the last snapshot — placed, moved, removed — then, in one transaction: upserts `PublishedSlot` rows, advances newly published `CONFIRMED` sessions to `SCHEDULED` (this is where the identity lock and the checklist effects now fire), bumps `ics_sequence` on moved ones, and for sessions taken off the grid since the last publish, deletes the snapshot row and returns the session to `CONFIRMED`, reopening its identity. A public session's slot cannot be removed by a publish (same rule as deleting its slot); a cancelled session's published row is removed on the next publish and its working row already frees the time (§8.5). The editor shows how many unpublished differences exist, marks the affected cards, and the confirm popover lists the counts before the click. `Session.schedule()` therefore comes to mean "has a published slot": the status machine, the rules registry entries `SESSION_SCHEDULED` (both kinds) and the speaker page all re-key from `ScheduleSlot` to `PublishedSlot`; the editor keeps the working grid's overlap rules exactly as they are.
+
+**What speakers are told.** The publish popover offers **"Email the affected speakers"**, checked by default. With it on, each presenter whose session was placed, moved or taken off receives one email listing their changes in their own timezone, sent through the recorded sender (§13) and queued on commit like the portal's other speaker mail; presenters untouched by the publish hear nothing. With it off, the publish is silent, for the fix-a-typo republish. The seeded organizer line "Schedule confirmation sent" stays the human follow-up either way.
+
+**Migration** (one, the next free number): `PublishedSlot`, plus a data migration copying the working slot of every `SCHEDULED`/`PUBLISHED` session into it — those sessions were speaker-visible under the old rule, so their snapshot starts equal to the grid and nothing moves for anyone on deploy. Build order note: this lands **before** the calendar feeds (§11.3), so `ics_sequence` is born on the right model instead of migrating twice.
+
+### 10.2 Seeing the whole program at once
+
+> **Designed** (5 October 2026), not built. The editor's comfortable row height wins for editing one afternoon and loses to a spreadsheet for seeing the shape of a day.
+
+Three view-layer changes, no model impact:
+
+- **Trim the day to its active window.** The grid renders 96 quarter-hours; a conference day uses a fraction of them. The grid starts one hour before the first slot and ends one hour after the last (full day when empty), with "earlier / later" reveals at the edges, so the default page shows the program, not the empty night.
+- **A density switch** beside the timezone switcher — Comfortable (today's 1.5rem rows), Compact (~0.6rem: one-line cards, details in the tooltip and the pencil), and **Fit**, which divides the viewport height by the trimmed window's rows and sets the row height to match, floor of a few pixels: the whole day on one screen, cards as colored blocks when they must be. Pure CSS variable plus a line of arithmetic, remembered per organizer like the timezone.
+- **Every day side by side** (later, if wanted): an "All days" tab laying the per-day grids out horizontally in Fit density — the spreadsheet's one-page view. Costs only template work once the density switch exists, so it is listed, not promised.
 
 ---
 
@@ -787,7 +819,7 @@ the storage work (bucket and presigned URLs, then the upload tasks 4.1 to
 | **M1 — Presenters and invitations** | Session, Presenter, SessionPresenter, Invitation; invitation email and accept flow; speaker profile and session editing; admin; isolation tests | late September | **Built** |
 | **M2 — Checklists** | template editor and seed defaults; instances; auto-completion; speaker dashboard; organizer board and queue; pretix sync; reminder digests | early–mid October | **Built**, plus readiness (§9.3a) which the proposal did not have |
 | **M2b — Permissions** | permission catalogue and team-derived grants (§7.1); every app on `has_perm`; team permission pickers and presets; `Role` dropped; media permissions land with M3b | mid October, before M3 | **Not built.** Access is still `is_staff`/`is_superuser` plus team membership |
-| **M3 — Scheduling** | Rooms, slots, program items, conflict checks, drag-and-drop editor, presenter schedule view, calendar feeds | mid–late October | **Not built.** `ScheduleSlot` exists and is written by the sample data; there is no editor, and the presenter's schedule page is a placeholder |
+| **M3 — Scheduling** | Rooms, slots, program items, conflict checks, drag-and-drop editor, presenter schedule view, calendar feeds | mid–late October | **Built through the editor and the presenter view** (October 2026): rooms, slots, overlap rules, the drag-and-drop editor and the presenter's schedule page are in; the published-schedule split (§10.1) and the calendar feeds follow in this PR stack |
 | **M3b — Media** | video upload, duration check, performer upload panel, session-scoped templates, post-production board | late October, alongside M3 | **Not built.** `MediaAsset` exists as a shell and the video-length rule reads it; nothing uploads |
 | **M4 — Public** | JSON API, widget, iframe, draft/preview/publish, data export; wired into the conference site | early November | **Not built.** None of the URLs in §11 exist yet |
 | **M5 — Hardening** | promo assets, reminder tuning, load test on the public endpoints, documentation | mid November | **Not built**, except this page |

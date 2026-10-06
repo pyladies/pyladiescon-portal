@@ -931,6 +931,13 @@ class Session(TimestampedModel):
         if save:
             self.save(update_fields=["status"])
             session_confirmed.send(sender=Session, session=self)
+            # Pencilled in first, confirmed later: a slot placed while the
+            # session was a draft must schedule it now, or the identity
+            # lock and the slot-confirmation checklist line never happen
+            # (review of #460). With save=False the caller owns the
+            # follow-through, as it owns the signal.
+            if self.has_slot:
+                self.schedule()
 
     def schedule(self, save=True):
         """CONFIRMED -> SCHEDULED once a slot exists."""
@@ -1235,6 +1242,9 @@ class ScheduleSlot(TimestampedModel):
             )
 
     def save(self, *args, **kwargs):
+        # Unconditional on purpose, so objects.create and the editor's
+        # endpoints are validated too; an admin form has already run
+        # full_clean, and the second pass is cheap and harmless.
         self.clean()
         self.conference_id = self.session.conference_id
         super().save(*args, **kwargs)

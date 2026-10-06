@@ -29,6 +29,7 @@ from .models import ActivityLog, Room, ScheduleSlot, Session
 from .schedule import (
     ROWS_PER_DAY,
     STEP_MINUTES,
+    also_in,
     day_bounds,
     grid_for_day,
     schedule_days,
@@ -56,7 +57,7 @@ def _resolve_room(conference, value):
         pk = int(value)
     except (TypeError, ValueError):
         raise SlotError("That room does not exist in this edition.")
-    room = Room.objects.filter(conference=conference, pk=pk).first()
+    room = Room.objects.filter(conference=conference, pk=pk, is_active=True).first()
     if room is None:
         raise SlotError("That room does not exist in this edition.")
     return room
@@ -275,8 +276,7 @@ class SlotView(LoginRequiredMixin, SpeakerOrganizerRequiredMixin, View):
         except ValidationError as error:
             return JsonResponse({"errors": error.messages}, status=400)
         warnings = [
-            f"{link.presenter.display_name} is also in “{link.session.title}”"
-            for link in slot.presenter_clashes()
+            also_in(link.presenter, link.session) for link in slot.presenter_clashes()
         ]
         if session.status == SessionStatus.PUBLISHED:
             warnings.insert(
