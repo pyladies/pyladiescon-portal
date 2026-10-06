@@ -438,6 +438,9 @@ details.card[open] > summary.card-header::before {
 .schedule-grid {
     display: grid;
     grid-template-columns: 4.5rem 7rem repeat(var(--schedule-columns, 0), minmax(12rem, 1fr));
+    /* Row 1 is the room headers: content-sized whatever the density,
+       so Compact and Fit shrink the quarter-hours, never the heading. */
+    grid-template-rows: auto;
     grid-auto-rows: var(--schedule-row-height, 1.5rem);
     position: relative;
 }
