@@ -188,8 +188,18 @@ class TestSnapshots:
                         },
                     },
                     "presenters": [
-                        {"name": "Ada", "slug": ada.slug, "role": program["role"]},
-                        {"name": "Shy", "slug": None, "role": program["role"]},
+                        {
+                            "name": "Ada",
+                            "slug": ada.slug,
+                            "role": program["role"],
+                            "headshot_url": None,
+                        },
+                        {
+                            "name": "Shy",
+                            "slug": None,
+                            "role": program["role"],
+                            "headshot_url": None,
+                        },
                     ],
                     "urls": {
                         "ics": f"https://example.com/api/v1/2025/sessions/{talk.slug}.ics"
@@ -254,7 +264,18 @@ class TestSnapshots:
                     "linkedin": None,
                     "bluesky": None,
                 },
-                "sessions": [{"slug": talk.slug, "title": "Python, kindly"}],
+                "sessions": [
+                    {
+                        "slug": talk.slug,
+                        "title": "Python, kindly",
+                        "start": "2026-12-05T14:00:00Z",
+                        "end": "2026-12-05T15:00:00Z",
+                        "room": {
+                            "name": "Main stage",
+                            "url": "https://discord.example/1",
+                        },
+                    }
+                ],
             }
         ]
 
@@ -324,13 +345,24 @@ class TestSnapshots:
         ]
 
     def test_headshots_are_absolute(self, client, program):
-        Presenter.objects.filter(pk=program["ada"].pk).update(
+        Presenter.objects.filter(pk__in=[program["ada"].pk, program["shy"].pk]).update(
             headshot="speakers/headshots/ada.jpg"
         )
         response, data = get(client, url("presenters"))
-        # From the configured Site, not the caller's host: the payload is
-        # cached and served to everyone.
         assert data["presenters"][0]["headshot_url"].startswith("https://example.com/")
+        response, data = get(client, url("session", program["talk"].slug))
+        ada, shy = data["session"]["presenters"]
+        assert ada["headshot_url"].startswith("https://example.com/")
+        # An opt-out keeps the name on the session, never the photo.
+        assert shy["headshot_url"] is None
+
+    def test_one_presenter(self, client, program):
+        ada = program["ada"]
+        response, data = get(client, url("presenter", ada.slug))
+        assert data["presenter"]["name"] == "Ada"
+        assert data["presenter"]["sessions"][0]["start"] == "2026-12-05T14:00:00Z"
+        assert client.get(url("presenter", program["shy"].slug)).status_code == 404
+        assert client.get(url("presenter", "nobody")).status_code == 404
 
 
 @pytest.mark.django_db
@@ -376,6 +408,8 @@ class TestProgramStates:
         assert get(client, url("schedule"))[1]["days"] == []
         response, data = get(client, url("session", program["talk"].slug))
         assert data["session"] is None and data["program"] == "internal"
+        response, data = get(client, url("presenter", program["ada"].slug))
+        assert data["presenter"] is None and data["program"] == "internal"
 
     def test_preview_shows_the_draft_and_is_never_cached(
         self, client, program, conference

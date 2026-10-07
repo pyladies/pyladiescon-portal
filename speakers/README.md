@@ -1065,7 +1065,7 @@ installed; this app keeps small factory functions in `tests/speakers/factories.p
 - The public JSON API (design §11.1, task 6.2) is `speakers/api.py`
   (payloads and cache) and `api_views.py`, mounted at `/api/v1/` by
   `portal/urls.py`: `<conference>/sessions/`, `sessions/<slug>/`,
-  `presenters/`, `schedule/` (slots grouped by the conference
+  `presenters/`, `presenters/<slug>/`, `schedule/` (slots grouped by the conference
   timezone's day, plus the rooms), and the calendar aliases
   `schedule.ics` and `sessions/<slug>.ics`. `<conference>` is the
   edition's slug, not the active edition, and an edition without the
@@ -1094,18 +1094,30 @@ installed; this app keeps small factory functions in `tests/speakers/factories.p
   with GET/HEAD and the conditional headers (`If-None-Match`,
   `If-Modified-Since`), so the site may revalidate its cache. The list is not in the cache
   invalidation set: the header is computed per request. No public per-presenter `.ics` yet.
-- The website widget (design §11.2, task 6.3) is one static file,
-  `portal/static/widget/v1.js` (no dependencies, kept under 15 KB by a
-  test). The site pastes the snippet the Publishing page shows:
+- The website widget (design §11.2, task 6.3) is written readable in
+  `frontend/widget/v1.js` and served minified from
+  `portal/static/widget/v1.js`, built by `npm run build:widget` (terser,
+  the repo's only Node dependency; the portal itself needs no Node). The
+  build stamps the source's sha256 in the served file's header, and
+  `tests/speakers/test_widget.py` fails when the source changed without a
+  rebuild, or when the served file passes 15 KB; CI needs no Node. The
+  site pastes the snippet the Publishing page shows:
   `<div data-pyladiescon-widget="schedule" data-conference="<slug>">`
-  plus the script tag. Views: `schedule` (day tabs and times in the
-  visitor's timezone, remembered in localStorage; program items drawn as
-  bands; a star per session, the stars kept per edition in the browser
-  and joined into one `schedule.ics?sessions=` subscription; sessions
-  starting together sit side by side in a stable room order, and a room
-  picker appears once the program has more than one room), `speakers`,
-  and `session` with `data-session="<slug>"`. Calendar links are
-  subscribe-only (webcal, Google, Outlook.com), as everywhere else.
+  plus the script tag. Views: `schedule`, `speakers`, `session` with
+  `data-session="<slug>"`, and `speaker` with `data-speaker="<slug>"` (one
+  profile inline, for a site that wants a page per speaker).
+  The schedule: day tabs; times in the visitor's timezone (remembered in
+  localStorage, as is the room picker, which appears once there is more
+  than one room); on a container wider than 40rem a grid with a time
+  column and one column per room in a stable order, rows of five
+  minutes, so staggered sessions line up and program items (bands) span
+  every room; narrower, a CSS container query turns it into one
+  time-ordered list. Cards show the speakers' photos and names. A
+  session title opens an overlay (a native `<dialog>`: Escape, focus and
+  the backdrop come from the browser) with the full description; a
+  speaker's name or photo opens theirs (`presenters/<slug>/`) with bio,
+  links and sessions. Calendar links are subscribe-only (webcal, Google,
+  Outlook.com). There is no starring: the user removed it.
   `data-api` points it at another portal (default: the script's own
   origin); `data-preview`, or `?preview=` on the host page, passes the
   preview token through. While the program is internal every view shows
@@ -1114,16 +1126,17 @@ installed; this app keeps small factory functions in `tests/speakers/factories.p
   `data-fallback-url` (default: the portal's `/embed/<slug>/schedule/`,
   task 6.4). Styling: the `.plc` root and `--plc-*` CSS variables
   (`--plc-accent`, `--plc-muted`, `--plc-border`, `--plc-band`,
-  `--plc-card`, `--plc-radius`); text inherits the host page's font.
-  Caching: `/static/widget/v1.js` is the stable address (WhiteNoise sends
-  it with a short max-age, so the site always gets the current widget);
-  the hashed copy WhiteNoise also serves (`widget/v1.<hash>.js`, listed
-  in `staticroot/staticfiles.json`) is cached for a year and suits a CDN
-  that should pin one version; bump to `v2.js` for breaking changes. A
-  visitor's browser keeps an API response up to five minutes, so a
-  switch to internal can take that long to reach an open page. Checked
-  by hand in Chrome on a bare page served from another origin (CORS),
-  at 360 px, in the coming-soon, preview and error states.
+  `--plc-card`, `--plc-radius`, `--plc-modal-bg`, `--plc-modal-text`);
+  text inherits the host page's font. Caching: `/static/widget/v1.js` is
+  the stable address (WhiteNoise sends it with a short max-age, so the
+  site always gets the current widget); the hashed copy WhiteNoise also
+  serves (`widget/v1.<hash>.js`, listed in `staticroot/staticfiles.json`)
+  is cached for a year and suits a CDN that should pin one version; bump
+  to `v2.js` for breaking changes. A visitor's browser keeps an API
+  response up to five minutes, so a change can take that long to reach
+  an open page. Checked by hand in Chrome only (bare pages on another
+  origin, 360 px, coming-soon, preview, error, multi-room and staggered
+  demos); Firefox and Safari not yet.
 - The calendar feeds (design §11.3) are `speakers/feeds.py` (a hand-
   rolled ICS writer, like the VTT one: escaping with every line ending
   normalised to one escaped newline, 75-octet folding counting the

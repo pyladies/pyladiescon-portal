@@ -143,7 +143,8 @@ The website embeds a widget served by the portal. When the team publishes in the
 
 - The schedule shows in the visitor's timezone, with breaks as bands and sessions as cards.
 - Every session has a subscribe link — a calendar feed for that one session, so a reschedule updates the attendee's calendar automatically.
-- Visitors can star sessions and subscribe to just those, with no account.
+- A session title opens its full details in an overlay; a speaker's name or photo opens their bio, links and sessions the same way.
+- Several rooms show as columns on a time axis on wide screens, so staggered sessions line up; on phones the program is one list.
 - Unpublished sessions simply aren't there; no "TBA" rows.
 
 The website already depends on the portal for `stats.json`, so this adds no new dependency. The widget is long-cached behind the CDN and shows a link to the portal's schedule page if the API is unreachable.
@@ -695,7 +696,7 @@ GET /api/v1/<conference>/presenters/<slug>.ics                 everything one pr
 ```
 
 - Every feed is subscribable (`webcal://`), not just downloadable. Subscribing to a session means a reschedule updates the attendee's calendar.
-- The widget lets a visitor star sessions; the stars are kept in the browser and joined into one feed URL. No account needed.
+- The widget once let a visitor star sessions and subscribe to just those; the user removed starring on 7 October 2026 (each session keeps its own subscribe link, and `?sessions=` still works for anyone building such a link).
 - Feeds use stable UIDs per session, bump the sequence on every change, and emit cancelled events rather than dropping them, so subscribed calendars stay correct.
 - Logged-in presenters get their own feed including unpublished sessions, so their calendar is right before the program is public.
 

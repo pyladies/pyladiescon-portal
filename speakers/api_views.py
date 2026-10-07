@@ -120,6 +120,17 @@ class PresentersApiView(ApiView):
         return {"presenters": api.presenters_data(self.conference, preview)}
 
 
+class PresenterApiView(ApiView):
+    def build(self, request, preview):
+        # The same "coming soon" shape as one session while internal.
+        if not preview and api.program_state(self.conference, False) == "internal":
+            return {"presenter": None}
+        found = api.presenters_data(self.conference, preview, slug=self.kwargs["slug"])
+        if not found:
+            raise Http404("No public profile.")
+        return {"presenter": found[0]}
+
+
 class ScheduleApiView(ApiView):
     def build(self, request, preview):
         return api.schedule_data(self.conference, preview)

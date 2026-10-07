@@ -36,4 +36,10 @@ htmlcov/
 
 # Root-level JSON (service-account keys, local tooling) — not subdirs
 /*.json
+# ...except the widget build's own manifest and lockfile.
+!/package.json
+!/package-lock.json
 
+
+# The widget build step (npm run build:widget)
+node_modules/
