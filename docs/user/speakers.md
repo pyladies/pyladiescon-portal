@@ -177,7 +177,10 @@ Once you are on the program, the **Speaking** menu opens your speaker area.
 - **My sessions:** your sessions, where you can check and edit the title,
   summary and other details. Once your session is scheduled, the title, its web
   address and your display name are locked, because they are on the schedule
-  by then. Ask your liaison if one needs to change.
+  by then. Ask your liaison if one needs to change. A session page has three
+  tabs: **Overview**, **Checklist** and **Files**. If your session is
+  pre-recorded, Files is where you upload your video and find what the team
+  shares with you; see [Your video and files](speaker_files.md).
 - **My proposals:** proposals you sent and where they stand.
 - **Speaker guide:** the guide for your kind of session. Open it, then tick the
   "I have read" box at the end when you have. If you have more than one kind of
@@ -187,7 +190,7 @@ Once you are on the program, the **Speaking** menu opens your speaker area.
 ### Your checklist
 
 The checklist has two lists, and a third if you are giving a pre-recorded
-session such as a PyJam performance.
+session such as a PyJam performance or a PyLadies chapter highlight video.
 
 **Your to-dos** are the things we need from you, each with a due date shown in
 your timezone. Typical items are:
@@ -208,6 +211,8 @@ tell what is waiting on us.
 
 **What we're preparing for your video** is the third list, for pre-recorded
 sessions. It follows the team's work on your recording once you have sent it.
+How to send it, and what each item means, is in
+[Your video and files](speaker_files.md).
 
 A few labels you will see:
 
@@ -233,9 +238,10 @@ you do not have to keep the checklist open.
   read it yet, so for now it only records your choice.
 - The portal does not use advertising or analytics trackers, and we do not
   share your details with third-party analytics services.
-- Video uploads for pre-recorded sessions, such as PyJam performances, are not
-  open yet, so there is nothing to upload for now. We will email everyone who
-  needs to upload when it opens.
+- Videos for pre-recorded sessions, such as PyJam performances and chapter
+  highlight videos, and the files the team shares with you, live in private storage that only you and
+  the team can reach. [Your video and files](speaker_files.md) says who can
+  see what.
 
 ## Getting help
 

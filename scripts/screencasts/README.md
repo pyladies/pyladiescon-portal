@@ -7,6 +7,9 @@ Records the walkthrough videos shown in the user guides:
 | `speaker-propose-returning-volunteer.mp4` | `docs/user/speakers.md` | `rec-volunteer.js` |
 | `speaker-invited.mp4` | `docs/user/speakers.md` | `rec-invited.js` |
 | `organizer-invite-speakers.mp4` | `docs/user/organizer_invite_speakers.md` | `rec-organizer.js` |
+| `speaker-upload-video.mp4` | `docs/user/speaker_files.md` | `rec-upload.js` |
+| `speaker-replace-video.mp4` | `docs/user/speaker_files.md` | `rec-replace.js` |
+| `speaker-files-from-the-team.mp4` | `docs/user/speaker_files.md` | `rec-team-files.js` |
 
 The scripts drive the real portal in a headless browser (Playwright), against a
 throwaway database with the sample data, and draw a cursor, click ripples and a
@@ -21,9 +24,16 @@ to keep the same address).
 - Node.js, `ffmpeg`, and the portal's Python environment (Django, psycopg2).
 - The compose Postgres running (`docker compose up -d postgres`, published on
   port 5433) and maildev (`docker compose up -d maildev`, SMTP 1025, UI 1080).
-  The invited take opens the invitation email in maildev.
+  The invited and team takes open an email in maildev. Every take starts by
+  emptying the maildev inbox (its `/email/all` endpoint), so point `MAILDEV_URL`
+  at a maildev nothing else relies on.
 - A Chromium for Playwright: either `npx playwright install chromium` in this
   folder, or point `PLAYWRIGHT_CHROME` at an existing Chrome for Testing binary.
+- For the media takes, a bucket the browser can reach: the compose MinIO from
+  `compose.override.yml` (`docker compose up -d minio`, published on port
+  9000, bucket `speaker-media`) is the default. `ffprobe` measures the
+  uploaded video's length and `ffmpeg` makes its thumbnail, in the server
+  process, since the screencast settings run Celery tasks eagerly.
 
 ## Run it
 
@@ -31,12 +41,16 @@ From the repository root:
 
 ```
 scripts/screencasts/run.sh --setup    # once: build and snapshot the database
-scripts/screencasts/run.sh            # record all three videos
-scripts/screencasts/run.sh volunteer  # or one take: organizer, invited, volunteer
+scripts/screencasts/run.sh            # record every video
+scripts/screencasts/run.sh volunteer  # or one take: organizer, invited, volunteer,
+                                      # upload, replace, team
 ```
 
 `--setup` creates the `pyladiescon_screencasts` database, migrates it, loads the
-sample data and runs `seed.py`, then snapshots it. Every take starts by
+sample data on the screencast edition (2026) and runs `seed.py`, then snapshots
+it. `seed.py` keeps one confirmed PyJam performer from the sample data, Maria
+Performer, who signs in as `maria_performer`, with no video yet; the media
+takes are hers. Every take starts by
 restoring that snapshot and starting a server on port 8002, so a take that
 uses up an invitation or a proposal can be re-run. Every take drops and
 recreates that database, so the scripts read `SCREENCAST_DATABASE_URL`, never
@@ -45,7 +59,16 @@ database whose name does not end in `_screencasts`. Nothing touches your
 development database or the server on port 8000.
 
 The `organizer` and `invited` takes always run together, in that order: the
-organizer sends the invitation and the invited speaker accepts it.
+organizer sends the invitation and the invited speaker accepts it. So do
+`upload` and `replace`: the performer uploads her first video, then sends a
+take that is over the limit, replaces it with a shorter one, and deletes her
+video. The `team` take first runs `seed-team.py`, which puts the
+sample files from `out/media` (three performance videos, a final cut, a poster
+and a transcript, made by `ffmpeg` on first use) into the bucket as the
+team's shared files and sends the day's digest, so the take can open the
+"new files from the team" email in maildev. `shots-media` takes the
+screenshots for the video-upload announcement post (`shoot-media.js`) on the
+same data.
 
 Settings, all optional environment variables:
 
@@ -58,6 +81,10 @@ Settings, all optional environment variables:
 | `PLAYWRIGHT_CHROME` | Playwright's own | Path to a Chrome binary. |
 | `VIEWPORT_WIDTH`, `VIEWPORT_HEIGHT` | `1024`, `640` | See below. |
 | `SAMPLE_PASSWORD` | `password123` | The sample data's password for every account. |
+| `SCREENCAST_SESSION_TITLE` | `Duck Typing the Blues` | The performer's session in the media takes. |
+| `SPEAKER_MEDIA_BUCKET` | `speaker-media` | The bucket the media takes upload to. |
+| `AWS_S3_ENDPOINT_URL` | `http://localhost:9000` | Its endpoint, reachable from the browser. |
+| `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` | `minioadmin` | Its credentials. |
 
 ### Text too small in the video?
 
@@ -77,12 +104,16 @@ the voice. The audio the current times were made for:
 | `rec-volunteer.js` | proposing a session | 83.7 s |
 | `rec-invited.js` | accepting an invitation | 86.9 s |
 | `rec-organizer.js` | inviting a speaker | 79.2 s |
+| `rec-upload.js` | uploading a performance video | 131.3 s |
+| `rec-replace.js` | a take over the limit, a shorter one, and deleting the video | 121.4 s |
+| `rec-team-files.js` | files from the team, approving the final cut | 91.1 s |
 
 To re-time a script for new audio, transcribe the recording with word times
 (faster-whisper works locally), then set each `clock.at(...)` to when that step
 is spoken. A step that runs later than its time prints `late by ...`, which
-tells you where to leave more room. Set `VOLUNTEER_END`, `INVITED_END` or
-`ORGANIZER_END` (seconds) to make a video slightly longer than its audio.
+tells you where to leave more room. Set `VOLUNTEER_END`, `INVITED_END`,
+`ORGANIZER_END`, `UPLOAD_END`, `REPLACE_END` or `TEAM_END` (seconds) to make
+a video slightly longer than its audio.
 
 Then add the audio to the video, for example:
 
