@@ -4,8 +4,8 @@
  * portal/static/widget/v1.js; run `npm run build:widget` after any change.
  * Usage and options: speakers/README.md.
  *
- * Views: schedule (default), speakers, session (data-session="<slug>"),
- * speaker (data-speaker="<slug>"). Session titles and speaker names open
+ * Views: schedule (default), sessions, speakers, session
+ * (data-session="<slug>"), speaker (data-speaker="<slug>"). Session titles and speaker names open
  * an overlay with the details. */
 (function () {
   "use strict";
@@ -188,6 +188,7 @@
       data.sessions.forEach(function (s) { self.bySlug[s.slug] = s; });
     }
     if (this.view === "speakers") this.renderSpeakers();
+    else if (this.view === "sessions") this.renderSessions();
     else if (this.view === "session") fill(this.el, [this.zones()].concat(this.sessionDetail(one)));
     else if (this.view === "speaker") fill(this.el, [this.zones()].concat(this.speakerDetail(one)));
     else this.renderSchedule();
@@ -309,6 +310,23 @@
       top.appendChild(picker);
     }
     fill(this.el, [top, tabs, h("div", { "class": "plc-sched" }, [grid])]);
+  };
+
+  /* Every talk, panel and workshop as a card, in program order; a title
+   * opens the overlay. Program items (breaks, keynotes) stay on the
+   * schedule. */
+  Widget.prototype.renderSessions = function () {
+    var self = this;
+    var tz = this.tz;
+    fill(this.el, [this.zones(), h("div", { "class": "plc-list" }, this.data.sessions.filter(function (s) {
+      return s.is_content;
+    }).map(function (s) {
+      return h("article", { "class": "plc-card" }, [
+        h("div", { "class": "plc-meta" }, [span(s.slot, tz, true), " · " + s.kind.name, s.slot.room ? " · " + s.slot.room.name : null]),
+        self.title(s),
+        self.who(s.presenters)
+      ]);
+    }))]);
   };
 
   Widget.prototype.renderSpeakers = function () {

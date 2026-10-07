@@ -64,14 +64,8 @@ class ProgramPublishingView(
             .exclude(status=SessionStatus.CANCELLED)
             .count(),
         )
-        script = self.request.build_absolute_uri(
-            f"{django_settings.STATIC_URL}widget/v1.js"
-        )
-        context["widget_snippet"] = (
-            f'<div data-pyladiescon-widget="schedule" '
-            f'data-conference="{self.conference.slug}"></div>\n'
-            f'<script src="{script}" defer></script>'
-        )
+        context["widget_snippets"] = self.widget_snippets()
+        context["data_links"] = self.data_links()
         if not published:
             token = preview_token(settings)
             context["preview_token"] = token
@@ -79,6 +73,47 @@ class ProgramPublishingView(
                 reverse("speakers:schedule_feed") + f"?preview={token}"
             )
         return context
+
+    def widget_snippets(self):
+        """Ready-to-paste code for each whole-program widget view."""
+        script = self.request.build_absolute_uri(
+            f"{django_settings.STATIC_URL}widget/v1.js"
+        )
+        return [
+            {
+                "view": view,
+                "label": label,
+                "code": (
+                    f'<div data-pyladiescon-widget="{view}" '
+                    f'data-conference="{self.conference.slug}"></div>\n'
+                    f'<script src="{script}" defer></script>'
+                ),
+            }
+            for view, label in (
+                ("schedule", "Schedule"),
+                ("speakers", "Speakers"),
+                ("sessions", "Sessions"),
+            )
+        ]
+
+    def data_links(self):
+        """The public endpoints, for anyone building their own page."""
+        slug = self.conference.slug
+        return [
+            {
+                "key": name,
+                "label": label,
+                "url": self.request.build_absolute_uri(
+                    reverse(f"speakers_api:{name}", args=[slug])
+                ),
+            }
+            for name, label in (
+                ("sessions", "Sessions (JSON)"),
+                ("presenters", "Speakers (JSON)"),
+                ("schedule", "Schedule by day (JSON)"),
+                ("schedule_ics", "Calendar feed (.ics)"),
+            )
+        ]
 
     def post(self, request):
         action = request.POST.get("action")

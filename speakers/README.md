@@ -1103,7 +1103,10 @@ installed; this app keeps small factory functions in `tests/speakers/factories.p
   rebuild, or when the served file passes 15 KB; CI needs no Node. The
   site pastes the snippet the Publishing page shows:
   `<div data-pyladiescon-widget="schedule" data-conference="<slug>">`
-  plus the script tag. Views: `schedule`, `speakers`, `session` with
+  plus the script tag (it offers one per whole-program view, and copyable
+  links to the JSON and `.ics` endpoints under "Data feeds"). Views:
+  `schedule`, `sessions` (every content session as a card, in program
+  order), `speakers`, `session` with
   `data-session="<slug>"`, and `speaker` with `data-speaker="<slug>"` (one
   profile inline, for a site that wants a page per speaker).
   The schedule: day tabs; times in the visitor's timezone (remembered in

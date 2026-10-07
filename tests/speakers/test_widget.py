@@ -50,6 +50,8 @@ def test_every_view_reads_a_built_endpoint():
     source = SOURCE.read_text()
     for path in ('"presenters/"', '"sessions/"'):
         assert path in source
+    for view in ("speakers", "sessions", "session", "speaker"):
+        assert f'"{view}"' in source
 
 
 @pytest.mark.django_db
@@ -60,6 +62,9 @@ def test_the_publishing_page_offers_the_snippet(client, conference):
     )
     client.force_login(organizer)
     content = client.get(reverse("speakers:program_publishing")).content.decode()
-    assert "data-pyladiescon-widget=&quot;schedule&quot;" in content
-    assert "data-conference=&quot;2025&quot;" in content
+    for view in ("schedule", "speakers", "sessions"):
+        assert f"data-pyladiescon-widget=&quot;{view}&quot;" in content
+    assert content.count("data-conference=&quot;2025&quot;") == 3
     assert "http://testserver/static/widget/v1.js" in content
+    for path in ("sessions/", "presenters/", "schedule/", "schedule.ics"):
+        assert f'value="http://testserver/api/v1/2025/{path}"' in content

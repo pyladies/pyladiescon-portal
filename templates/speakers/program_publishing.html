@@ -153,20 +153,59 @@
                 {% trans "Website widget" %}
             </h2>
             <p class="text-secondary small">
-                {% trans "Paste this where the program should appear on the conference website. Change schedule to speakers for the speaker list, or to session with data-session set to a session's address for one session. Until the program is public, add data-preview with the preview token to show the draft." %}
+                {% trans "Paste one of these where the program should appear on another website. Times show in each visitor's timezone; session titles and speaker names open the details. Until the program is public, add data-preview with the preview token to show the draft." %}
             </p>
-            <label class="visually-hidden" for="widget-snippet">
-                {% trans "Widget snippet" %}
-            </label>
-            <textarea class="form-control form-control-sm font-monospace mb-2"
-                      id="widget-snippet"
-                      rows="2"
-                      readonly>{{ widget_snippet }}</textarea>
-            <button class="btn btn-outline-secondary btn-sm"
-                    type="button"
-                    data-copy-target="widget-snippet">
-                {% trans "Copy" %}
-            </button>
+            {% for snippet in widget_snippets %}
+                <label class="form-label small fw-semibold mb-1"
+                       for="widget-{{ snippet.view }}">
+                    {{ snippet.label }}
+                </label>
+                <div class="d-flex gap-2 align-items-start mb-3">
+                    <textarea class="form-control form-control-sm font-monospace"
+                              id="widget-{{ snippet.view }}"
+                              rows="2"
+                              readonly>{{ snippet.code }}</textarea>
+                    <button class="btn btn-outline-secondary btn-sm"
+                            type="button"
+                            data-copy-target="widget-{{ snippet.view }}">
+                        {% trans "Copy" %}
+                    </button>
+                </div>
+            {% endfor %}
+            <p class="text-secondary small mb-0">
+                {% trans "The website's address must be listed under API allowed origins in the speaker settings, or browsers will not let the widget read the program." %}
+            </p>
+        </div>
+    </section>
+    <section class="card mb-4">
+        <div class="card-body">
+            <h2 class="h5">
+                {% trans "Data feeds" %}
+            </h2>
+            <p class="text-secondary small">
+                {% trans "The same public program as plain data, for anyone building their own page. Each follows the switches above; add ?preview= with the preview token for the draft." %}
+            </p>
+            {% for link in data_links %}
+                <label class="form-label small fw-semibold mb-1" for="feed-{{ link.key }}">
+                    {{ link.label }}
+                </label>
+                <div class="input-group input-group-sm mb-2">
+                    <input class="form-control font-monospace"
+                           id="feed-{{ link.key }}"
+                           type="text"
+                           readonly
+                           value="{{ link.url }}">
+                    <a class="btn btn-outline-secondary"
+                       href="{{ link.url }}"
+                       target="_blank"
+                       rel="noopener">{% trans "Open" %}</a>
+                    <button class="btn btn-outline-secondary"
+                            type="button"
+                            data-copy-target="feed-{{ link.key }}">
+                        {% trans "Copy" %}
+                    </button>
+                </div>
+            {% endfor %}
         </div>
     </section>
     <script src="{% static 'js/copy-field.js' %}" defer></script>
