@@ -1,12 +1,5 @@
 /* PyLadiesCon program widget, v1 (design §11.2). No dependencies.
- *
- *   <div data-pyladiescon-widget="schedule" data-conference="2026"></div>
- *   <script src="https://<portal>/static/widget/v1.js" defer></script>
- *
- * Views: schedule (default), speakers, session (with data-session="<slug>").
- * Optional: data-api (portal origin, defaults to this script's),
- * data-preview (or ?preview= on the host page), data-fallback-url.
- * Restyle through the --plc-* CSS variables on .plc. */
+ * Usage and options: speakers/README.md in the portal repository. */
 (function () {
   "use strict";
   var me = document.currentScript;
@@ -18,6 +11,8 @@
     ".plc-tab{font:inherit;border:1px solid var(--plc-border);background:none;color:inherit;border-radius:999px;padding:.25rem .8rem;cursor:pointer}" +
     ".plc-tab[aria-selected=true]{background:var(--plc-accent);border-color:var(--plc-accent);color:#fff}" +
     ".plc-list{display:grid;gap:.5rem}" +
+    ".plc-cols{display:grid;gap:.5rem;grid-template-columns:repeat(auto-fit,minmax(15rem,1fr))}" +
+    ".plc-when{font-weight:600;font-size:.875em;color:var(--plc-muted);margin:.35rem 0 -.15rem}" +
     ".plc-card{border:1px solid var(--plc-border);border-radius:var(--plc-radius);padding:.75rem;background:var(--plc-card)}" +
     ".plc-band{background:var(--plc-band);border-radius:var(--plc-radius);padding:.4rem .75rem;color:var(--plc-muted);display:flex;flex-wrap:wrap;gap:.25rem .75rem}" +
     ".plc-meta{color:var(--plc-muted);font-size:.875em}.plc-title{font-weight:600;margin:.15rem 0}" +
@@ -105,6 +100,7 @@
     this.browserTz = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
     this.tz = load("tz") || this.browserTz;
     this.stars = load("stars:" + this.conf) || [];
+    this.room = load("room:" + this.conf) || "";
     el.classList.add("plc");
     this.note("Loading the program…");
     this.fetch();
@@ -179,14 +175,52 @@
         text: dayLabel(key), onclick: function () { self.day = key; self.render(); }
       });
     }));
-    var list = h("div", { "class": "plc-list", role: "tabpanel" }, days[this.day].map(function (s) {
-      return s.is_content ? self.card(s, false) : h("div", { "class": "plc-band" }, [
-        h("span", { text: time(s.slot.start, tz) + "–" + time(s.slot.end, tz) }),
-        h("strong", { text: s.title }),
-        s.presenters.length ? h("span", { text: s.presenters.map(function (p) { return p.name; }).join(", ") }) : null
-      ]);
+    /* Sessions starting together sit side by side; a room picker appears
+     * once there is more than one room. Bands span every room. */
+    var rooms = [];
+    this.data.sessions.forEach(function (s) {
+      var name = s.slot.room && s.slot.room.name;
+      if (name && rooms.indexOf(name) < 0) rooms.push(name);
+    });
+    rooms.sort();
+    if (rooms.indexOf(this.room) < 0) this.room = "";
+    var shown = days[this.day].filter(function (s) {
+      return !self.room || !s.slot.room || s.slot.room.name === self.room;
+    });
+    var rows = [];
+    shown.forEach(function (s) {
+      var last = rows[rows.length - 1];
+      if (s.is_content && last && last.cards && last.start === s.slot.start) last.cards.push(s);
+      else rows.push(s.is_content ? { start: s.slot.start, cards: [s] } : { band: s });
+    });
+    var list = h("div", { "class": "plc-list", role: "tabpanel" }, rows.map(function (row) {
+      var s = row.band;
+      if (s) {
+        return h("div", { "class": "plc-band" }, [
+          h("span", { text: time(s.slot.start, tz) + "–" + time(s.slot.end, tz) }),
+          h("strong", { text: s.title }),
+          s.presenters.length ? h("span", { text: s.presenters.map(function (p) { return p.name; }).join(", ") }) : null
+        ]);
+      }
+      row.cards.sort(function (a, b) {
+        return rooms.indexOf(a.slot.room && a.slot.room.name) - rooms.indexOf(b.slot.room && b.slot.room.name);
+      });
+      var cards = h("div", { "class": "plc-cols" }, row.cards.map(function (c) { return self.card(c, false); }));
+      return row.cards.length > 1 ? h("div", {}, [h("div", { "class": "plc-when", text: time(row.start, tz) }), cards]) : cards;
     }));
-    fill(this.el, [this.zones(), tabs, this.starBar(), list]);
+    var picker = rooms.length > 1 ? h("select", {
+      "aria-label": "Room",
+      onchange: function () {
+        self.room = picker.value;
+        keep("room:" + self.conf, self.room);
+        self.render();
+      }
+    }, [h("option", { value: "", text: "All rooms" })].concat(rooms.map(function (name) {
+      return h("option", { value: name, selected: name === self.room, text: name });
+    }))) : null;
+    var top = this.zones();
+    if (picker) top.appendChild(picker);
+    fill(this.el, [top, tabs, this.starBar(), list]);
   };
 
   Widget.prototype.starBar = function () {

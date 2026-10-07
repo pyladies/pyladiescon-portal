@@ -1101,7 +1101,9 @@ installed; this app keeps small factory functions in `tests/speakers/factories.p
   plus the script tag. Views: `schedule` (day tabs and times in the
   visitor's timezone, remembered in localStorage; program items drawn as
   bands; a star per session, the stars kept per edition in the browser
-  and joined into one `schedule.ics?sessions=` subscription), `speakers`,
+  and joined into one `schedule.ics?sessions=` subscription; sessions
+  starting together sit side by side in a stable room order, and a room
+  picker appears once the program has more than one room), `speakers`,
   and `session` with `data-session="<slug>"`. Calendar links are
   subscribe-only (webcal, Google, Outlook.com), as everywhere else.
   `data-api` points it at another portal (default: the script's own
