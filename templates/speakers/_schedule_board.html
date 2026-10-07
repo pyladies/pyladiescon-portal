@@ -5,10 +5,19 @@ whole after every mutation (?board=1), so a placed session leaves the
 Unscheduled list and its open popover goes with it.
 {% endcomment %}
 <div class="row g-3">
-    <div class="col-lg-9">
-        {% include "speakers/_schedule_grid.html" %}
+    <div class="{% if wide %}col-12{% else %}col-lg-9{% endif %}">
+        {% if all_days %}
+            {% for grid in day_grids %}
+                <h2 class="h5 {% if not forloop.first %}mt-4{% endif %} mb-2">
+                    {{ grid.day|date:"l j F" }}
+                </h2>
+                {% include "speakers/_schedule_grid.html" with rooms=grid.rooms lanes=grid.lanes rows=grid.rows cards=grid.cards trimmed=grid.trimmed has_slots=grid.has_slots day=grid.day days=days full_day=False %}
+            {% endfor %}
+        {% else %}
+            {% include "speakers/_schedule_grid.html" %}
+        {% endif %}
     </div>
-    <div class="col-lg-3">
+    <div class="{% if wide %}col-md-6{% else %}col-lg-3{% endif %}">
         <div class="card mb-3">
             <div class="card-header">
                 {% trans "Unscheduled" %}
@@ -53,7 +62,8 @@ Unscheduled list and its open popover goes with it.
                 <p class="small text-secondary">
                     {% trans "An opening, break or social, born confirmed; it appears above, ready to drag." %}
                 </p>
-                <form method="post" action="?day={{ day|date:'Y-m-d' }}">
+                <form method="post"
+                      action="?{{ base_query }}{% if wide %}&amp;wide=1{% endif %}">
                     {% csrf_token %}
                     {% bootstrap_form program_item_form size="sm" %}
                     <button class="btn btn-outline-primary btn-sm" type="submit">

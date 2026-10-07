@@ -687,7 +687,7 @@ Attendees can put a single workshop or panel in their calendar and have it stay 
 ```
 GET /api/v1/<conference>/schedule.ics                          everything (subscribable)
 GET /api/v1/<conference>/schedule.ics?sessions=a,b,c           a personal selection (subscribable)
-GET /api/v1/<conference>/schedule.ics?kind=WORKSHOP&room=…  filtered
+GET /api/v1/<conference>/schedule.ics?kind=WORKSHOP&room=…  filtered (built 5 October 2026 under /speakers/ with per-session and signed per-presenter feeds, reading published slots; these /api/v1/ aliases arrive with the public API)
 GET /api/v1/<conference>/sessions/<slug>.ics                   one session
 GET /api/v1/<conference>/presenters/<slug>.ics                 everything one presenter is on
 ```

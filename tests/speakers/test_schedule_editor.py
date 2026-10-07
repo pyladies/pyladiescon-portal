@@ -816,6 +816,17 @@ class TestTrimmedWindow:
         by_title = {card["session"].pk: card["row"] for card in grid["cards"]}
         assert by_title[clean.pk] == FIRST_TIME_ROW + 5 * 4
 
+    def test_a_trim_that_saves_little_is_not_offered(self, conference, enabled):
+        """Slots near both midnight ends would trim four rows: a no-op
+        with a toggle link attached, so the whole day renders instead."""
+        early = make_session(conference, kind="TALK")
+        make_slot(early, start_utc=datetime(2026, 12, 5, 0, 15, tzinfo=timezone.utc))
+        late = make_session(conference, kind="TALK")
+        make_slot(late, start_utc=datetime(2026, 12, 5, 21, 30, tzinfo=timezone.utc))
+        grid = grid_for_day(conference, date(2026, 12, 5))
+        assert grid["trimmed"] is False
+        assert len(grid["rows"]) == 96
+
     def test_the_page_offers_the_toggle_and_the_density_switch(
         self, client, organizer, enabled, conference
     ):
@@ -829,3 +840,131 @@ class TestTrimmedWindow:
             EDITOR, {"day": "2026-12-05", "full": "1"}
         ).content.decode()
         assert "Trim to the program" in content
+
+
+@pytest.mark.django_db
+class TestAllDaysView:
+    """One long view from top to bottom instead of a tab per day."""
+
+    def test_every_day_stacks_with_its_heading(
+        self, client, organizer, enabled, conference
+    ):
+        conference.start_date = date(2026, 12, 5)
+        conference.end_date = date(2026, 12, 6)
+        conference.save()
+        make_slot(make_session(conference, title="Day one talk"), start_utc=T0)
+        make_slot(
+            make_session(conference, title="Day two talk"),
+            start_utc=T0 + timedelta(days=1),
+        )
+        client.force_login(organizer)
+        response = client.get(EDITOR, {"days": "all"})
+        content = response.content.decode()
+        assert content.count('class="schedule-grid"') == 2
+        assert "Saturday 5 December" in content
+        assert "Sunday 6 December" in content
+        assert "Day one talk" in content and "Day two talk" in content
+        assert "days=all&amp;board=1" in content
+        assert "Unschedule all" not in content
+        assert response.context["all_days"] is True
+
+    def test_the_tab_row_offers_all_days(self, client, organizer, enabled):
+        client.force_login(organizer)
+        content = client.get(EDITOR).content.decode()
+        assert "?days=all" in content
+        assert "All days" in content
+
+    def test_single_day_is_unchanged(self, client, organizer, enabled, conference):
+        make_slot(make_session(conference), start_utc=T0)
+        client.force_login(organizer)
+        response = client.get(EDITOR, {"day": "2026-12-05"})
+        assert response.context["all_days"] is False
+        assert "Unschedule all" in response.content.decode()
+
+
+@pytest.mark.django_db
+class TestWideMode:
+    """The spreadsheet view: no rail, no container cap, full-width grid."""
+
+    def test_wide_drops_the_rail_and_widens_the_board(
+        self, client, organizer, enabled, conference
+    ):
+        make_slot(make_session(conference), start_utc=T0)
+        client.force_login(organizer)
+        response = client.get(EDITOR, {"day": "2026-12-05", "wide": "1"})
+        content = response.content.decode()
+        assert response.context["wide"] is True
+        assert "schedule-wide" in content
+        assert "appSidebar" not in content
+        assert "Exit wide" in content
+        assert "wide=1&amp;board=1" in content
+
+    def test_normal_mode_keeps_the_rail_and_offers_wide(
+        self, client, organizer, enabled
+    ):
+        client.force_login(organizer)
+        content = client.get(EDITOR).content.decode()
+        assert "appSidebar" in content
+        assert "wide=1" in content
+        assert "schedule-wide" not in content
+
+    def test_wide_combines_with_all_days(self, client, organizer, enabled, conference):
+        make_slot(make_session(conference), start_utc=T0)
+        client.force_login(organizer)
+        response = client.get(EDITOR, {"days": "all", "wide": "1"})
+        content = response.content.decode()
+        assert response.context["all_days"] is True
+        assert "schedule-wide" in content
+        assert "days=all&amp;wide=1&amp;board=1" in content
+
+
+@pytest.mark.django_db
+class TestViewModeStickiness:
+    """A POST round-trip lands back in the view it came from."""
+
+    def test_publish_keeps_wide_and_all_days(
+        self, client, organizer, enabled, conference
+    ):
+        make_slot(make_session(conference), start_utc=T0)
+        client.force_login(organizer)
+        response = client.post(
+            reverse("speakers:schedule_publish") + "?days=all&wide=1", {}
+        )
+        assert response.url == EDITOR + "?days=all&wide=1"
+        response = client.post(
+            reverse("speakers:schedule_publish") + "?day=2026-12-05&full=1&wide=1",
+            {},
+        )
+        assert response.url == EDITOR + "?day=2026-12-05&full=1&wide=1"
+
+    def test_program_item_keeps_wide(self, client, organizer, enabled, conference):
+        conference.start_date = conference.end_date = date(2026, 12, 5)
+        conference.save()
+        client.force_login(organizer)
+        response = client.post(
+            EDITOR + "?day=2026-12-05&wide=1",
+            {"kind": session_type(conference, "BREAK").pk, "title": "Pause"},
+        )
+        assert response.url == EDITOR + "?day=2026-12-05&wide=1"
+
+    def test_unschedule_all_keeps_wide(self, client, organizer, enabled, conference):
+        make_slot(make_session(conference), start_utc=T0)
+        client.force_login(organizer)
+        response = client.post(
+            reverse("speakers:schedule_clear_day") + "?day=2026-12-05&wide=1",
+            {"day": "2026-12-05"},
+        )
+        assert response.url == EDITOR + "?day=2026-12-05&wide=1"
+        response = client.post(
+            reverse("speakers:schedule_clear_day") + "?wide=1", {"day": "garbage"}
+        )
+        assert "wide=1" in response.url
+
+    def test_the_forms_carry_the_mode(self, client, organizer, enabled, conference):
+        make_slot(make_session(conference), start_utc=T0)
+        client.force_login(organizer)
+        content = client.get(
+            EDITOR, {"day": "2026-12-05", "wide": "1"}
+        ).content.decode()
+        assert "schedule/publish/?day=2026-12-05&amp;wide=1" in content
+        assert "schedule/clear/?day=2026-12-05&amp;wide=1" in content

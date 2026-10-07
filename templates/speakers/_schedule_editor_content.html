@@ -1,0 +1,139 @@
+{% load i18n %}
+{% comment %}
+The editor itself, shared by the railed page and the full-bleed wide
+mode (spreadsheet view): header controls, day tabs, alerts, the board.
+{% endcomment %}
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+    <div>
+        <h1 class="h3 mb-0">
+            {% trans "Schedule" %}
+        </h1>
+        <p class="text-secondary mb-0">
+            {% trans "Drag a session onto the grid, drag it to move it, pull the bottom edge to change its length. The pencil on a card does the same with a form. Times are stored in UTC." %}
+        </p>
+    </div>
+    <div class="d-flex align-items-center gap-2">
+        {% if wide %}
+            <a class="btn btn-outline-secondary btn-sm" href="?{{ base_query }}">
+                <i class="fa-solid fa-compress" aria-hidden="true"></i> {% trans "Exit wide" %}
+            </a>
+        {% else %}
+            <a class="btn btn-outline-secondary btn-sm"
+               href="?{{ base_query }}&amp;wide=1">
+                <i class="fa-solid fa-expand" aria-hidden="true"></i> {% trans "Wide" %}
+            </a>
+        {% endif %}
+        <label class="form-label small mb-0 d-flex align-items-center gap-1">
+            {% trans "Density" %}
+            <select class="form-select form-select-sm w-auto" id="schedule-density">
+                <option value="comfortable">
+                    {% trans "Comfortable" %}
+                </option>
+                <option value="compact">
+                    {% trans "Compact" %}
+                </option>
+                <option value="fit">
+                    {% trans "Fit the screen" %}
+                </option>
+            </select>
+        </label>
+        <label class="form-label small mb-0 d-flex align-items-center gap-1">
+            {% trans "Show times in" %}
+            <select class="form-select form-select-sm w-auto" id="schedule-timezone">
+                <option value="local">
+                    {% trans "Your browser's timezone" %}
+                </option>
+                {% for value, label in timezones %}
+                    <option value="{{ value }}">
+                        {{ label }}
+                    </option>
+                {% endfor %}
+            </select>
+        </label>
+        {% trans "Arrives with the public program (Stage 5)." as preview_hint %}
+        <button class="btn btn-outline-secondary btn-sm"
+                type="button"
+                disabled
+                title="{{ preview_hint }}">
+            <i class="fa-solid fa-eye" aria-hidden="true"></i> {% trans "Preview as public" %}
+        </button>
+        <details class="schedule-card-menu">
+            <summary class="btn btn-primary btn-sm">
+                <i class="fa-solid fa-bullhorn" aria-hidden="true"></i> {% trans "Publish schedule" %}
+                {% if unpublished_total %}
+                    <span class="badge text-bg-light ms-1">{{ unpublished_total }}</span>
+                {% endif %}
+            </summary>
+            <div class="schedule-card-popover card shadow p-2 vstack gap-2 text-start">
+                <span class="small">
+                    {% blocktrans with placed=unpublished.placed moved=unpublished.moved removed=unpublished.removed %}Snapshots the whole grid for the speakers: {{ placed }} placed, {{ moved }} moved, {{ removed }} taken off. This is when sessions become scheduled and checklists open. Pencilled-in sessions (draft or invited) stay out until they are confirmed.{% endblocktrans %}
+                </span>
+                <form method="post"
+                      action="{% url 'speakers:schedule_publish' %}?{{ base_query }}{% if wide %}&amp;wide=1{% endif %}">
+                    {% csrf_token %}
+                    <div class="form-check">
+                        <input class="form-check-input"
+                               type="checkbox"
+                               name="notify"
+                               id="publish-notify"
+                               checked />
+                        <label class="form-check-label small" for="publish-notify">
+                            {% trans "Email the affected speakers" %}
+                        </label>
+                    </div>
+                    <button class="btn btn-primary btn-sm mt-2" type="submit">
+                        {% trans "Publish schedule" %}
+                    </button>
+                </form>
+            </div>
+        </details>
+        {% if not all_days %}
+            <details class="schedule-card-menu">
+                <summary class="btn btn-outline-danger btn-sm">
+                    <i class="fa-solid fa-calendar-xmark" aria-hidden="true"></i> {% trans "Unschedule all" %}
+                </summary>
+                <div class="schedule-card-popover card shadow p-2 vstack gap-2 text-start">
+                    <span class="small">
+                        {% blocktrans with day=day|date:"D j M" %}Takes every session on {{ day }} (the UTC day, as the tabs count) off the grid, back to Unscheduled. Published sessions keep their slot.{% endblocktrans %}
+                    </span>
+                    <form method="post"
+                          action="{% url 'speakers:schedule_clear_day' %}?{{ base_query }}{% if wide %}&amp;wide=1{% endif %}">
+                        {% csrf_token %}
+                        <input type="hidden" name="day" value="{{ day|date:'Y-m-d' }}" />
+                        <button class="btn btn-danger btn-sm" type="submit">
+                            {% trans "Unschedule all" %}
+                        </button>
+                    </form>
+                </div>
+            </details>
+        {% endif %}
+    </div>
+</div>
+<ul class="nav nav-tabs mb-3">
+    {% for d in days %}
+        <li class="nav-item">
+            <a class="nav-link {% if not all_days and d == day %}active{% endif %}"
+               {% if not all_days and d == day %}aria-current="page"{% endif %}
+               href="?day={{ d|date:'Y-m-d' }}{% if wide %}&amp;wide=1{% endif %}">{{ d|date:"D j M" }}</a>
+        </li>
+    {% endfor %}
+    <li class="nav-item">
+        <a class="nav-link {% if all_days %}active{% endif %}"
+           {% if all_days %}aria-current="page"{% endif %}
+           href="?days=all{% if wide %}&amp;wide=1{% endif %}">{% trans "All days" %}</a>
+    </li>
+</ul>
+<div class="alert alert-danger d-none"
+     id="schedule-alert"
+     role="alert"
+     aria-live="polite">
+</div>
+<div class="alert alert-warning d-none"
+     id="schedule-warnings"
+     role="status"
+     aria-live="polite">
+</div>
+<div id="schedule-board"
+     data-board-url="{% url 'speakers:schedule_editor' %}?{{ base_query }}{% if wide %}&amp;wide=1{% endif %}&amp;board=1">
+    {% include "speakers/_schedule_board.html" %}
+</div>

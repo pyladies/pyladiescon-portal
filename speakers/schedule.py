@@ -99,7 +99,12 @@ def _window(day_start, day_end, slots, full_day):
     end = _hour_of(last) + timedelta(hours=1)
     if last != _hour_of(last):
         end += timedelta(hours=1)
-    return start, min(end, day_end)
+    end = min(end, day_end)
+    # A trim that saves less than two hours is a no-op with a toggle
+    # link attached; show the whole day instead.
+    if (start - day_start) + (day_end - end) < timedelta(hours=2):
+        return day_start, day_end
+    return start, end
 
 
 def grid_for_day(conference, day, full_day=False):

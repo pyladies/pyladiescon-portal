@@ -1,0 +1,34 @@
+{% load i18n %}
+{% comment %}
+Every door into a calendar app for one feed (design §11.3): Apple and
+desktop Outlook via webcal://, Google Calendar and Outlook on the web
+via their deep links, and the raw address for pasting anywhere.
+Params: subscribe (feeds.subscribe_links dict).
+{% endcomment %}
+<div class="schedule-card-popover schedule-feed-popover card shadow p-2 vstack gap-2 text-start">
+    <a class="btn btn-primary btn-sm" href="{{ subscribe.webcal }}">
+        {% trans "Apple Calendar or Outlook (desktop)" %}
+    </a>
+    <a class="btn btn-outline-primary btn-sm"
+       href="{{ subscribe.google }}"
+       target="_blank"
+       rel="noopener">{% trans "Google Calendar" %}</a>
+    <a class="btn btn-outline-primary btn-sm"
+       href="{{ subscribe.outlook }}"
+       target="_blank"
+       rel="noopener">{% trans "Outlook.com" %}</a>
+    <a class="small"
+       href="{{ subscribe.office }}"
+       target="_blank"
+       rel="noopener">{% trans "Microsoft 365 work or school account" %}</a>
+    <label class="small mb-0">
+        {% trans "Or paste the address into any calendar's subscribe dialog:" %}
+        <input class="form-control form-control-sm mt-1"
+               type="text"
+               readonly
+               value="{{ subscribe.url }}" />
+    </label>
+    <span class="small text-secondary">
+        {% trans "Your calendar then follows every published change by itself. Google refreshes on its own schedule, typically within a day; Apple and Outlook sooner." %}
+    </span>
+</div>

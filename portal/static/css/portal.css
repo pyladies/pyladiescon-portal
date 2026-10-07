@@ -428,14 +428,19 @@ details.card[open] > summary.card-header::before {
    all-channels lane, one column per channel, 15-minute rows. Cards carry
    their grid position inline, computed in speakers/schedule.py. */
 .schedule-scroll {
-    max-height: 70vh;
-    overflow: auto;
+    /* Full height on purpose: the page scrolls a long day, not a box
+       within it (the rooms still scroll horizontally when they must,
+       and Compact or Fit put the whole day on one screen). */
+    overflow-x: auto;
     border: 1px solid var(--bs-border-color);
     border-radius: 0.5rem;
 }
 .schedule-grid {
     display: grid;
     grid-template-columns: 4.5rem 7rem repeat(var(--schedule-columns, 0), minmax(12rem, 1fr));
+    /* Row 1 is the room headers: content-sized whatever the density,
+       so Compact and Fit shrink the quarter-hours, never the heading. */
+    grid-template-rows: auto;
     grid-auto-rows: var(--schedule-row-height, 1.5rem);
     position: relative;
 }
@@ -713,4 +718,38 @@ details.card[open] > summary.card-header::before {
 }
 .schedule-density-compact .schedule-hour {
     font-size: 0.65rem;
+}
+
+/* The subscribe popover holds a whole URL. */
+.schedule-feed-popover {
+    width: 22rem;
+    max-width: 90vw;
+}
+
+/* Fit shrinks the lettering with the rows: the text follows the
+   computed row height, floored where it stops being readable. */
+.schedule-density-fit .schedule-card {
+    padding: 0 0.2rem;
+    font-size: clamp(7px, calc(var(--schedule-row-height, 1.5rem) * 0.72), 0.7rem);
+    line-height: 1.15;
+    border-radius: 0.2rem;
+}
+.schedule-density-fit .schedule-hour {
+    font-size: clamp(7px, calc(var(--schedule-row-height, 1.5rem) * 0.72), 0.65rem);
+}
+.schedule-density-fit .schedule-card-edit,
+.schedule-density-fit .schedule-card .text-warning-emphasis[role="img"] {
+    padding: 0 0.15rem;
+    font-size: clamp(7px, calc(var(--schedule-row-height, 1.5rem) * 0.7), 0.7rem);
+    line-height: 1.1;
+}
+
+/* The wide (spreadsheet) view breaks out of the page container: full
+   viewport width, so every room column gets its share of the screen. */
+.schedule-wide {
+    position: relative;
+    left: 50%;
+    width: 100vw;
+    margin-left: -50vw;
+    padding: 0 1.5rem;
 }
