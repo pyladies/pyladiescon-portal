@@ -59,14 +59,14 @@ mode (spreadsheet view): header controls, day tabs, alerts, the board.
         </button>
         <details class="schedule-card-menu">
             <summary class="btn btn-primary btn-sm">
-                <i class="fa-solid fa-bullhorn" aria-hidden="true"></i> {% trans "Publish schedule" %}
+                <i class="fa-solid fa-bullhorn" aria-hidden="true"></i> {% trans "Confirm schedule" %}
                 {% if unpublished_total %}
                     <span class="badge text-bg-light ms-1">{{ unpublished_total }}</span>
                 {% endif %}
             </summary>
             <div class="schedule-card-popover card shadow p-2 vstack gap-2 text-start">
                 <span class="small">
-                    {% blocktrans with placed=unpublished.placed moved=unpublished.moved removed=unpublished.removed %}Snapshots the whole grid for the speakers: {{ placed }} placed, {{ moved }} moved, {{ removed }} taken off. This is when sessions become scheduled and checklists open. Pencilled-in sessions (draft or invited) stay out until they are confirmed.{% endblocktrans %}
+                    {% blocktrans with placed=unpublished.placed moved=unpublished.moved removed=unpublished.removed %}Confirms the whole grid and shares it with the speakers: {{ placed }} placed, {{ moved }} moved, {{ removed }} taken off. This is when sessions become scheduled and checklists open. Pencilled-in sessions (draft or invited) stay out until they are confirmed. Nothing goes public here; that is the Publishing page.{% endblocktrans %}
                 </span>
                 <form method="post"
                       action="{% url 'speakers:schedule_publish' %}?{{ base_query }}{% if wide %}&amp;wide=1{% endif %}">
@@ -82,7 +82,7 @@ mode (spreadsheet view): header controls, day tabs, alerts, the board.
                         </label>
                     </div>
                     <button class="btn btn-primary btn-sm mt-2" type="submit">
-                        {% trans "Publish schedule" %}
+                        {% trans "Confirm schedule" %}
                     </button>
                 </form>
             </div>

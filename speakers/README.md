@@ -1185,7 +1185,9 @@ installed; this app keeps small factory functions in `tests/speakers/factories.p
   CONFIRMED. The editor's grid mutations log `slot.placed`/`slot.moved`/
   `slot.removed` (drafting); the session-level `session.scheduled`/
   `session.rescheduled`/`session.unscheduled` entries are written by the
-  publish. "Email the affected speakers" (default on) sends one recorded
+  publish (the editor's **Confirm schedule** button: it shares the
+  schedule with speakers and makes nothing public; "publish" in the UI
+  means the public program only). "Email the affected speakers" (default on) sends one recorded
   mail per affected presenter via `send_schedule_update_task`; the
   presenter row rides in the email context because the resend guard keys
   on the record's context digest. Organizer pages (sessions list, session

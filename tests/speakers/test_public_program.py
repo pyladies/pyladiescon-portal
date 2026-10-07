@@ -259,9 +259,9 @@ class TestPublishingPage:
         client.force_login(organizer)
         content = client.get(PUBLISHING).content.decode()
         assert "Placed panel" in content
-        assert "Not on the published schedule yet" in content
+        assert "Not on the confirmed schedule yet" in content
         assert content.count("disabled") == 1
-        assert "1 is on it now" in content
+        assert "On it now: 1 program item." in content
         assert "?preview=" in content
 
     def test_ticking_publishes_and_unticking_takes_off(

@@ -245,7 +245,7 @@ class TestSessionTransitions:
         session = make_session(conference, kind="BREAK")
         session.confirm()
         make_slot(session)
-        with pytest.raises(TransitionError, match="Publish the schedule"):
+        with pytest.raises(TransitionError, match="Confirm the schedule"):
             session.schedule()
 
     def test_schedule_rejects_draft(self, conference):
@@ -269,7 +269,7 @@ class TestSessionTransitions:
         published = make_published_slot(session)
         session.schedule()
         published.delete()
-        with pytest.raises(TransitionError, match="published schedule slot"):
+        with pytest.raises(TransitionError, match="confirmed schedule slot"):
             session.publish()
 
     def test_cancel_unpublishes(self, conference):

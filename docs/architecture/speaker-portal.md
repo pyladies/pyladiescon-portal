@@ -628,10 +628,12 @@ A timezone switcher on the grid shows the whole schedule as a specific presenter
 | Audience | Reads | Changes when |
 |---|---|---|
 | Organizers (the editor) | `ScheduleSlot` — the working grid | every drag |
-| Speakers (their schedule page, checklists, feeds) | **`PublishedSlot`** — the snapshot | an organizer clicks **Publish schedule** |
+| Speakers (their schedule page, checklists, feeds) | **`PublishedSlot`** — the snapshot | an organizer clicks **Confirm schedule** |
 | The public (§11, later) | `PublishedSlot` of public sessions | ditto, behind `program_visibility` |
 
 `PublishedSlot` is one row per session, same shape as the working slot (`room` nullable, `start_utc`, `end_utc`) plus `published_at` and `ics_sequence` — the feeds (§11.3) serve published times, so the `SEQUENCE` counter lives here and bumps when a publish moves a session, never while organizers shuffle. One word, two scopes, said explicitly wherever it matters: the **schedule** is published to speakers; a **session** is published to the world (`PUBLISHED` status, §11). Publishing the schedule exposes nothing to the public side.
+
+> **Naming.** The button is labelled **Confirm schedule** (renamed 7 October 2026) so that "publish" only ever means public (§11.5); this section and the code keep the original publish names (`publish_schedule`, `PublishedSlot`) for the speaker-facing snapshot.
 
 **Publishing** is one action for the whole edition, never per day: a snapshot of half a schedule would show speakers a grid that contradicts itself. It diffs the working grid against the last snapshot — placed, moved, removed — then, in one transaction: upserts `PublishedSlot` rows, advances newly published `CONFIRMED` sessions to `SCHEDULED` (this is where the identity lock and the checklist effects now fire), bumps `ics_sequence` on moved ones, and for sessions taken off the grid since the last publish, deletes the snapshot row and returns the session to `CONFIRMED`, reopening its identity. A public session's slot cannot be removed by a publish (same rule as deleting its slot); a cancelled session's published row is removed on the next publish and its working row already frees the time (§8.5). The editor shows how many unpublished differences exist, marks the affected cards, and the confirm popover lists the counts before the click. `Session.schedule()` therefore comes to mean "has a published slot": the status machine, the rules registry entries `SESSION_SCHEDULED` (both kinds) and the speaker page all re-key from `ScheduleSlot` to `PublishedSlot`; the editor keeps the working grid's overlap rules exactly as they are.
 

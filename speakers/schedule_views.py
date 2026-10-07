@@ -300,12 +300,12 @@ class SchedulePublishView(LoginRequiredMixin, SpeakerOrganizerRequiredMixin, Vie
                 told = " The affected sessions have no presenters to email."
             messages.success(
                 request,
-                "Schedule published: "
+                "Schedule confirmed: "
                 f"{result['placed']} placed, {result['moved']} moved, "
                 f"{result['removed']} taken off.{told}",
             )
         else:
-            messages.info(request, "The published schedule already matches the grid.")
+            messages.info(request, "The confirmed schedule already matches the grid.")
         url = reverse("speakers:schedule_editor")
         return redirect(f"{url}?{_editor_query(request, self.conference)}")
 
