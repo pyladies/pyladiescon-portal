@@ -1093,7 +1093,11 @@ installed; this app keeps small factory functions in `tests/speakers/factories.p
   with `Vary: Origin`; a preflight (`OPTIONS`) answers a listed origin
   with GET/HEAD and the conditional headers (`If-None-Match`,
   `If-Modified-Since`), so the site may revalidate its cache. The list is not in the cache
-  invalidation set: the header is computed per request. No public per-presenter `.ics` yet.
+  invalidation set: the header is computed per request. The Publishing
+  page lists the allowed websites; someone who may change speaker
+  settings in the admin (superusers, or staff granted the permission)
+  gets an "Edit in admin" link, everyone else a note to ask an admin. No
+  public per-presenter `.ics` yet.
 - The website widget (design §11.2, task 6.3) is written readable in
   `frontend/widget/v1.js` and served minified from
   `portal/static/widget/v1.js`, built by `npm run build:widget` (terser,

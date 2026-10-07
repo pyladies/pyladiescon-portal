@@ -172,9 +172,36 @@
                     </button>
                 </div>
             {% endfor %}
-            <p class="text-secondary small mb-0">
-                {% trans "The website's address must be listed under API allowed origins in the speaker settings, or browsers will not let the widget read the program." %}
+            <h3 class="h6 mt-2">
+                {% trans "Websites allowed to show the program" %}
+            </h3>
+            <p class="text-secondary small mb-2">
+                {% trans "Browsers only let a widget read the program on websites listed here, one address per line, for example https://2026.conference.pyladies.com." %}
             </p>
+            {% if allowed_origins %}
+                <ul class="small mb-2">
+                    {% for origin in allowed_origins %}
+                        <li class="font-monospace">
+                            {{ origin }}
+                        </li>
+                    {% endfor %}
+                </ul>
+            {% else %}
+                <p class="small mb-2">
+                    <span class="badge text-bg-warning">{% trans "None yet" %}</span>
+                    {% trans "No website can show the widget until one is added." %}
+                </p>
+            {% endif %}
+            {% if origins_admin_url %}
+                <a class="btn btn-outline-secondary btn-sm"
+                   href="{{ origins_admin_url }}">
+                    <i class="fa-solid fa-pen" aria-hidden="true"></i> {% trans "Edit in admin" %}
+                </a>
+            {% else %}
+                <p class="text-secondary small mb-0">
+                    {% trans "A portal admin adds or removes websites here; ask one to list yours." %}
+                </p>
+            {% endif %}
         </div>
     </section>
     <section class="card mb-4">

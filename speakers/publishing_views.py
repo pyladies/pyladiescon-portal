@@ -65,6 +65,14 @@ class ProgramPublishingView(
             .count(),
         )
         context["widget_snippets"] = self.widget_snippets()
+        context["allowed_origins"] = settings.api_origins
+        user = self.request.user
+        # The admin is where the list is edited; offer it only to someone
+        # who can open that page (superusers included).
+        if user.is_staff and user.has_perm("speakers.change_speakersettings"):
+            context["origins_admin_url"] = reverse(
+                "admin:speakers_speakersettings_change", args=[settings.pk]
+            )
         context["data_links"] = self.data_links()
         if not published:
             token = preview_token(settings)

@@ -2,6 +2,7 @@
 and a preview link for the website build."""
 
 import importlib
+import re
 from datetime import datetime, timedelta, timezone
 
 import pytest
@@ -13,7 +14,7 @@ from django.urls import reverse
 
 from portal.models import Conference
 from speakers.constants import ProgramVisibility, SessionStatus
-from speakers.models import ActivityLog, SpeakerSettings
+from speakers.models import ActivityLog, AllowedOrigin, SpeakerSettings
 from speakers.public import (
     preview_is_valid,
     preview_token,
@@ -384,3 +385,32 @@ class TestReview466:
         assert quiet.program_visibility == INTERNAL
         assert settings_row.preview_key != quiet.preview_key
         assert "same-for-all" not in (settings_row.preview_key, quiet.preview_key)
+
+
+class TestAllowedWebsites:
+    def test_an_admin_sees_the_list_and_the_admin_link(
+        self, client, conference, settings_row
+    ):
+        for url in ("https://2026.conference.pyladies.com/", "https://Example.org"):
+            AllowedOrigin.objects.create(settings=settings_row, url=url)
+        admin = User.objects.create_superuser(
+            username="admin", email="admin@example.com", password=None
+        )
+        client.force_login(admin)
+        content = client.get(PUBLISHING).content.decode()
+        listed = re.findall(r'<li class="font-monospace">\s*(\S+)\s*</li>', content)
+        assert listed == ["https://2026.conference.pyladies.com", "https://example.org"]
+        assert (
+            reverse("admin:speakers_speakersettings_change", args=[settings_row.pk])
+            in content
+        )
+        assert "ask one to list yours" not in content
+
+    def test_an_organizer_is_told_to_ask_an_admin(
+        self, client, organizer, conference, settings_row
+    ):
+        client.force_login(organizer)
+        content = client.get(PUBLISHING).content.decode()
+        assert "None yet" in content
+        assert "ask one to list yours" in content
+        assert "/admin/speakers/speakersettings/" not in content
