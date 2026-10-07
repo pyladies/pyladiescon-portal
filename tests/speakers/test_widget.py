@@ -61,7 +61,7 @@ def test_the_publishing_page_offers_the_snippet(client, conference):
         username="organizer", email="org@example.com", is_staff=True
     )
     client.force_login(organizer)
-    content = client.get(reverse("speakers:program_publishing")).content.decode()
+    content = client.get(reverse("speakers:program_share")).content.decode()
     for view in ("schedule", "speakers", "sessions"):
         assert f"data-pyladiescon-widget=&quot;{view}&quot;" in content
     assert content.count("data-conference=&quot;2025&quot;") == 3

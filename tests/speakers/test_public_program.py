@@ -34,6 +34,7 @@ from .factories import (
 T0 = datetime(2026, 12, 5, 14, 0, tzinfo=timezone.utc)
 FEED = reverse("speakers:schedule_feed")
 PUBLISHING = reverse("speakers:program_publishing")
+SHARE = reverse("speakers:program_share")
 INTERNAL = ProgramVisibility.INTERNAL
 PUBLISHED = ProgramVisibility.PUBLISHED
 
@@ -262,7 +263,7 @@ class TestPublishingPage:
         assert "Not on the confirmed schedule yet" in content
         assert content.count("disabled") == 1
         assert "On it now: 1 program item." in content
-        assert "?preview=" in content
+        assert "Not public yet" in content
 
     def test_ticking_publishes_and_unticking_takes_off(
         self, client, organizer, conference, settings_row
@@ -296,7 +297,9 @@ class TestPublishingPage:
             PUBLISHING, {"action": "visibility", "visibility": PUBLISHED}, follow=True
         )
         assert "The program is public." in response.content.decode()
-        assert "preview links are switched off" in response.content.decode()
+        assert "Take back to internal" in response.content.decode()
+        share = client.get(SHARE).content.decode()
+        assert "preview tokens are switched off" in share
         settings_row.refresh_from_db()
         assert settings_row.program_visibility == PUBLISHED
         assert ActivityLog.objects.filter(action="program.visibility").count() == 1
@@ -310,8 +313,11 @@ class TestPublishingPage:
     def test_regenerate(self, client, organizer, conference, settings_row):
         old = preview_token(settings_row)
         client.force_login(organizer)
-        response = client.post(PUBLISHING, {"action": "regenerate"}, follow=True)
-        assert "Every earlier link has stopped working." in response.content.decode()
+        response = client.post(
+            PUBLISHING, {"action": "regenerate", "next": "share"}, follow=True
+        )
+        assert response.redirect_chain[-1][0] == SHARE
+        assert "Every earlier one has stopped working." in response.content.decode()
         assert not preview_is_valid(Conference.objects.get(pk=conference.pk), old)
         assert ActivityLog.objects.filter(action="program.preview_regenerated").exists()
 
@@ -397,7 +403,7 @@ class TestAllowedWebsites:
             username="admin", email="admin@example.com", password=None
         )
         client.force_login(admin)
-        content = client.get(PUBLISHING).content.decode()
+        content = client.get(SHARE).content.decode()
         listed = re.findall(r'<li class="font-monospace">\s*(\S+)\s*</li>', content)
         assert listed == ["https://2026.conference.pyladies.com", "https://example.org"]
         assert (
@@ -410,7 +416,7 @@ class TestAllowedWebsites:
         self, client, organizer, conference, settings_row
     ):
         client.force_login(organizer)
-        content = client.get(PUBLISHING).content.decode()
+        content = client.get(SHARE).content.decode()
         assert "None yet" in content
         assert "ask one to list yours" in content
         assert "/admin/speakers/speakersettings/" not in content
@@ -465,3 +471,37 @@ class TestPreviewPage:
         client.force_login(organizer)
         for page in (reverse("speakers:schedule_editor"), PUBLISHING):
             assert f'href="{PREVIEW}"' in client.get(page).content.decode()
+
+
+@pytest.mark.django_db
+class TestTabs:
+    def test_the_switch_returns_to_the_tab_it_was_used_on(
+        self, client, organizer, conference, settings_row
+    ):
+        client.force_login(organizer)
+        for tab, url in (("share", SHARE), ("preview", PREVIEW)):
+            response = client.post(
+                PUBLISHING,
+                {"action": "visibility", "visibility": INTERNAL, "next": tab},
+            )
+            assert response.url == url
+        response = client.post(
+            PUBLISHING,
+            {"action": "visibility", "visibility": INTERNAL, "next": "elsewhere"},
+        )
+        assert response.url == PUBLISHING
+
+    def test_every_tab_carries_the_header(
+        self, client, organizer, conference, settings_row
+    ):
+        client.force_login(organizer)
+        for url in (PUBLISHING, PREVIEW, SHARE):
+            content = client.get(url).content.decode()
+            assert "Make public" in content
+            for tab in (PUBLISHING, PREVIEW, SHARE):
+                assert f'href="{tab}"' in content
+
+    def test_share_is_for_organizers(self, client, conference, settings_row):
+        user = User.objects.create_user(username="someone", email="s@example.com")
+        client.force_login(user)
+        assert client.get(SHARE).status_code == 403

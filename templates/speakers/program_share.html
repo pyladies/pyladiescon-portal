@@ -1,0 +1,141 @@
+{% extends "speakers/_organize_shell.html" %}
+{% load i18n static %}
+{% block head_title %}
+    {% trans "Publishing" %}
+{% endblock head_title %}
+{% block breadcrumb %}
+    {% url 'speakers:program_publishing' as bc_url %}
+    {% trans "Publishing" as bc_section %}
+    {% trans "Share" as bc_page %}
+    {% include "portal/_breadcrumbs.html" with section=bc_section section_url=bc_url page=bc_page %}
+{% endblock breadcrumb %}
+{% block content %}
+    {% include "speakers/_publishing_header.html" %}
+    <section class="card mb-4">
+        <div class="card-body">
+            <h2 class="h5">
+                {% trans "Website widget" %}
+            </h2>
+            <p class="text-secondary small">
+                {% trans "Paste one of these where the program should appear on another website. Times show in each visitor's timezone; session titles and speaker names open the details. Until the program is public, add data-preview with the preview token below to show the draft." %}
+            </p>
+            {% for snippet in widget_snippets %}
+                <label class="form-label small fw-semibold mb-1"
+                       for="widget-{{ snippet.view }}">
+                    {{ snippet.label }}
+                </label>
+                <div class="d-flex gap-2 align-items-start mb-3">
+                    <textarea class="form-control form-control-sm font-monospace"
+                              id="widget-{{ snippet.view }}"
+                              rows="2"
+                              readonly>{{ snippet.code }}</textarea>
+                    <button class="btn btn-outline-secondary btn-sm"
+                            type="button"
+                            data-copy-target="widget-{{ snippet.view }}">
+                        {% trans "Copy" %}
+                    </button>
+                </div>
+            {% endfor %}
+            <h3 class="h6 mt-2">
+                {% trans "Websites allowed to show the program" %}
+            </h3>
+            <p class="text-secondary small mb-2">
+                {% trans "Browsers only let the widget read the program on websites listed here, for example https://2026.conference.pyladies.com." %}
+            </p>
+            {% if allowed_origins %}
+                <ul class="small mb-2">
+                    {% for origin in allowed_origins %}
+                        <li class="font-monospace">
+                            {{ origin }}
+                        </li>
+                    {% endfor %}
+                </ul>
+            {% else %}
+                <p class="small mb-2">
+                    <span class="badge text-bg-warning">{% trans "None yet" %}</span>
+                    {% trans "No website can show the widget until one is added." %}
+                </p>
+            {% endif %}
+            {% if origins_admin_url %}
+                <a class="btn btn-outline-secondary btn-sm"
+                   href="{{ origins_admin_url }}">
+                    <i class="fa-solid fa-pen" aria-hidden="true"></i> {% trans "Edit in admin" %}
+                </a>
+            {% else %}
+                <p class="text-secondary small mb-0">
+                    {% trans "A portal admin adds or removes websites here; ask one to list yours." %}
+                </p>
+            {% endif %}
+        </div>
+    </section>
+    <section class="card mb-4">
+        <div class="card-body">
+            <h2 class="h5">
+                {% trans "Data feeds" %}
+            </h2>
+            <p class="text-secondary small">
+                {% trans "The same public program as plain data, for anyone building their own page. Each follows the switches above; add ?preview= with the preview token for the draft." %}
+            </p>
+            {% for link in data_links %}
+                <label class="form-label small fw-semibold mb-1" for="feed-{{ link.key }}">
+                    {{ link.label }}
+                </label>
+                <div class="input-group input-group-sm mb-2">
+                    <input class="form-control font-monospace"
+                           id="feed-{{ link.key }}"
+                           type="text"
+                           readonly
+                           value="{{ link.url }}">
+                    <a class="btn btn-outline-secondary"
+                       href="{{ link.url }}"
+                       target="_blank"
+                       rel="noopener">{% trans "Open" %}</a>
+                    <button class="btn btn-outline-secondary"
+                            type="button"
+                            data-copy-target="feed-{{ link.key }}">
+                        {% trans "Copy" %}
+                    </button>
+                </div>
+            {% endfor %}
+        </div>
+    </section>
+    <section class="card mb-4">
+        <div class="card-body">
+            <h2 class="h5">
+                {% trans "Preview token for the website build" %}
+            </h2>
+            {% if program_published %}
+                <p class="text-secondary mb-0">
+                    {% trans "The program is public, so preview tokens are switched off." %}
+                </p>
+            {% else %}
+                <p class="text-secondary small">
+                    {% trans "For whoever builds the website before launch: added as data-preview on a widget, or as ?preview= on a data feed, it shows the draft, everything on the confirmed schedule whether ticked or not. It has no expiry and stops working once the program is public; making a new one stops every earlier one." %}
+                </p>
+                {% trans "Preview token" as token_label %}
+                <div class="input-group input-group-sm mb-2">
+                    <input class="form-control font-monospace"
+                           id="preview-token"
+                           type="text"
+                           readonly
+                           aria-label="{{ token_label }}"
+                           value="{{ preview_token }}">
+                    <button class="btn btn-outline-secondary"
+                            type="button"
+                            data-copy-target="preview-token">
+                        {% trans "Copy" %}
+                    </button>
+                </div>
+                <form method="post" action="{% url 'speakers:program_publishing' %}">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="regenerate">
+                    <input type="hidden" name="next" value="share">
+                    <button class="btn btn-outline-danger btn-sm" type="submit">
+                        {% trans "Make a new token (stops the old ones)" %}
+                    </button>
+                </form>
+            {% endif %}
+        </div>
+    </section>
+    <script src="{% static 'js/copy-field.js' %}" defer></script>
+{% endblock content %}

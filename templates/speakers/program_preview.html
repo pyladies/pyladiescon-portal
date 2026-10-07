@@ -1,7 +1,7 @@
 {% extends "speakers/_organize_shell.html" %}
 {% load i18n static %}
 {% block head_title %}
-    {% trans "Preview as public" %}
+    {% trans "Preview" %}
 {% endblock head_title %}
 {% block breadcrumb %}
     {% url 'speakers:program_publishing' as bc_url %}
@@ -10,9 +10,7 @@
     {% include "portal/_breadcrumbs.html" with section=bc_section section_url=bc_url page=bc_page %}
 {% endblock breadcrumb %}
 {% block content %}
-    <h1 class="h3 mb-1">
-        {% trans "Preview as public" %}
-    </h1>
+    {% include "speakers/_publishing_header.html" %}
     <p class="text-secondary">
         {% if draft %}
             {% trans "The draft: everything on the confirmed schedule, ticked for publishing or not, as the website's widget will show it. Changes on the schedule grid appear here once you confirm the schedule." %}
