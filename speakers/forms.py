@@ -676,7 +676,7 @@ class ChecklistTemplateItemForm(forms.ModelForm):
             "waits_for",
             "waiting_note",
         ]
-        widgets = {"description_md": forms.Textarea(attrs={"rows": 2})}
+        widgets = {"description_md": forms.Textarea(attrs={"rows": 5})}
         help_texts = {
             "description_md": MARKDOWN_HELP
             + " Speakers see this under the title on their to-do list.",
