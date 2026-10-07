@@ -51,6 +51,11 @@ urlpatterns = [
         name="program_publishing",
     ),
     path(
+        "schedule/preview/",
+        publishing_views.ProgramPreviewView.as_view(),
+        name="program_preview",
+    ),
+    path(
         "schedule/clear/",
         schedule_views.ScheduleClearDayView.as_view(),
         name="schedule_clear_day",

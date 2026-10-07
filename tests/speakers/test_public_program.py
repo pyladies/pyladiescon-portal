@@ -414,3 +414,54 @@ class TestAllowedWebsites:
         assert "None yet" in content
         assert "ask one to list yours" in content
         assert "/admin/speakers/speakersettings/" not in content
+
+
+PREVIEW = reverse("speakers:program_preview")
+
+
+@pytest.mark.django_db
+class TestPreviewPage:
+    def test_organizers_only(self, client, conference, settings_row):
+        user = User.objects.create_user(username="someone", email="s@example.com")
+        client.force_login(user)
+        assert client.get(PREVIEW).status_code == 403
+
+    def test_the_draft_carries_the_preview_token(
+        self, client, organizer, conference, settings_row
+    ):
+        client.force_login(organizer)
+        content = client.get(PREVIEW).content.decode()
+        token = preview_token(SpeakerSettings.objects.get(pk=settings_row.pk))
+        assert f'data-preview="{token}"' in content
+        assert 'data-pyladiescon-widget="schedule"' in content
+        assert 'data-conference="2025"' in content
+        assert "Public now" in content
+
+    def test_public_now_and_other_views(
+        self, client, organizer, conference, settings_row
+    ):
+        client.force_login(organizer)
+        content = client.get(PREVIEW, {"show": "public", "view": "speakers"}).content
+        content = content.decode()
+        assert "data-preview=" not in content
+        assert 'data-pyladiescon-widget="speakers"' in content
+        assert "coming soon" in content
+        odd = client.get(PREVIEW, {"view": "nonsense"}).content.decode()
+        assert 'data-pyladiescon-widget="schedule"' in odd
+
+    def test_once_public_there_is_no_draft(
+        self, client, organizer, conference, settings_row
+    ):
+        go(settings_row, PUBLISHED)
+        client.force_login(organizer)
+        content = client.get(PREVIEW).content.decode()
+        assert "data-preview=" not in content
+        assert "Public now" not in content
+        assert "the program is public" in content
+
+    def test_the_editor_and_the_publishing_page_link_it(
+        self, client, organizer, conference, settings_row
+    ):
+        client.force_login(organizer)
+        for page in (reverse("speakers:schedule_editor"), PUBLISHING):
+            assert f'href="{PREVIEW}"' in client.get(page).content.decode()

@@ -13,8 +13,14 @@
     <h1 class="h3 mb-1">
         {% trans "Publishing" %}
     </h1>
+    <p class="mb-2">
+        <a class="btn btn-outline-secondary btn-sm"
+           href="{% url 'speakers:program_preview' %}">
+            <i class="fa-solid fa-eye" aria-hidden="true"></i> {% trans "Preview as public" %}
+        </a>
+    </p>
     <p class="text-secondary">
-        {% trans "What the public program shows: the conference website, its widget and the public calendar feeds all read from here. Publishing the schedule tells the speakers; publishing here tells the world." %}
+        {% trans "What the public program shows: the conference website, its widget and the public calendar feeds all read from here. Confirming the schedule tells the speakers; publishing here tells the world." %}
     </p>
     <section class="card mb-4">
         <div class="card-body">

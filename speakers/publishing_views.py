@@ -188,3 +188,41 @@ class ProgramPublishingView(
             )
         else:
             messages.info(request, "Nothing changed.")
+
+
+class ProgramPreviewView(
+    LoginRequiredMixin, SpeakerOrganizerRequiredMixin, TemplateView
+):
+    """The program through the website's own widget, for organizers.
+
+    While the program is internal: "draft" (the default) shows everything
+    on the confirmed schedule, ticked or not, through the preview token;
+    "public" shows what visitors get today. Once the program is public
+    there is only the public view, since preview links stop working then.
+    """
+
+    template_name = "speakers/program_preview.html"
+    VIEWS = (
+        ("schedule", "Schedule"),
+        ("sessions", "Sessions"),
+        ("speakers", "Speakers"),
+    )
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        settings = SpeakerSettings.objects.get(conference=self.conference)
+        published = settings.program_visibility == ProgramVisibility.PUBLISHED
+        draft = not published and self.request.GET.get("show") != "public"
+        view = self.request.GET.get("view")
+        if view not in dict(self.VIEWS):
+            view = "schedule"
+        context.update(
+            rail_active="publishing",
+            conference=self.conference,
+            program_published=published,
+            draft=draft,
+            view=view,
+            views=self.VIEWS,
+            preview_token=preview_token(settings) if draft else None,
+        )
+        return context

@@ -50,13 +50,12 @@ mode (spreadsheet view): header controls, day tabs, alerts, the board.
                 {% endfor %}
             </select>
         </label>
-        {% trans "Arrives with the public program (Stage 5)." as preview_hint %}
-        <button class="btn btn-outline-secondary btn-sm"
-                type="button"
-                disabled
-                title="{{ preview_hint }}">
+        <a class="btn btn-outline-secondary btn-sm"
+           href="{% url 'speakers:program_preview' %}"
+           target="_blank"
+           rel="noopener">
             <i class="fa-solid fa-eye" aria-hidden="true"></i> {% trans "Preview as public" %}
-        </button>
+        </a>
         <details class="schedule-card-menu">
             <summary class="btn btn-primary btn-sm">
                 <i class="fa-solid fa-bullhorn" aria-hidden="true"></i> {% trans "Confirm schedule" %}

@@ -1061,7 +1061,12 @@ installed; this app keeps small factory functions in `tests/speakers/factories.p
   "make a new link" changes the key and revokes every older one, and
   every link stops working once the program goes public. The preview
   shows every session on the published schedule, published or not, but
-  still honours a presenter's opt-out; preview responses are `no-store`.
+  still honours a presenter's opt-out; preview responses are `no-store`. "Preview as public" (the
+  editor's button, and the Publishing page) opens `schedule/preview/`:
+  the website's own widget inside the portal, for organizers. While the
+  program is internal it defaults to the draft (everything on the
+  confirmed schedule, ticked or not, through the preview token) with a
+  "Public now" switch; once public, only the public view.
 - The public JSON API (design §11.1, task 6.2) is `speakers/api.py`
   (payloads and cache) and `api_views.py`, mounted at `/api/v1/` by
   `portal/urls.py`: `<conference>/sessions/`, `sessions/<slug>/`,
