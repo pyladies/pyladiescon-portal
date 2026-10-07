@@ -154,7 +154,11 @@ class TestSnapshots:
         response, data = get(client, url("sessions"))
         talk, coffee, ada = program["talk"], program["coffee"], program["ada"]
         assert data == {
-            "conference": {"slug": "2025", "name": "PyLadiesCon 2025"},
+            "conference": {
+                "slug": "2025",
+                "name": "PyLadiesCon 2025",
+                "timezone": "UTC",
+            },
             "program": "published",
             "sessions": [
                 {
@@ -261,7 +265,11 @@ class TestSnapshots:
         response, data = get(client, url("schedule"))
         talk, coffee = program["talk"], program["coffee"]
         assert data == {
-            "conference": {"slug": "2025", "name": "PyLadiesCon 2025"},
+            "conference": {
+                "slug": "2025",
+                "name": "PyLadiesCon 2025",
+                "timezone": "America/Vancouver",
+            },
             "program": "published",
             "timezone": "America/Vancouver",
             "rooms": [{"name": "Main stage", "url": "https://discord.example/1"}],
@@ -366,7 +374,8 @@ class TestProgramStates:
         assert data["sessions"] == []
         assert get(client, url("presenters"))[1]["presenters"] == []
         assert get(client, url("schedule"))[1]["days"] == []
-        assert client.get(url("session", program["talk"].slug)).status_code == 404
+        response, data = get(client, url("session", program["talk"].slug))
+        assert data["session"] is None and data["program"] == "internal"
 
     def test_preview_shows_the_draft_and_is_never_cached(
         self, client, program, conference

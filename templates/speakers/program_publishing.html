@@ -147,5 +147,27 @@
             {% endif %}
         </div>
     </section>
+    <section class="card mb-4">
+        <div class="card-body">
+            <h2 class="h5">
+                {% trans "Website widget" %}
+            </h2>
+            <p class="text-secondary small">
+                {% trans "Paste this where the program should appear on the conference website. Change schedule to speakers for the speaker list, or to session with data-session set to a session's address for one session. Until the program is public, add data-preview with the preview token to show the draft." %}
+            </p>
+            <label class="visually-hidden" for="widget-snippet">
+                {% trans "Widget snippet" %}
+            </label>
+            <textarea class="form-control form-control-sm font-monospace mb-2"
+                      id="widget-snippet"
+                      rows="2"
+                      readonly>{{ widget_snippet }}</textarea>
+            <button class="btn btn-outline-secondary btn-sm"
+                    type="button"
+                    data-copy-target="widget-snippet">
+                {% trans "Copy" %}
+            </button>
+        </div>
+    </section>
     <script src="{% static 'js/copy-field.js' %}" defer></script>
 {% endblock content %}

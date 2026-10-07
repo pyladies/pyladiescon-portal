@@ -100,6 +100,10 @@ class SessionsApiView(ApiView):
 
 class SessionApiView(ApiView):
     def build(self, request, preview):
+        # While the program is internal every session answers the same
+        # "coming soon" shape, so the widget never sees an error for it.
+        if not preview and api.program_state(self.conference, False) == "internal":
+            return {"session": None}
         sessions, public_ids = api.sessions_queryset(self.conference, preview)
         session = sessions.filter(slug=self.kwargs["slug"]).first()
         if session is None:

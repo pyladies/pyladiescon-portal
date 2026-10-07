@@ -654,7 +654,7 @@ Three view-layer changes, no model impact:
 
 ## 11. Public embeds and export
 
-> **Partly built.** §11.1 (the JSON API) and §11.5 (draft vs. published) are built (October 2026), and so are the §11.3 feeds; the widget (§11.2) and the exports (§11.4) are not.
+> **Partly built.** §11.1 (the JSON API), §11.2 (the widget script) and §11.5 (draft vs. published) are built (October 2026), and so are the §11.3 feeds; the iframe embed and the exports (§11.4) are not.
 
 The conference website is static. The portal exposes read-only data and a drop-in widget so the site never needs a rebuild when the program changes.
 
@@ -675,6 +675,8 @@ Only published sessions and public presenters (others appear by name only on the
 <div data-pyladiescon-widget="schedule" data-conference="pyladiescon-2026"></div>
 <script src="https://portal.pyladies.com/static/widget/v1.js" defer></script>
 ```
+
+> **Built** (7 October 2026, task 6.3): `portal/static/widget/v1.js`; the snippet for an edition is on the organizers' Publishing page. The iframe version is task 6.4.
 
 A small self-contained script (no framework) that renders `schedule`, `speakers`, or a single `session` into the host element, in the visitor's timezone, with minimal CSS the conference site can restyle through CSS variables. An iframe version exists for pages that cannot add scripts.
 

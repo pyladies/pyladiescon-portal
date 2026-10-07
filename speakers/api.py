@@ -48,7 +48,11 @@ def program_state(conference, previewing):
 
 
 def conference_block(conference):
-    return {"slug": conference.slug, "name": conference.name}
+    return {
+        "slug": conference.slug,
+        "name": conference.name,
+        "timezone": conference.speaker_settings.conference_timezone,
+    }
 
 
 def sessions_queryset(conference, preview=None):

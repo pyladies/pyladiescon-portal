@@ -1094,6 +1094,34 @@ installed; this app keeps small factory functions in `tests/speakers/factories.p
   with GET/HEAD and the conditional headers (`If-None-Match`,
   `If-Modified-Since`), so the site may revalidate its cache. The list is not in the cache
   invalidation set: the header is computed per request. No public per-presenter `.ics` yet.
+- The website widget (design §11.2, task 6.3) is one static file,
+  `portal/static/widget/v1.js` (no dependencies, kept under 15 KB by a
+  test). The site pastes the snippet the Publishing page shows:
+  `<div data-pyladiescon-widget="schedule" data-conference="<slug>">`
+  plus the script tag. Views: `schedule` (day tabs and times in the
+  visitor's timezone, remembered in localStorage; program items drawn as
+  bands; a star per session, the stars kept per edition in the browser
+  and joined into one `schedule.ics?sessions=` subscription), `speakers`,
+  and `session` with `data-session="<slug>"`. Calendar links are
+  subscribe-only (webcal, Google, Outlook.com), as everywhere else.
+  `data-api` points it at another portal (default: the script's own
+  origin); `data-preview`, or `?preview=` on the host page, passes the
+  preview token through. While the program is internal every view shows
+  "Program coming soon" and every endpoint answers 200, so the browser
+  logs nothing; if the API cannot be reached it shows a link to
+  `data-fallback-url` (default: the portal's `/embed/<slug>/schedule/`,
+  task 6.4). Styling: the `.plc` root and `--plc-*` CSS variables
+  (`--plc-accent`, `--plc-muted`, `--plc-border`, `--plc-band`,
+  `--plc-card`, `--plc-radius`); text inherits the host page's font.
+  Caching: `/static/widget/v1.js` is the stable address (WhiteNoise sends
+  it with a short max-age, so the site always gets the current widget);
+  the hashed copy WhiteNoise also serves (`widget/v1.<hash>.js`, listed
+  in `staticroot/staticfiles.json`) is cached for a year and suits a CDN
+  that should pin one version; bump to `v2.js` for breaking changes. A
+  visitor's browser keeps an API response up to five minutes, so a
+  switch to internal can take that long to reach an open page. Checked
+  by hand in Chrome on a bare page served from another origin (CORS),
+  at 360 px, in the coming-soon, preview and error states.
 - The calendar feeds (design §11.3) are `speakers/feeds.py` (a hand-
   rolled ICS writer, like the VTT one: escaping with every line ending
   normalised to one escaped newline, 75-octet folding counting the

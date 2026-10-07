@@ -5,6 +5,7 @@ edition's master switch, which content sessions an organizer has
 published, and the preview link the website build uses meanwhile.
 """
 
+from django.conf import settings as django_settings
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db import transaction
@@ -62,6 +63,14 @@ class ProgramPublishingView(
             .filter(kind__is_content=False, published_slot__isnull=False)
             .exclude(status=SessionStatus.CANCELLED)
             .count(),
+        )
+        script = self.request.build_absolute_uri(
+            f"{django_settings.STATIC_URL}widget/v1.js"
+        )
+        context["widget_snippet"] = (
+            f'<div data-pyladiescon-widget="schedule" '
+            f'data-conference="{self.conference.slug}"></div>\n'
+            f'<script src="{script}" defer></script>'
         )
         if not published:
             token = preview_token(settings)
