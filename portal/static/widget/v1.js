@@ -182,7 +182,8 @@
     var list = h("div", { "class": "plc-list", role: "tabpanel" }, days[this.day].map(function (s) {
       return s.is_content ? self.card(s, false) : h("div", { "class": "plc-band" }, [
         h("span", { text: time(s.slot.start, tz) + "–" + time(s.slot.end, tz) }),
-        h("strong", { text: s.title })
+        h("strong", { text: s.title }),
+        s.presenters.length ? h("span", { text: s.presenters.map(function (p) { return p.name; }).join(", ") }) : null
       ]);
     }));
     fill(this.el, [this.zones(), tabs, this.starBar(), list]);
