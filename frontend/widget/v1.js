@@ -13,20 +13,25 @@
   var ORIGIN = me ? new URL(me.src, location.href).origin : "";
   var STEP = 5; /* grid rows, in minutes */
   var CSS = [
-    ".plc{--plc-accent:#8a1e5b;--plc-muted:#5f5f6b;--plc-border:#d9d9e0;--plc-band:#f3eef6;--plc-card:transparent;--plc-radius:8px;--plc-modal-bg:#fff;--plc-modal-text:#1f1f24;font:inherit;color:inherit}",
+    ".plc{--plc-accent:#8a1e5b;--plc-muted:#5f5f6b;--plc-border:#d9d9e0;--plc-band:#f3eef6;--plc-card:Canvas;--plc-radius:8px;--plc-modal-bg:#fff;--plc-modal-text:#1f1f24;font:inherit;color:inherit}",
     ".plc *{box-sizing:border-box}.plc a{color:var(--plc-accent)}",
     ".plc-bar{display:flex;flex-wrap:wrap;gap:.5rem;align-items:center;margin:0 0 .75rem}",
     ".plc select{font:inherit;max-width:100%}",
     ".plc-tab{font:inherit;border:1px solid var(--plc-border);background:none;color:inherit;border-radius:999px;padding:.25rem .8rem;cursor:pointer}",
     ".plc-tab[aria-selected=true]{background:var(--plc-accent);border-color:var(--plc-accent);color:#fff}",
     ".plc-sched{container-type:inline-size}",
-    /* No row gap: a day has hundreds of five-minute rows. Items space
-     * themselves. */
-    ".plc-grid{display:grid;column-gap:.5rem;grid-auto-rows:minmax(.3rem,auto)}",
+    /* No row gap: a day has hundreds of five-minute rows. A small
+     * minimum height keeps an empty stretch visible, and lines every 15
+     * minutes (darker on the hour) say where it starts and ends. Items
+     * space themselves; cards sit above the lines. */
+    ".plc-grid{display:grid;column-gap:.5rem;grid-auto-rows:minmax(.2rem,auto)}",
+    ".plc-line{border-top:1px dashed var(--plc-border);height:0;margin:0!important;align-self:start;opacity:.6}",
+    ".plc-hour{border-top-style:solid;opacity:1}",
+    ".plc-card,.plc-band{position:relative;z-index:1}",
     ".plc-grid>*{margin-bottom:.4rem}",
     ".plc-head{font-weight:600;font-size:.875em;color:var(--plc-muted);padding-bottom:.25rem}",
-    ".plc-time{font-size:.8em;color:var(--plc-muted);padding-top:.5rem;white-space:nowrap}",
-    "@container (max-width:40rem){.plc-grid{display:flex;flex-direction:column}.plc-head,.plc-time{display:none}}",
+    ".plc-time{font-size:.8em;color:var(--plc-muted);white-space:nowrap;line-height:1;transform:translateY(-.4em);margin:0!important}",
+    "@container (max-width:40rem){.plc-grid{display:flex;flex-direction:column}.plc-head,.plc-time,.plc-line{display:none}}",
     ".plc-card{border:1px solid var(--plc-border);border-radius:var(--plc-radius);padding:.6rem .7rem;background:var(--plc-card);min-width:0}",
     ".plc-band{background:var(--plc-band);border-radius:var(--plc-radius);padding:.4rem .7rem;color:var(--plc-muted);display:flex;flex-wrap:wrap;gap:.25rem .75rem;align-items:center}",
     ".plc-meta{color:var(--plc-muted);font-size:.85em}",
@@ -263,10 +268,15 @@
     /* The grid: a time column, then a column per room; rows are STEP
      * minutes from the day's first start. Bands span every room. Below
      * 40rem the container query turns it into a plain list. */
-    var first = shown.reduce(function (min, s) { return s.slot.start < min ? s.slot.start : min; }, shown[0].slot.start);
+    /* Rows count from the quarter hour before the first start, so every
+     * tick lands on a row; offsets are whole quarters in every zone. */
+    var Q = 15 * 60000;
+    var first = new Date(Math.floor(new Date(shown.reduce(function (min, s) {
+      return s.slot.start < min ? s.slot.start : min;
+    }, shown[0].slot.start)) / Q) * Q).toISOString();
+    var last = shown.reduce(function (max, s) { return s.slot.end > max ? s.slot.end : max; }, shown[0].slot.end);
     function row(iso) { return 2 + Math.floor(minutes(first, iso) / STEP); }
     var cells = [];
-    var labelled = {};
     if (columns[0]) {
       columns.forEach(function (name, i) {
         cells.push(h("div", { "class": "plc-head", style: "grid-row:1;grid-column:" + (i + 2), text: name }));
@@ -275,10 +285,6 @@
     shown.forEach(function (s) {
       var from = row(s.slot.start);
       var rows = Math.max(1, Math.round(minutes(s.slot.start, s.slot.end) / STEP));
-      if (!labelled[from]) {
-        labelled[from] = true;
-        cells.push(h("div", { "class": "plc-time", style: "grid-row:" + from + ";grid-column:1", text: time(s.slot.start, tz) }));
-      }
       var column = s.slot.room ? columns.indexOf(s.slot.room.name) + 2 : 2;
       var place = "grid-row:" + from + " / span " + rows + ";grid-column:" + (s.slot.room ? column : "2 / -1");
       cells.push(s.is_content ? h("article", { "class": "plc-card", style: place }, [
@@ -291,6 +297,15 @@
         self.who(s.presenters)
       ]));
     });
+    /* Ticks: a line every quarter hour, a label on the half hour, in
+     * the visitor's zone. */
+    for (var at = new Date(first).getTime(); at <= new Date(last).getTime(); at += Q) {
+      var iso = new Date(at).toISOString();
+      var minute = Number(parts(new Date(at), tz).minute);
+      var tick = "grid-row:" + row(iso) + ";grid-column:";
+      cells.unshift(h("div", { "class": "plc-line" + (minute ? "" : " plc-hour"), style: tick + "2 / -1" }));
+      if (minute % 30 === 0) cells.unshift(h("div", { "class": "plc-time", style: tick + "1", text: time(iso, tz) }));
+    }
     var grid = h("div", {
       "class": "plc-grid", role: "tabpanel",
       style: "grid-template-columns:auto repeat(" + columns.length + ",minmax(0,1fr))"

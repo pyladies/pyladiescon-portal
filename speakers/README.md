@@ -1127,7 +1127,8 @@ installed; this app keeps small factory functions in `tests/speakers/factories.p
   than one room); on a container wider than 40rem a grid with a time
   column and one column per room in a stable order, rows of five
   minutes, so staggered sessions line up and program items (bands) span
-  every room; narrower, a CSS container query turns it into one
+  every room; lines every quarter hour (solid on the hour) and labels
+  every half hour, in the visitor's zone, keep empty stretches readable; narrower, a CSS container query turns it into one
   time-ordered list. Cards show the speakers' photos and names. A
   session title opens an overlay (a native `<dialog>`: Escape, focus and
   the backdrop come from the browser) with the full description; a
