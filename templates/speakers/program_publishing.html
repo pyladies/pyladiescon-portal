@@ -11,49 +11,64 @@
 {% endblock breadcrumb %}
 {% block content %}
     {% include "speakers/_publishing_header.html" %}
-    <section class="card mb-4">
-        <div class="card-body">
-            <h2 class="h5">
-                {% trans "Sessions" %}
-            </h2>
-            <p class="text-secondary small">
-                {% blocktrans count counter=program_item_count %}Tick a session to make it public. A session can be ticked once it is on the confirmed schedule (Schedule, then Confirm schedule). Breaks, keynotes and other program items need no tick: they appear as soon as they are on the confirmed schedule. On it now: {{ counter }} program item.{% plural %}Tick a session to make it public. A session can be ticked once it is on the confirmed schedule (Schedule, then Confirm schedule). Breaks, keynotes and other program items need no tick: they appear as soon as they are on the confirmed schedule. On it now: {{ counter }} program items.{% endblocktrans %}
-            </p>
-            {% if sessions %}
-                <form method="post">
-                    {% csrf_token %}
-                    <input type="hidden" name="action" value="sessions">
-                    <input type="hidden" name="next" value="publish">
-                    <div class="list-group mb-3">
-                        {% for row in sessions %}
-                            <label class="list-group-item d-flex align-items-baseline gap-2 {% if not row.can_publish %}text-secondary{% endif %}">
-                                <input class="form-check-input flex-shrink-0"
-                                       type="checkbox"
-                                       name="publish"
-                                       value="{{ row.session.slug }}"
-                                       {% if row.session.is_public %}checked{% endif %}
-                                       {% if not row.can_publish %}disabled{% endif %}>
-                                <span class="fw-semibold">{{ row.session.title }}</span>
-                                <span class="small text-secondary">{{ row.session.kind.name }}</span>
-                                <span class="small text-secondary ms-auto text-nowrap">
-                                    {% if row.can_publish %}
-                                        {{ row.session.published_slot.start_utc|date:"D j M, H:i" }} UTC
-                                    {% else %}
-                                        {% trans "Not on the confirmed schedule yet" %}
-                                    {% endif %}
-                                </span>
-                            </label>
-                        {% endfor %}
+    <section>
+        <h2 class="h5">
+            {% trans "Sessions" %}
+        </h2>
+        <p class="text-secondary small">
+            {% blocktrans count counter=program_item_count %}Tick a session to make it public. A session can be ticked once it is on the confirmed schedule (Schedule, then Confirm schedule). Breaks, keynotes and other program items need no tick: they appear as soon as they are on the confirmed schedule. On it now: {{ counter }} program item.{% plural %}Tick a session to make it public. A session can be ticked once it is on the confirmed schedule (Schedule, then Confirm schedule). Breaks, keynotes and other program items need no tick: they appear as soon as they are on the confirmed schedule. On it now: {{ counter }} program items.{% endblocktrans %}
+        </p>
+        {% if sessions %}
+            <form method="post">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="sessions">
+                <input type="hidden" name="next" value="publish">
+                {% if can_select %}
+                    <div class="d-flex gap-2 mb-2">
+                        <button class="btn btn-outline-secondary btn-sm"
+                                type="button"
+                                data-check-all="publish"
+                                data-checked="true">
+                            {% trans "Select all" %}
+                        </button>
+                        <button class="btn btn-outline-secondary btn-sm"
+                                type="button"
+                                data-check-all="publish"
+                                data-checked="false">
+                            {% trans "Deselect all" %}
+                        </button>
                     </div>
-                    <button class="btn btn-primary btn-sm" type="submit">
-                        {% trans "Save" %}
-                    </button>
-                </form>
-            {% else %}
-                <p class="text-secondary mb-0">
-                    {% trans "No confirmed sessions yet." %}
-                </p>
-            {% endif %}
-        </div>
+                {% endif %}
+                <div class="list-group mb-3">
+                    {% for row in sessions %}
+                        <label class="list-group-item d-flex align-items-baseline gap-2 {% if not row.can_publish %}text-secondary{% endif %}">
+                            <input class="form-check-input flex-shrink-0"
+                                   type="checkbox"
+                                   name="publish"
+                                   value="{{ row.session.slug }}"
+                                   {% if row.session.is_public %}checked{% endif %}
+                                   {% if not row.can_publish %}disabled{% endif %}>
+                            <span class="fw-semibold">{{ row.session.title }}</span>
+                            <span class="small text-secondary">{{ row.session.kind.name }}</span>
+                            <span class="small text-secondary ms-auto text-nowrap">
+                                {% if row.can_publish %}
+                                    {{ row.session.published_slot.start_utc|date:"D j M, H:i" }} UTC
+                                {% else %}
+                                    {% trans "Not on the confirmed schedule yet" %}
+                                {% endif %}
+                            </span>
+                        </label>
+                    {% endfor %}
+                </div>
+                <button class="btn btn-primary btn-sm" type="submit">
+                    {% trans "Save" %}
+                </button>
+            </form>
+        {% else %}
+            <p class="text-secondary mb-0">
+                {% trans "No confirmed sessions yet." %}
+            </p>
+        {% endif %}
     </section>
+    <script src="{% static 'js/check-all.js' %}" defer></script>
 {% endblock content %}

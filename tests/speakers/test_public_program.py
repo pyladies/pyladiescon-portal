@@ -505,3 +505,18 @@ class TestTabs:
         user = User.objects.create_user(username="someone", email="s@example.com")
         client.force_login(user)
         assert client.get(SHARE).status_code == 403
+
+
+@pytest.mark.django_db
+class TestSelectAll:
+    def test_offered_once_two_sessions_can_be_ticked(
+        self, client, organizer, conference, settings_row
+    ):
+        client.force_login(organizer)
+        on_schedule(conference, title="First")
+        confirmed_only(conference)
+        assert "Select all" not in client.get(PUBLISHING).content.decode()
+        on_schedule(conference, title="Second")
+        content = client.get(PUBLISHING).content.decode()
+        assert content.count('data-check-all="publish"') == 2
+        assert "js/check-all" in content

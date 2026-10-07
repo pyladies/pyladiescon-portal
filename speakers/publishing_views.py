@@ -78,11 +78,13 @@ class ProgramPublishingView(PublishingTabView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
+        sessions = [
+            {"session": session, "can_publish": session.status in TICKABLE}
+            for session in self.content_sessions()
+        ]
         context.update(
-            sessions=[
-                {"session": session, "can_publish": session.status in TICKABLE}
-                for session in self.content_sessions()
-            ],
+            sessions=sessions,
+            can_select=sum(row["can_publish"] for row in sessions) > 1,
             program_item_count=Session.objects.for_conference(self.conference)
             .filter(kind__is_content=False, published_slot__isnull=False)
             .exclude(status=SessionStatus.CANCELLED)
