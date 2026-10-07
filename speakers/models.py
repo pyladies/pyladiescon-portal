@@ -274,6 +274,14 @@ class SpeakerSettings(TimestampedModel):
         help_text="The master switch (design §11.5): while internal, the "
         "public program is empty and the website shows it as coming soon.",
     )
+    api_allowed_origins = models.TextField(
+        blank=True,
+        default="",
+        db_default="",
+        help_text="Websites whose pages may read the public API from the "
+        "browser, one origin per line, for example "
+        "https://2026.conference.pyladies.com.",
+    )
     # Not a secret: preview links are signed with SECRET_KEY, and this only
     # names the current generation of them, so changing it revokes every
     # link handed out before.

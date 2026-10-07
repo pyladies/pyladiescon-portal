@@ -344,8 +344,9 @@ class TestAcceptInvitation:
         with django_capture_on_commit_callbacks(execute=False) as callbacks:
             send_invitation(invitation)
             assert mail.outbox == []  # nothing goes out inside the transaction
-        assert len(callbacks) == 1
-        callbacks[0]()
+        # The public API's cache bump queues its own callback too.
+        for callback in callbacks:
+            callback()
         assert len(mail.outbox) == 1
 
     def test_accepting_verifies_the_address_the_link_went_to(self, invitation):

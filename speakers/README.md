@@ -1062,6 +1062,26 @@ installed; this app keeps small factory functions in `tests/speakers/factories.p
   every link stops working once the program goes public. The preview
   shows every session on the published schedule, published or not, but
   still honours a presenter's opt-out; preview responses are `no-store`.
+- The public JSON API (design §11.1, task 6.2) is `speakers/api.py`
+  (payloads and cache) and `api_views.py`, mounted at `/api/v1/` by
+  `portal/urls.py`: `<conference>/sessions/`, `sessions/<slug>/`,
+  `presenters/`, `schedule/` (slots grouped by the conference
+  timezone's day, plus the rooms), and the calendar aliases
+  `schedule.ics` and `sessions/<slug>.ics`. `<conference>` is the
+  edition's slug, not the active edition, and an edition without the
+  module is 404. Plain views, no DRF. Everything starts from
+  `speakers.public`, so the visibility rules hold; every payload says
+  which `program` state it shows (`published`, `internal`, `preview`).
+  Markdown comes as the stored `*_md` and sanitized `*_html`; emails and
+  `notes_md` never appear (a test walks every key). A presenter who opted
+  out is on their sessions by name with `slug: null`. Live responses are
+  cached five minutes per edition under a generation key that
+  `receivers.public_api_changed` bumps after commit on any save or delete
+  of a session, presenter, link, published slot, room, session type,
+  role or the settings; `?preview=` responses are built fresh with
+  `Cache-Control: no-store`. CORS: `SpeakerSettings.api_allowed_origins`
+  (one origin per line) is echoed back to a listed `Origin`, with
+  `Vary: Origin`. No public per-presenter `.ics` yet.
 - The calendar feeds (design §11.3) are `speakers/feeds.py` (a hand-
   rolled ICS writer, like the VTT one: escaping with every line ending
   normalised to one escaped newline, 75-octet folding counting the

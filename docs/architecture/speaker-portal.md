@@ -654,7 +654,7 @@ Three view-layer changes, no model impact:
 
 ## 11. Public embeds and export
 
-> **Not built** (M4). None of the URLs below are routed yet; they are the proposal's shape for when they are.
+> **Partly built.** §11.1 (the JSON API) and §11.5 (draft vs. published) are built (October 2026), and so are the §11.3 feeds; the widget (§11.2) and the exports (§11.4) are not.
 
 The conference website is static. The portal exposes read-only data and a drop-in widget so the site never needs a rebuild when the program changes.
 
@@ -667,7 +667,7 @@ GET /api/v1/<conference>/schedule/            slots by day, plus rooms
 GET /api/v1/<conference>/sessions/<slug>/     one session
 ```
 
-Only published sessions and public presenters (others appear by name only on their sessions), never emails. Responses are cached for five minutes per conference and invalidated on save. Program-kind sessions carry `is_content: false` so the widget can draw breaks as bands rather than cards.
+Only published sessions and public presenters (others appear by name only on their sessions), never emails or internal notes. Responses are cached for five minutes per conference and invalidated on save; a preview response is never cached. The conference site's origins are listed per edition (`SpeakerSettings.api_allowed_origins`) so its pages may call the API from the browser. Built 7 October 2026 (task 6.2) as plain Django views. Program-kind sessions carry `is_content: false` so the widget can draw breaks as bands rather than cards.
 
 ### 11.2 Embeddable widget
 
@@ -687,7 +687,7 @@ Attendees can put a single workshop or panel in their calendar and have it stay 
 ```
 GET /api/v1/<conference>/schedule.ics                          everything (subscribable)
 GET /api/v1/<conference>/schedule.ics?sessions=a,b,c           a personal selection (subscribable)
-GET /api/v1/<conference>/schedule.ics?kind=WORKSHOP&room=…  filtered (built 5 October 2026 under /speakers/ with per-session and signed per-presenter feeds, reading published slots; these /api/v1/ aliases arrive with the public API)
+GET /api/v1/<conference>/schedule.ics?kind=WORKSHOP&room=…  filtered (built 5 October 2026 under /speakers/ with per-session and signed per-presenter feeds, reading published slots; the `schedule.ics` and `sessions/<slug>.ics` aliases below are routed under /api/v1/ since the public API, the public per-presenter feed is not built)
 GET /api/v1/<conference>/sessions/<slug>.ics                   one session
 GET /api/v1/<conference>/presenters/<slug>.ics                 everything one presenter is on
 ```
