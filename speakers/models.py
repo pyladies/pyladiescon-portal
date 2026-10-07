@@ -50,6 +50,7 @@ from .constants import (
     MediaStatus,
     NoticeKind,
     PremiereLocation,
+    ProgramVisibility,
     ProposalDecision,
     ReadyOverride,
     ReadyRule,
@@ -259,6 +260,20 @@ class SpeakerSettings(TimestampedModel):
         default=False,
         db_default=False,
         help_text="Create a pretix voucher per presenter (not implemented yet).",
+    )
+    program_visibility = models.CharField(
+        max_length=16,
+        choices=ProgramVisibility.choices,
+        default=ProgramVisibility.INTERNAL,
+        db_default=ProgramVisibility.INTERNAL,
+        help_text="The master switch (design §11.5): while internal, the "
+        "public program is empty and the website shows it as coming soon.",
+    )
+    # Not a secret: preview links are signed with SECRET_KEY, and this only
+    # names the current generation of them, so changing it revokes every
+    # link handed out before.
+    preview_key = models.CharField(
+        max_length=32, blank=True, default="", db_default="", editable=False
     )
 
     @property
@@ -974,6 +989,15 @@ class Session(TimestampedModel):
             )
         self.status = SessionStatus.PUBLISHED
         self.is_public = True
+        if save:
+            self.save(update_fields=["status", "is_public"])
+
+    def unpublish(self, save=True):
+        """PUBLISHED -> SCHEDULED: off the public program. The slot and the
+        speakers' published schedule stay as they are."""
+        self._require_status(SessionStatus.PUBLISHED, SessionStatus.SCHEDULED)
+        self.status = SessionStatus.SCHEDULED
+        self.is_public = False
         if save:
             self.save(update_fields=["status", "is_public"])
 

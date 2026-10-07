@@ -709,13 +709,15 @@ The program is internal until the team publishes it, and a presenter's details s
 
 | Level | Switch | Effect |
 |---|---|---|
-| Edition | `program_visibility` = internal / published | Master switch, planned for `SpeakerSettings` and not built yet. While internal, the API returns an empty program and the widget shows "Program coming soon". |
-| Session | scheduled **and** `is_public` | A session appears only once it has a slot and an organizer has published it. Scheduling alone publishes nothing. |
+| Edition | `program_visibility` = internal / published | Master switch on `SpeakerSettings`. While internal, the API returns an empty program and the widget shows "Program coming soon". |
+| Session | scheduled **and** `is_public` | A session appears only once it is on the published schedule (§10.1) and an organizer has published it. Scheduling alone publishes nothing. Program items (breaks, opening, closing) are the exception: they go public with the schedule. |
 | Presenter | `is_public` | Opt-out hides bio, headshot, and links; the name still appears on their sessions. |
 
 A presenter's bio is public only if the program is published, they are on at least one published session, and they have not opted out. A confirmed presenter whose session is not yet scheduled is simply absent from the public API — no "TBA" rows leak names.
 
-**Preview for the website build:** every public endpoint and the widget accept a signed, expiring preview token that bypasses the visibility rules, so the conference site can be developed against the draft program and switched to live by removing the token. Preview responses are never cached.
+> **Built** (7 October 2026, task 6.1): `speakers/public.py` and the organizers' Publishing page. The calendar feeds already read through it; the API, widget and exports will.
+
+**Preview for the website build:** every public endpoint and the widget accept a signed preview token that bypasses the edition and session switches (a presenter's own opt-out still holds). It has no expiry: it works until an organizer makes a new one, which revokes every older link, or until the program goes public, so the conference site can be developed against the draft program and switched to live by removing the token. Preview responses are never cached.
 
 Cancelling a session or a presenter withdrawing un-publishes it, invalidates the cache, and the widget drops it on next load — no site rebuild. The session's files stay (§8.8, "Deleting a file").
 

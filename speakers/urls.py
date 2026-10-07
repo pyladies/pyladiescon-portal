@@ -1,6 +1,13 @@
 from django.urls import path
 
-from . import export_views, feed_views, schedule_views, upload_views, views
+from . import (
+    export_views,
+    feed_views,
+    publishing_views,
+    schedule_views,
+    upload_views,
+    views,
+)
 from .webhooks import pretix_webhook
 
 app_name = "speakers"
@@ -37,6 +44,11 @@ urlpatterns = [
         "schedule/publish/",
         schedule_views.SchedulePublishView.as_view(),
         name="schedule_publish",
+    ),
+    path(
+        "schedule/publishing/",
+        publishing_views.ProgramPublishingView.as_view(),
+        name="program_publishing",
     ),
     path(
         "schedule/clear/",

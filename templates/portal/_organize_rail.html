@@ -62,6 +62,12 @@ layout, as before.
         {% else %}
             {% include "portal/_sidebar_item.html" with url=schedule_url label=_("Schedule") icon="fa-calendar-week" only %}
         {% endif %}
+        {% url 'speakers:program_publishing' as publishing_url %}
+        {% if active == "publishing" %}
+            {% include "portal/_sidebar_item.html" with url=publishing_url label=_("Publishing") icon="fa-globe" active=True only %}
+        {% else %}
+            {% include "portal/_sidebar_item.html" with url=publishing_url label=_("Publishing") icon="fa-globe" only %}
+        {% endif %}
     {% endif %}
     {% url 'speakers:presenter_list' as presenters_url %}
     {% if active == "presenters" %}

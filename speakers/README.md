@@ -1042,11 +1042,30 @@ installed; this app keeps small factory functions in `tests/speakers/factories.p
   timezone in templates. Nobody else's unpublished sessions appear; the
   viewer's own carry a "not yet public" badge. Calendar links are disabled
   placeholders until the feeds (task 4.4).
+- The public program (design §11.5, task 6.1) is `speakers/public.py`:
+  every public surface reads `public_program(conference, preview=None)`
+  and `public_presenters(...)`, so the three switches live in one place.
+  The edition's master switch is `SpeakerSettings.program_visibility`
+  (INTERNAL by default: the public program is empty). A content session
+  is public once it is on the published schedule AND an organizer ticked
+  it (`Session.publish()`, undone by `unpublish()`, back to SCHEDULED);
+  a program item (break, opening) goes public with the schedule itself,
+  by the user's decision. A presenter is public only through a confirmed
+  link to such a session and only if they have not opted out; anyone
+  else is absent, never a "TBA". The organizers' Publishing page
+  (`schedule/publishing/`, `publishing_views.py`) holds the switch, the
+  ticks (disabled until a session is on the published schedule) and the
+  website's preview link: a token signed with SECRET_KEY naming
+  `SpeakerSettings.preview_key`, with NO expiry by the user's decision;
+  "make a new link" changes the key and revokes every older one, and
+  every link stops working once the program goes public. The preview
+  shows every session on the published schedule, published or not, but
+  still honours a presenter's opt-out; preview responses are `no-store`.
 - The calendar feeds (design §11.3) are `speakers/feeds.py` (a hand-
   rolled ICS writer, like the VTT one: escaping with every line ending
   normalised to one escaped newline, 75-octet folding counting the
-  continuation space, CRLF) and `feed_views.py`: `schedule.ics` (public
-  sessions, `?sessions=`, `?kind=`, `?room=` filters; a non-numeric room
+  continuation space, CRLF) and `feed_views.py`: `schedule.ics` (the public
+  program, `?sessions=`, `?kind=`, `?room=` filters; a non-numeric room
   answers 400), a per-session public feed, and a presenter's personal
   feed behind a signed non-expiring token (sessions they have ACCEPTED,
   public or not, cancelled ones carried with STATUS:CANCELLED until the
