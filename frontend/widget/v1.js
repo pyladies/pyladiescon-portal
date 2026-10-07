@@ -36,6 +36,9 @@
     ".plc-who{display:inline-flex;align-items:center;gap:.4rem;font:inherit;font-size:.9em;background:none;border:0;padding:0;color:inherit;text-align:left}",
     "button.plc-who{cursor:pointer}",
     ".plc-av{width:1.75rem;height:1.75rem;border-radius:50%;object-fit:cover;flex:none;background:var(--plc-band);display:inline-flex;align-items:center;justify-content:center;font-size:.7em;font-weight:600;color:var(--plc-muted)}",
+    /* Initials stand in for a missing photo: a tint of the accent, so
+     * they stay visible on a white card and on a band alike. */
+    ".plc-ini{background:#ead6e3;background:color-mix(in srgb,var(--plc-accent) 18%,#fff);color:var(--plc-accent);box-shadow:inset 0 0 0 1px var(--plc-border)}",
     ".plc-big{width:5rem;height:5rem;font-size:1.4em}",
     ".plc-row{display:flex;flex-wrap:wrap;gap:.5rem .9rem;align-items:center;margin-top:.6rem;font-size:.9em}",
     ".plc details>summary{cursor:pointer;color:var(--plc-accent)}",
@@ -108,7 +111,7 @@
     var cls = "plc-av" + (big ? " plc-big" : "");
     if (person.headshot_url) return h("img", { "class": cls, src: person.headshot_url, alt: "", loading: "lazy" });
     var initials = person.name.split(/\s+/).map(function (w) { return w.charAt(0); }).join("").slice(0, 2).toUpperCase();
-    return h("span", { "class": cls, "aria-hidden": "true", text: initials });
+    return h("span", { "class": cls + " plc-ini", "aria-hidden": "true", text: initials });
   }
 
   /* Subscribe, never download: a subscribed calendar follows a reschedule. */
