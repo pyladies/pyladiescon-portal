@@ -695,9 +695,10 @@ channel on the conference Discord) and never public. The volunteer profile
 has the same field, required there, and a volunteer who also speaks is
 asked once:
 
-- The speaker profile and proposal forms drop the field when the account
-  has a volunteer profile with a username, show that value read-only, and
-  write it to the presenter row on save (`_adopt_volunteer_discord`).
+- The speaker profile, proposal and organizer presenter forms drop the
+  field when the account has a volunteer profile with a username, show that
+  value read-only, and write it to the presenter row on save
+  (`_adopt_volunteer_discord`).
 - Accepting an invitation copies it in (`link_presenter_user`), and saving
   a volunteer profile pushes it to the person's presenter rows
   (`receivers.follow_volunteer_discord`), so the organizer side never shows
@@ -705,7 +706,9 @@ asked once:
 - The volunteer form prefills from the presenter row when there is no prior
   volunteer profile (`speakers/shared.py`).
 
-Both fields validate with `portal.validators.validate_discord_username`.
+The presenter field and the volunteer form validate with
+`portal.validators.validate_discord_username`; `VolunteerProfile.clean()` still
+carries its own copy of the rule.
 
 ### Background jobs
 

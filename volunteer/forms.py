@@ -8,7 +8,7 @@ from django.utils.safestring import mark_safe
 
 from common.tasks import enqueue
 from portal.models import Conference
-from portal.validators import validate_linked_in_pattern
+from portal.validators import validate_discord_username, validate_linked_in_pattern
 from speakers.shared import presenter_discord_username
 
 from .constants import ApplicationStatus
@@ -110,23 +110,8 @@ class VolunteerProfileForm(ModelForm):
     def clean_discord_username(self):
         discord_username = self.cleaned_data.get("discord_username")
         if discord_username:
-            self.validate_discord_username(discord_username)
+            validate_discord_username(discord_username)
         return discord_username
-
-    def validate_discord_username(self, value):
-        if not re.match(
-            r"^(?=.{2,32}$)(?!.*\.\.)[a-zA-Z0-9._]+$",
-            value,
-        ):
-            if len(value) < 2 or len(value) > 32:
-                raise ValidationError(
-                    "Discord username must be between 2 and 32 characters."
-                )
-            else:
-                raise ValidationError(
-                    "discord_username: Discord username must consist of alphanumeric characters, "
-                    "periods, underscores, and cannot have two consecutive periods."
-                )
 
     def clean_instagram_username(self):
         instagram_username = self.cleaned_data.get("instagram_username")

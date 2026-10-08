@@ -115,6 +115,30 @@ class TestSpeakerProfile:
         presenter.refresh_from_db()
         assert presenter.discord_username == "ada_vol"
 
+    def test_the_organizer_form_shows_the_volunteers_value_read_only(
+        self, client, conference, organizer, speaker, presenter
+    ):
+        """An organizer cannot set what the next volunteer profile save
+        would overwrite; the form says where the value comes from."""
+        volunteer(speaker, conference, "ada_vol")
+        client.force_login(organizer)
+        url = reverse("speakers:presenter_edit", args=[presenter.slug])
+        page = client.get(url).content.decode()
+        assert FIELD not in page
+        assert "from their volunteer profile" in page and "ada_vol" in page
+        response = client.post(
+            url,
+            {
+                "display_name": "Ada",
+                "email": "ada@example.com",
+                "timezone": "UTC",
+                "discord_username": "org_set",
+            },
+        )
+        assert response.status_code == 302
+        presenter.refresh_from_db()
+        assert presenter.discord_username == "ada_vol"
+
     def test_the_organizer_page_lists_every_handle(self, client, organizer, presenter):
         """Blank ones show as blank, so an organizer can see what is missing."""
         client.force_login(organizer)

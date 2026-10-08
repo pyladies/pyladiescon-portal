@@ -238,13 +238,20 @@ class PresenterForm(forms.ModelForm):
             "is_public",
         ]
         widgets = {"bio_md": forms.Textarea(attrs={"rows": 5})}
-        help_texts = {"bio_md": MARKDOWN_HELP}
+        help_texts = {
+            "bio_md": MARKDOWN_HELP,
+            "discord_username": "For the speaker role and channel. If they volunteer "
+            "too, their volunteer profile's username takes over.",
+        }
 
     def __init__(self, *args, conference, **kwargs):
         super().__init__(*args, **kwargs)
         self.conference = conference
         self.fields["liaison"].queryset = liaison_candidates(conference)
         self.fields["liaison"].label_from_instance = picker_label
+        self.shared_discord_username = _adopt_volunteer_discord(
+            self, self.instance.user_id
+        )
 
     def clean_slug(self):
         return _clean_slug(self, Presenter, "presenter")
