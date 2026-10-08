@@ -1,0 +1,151 @@
+{% extends "speakers/_organize_shell.html" %}
+{% load i18n static %}
+{% block head_title %}
+    {% trans "Publishing" %}
+{% endblock head_title %}
+{% block breadcrumb %}
+    {% url 'speakers:schedule_editor' as bc_url %}
+    {% trans "Schedule" as bc_section %}
+    {% trans "Publishing" as bc_page %}
+    {% include "portal/_breadcrumbs.html" with section=bc_section section_url=bc_url page=bc_page %}
+{% endblock breadcrumb %}
+{% block content %}
+    <h1 class="h3 mb-1">
+        {% trans "Publishing" %}
+    </h1>
+    <p class="text-secondary">
+        {% trans "What the public program shows: the conference website, its widget and the public calendar feeds all read from here. Publishing the schedule tells the speakers; publishing here tells the world." %}
+    </p>
+    <section class="card mb-4">
+        <div class="card-body">
+            <h2 class="h5">
+                {% trans "The program" %}
+            </h2>
+            {% if program_published %}
+                <p>
+                    <span class="badge text-bg-success">{% trans "Public" %}</span>
+                    {% trans "Published sessions, the program items on the published schedule, and their presenters are on the public program." %}
+                </p>
+                <form method="post">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="visibility">
+                    <input type="hidden" name="visibility" value="INTERNAL">
+                    <button class="btn btn-outline-danger btn-sm" type="submit">
+                        {% trans "Take the program back to internal" %}
+                    </button>
+                </form>
+            {% else %}
+                <p>
+                    <span class="badge text-bg-secondary">{% trans "Internal" %}</span>
+                    {% trans "The public program is empty and the website shows it as coming soon. The preview link below shows the draft." %}
+                </p>
+                <form method="post">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="visibility">
+                    <input type="hidden" name="visibility" value="PUBLISHED">
+                    <button class="btn btn-primary btn-sm" type="submit">
+                        <i class="fa-solid fa-globe" aria-hidden="true"></i> {% trans "Make the program public" %}
+                    </button>
+                </form>
+            {% endif %}
+        </div>
+    </section>
+    <section class="card mb-4">
+        <div class="card-body">
+            <h2 class="h5">
+                {% trans "Sessions" %}
+            </h2>
+            <p class="text-secondary small">
+                {% blocktrans count counter=program_item_count %}A session can be published once it is on the published schedule. Program items go public with the schedule: {{ counter }} is on it now.{% plural %}A session can be published once it is on the published schedule. Program items go public with the schedule: {{ counter }} are on it now.{% endblocktrans %}
+            </p>
+            {% if sessions %}
+                <form method="post">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="sessions">
+                    <div class="list-group mb-3">
+                        {% for row in sessions %}
+                            <label class="list-group-item d-flex align-items-baseline gap-2 {% if not row.can_publish %}text-secondary{% endif %}">
+                                <input class="form-check-input flex-shrink-0"
+                                       type="checkbox"
+                                       name="publish"
+                                       value="{{ row.session.slug }}"
+                                       {% if row.session.is_public %}checked{% endif %}
+                                       {% if not row.can_publish %}disabled{% endif %}>
+                                <span class="fw-semibold">{{ row.session.title }}</span>
+                                <span class="small text-secondary">{{ row.session.kind.name }}</span>
+                                <span class="small text-secondary ms-auto text-nowrap">
+                                    {% if row.can_publish %}
+                                        {{ row.session.published_slot.start_utc|date:"D j M, H:i" }} UTC
+                                    {% else %}
+                                        {% trans "Not on the published schedule yet" %}
+                                    {% endif %}
+                                </span>
+                            </label>
+                        {% endfor %}
+                    </div>
+                    <button class="btn btn-primary btn-sm" type="submit">
+                        {% trans "Save" %}
+                    </button>
+                </form>
+            {% else %}
+                <p class="text-secondary mb-0">
+                    {% trans "No confirmed sessions yet." %}
+                </p>
+            {% endif %}
+        </div>
+    </section>
+    <section class="card mb-4">
+        <div class="card-body">
+            <h2 class="h5">
+                {% trans "Preview link" %}
+            </h2>
+            {% if program_published %}
+                <p class="text-secondary mb-0">
+                    {% trans "The program is public, so preview links are switched off." %}
+                </p>
+            {% else %}
+                <p class="text-secondary small">
+                    {% trans "For building the website against the draft: it shows every session on the published schedule, published or not. Add it as ?preview= to any public address. It has no expiry; making a new one stops every earlier link." %}
+                </p>
+                <label class="form-label small" for="preview-token">
+                    {% trans "Preview token" %}
+                </label>
+                <div class="input-group input-group-sm mb-2">
+                    <input class="form-control font-monospace"
+                           id="preview-token"
+                           type="text"
+                           readonly
+                           value="{{ preview_token }}">
+                    <button class="btn btn-outline-secondary"
+                            type="button"
+                            data-copy-target="preview-token">
+                        {% trans "Copy" %}
+                    </button>
+                </div>
+                <label class="form-label small" for="preview-feed">
+                    {% trans "Example: the calendar feed, previewed" %}
+                </label>
+                <div class="input-group input-group-sm mb-3">
+                    <input class="form-control font-monospace"
+                           id="preview-feed"
+                           type="text"
+                           readonly
+                           value="{{ preview_feed_url }}">
+                    <button class="btn btn-outline-secondary"
+                            type="button"
+                            data-copy-target="preview-feed">
+                        {% trans "Copy" %}
+                    </button>
+                </div>
+                <form method="post">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="regenerate">
+                    <button class="btn btn-outline-danger btn-sm" type="submit">
+                        {% trans "Make a new link (stops the old ones)" %}
+                    </button>
+                </form>
+            {% endif %}
+        </div>
+    </section>
+    <script src="{% static 'js/copy-field.js' %}" defer></script>
+{% endblock content %}

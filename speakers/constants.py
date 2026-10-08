@@ -83,6 +83,13 @@ class SessionLevel(models.TextChoices):
     ADVANCED = "ADVANCED", "Advanced"
 
 
+class ProgramVisibility(models.TextChoices):
+    """The edition's master switch for the public program (design §11.5)."""
+
+    INTERNAL = "INTERNAL", "Internal"
+    PUBLISHED = "PUBLISHED", "Published"
+
+
 class PremiereLocation(models.TextChoices):
     DISCORD = "DISCORD", "Watch party on Discord"
     YOUTUBE = "YOUTUBE", "YouTube Premiere"

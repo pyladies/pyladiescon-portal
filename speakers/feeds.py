@@ -14,6 +14,7 @@ from django.core import signing
 
 from .constants import PremiereLocation, SessionStatus
 from .models import PublishedSlot
+from .public import public_program
 
 FEED_SALT = "speakers.presenter-feed"
 
@@ -158,10 +159,11 @@ def feed_rows(conference):
     )
 
 
-def public_rows(conference, sessions=None, kind=None, room=None):
-    """The public feed: public sessions only until the §11.5 visibility
-    rules arrive, filtered as §11.3 describes."""
-    rows = feed_rows(conference).filter(session__is_public=True)
+def public_rows(conference, sessions=None, kind=None, room=None, preview=None):
+    """The public feed: the public program (design §11.5, so nothing while
+    the program is internal unless ``preview`` is a valid token), filtered
+    as §11.3 describes."""
+    rows = feed_rows(conference).filter(session__in=public_program(conference, preview))
     if sessions:
         rows = rows.filter(session__slug__in=sessions)
     if kind:

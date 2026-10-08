@@ -7,7 +7,7 @@ from django.contrib.auth.models import User
 from django.urls import reverse
 
 from portal.models import Conference
-from speakers.constants import PremiereLocation
+from speakers.constants import PremiereLocation, ProgramVisibility
 from speakers.feeds import (
     escape_text,
     fold,
@@ -32,7 +32,9 @@ T0 = datetime(2026, 12, 5, 14, 0, tzinfo=timezone.utc)
 
 @pytest.fixture
 def enabled(conference):
-    return make_settings(conference)
+    # The public feeds read the public program (design §11.5), which is
+    # empty until the master switch is on; test_public_program covers it.
+    return make_settings(conference, program_visibility=ProgramVisibility.PUBLISHED)
 
 
 @pytest.fixture

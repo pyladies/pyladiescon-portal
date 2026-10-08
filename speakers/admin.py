@@ -88,6 +88,7 @@ class SpeakerSettingsAdmin(admin.ModelAdmin):
             "Program",
             {
                 "fields": (
+                    "program_visibility",
                     "default_premiere_location",
                     "translation_languages",
                     "default_video_length_limit_minutes",
