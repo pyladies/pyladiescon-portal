@@ -10,6 +10,7 @@ from django.core.cache import cache
 from django.db.models import Prefetch
 from django.urls import reverse
 
+from .emails import absolute_url
 from .markdown import render_md
 from .models import Room, SessionPresenter
 from .public import program_is_published, public_presenters, public_program
@@ -22,8 +23,17 @@ def _stamp(moment):
     return moment.strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-def _absolute(request, url):
-    return request.build_absolute_uri(url) if url.startswith("/") else url
+def site_base():
+    """Scheme and host from the configured Site, like the emails: payloads
+    are cached and served to everyone, so the first caller's host must not
+    leak into them. Read once per response (it is a query) and passed down."""
+    return absolute_url("")
+
+
+def _absolute(base, url):
+    """``url`` made absolute on ``base``; one already absolute (Spaces) is
+    kept."""
+    return base + url if url.startswith("/") else url
 
 
 def _text(obj, name):
@@ -75,7 +85,7 @@ def slot_block(session):
     }
 
 
-def session_payload(request, conference, session, public_ids):
+def session_payload(conference, session, public_ids, base):
     payload = {
         "slug": session.slug,
         "title": session.title,
@@ -104,25 +114,26 @@ def session_payload(request, conference, session, public_ids):
             for link in session.public_links
         ],
         urls={
-            "ics": request.build_absolute_uri(
+            "ics": _absolute(
+                base,
                 reverse(
                     "speakers_api:session_ics",
                     args=[conference.slug, session.slug],
-                )
+                ),
             ),
         },
     )
     return payload
 
 
-def presenter_payload(request, presenter, sessions):
+def presenter_payload(presenter, sessions, base):
     payload = {
         "slug": presenter.slug,
         "name": presenter.display_name,
         "pronouns": presenter.pronouns or None,
         **_text(presenter, "bio"),
         "headshot_url": (
-            _absolute(request, presenter.headshot.url) if presenter.headshot else None
+            _absolute(base, presenter.headshot.url) if presenter.headshot else None
         ),
         "location": presenter.location or None,
         "links": {
@@ -137,7 +148,8 @@ def presenter_payload(request, presenter, sessions):
     return payload
 
 
-def presenters_data(request, conference, preview=None):
+def presenters_data(conference, preview=None):
+    base = site_base()
     sessions, _ = sessions_queryset(conference, preview)
     by_presenter = {}
     for session in sessions:
@@ -146,7 +158,7 @@ def presenters_data(request, conference, preview=None):
                 {"slug": session.slug, "title": session.title}
             )
     return [
-        presenter_payload(request, presenter, by_presenter.get(presenter.pk, []))
+        presenter_payload(presenter, by_presenter.get(presenter.pk, []), base)
         for presenter in public_presenters(conference, preview)
     ]
 

@@ -188,7 +188,7 @@ class TestSnapshots:
                         {"name": "Shy", "slug": None, "role": program["role"]},
                     ],
                     "urls": {
-                        "ics": f"http://testserver/api/v1/2025/sessions/{talk.slug}.ics"
+                        "ics": f"https://example.com/api/v1/2025/sessions/{talk.slug}.ics"
                     },
                 },
                 {
@@ -216,7 +216,7 @@ class TestSnapshots:
                     },
                     "presenters": [],
                     "urls": {
-                        "ics": f"http://testserver/api/v1/2025/sessions/{coffee.slug}.ics"
+                        "ics": f"https://example.com/api/v1/2025/sessions/{coffee.slug}.ics"
                     },
                 },
             ],
@@ -320,7 +320,9 @@ class TestSnapshots:
             headshot="speakers/headshots/ada.jpg"
         )
         response, data = get(client, url("presenters"))
-        assert data["presenters"][0]["headshot_url"].startswith("http://testserver/")
+        # From the configured Site, not the caller's host: the payload is
+        # cached and served to everyone.
+        assert data["presenters"][0]["headshot_url"].startswith("https://example.com/")
 
 
 @pytest.mark.django_db
@@ -381,7 +383,17 @@ class TestProgramStates:
         junk, junk_data = get(client, url("sessions"), preview="garbage")
         assert junk_data["program"] == "internal"
         assert junk_data["sessions"] == []
-        assert junk["Cache-Control"] == "no-store"
+        assert junk["Cache-Control"] == "public, max-age=300"
+
+    def test_a_junk_token_is_served_from_the_cache(self, client, program):
+        """Anyone could otherwise force a rebuild per hit, and blank a CDN,
+        by appending a junk parameter."""
+        talk = program["talk"]
+        assert "Python, kindly" in client.get(url("sessions")).content.decode()
+        Session.objects.filter(pk=talk.pk).update(title="Renamed quietly")
+        junk, data = get(client, url("sessions"), preview="garbage")
+        assert "Python, kindly" in [s["title"] for s in data["sessions"]]
+        assert junk["Cache-Control"] == "public, max-age=300"
 
     def test_unknown_or_disabled_editions_are_404(self, client, program, conference):
         assert client.get(url("sessions", conference="1999")).status_code == 404
@@ -433,6 +445,20 @@ class TestCache:
         bumps = [c for c in callbacks if getattr(c, "public_api_for", None)]
         assert len(bumps) == 1
 
+    def test_djangos_pending_callbacks_keep_their_shape(self, conference):
+        """public_api_changed reads connection.run_on_commit, a private
+        structure of (savepoint ids, function, robust) tuples in Django
+        5.2; a Django upgrade that changes it should fail here first."""
+        from django.db import transaction
+
+        calls = []
+        callback = calls.append  # bound once: a fresh bound method is never `is`
+        transaction.on_commit(callback)
+        entry = connection.run_on_commit[-1]
+        assert isinstance(entry, tuple) and len(entry) == 3
+        assert entry[1] is callback
+        assert calls == []  # the test transaction never commits
+
     def test_invalidate_starts_a_generation(self, conference):
         from speakers.api import invalidate
 
@@ -452,6 +478,29 @@ class TestCors:
             == "https://2026.conference.pyladies.com"
         )
         assert "Origin" in response["Vary"]
+
+    def test_a_preflight_answers_a_listed_origin(self, client, program):
+        response = client.options(
+            url("sessions"),
+            headers={
+                "Origin": "https://2026.conference.pyladies.com",
+                "Access-Control-Request-Method": "GET",
+                "Access-Control-Request-Headers": "if-none-match",
+            },
+        )
+        assert response.status_code == 200
+        assert (
+            response["Access-Control-Allow-Origin"]
+            == "https://2026.conference.pyladies.com"
+        )
+        assert response["Access-Control-Allow-Methods"] == "GET, HEAD, OPTIONS"
+        assert response["Access-Control-Allow-Headers"] == "if-none-match"
+        assert response["Access-Control-Max-Age"] == "86400"
+        bare = client.options(
+            url("sessions"), headers={"Origin": "https://evil.example"}
+        )
+        assert "Access-Control-Allow-Origin" not in bare
+        assert "Access-Control-Allow-Headers" not in bare
 
     def test_any_other_origin_may_not(self, client, program):
         response = client.get(

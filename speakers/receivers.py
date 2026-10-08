@@ -318,6 +318,8 @@ def public_api_changed(sender, instance, **kwargs):
     transaction.on_commit(bump)
 
 
+# AllowedOrigin is left out on purpose: the CORS header is computed per
+# request, never cached, so a change to the list needs no invalidation.
 for _model in (
     Session,
     Presenter,

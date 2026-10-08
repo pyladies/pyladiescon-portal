@@ -2,7 +2,7 @@
 
 Public feeds carry the public program (design §11.5, ``speakers.public``),
 and accept the website's ``?preview=`` token, whose responses are never
-cached; a presenter's own feed rides a signed token, because a
+cached (a junk token is served like any other request); a presenter's own feed rides a signed token, because a
 calendar app cannot log in. Everything reads the published schedule.
 """
 
@@ -16,6 +16,7 @@ from .feeds import (
     render_calendar,
 )
 from .mixins import SpeakerModuleRequiredMixin
+from .public import preview_is_valid
 
 
 def calendar_response(text, private=False, preview=False):
@@ -47,6 +48,7 @@ class ScheduleFeedView(SpeakerModuleRequiredMixin, View):
             except ValueError:
                 return HttpResponseBadRequest("Unknown room.")
         preview = request.GET.get("preview")
+        previewing = preview_is_valid(self.conference, preview)
         rows = public_rows(
             self.conference,
             sessions=sessions or None,
@@ -56,7 +58,7 @@ class ScheduleFeedView(SpeakerModuleRequiredMixin, View):
         )
         return calendar_response(
             render_calendar(f"{self.conference.name} schedule", rows),
-            preview="preview" in request.GET,
+            preview=previewing,
         )
 
 
@@ -70,7 +72,7 @@ class SessionFeedView(SpeakerModuleRequiredMixin, View):
             raise Http404("Not on the public schedule.")
         return calendar_response(
             render_calendar(rows[0].session.title, rows),
-            preview="preview" in request.GET,
+            preview=preview_is_valid(self.conference, preview),
         )
 
 

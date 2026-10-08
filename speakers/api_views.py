@@ -2,9 +2,10 @@
 
 Read-only, anonymous, per edition: ``/api/v1/<conference>/...``. Live
 responses are cached for five minutes per edition (``speakers.api``,
-dropped on every save that could change them); a ``?preview=`` response is
-built fresh and never cached. Browsers on the origins an edition lists may
-read the responses cross-origin.
+dropped on every save that could change them); a response for a valid
+``?preview=`` token is built fresh and never cached, and a junk token is
+served from the cache like any other request. Browsers on the origins an
+edition lists may read the responses cross-origin, preflight included.
 """
 
 from django.core.cache import cache
@@ -42,7 +43,9 @@ class ApiView(ApiConferenceMixin, View):
         self.kwargs = kwargs
         preview = request.GET.get("preview")
         previewing = preview_is_valid(self.conference, preview)
-        if "preview" in request.GET:
+        # Only a valid token leaves the cache: a junk ?preview= would
+        # otherwise let anyone force a full rebuild per hit, and blank a CDN.
+        if previewing:
             response = JsonResponse(self.payload(request, preview, previewing))
             response["Cache-Control"] = "no-store"
         else:
@@ -53,6 +56,18 @@ class ApiView(ApiConferenceMixin, View):
                 cache.set(key, data, api.CACHE_SECONDS)
             response = JsonResponse(data)
             response["Cache-Control"] = f"public, max-age={api.CACHE_SECONDS}"
+        return self.with_cors(request, response)
+
+    def options(self, request, *args, **kwargs):
+        """A browser's preflight, when the site sends a header that needs
+        one (If-None-Match, say): GET for a listed origin, whatever headers
+        it asked for, remembered a day."""
+        response = super().options(request, *args, **kwargs)
+        response["Access-Control-Allow-Methods"] = "GET, HEAD, OPTIONS"
+        asked = request.headers.get("Access-Control-Request-Headers")
+        if asked:
+            response["Access-Control-Allow-Headers"] = asked
+        response["Access-Control-Max-Age"] = "86400"
         return self.with_cors(request, response)
 
     def payload(self, request, preview, previewing):
@@ -73,9 +88,10 @@ class ApiView(ApiConferenceMixin, View):
 class SessionsApiView(ApiView):
     def build(self, request, preview):
         sessions, public_ids = api.sessions_queryset(self.conference, preview)
+        base = api.site_base()
         return {
             "sessions": [
-                api.session_payload(request, self.conference, session, public_ids)
+                api.session_payload(self.conference, session, public_ids, base)
                 for session in sessions
             ]
         }
@@ -89,14 +105,14 @@ class SessionApiView(ApiView):
             raise Http404("Not on the public program.")
         return {
             "session": api.session_payload(
-                request, self.conference, session, public_ids
+                self.conference, session, public_ids, api.site_base()
             )
         }
 
 
 class PresentersApiView(ApiView):
     def build(self, request, preview):
-        return {"presenters": api.presenters_data(request, self.conference, preview)}
+        return {"presenters": api.presenters_data(self.conference, preview)}
 
 
 class ScheduleApiView(ApiView):
