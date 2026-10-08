@@ -30,6 +30,11 @@ def _sessions(presenter):
     )
 
 
+def _invitation(presenter):
+    invitation = presenter.latest_invitation
+    return invitation.status.label if invitation else ""
+
+
 # (header, value of a presenter row loaded with with_listing_data)
 DATA_COLUMNS = [
     ("Name", lambda p: p.display_name),
@@ -45,7 +50,8 @@ DATA_COLUMNS = [
     ("Bluesky", lambda p: p.bluesky_username),
     ("Photo", lambda p: "yes" if p.headshot else "no"),
     ("Public profile", lambda p: "yes" if p.is_public else "no"),
-    ("Sessions", _sessions),
+    ("Session", _sessions),
+    ("Invitation", _invitation),
     ("Liaison", _liaison),
 ]
 

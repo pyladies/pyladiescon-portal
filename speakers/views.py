@@ -159,12 +159,7 @@ from .services import (
     submit_proposal,
     withdraw_proposal,
 )
-from .tables import (
-    PresenterDataTable,
-    PresenterInvitationTable,
-    PresenterTable,
-    SessionTable,
-)
+from .tables import PresenterDataTable, PresenterTable, SessionTable
 from .tasks import send_copresenter_suggestion_task
 from .transcription import auto_transcribe
 
@@ -569,13 +564,12 @@ class PresenterListView(
     paginate_by = 50
 
     VIEWS = {
-        # The basic list, the default: name, email, sessions, Discord, liaison.
+        # The basic list, the default: name, email, sessions, Discord, the
+        # invitation's state, liaison.
         "basic": PresenterTable,
         # Expanded: everything the team looks up, full width, unpaginated,
         # with the downloads.
         "data": PresenterDataTable,
-        # Where invitations stand and whether accounts are linked.
-        "invitations": PresenterInvitationTable,
     }
 
     @property

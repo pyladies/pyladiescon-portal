@@ -1058,14 +1058,13 @@ installed; this app keeps small factory functions in `tests/speakers/factories.p
   grid. A drag can only reach an hour past the current window; the
   window grows after each change, so stretching further takes a few
   drags, or "Show the whole day".
-- The Presenters page has three views. The default is the basic list:
-  name, email, sessions with roles, Discord username, liaison.
-  `?view=invitations` is about where each invitation stands and whether
-  the account is linked (`PresenterInvitationTable`). "Expand", or
-  `?view=data`, is the data view: everything the team looks up about a
+- The Presenters page has two views. The default is the basic list:
+  name, email, sessions with roles (one line each), Discord username,
+  the invitation's state, liaison. "Expand", or `?view=data`, is the
+  data view: everything the team looks up about a
   speaker (pronouns, email, Discord username, timezone, location, the
   links, whether there is a photo and a public profile, sessions with
-  roles, liaison) as one spreadsheet-like table that takes the whole
+  roles, invitation state, liaison) as one spreadsheet-like table that takes the whole
   screen like the schedule's wide mode, unpaginated, with the same search
   and liaison filters; "Download CSV" (`presenters.csv`) gives the
   same rows and columns, filters applied, every cell through

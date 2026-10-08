@@ -100,30 +100,21 @@ class TestDataView:
         assert not hasattr(response.context["table"], "page")  # unpaginated
 
     def test_the_default_is_the_basic_list(self, client, organizer, people):
-        """Name, email, sessions, Discord, liaison; no links, no invitation
-        state; Expand and Invitations offered."""
+        """Name, email, sessions one per line, Discord, the invitation's
+        state, liaison; no links; Expand offered."""
         client.force_login(organizer)
         response = client.get(LIST)
         content = response.content.decode()
         assert response.context["view"] == "basic"
         assert "page-wide" not in content
         assert "ada_l" in content and "Lena" in content and "Django 101" in content
+        assert re.search(r"<li><a [^>]+>Django 101</a>", content)  # a list item
+        assert re.search(r">\s*Invitation\s*<", content)
         assert "github.com/ada" not in content and "Europe/London" not in content
         assert "Expand" in content and "?view=data" in content
-        assert "?view=invitations" in content
+        assert "?view=invitations" not in content and "Account" not in content
         nonsense = client.get(LIST, {"view": "nonsense"})
         assert nonsense.context["view"] == "basic"
-
-    def test_the_invitations_view(self, client, organizer, people):
-        client.force_login(organizer)
-        response = client.get(LIST, {"view": "invitations"})
-        content = response.content.decode()
-        assert response.context["view"] == "invitations"
-        assert re.search(r">\s*Invitation\s*<", content)
-        assert re.search(r">\s*Account\s*<", content)
-        assert "ada_l" not in content
-        assert "Basic list" in content and "Expand" in content
-        assert 'name="view" value="invitations"' in content
 
     def test_the_csv_matches_the_rows_and_the_filters(self, client, organizer, people):
         client.force_login(organizer)
@@ -148,10 +139,10 @@ class TestDataView:
             "https://www.linkedin.com/in/ada/",
             "ada.example",
         ]
-        assert ada[11:] == ["no", "no", "Django 101 (Moderator)", "Lena"]
+        assert ada[11:] == ["no", "no", "Django 101 (Moderator)", "", "Lena"]
         # A name that would read as a formula is kept as text.
         assert grace[0] == "'=Grace"
-        assert grace[13] == ""
+        assert grace[13] == "" and grace[14] == ""
         filtered = rows_of(client.get(CSV, {"search": "grace@"}))
         assert [row[0] for row in filtered[1:]] == ["'=Grace"]
 
@@ -166,7 +157,6 @@ class TestDataView:
         client.force_login(organizer)
         content = client.get(LIST, {"search": "ada", "page": "1"}).content.decode()
         assert "?view=data&search=ada" in content
-        assert "?view=invitations&search=ada" in content
         content = client.get(LIST, {"view": "data", "search": "ada"}).content.decode()
         assert f'href="{CSV}?search=ada"' in content
         assert f'href="{LIST}?search=ada"' in content

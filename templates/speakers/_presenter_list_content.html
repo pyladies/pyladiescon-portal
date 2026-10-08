@@ -2,11 +2,10 @@
 {% load django_bootstrap5 %}
 {% load render_table from django_tables2 %}
 {% comment %}
-The Presenters page in one of its three views: basic (the default: name,
-email, sessions, Discord, liaison), data (?view=data: everything the
-team looks up about a speaker, full width, with the downloads) and
-invitations (?view=invitations: where invitations stand, whether
-accounts are linked). Params: view, data_view, filter_query.
+The Presenters page in one of its two views: basic (the default: name,
+email, sessions, Discord, invitation, liaison) and data (?view=data:
+everything the team looks up about a speaker, full width, with the
+downloads). Params: view, data_view, filter_query.
 {% endcomment %}
 <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
     <div>
@@ -16,8 +15,6 @@ accounts are linked). Params: view, data_view, filter_query.
         <p class="text-secondary mb-0">
             {% if data_view %}
                 {% trans "Everything the team looks up about a speaker: links, Discord, timezone, photo. Email and Discord are never public." %}
-            {% elif view == "invitations" %}
-                {% trans "Where each invitation stands, and whether the speaker has linked an account." %}
             {% else %}
                 {% trans "Speakers, panelists, moderators, hosts and performers: how to reach them and what they are on." %}
             {% endif %}
@@ -42,17 +39,6 @@ accounts are linked). Params: view, data_view, filter_query.
                href="{% url 'speakers:presenter_list' %}?view=data{% if filter_query %}&{{ filter_query }}{% endif %}">
                 <i class="fa-solid fa-expand"></i> {% trans "Expand" %}
             </a>
-            {% if view == "invitations" %}
-                <a class="btn btn-outline-secondary"
-                   href="{% url 'speakers:presenter_list' %}{% if filter_query %}?{{ filter_query }}{% endif %}">
-                    <i class="fa-solid fa-list"></i> {% trans "Basic list" %}
-                </a>
-            {% else %}
-                <a class="btn btn-outline-secondary"
-                   href="{% url 'speakers:presenter_list' %}?view=invitations{% if filter_query %}&{{ filter_query }}{% endif %}">
-                    <i class="fa-solid fa-envelope-open-text"></i> {% trans "Invitations" %}
-                </a>
-            {% endif %}
         {% endif %}
         {% if is_organizer %}
             <a class="btn btn-primary" href="{% url 'speakers:presenter_create' %}">
