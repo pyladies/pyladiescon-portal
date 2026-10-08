@@ -6,7 +6,7 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import PermissionDenied
 from django.db import transaction
 from django.db.models import Count, F, Q
-from django.http import Http404, HttpResponse, HttpResponseBadRequest
+from django.http import FileResponse, Http404, HttpResponse, HttpResponseBadRequest
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -58,7 +58,7 @@ from .constants import (
     ReadyOverride,
     SessionStatus,
 )
-from .directory import write_presenters_csv
+from .directory import build_presenters_package, write_presenters_csv
 from .emails import render_invitation_preview
 from .feeds import presenter_feed_token, subscribe_links
 from .filters import PresenterFilter, SessionFilter
@@ -607,15 +607,30 @@ class PresenterListView(
 class PresenterDataExportView(PresenterListView):
     """The data view as a CSV download, same rows, same filters."""
 
-    def get(self, request, *args, **kwargs):
+    def rows(self):
         self.object_list = self.get_queryset()
-        presenters = self.get_filterset(self.get_filterset_class()).qs
+        return self.get_filterset(self.get_filterset_class()).qs
+
+    def get(self, request, *args, **kwargs):
         response = HttpResponse(content_type="text/csv")
         response["Content-Disposition"] = (
             f'attachment; filename="presenters-{self.conference.slug}.csv"'
         )
-        write_presenters_csv(presenters, response)
+        write_presenters_csv(self.rows(), response)
         return response
+
+
+class PresenterPackageExportView(PresenterDataExportView):
+    """The data view as a zip: the CSV, the photos, a README, streamed from
+    a temporary file so a large set of photos never sits in memory."""
+
+    def get(self, request, *args, **kwargs):
+        return FileResponse(
+            build_presenters_package(self.rows()),
+            as_attachment=True,
+            filename=f"presenters-{self.conference.slug}.zip",
+            content_type="application/zip",
+        )
 
 
 class PresenterScopedMixin(LoginRequiredMixin, SpeakerStaffRequiredMixin):

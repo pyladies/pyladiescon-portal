@@ -1066,7 +1066,15 @@ installed; this app keeps small factory functions in `tests/speakers/factories.p
   screen like the schedule's wide mode, unpaginated, with the same search
   and liaison filters; "Download CSV" (`presenters.csv`) gives the
   same rows and columns, filters applied, every cell through
-  `spreadsheet.safe_cell`. `speakers/directory.py` holds the one column
+  `spreadsheet.safe_cell`; "Download package" (`presenters.zip`) is the
+  same CSV plus a "Photo file" column, every headshot under `photos/`
+  named by the presenter's address, and a README, for designers who need
+  the photos and handles together. The zip is built in a spooled
+  temporary file (memory up to 32 MB, disk beyond), photos are stored
+  without recompression and fetched from storage a few at a time, and the
+  response streams, so a hundred phone-sized headshots cost disk and
+  seconds, not RAM. Headshots are stored as uploaded (no resize or cap),
+  which is what sets the package's size. `speakers/directory.py` holds the one column
   list the CSV uses and a test keeps the table's headers equal to it. Both
   views are liaison-scoped like the rest of the page; nothing here is
   public, which is why the download is not on the Publishing page.

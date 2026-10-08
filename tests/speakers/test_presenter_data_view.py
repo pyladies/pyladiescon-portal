@@ -3,9 +3,13 @@
 import csv
 import io
 import re
+import zipfile
 
 import pytest
 from django.contrib.auth.models import User
+from django.core.files.uploadedfile import SimpleUploadedFile
+from django.db import connection
+from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 
 from speakers.directory import DATA_COLUMNS
@@ -17,6 +21,11 @@ from .factories import add_presenter, make_presenter, make_session, make_setting
 
 LIST = reverse("speakers:presenter_list")
 CSV = reverse("speakers:presenter_data_csv")
+ZIP = reverse("speakers:presenter_data_zip")
+PNG = (
+    b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01"
+    b"\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\x00IEND\xaeB`\x82"
+)
 
 
 @pytest.fixture
@@ -145,3 +154,83 @@ class TestDataView:
         content = client.get(LIST, {"view": "data", "search": "ada"}).content.decode()
         assert f'href="{CSV}?search=ada"' in content
         assert f'href="{LIST}?search=ada"' in content
+
+
+@pytest.mark.django_db
+class TestPackage:
+    def test_csv_photos_and_readme(self, client, organizer, people, settings, tmp_path):
+        settings.MEDIA_ROOT = tmp_path
+        ada = people["ada"]
+        ada.headshot.save("Ada Photo.PNG", SimpleUploadedFile("x.png", PNG))
+        client.force_login(organizer)
+        response = client.get(ZIP)
+        assert response["Content-Type"] == "application/zip"
+        assert 'filename="presenters-2025.zip"' in response["Content-Disposition"]
+        assert response.streaming
+        archive = zipfile.ZipFile(io.BytesIO(b"".join(response.streaming_content)))
+        assert sorted(archive.namelist()) == [
+            "README.txt",
+            f"photos/{ada.slug}.png",
+            "presenters.csv",
+        ]
+        rows = list(csv.reader(io.StringIO(archive.read("presenters.csv").decode())))
+        assert rows[0] == [header for header, _ in DATA_COLUMNS] + ["Photo file"]
+        assert rows[1][0] == "Ada" and rows[1][-1] == f"{ada.slug}.png"
+        assert rows[2][0] == "'=Grace" and rows[2][-1] == ""
+        assert archive.read(f"photos/{ada.slug}.png") == PNG
+        # Stored, not recompressed: the bytes are already compressed.
+        assert (
+            archive.getinfo(f"photos/{ada.slug}.png").compress_type
+            == zipfile.ZIP_STORED
+        )
+        assert "never go on the public site" in archive.read("README.txt").decode()
+
+    def test_filters_and_scope_apply(self, client, liaison, people):
+        client.force_login(liaison)
+        content = b"".join(client.get(ZIP).streaming_content)
+        archive = zipfile.ZipFile(io.BytesIO(content))
+        rows = list(csv.reader(io.StringIO(archive.read("presenters.csv").decode())))
+        assert [row[0] for row in rows[1:]] == ["Ada"]
+
+    def test_the_data_view_offers_it(self, client, organizer, people):
+        client.force_login(organizer)
+        content = client.get(LIST, {"view": "data", "search": "ada"}).content.decode()
+        assert f'href="{ZIP}?search=ada"' in content
+
+
+@pytest.mark.django_db
+class TestScale:
+    """A hundred speakers: the page, the CSV and the zip read the edition in
+    a fixed number of queries, however many rows there are."""
+
+    def grow(self, conference, liaison, n):
+        for i in range(n):
+            presenter = make_presenter(
+                conference, display_name=f"Extra {i}", liaison=liaison
+            )
+            session = make_session(conference, title=f"Talk {i}", kind="TALK")
+            add_presenter(session, presenter)
+
+    def queries(self, client, url, params=None):
+        with CaptureQueriesContext(connection) as context:
+            response = client.get(url, params or {})
+            if response.streaming:
+                b"".join(response.streaming_content)
+        return len(context)
+
+    def test_queries_stay_flat(self, client, organizer, liaison, people, conference):
+        client.force_login(organizer)
+        before = [
+            self.queries(client, LIST, {"view": "data"}),
+            self.queries(client, CSV),
+            self.queries(client, ZIP),
+        ]
+        self.grow(conference, liaison, 12)
+        after = [
+            self.queries(client, LIST, {"view": "data"}),
+            self.queries(client, CSV),
+            self.queries(client, ZIP),
+        ]
+        assert after == before
+        response = client.get(LIST, {"view": "data"})
+        assert len(response.context["table"].rows) == 14  # every row, one page

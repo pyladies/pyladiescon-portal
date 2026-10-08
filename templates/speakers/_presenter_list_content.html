@@ -29,6 +29,10 @@ width, with a CSV of the same rows). Params: data_view, filter_query.
                href="{% url 'speakers:presenter_data_csv' %}{% if filter_query %}?{{ filter_query }}{% endif %}">
                 <i class="fa-solid fa-download"></i> {% trans "Download CSV" %}
             </a>
+            <a class="btn btn-outline-primary"
+               href="{% url 'speakers:presenter_data_zip' %}{% if filter_query %}?{{ filter_query }}{% endif %}">
+                <i class="fa-solid fa-file-zipper"></i> {% trans "Download package (CSV and photos)" %}
+            </a>
         {% else %}
             <a class="btn btn-outline-secondary"
                href="{% url 'speakers:presenter_list' %}?view=data{% if filter_query %}&{{ filter_query }}{% endif %}">
