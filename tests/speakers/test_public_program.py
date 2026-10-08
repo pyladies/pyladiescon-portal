@@ -227,7 +227,8 @@ class TestFeeds:
         assert one["Cache-Control"] == "no-store"
         junk = client.get(FEED, {"preview": "garbage"})
         assert "Draft panel" not in junk.content.decode()
-        assert junk["Cache-Control"] == "no-store"
+        # A junk token is an ordinary request: cached like one.
+        assert junk["Cache-Control"] == "max-age=300"
 
 
 @pytest.mark.django_db

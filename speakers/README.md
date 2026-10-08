@@ -1062,6 +1062,38 @@ installed; this app keeps small factory functions in `tests/speakers/factories.p
   every link stops working once the program goes public. The preview
   shows every session on the published schedule, published or not, but
   still honours a presenter's opt-out; preview responses are `no-store`.
+- The public JSON API (design §11.1, task 6.2) is `speakers/api.py`
+  (payloads and cache) and `api_views.py`, mounted at `/api/v1/` by
+  `portal/urls.py`: `<conference>/sessions/`, `sessions/<slug>/`,
+  `presenters/`, `schedule/` (slots grouped by the conference
+  timezone's day, plus the rooms), and the calendar aliases
+  `schedule.ics` and `sessions/<slug>.ics`. `<conference>` is the
+  edition's slug, not the active edition, and an edition without the
+  module is 404. Plain views, no DRF. Everything starts from
+  `speakers.public`, so the visibility rules hold; every payload says
+  which `program` state it shows (`published`, `internal`, `preview`).
+  Markdown comes as the stored `*_md` and sanitized `*_html`: `*_md` is
+  the raw source as typed, so a website must render only `*_html`;
+  emails and `notes_md` never appear (a test walks every key). Absolute
+  URLs in a payload (the `.ics` links, headshots) come from the
+  configured Site through `emails.absolute_url`, never from the caller's
+  host, since a payload is cached and served to everyone. A presenter who opted
+  out is on their sessions by name with `slug: null`. Live responses are
+  cached five minutes per edition under a generation key that
+  `receivers.public_api_changed` bumps after commit on any save or delete
+  of a session, presenter, link, published slot, room, session type,
+  role or the settings; a response for a VALID `?preview=` token is built
+  fresh with `Cache-Control: no-store`, and a junk token is served from
+  the cache like any other request, so nobody can force a rebuild per hit
+  or blank a CDN by appending a parameter. CORS: each edition's `AllowedOrigin` rows
+  (one website per row, edited as a list in the speaker-settings admin;
+  stored as browsers send an origin, lower-case scheme and host with no
+  path, and refused with a path) are read through
+  `SpeakerSettings.api_origins` and echoed back to a listed `Origin`,
+  with `Vary: Origin`; a preflight (`OPTIONS`) answers a listed origin
+  with GET/HEAD and the conditional headers (`If-None-Match`,
+  `If-Modified-Since`), so the site may revalidate its cache. The list is not in the cache
+  invalidation set: the header is computed per request. No public per-presenter `.ics` yet.
 - The calendar feeds (design §11.3) are `speakers/feeds.py` (a hand-
   rolled ICS writer, like the VTT one: escaping with every line ending
   normalised to one escaped newline, 75-octet folding counting the

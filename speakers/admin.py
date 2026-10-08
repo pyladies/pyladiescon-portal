@@ -5,6 +5,7 @@ from portal.admin_filters import ActiveConferenceFilter
 
 from .models import (
     ActivityLog,
+    AllowedOrigin,
     ChecklistItem,
     ChecklistTemplate,
     ChecklistTemplateItem,
@@ -58,9 +59,21 @@ class SpeakerSettingsAdminForm(forms.ModelForm):
         return self._keep_when_blank("pretix_webhook_secret")
 
 
+class AllowedOriginInline(admin.TabularInline):
+    """Websites whose pages may read this edition's public API, one row
+    each (the Publishing page lists them and links here)."""
+
+    model = AllowedOrigin
+    extra = 1
+    fields = ("url",)
+    verbose_name = "website allowed to show the program"
+    verbose_name_plural = "websites allowed to show the program"
+
+
 @admin.register(SpeakerSettings)
 class SpeakerSettingsAdmin(admin.ModelAdmin):
     form = SpeakerSettingsAdminForm
+    inlines = [AllowedOriginInline]
     list_display = (
         "conference",
         "speaker_module_enabled",
