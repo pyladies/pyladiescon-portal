@@ -15,9 +15,13 @@ from django.views.decorators.clickjacking import xframe_options_exempt
 from django.views.generic import TemplateView
 
 from .api_views import ApiConferenceMixin
+from .public import preview_is_valid
 
 VIEWS = {"schedule": "schedule", "sessions": "sessions", "speakers": "speakers"}
-HEX_COLOUR = re.compile(r"#[0-9a-fA-F]{3,8}")
+# What CSS accepts: #rgb, #rgba, #rrggbb, #rrggbbaa.
+HEX_COLOUR = re.compile(
+    r"#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})"
+)
 
 
 @method_decorator(xframe_options_exempt, name="dispatch")
@@ -39,7 +43,8 @@ class EmbedView(ApiConferenceMixin, TemplateView):
 
     def render_to_response(self, context, **response_kwargs):
         response = super().render_to_response(context, **response_kwargs)
-        response["Cache-Control"] = (
-            "no-store" if "preview" in self.request.GET else "public, max-age=300"
-        )
+        # Only a valid token makes the page no-store, as on the API (#467);
+        # a junk one is an ordinary, cacheable page.
+        previewing = preview_is_valid(self.conference, self.request.GET.get("preview"))
+        response["Cache-Control"] = "no-store" if previewing else "public, max-age=300"
         return response

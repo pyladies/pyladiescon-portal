@@ -7,6 +7,8 @@
   and the preview token for whoever builds the website.
 """
 
+import html
+
 from django.conf import settings as django_settings
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
@@ -250,7 +252,7 @@ class ProgramShareView(PublishingTabView):
             reverse("speakers_embed:embed", args=[self.conference.slug, "schedule"])
         )
         return (
-            f'<iframe src="{url}" title="{self.conference.name} schedule" '
+            f'<iframe src="{url}" title="{html.escape(self.conference.name, quote=True)} schedule" '
             f'style="width:100%;height:900px;border:0" loading="lazy"></iframe>'
         )
 

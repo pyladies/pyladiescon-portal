@@ -8,6 +8,7 @@ from django.urls import reverse
 
 from speakers.constants import ProgramVisibility
 from speakers.models import SpeakerSettings
+from speakers.public import preview_token
 
 from .factories import make_settings
 
@@ -19,6 +20,11 @@ def embed(view="schedule", conference="2025"):
 @pytest.fixture
 def settings_row(conference):
     return make_settings(conference, program_visibility=ProgramVisibility.PUBLISHED)
+
+
+def go_internal(settings_row):
+    settings_row.program_visibility = ProgramVisibility.INTERNAL
+    settings_row.save(update_fields=["program_visibility"])
 
 
 @pytest.mark.django_db
@@ -38,14 +44,20 @@ class TestEmbedPage:
         response = client.get(embed())
         assert "X-Frame-Options" not in response
         assert response["Cache-Control"] == "public, max-age=300"
-        preview = client.get(embed(), {"preview": "anything"})
-        assert preview["Cache-Control"] == "no-store"
+        junk = client.get(embed(), {"preview": "anything"})
+        assert junk["Cache-Control"] == "public, max-age=300"
+        token = preview_token(SpeakerSettings.objects.get(conference__slug="2025"))
+        go_internal(settings_row)
+        assert client.get(embed(), {"preview": token})["Cache-Control"] == "no-store"
 
     def test_an_accent_colour_and_nothing_else(self, client, settings_row):
         good = client.get(embed(), {"accent": "#c2185b"}).content.decode()
         assert 'style="--plc-accent: #c2185b"' in good
-        bad = client.get(embed(), {"accent": "red;background:url(x)"}).content.decode()
-        assert "--plc-accent" not in bad
+        for bad in ("red;background:url(x)", "#abcde", "#abcdefg"):
+            content = client.get(embed(), {"accent": bad}).content.decode()
+            assert "--plc-accent" not in content, bad
+        short = client.get(embed(), {"accent": "#c215"}).content.decode()
+        assert 'style="--plc-accent: #c215"' in short
 
     def test_unknown_things_are_404(self, client, settings_row, conference):
         assert client.get(embed("calendar")).status_code == 404
@@ -64,3 +76,17 @@ class TestEmbedPage:
         assert "http://testserver/embed/2025/schedule/" in content
         assert "pyladiescon-embed" in content
         assert "event.origin !== &quot;http://testserver&quot;" in content
+
+    def test_the_iframe_title_is_escaped(self, client, settings_row, conference):
+        conference.name = 'Py"Con <2025>'
+        conference.save()
+        organizer = User.objects.create_user(
+            username="organizer", email="org@example.com", is_staff=True
+        )
+        client.force_login(organizer)
+        content = client.get(reverse("speakers:program_share")).content.decode()
+        # The snippet is escaped for its attribute, then once more by the
+        # template inside the textarea, so the quote reads as &amp;quot; here.
+        assert (
+            "title=&quot;Py&amp;quot;Con &amp;lt;2025&amp;gt; schedule&quot;" in content
+        )

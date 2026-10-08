@@ -1146,7 +1146,8 @@ installed; this app keeps small factory functions in `tests/speakers/factories.p
   `--plc-card`, `--plc-radius`, `--plc-modal-bg`, `--plc-modal-text`);
   text inherits the host page's font. Caching: `/static/widget/v1.js` is
   the stable address (WhiteNoise sends it with a short max-age, so the
-  site always gets the current widget); the hashed copy WhiteNoise also
+  site always gets the current widget; the iframe embed page links the
+  hashed name instead, so a deploy updates it at once); the hashed copy WhiteNoise also
   serves (`widget/v1.<hash>.js`, listed in `staticroot/staticfiles.json`)
   is cached for a year and suits a CDN that should pin one version; bump
   to `v2.js` for breaking changes. A visitor's browser keeps an API
