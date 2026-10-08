@@ -48,6 +48,8 @@ def program_state(conference, previewing):
 
 
 def conference_block(conference):
+    # speaker_settings is the conference's one-to-one, cached on the
+    # instance after the module check: no query of its own.
     return {
         "slug": conference.slug,
         "name": conference.name,

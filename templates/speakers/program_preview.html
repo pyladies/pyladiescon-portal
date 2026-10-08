@@ -13,7 +13,7 @@
     {% include "speakers/_publishing_header.html" %}
     <p class="text-secondary">
         {% if draft %}
-            {% trans "The draft: everything on the confirmed schedule, ticked for publishing or not, as the website's widget will show it. Changes on the schedule grid appear here once you confirm the schedule." %}
+            {% trans "The draft: everything on the confirmed schedule, ticked for publishing or not, as the website's widget will show it. Changes on the schedule grid appear here once you confirm the schedule. This page carries the preview token in its source, so copying its HTML copies the token." %}
         {% elif program_published %}
             {% trans "What visitors see now: the program is public." %}
         {% else %}

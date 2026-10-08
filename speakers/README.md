@@ -1153,7 +1153,9 @@ installed; this app keeps small factory functions in `tests/speakers/factories.p
   response up to five minutes, so a change can take that long to reach
   an open page. Checked by hand in Chrome only (bare pages on another
   origin, 360 px, coming-soon, preview, error, multi-room and staggered
-  demos); Firefox and Safari not yet.
+  demos); Firefox and Safari not yet: a pass in each belongs to wiring the
+  site (task 6.6), before launch. It relies on `<dialog>`, CSS container
+  queries and localStorage, all in current releases of both.
 - The calendar feeds (design §11.3) are `speakers/feeds.py` (a hand-
   rolled ICS writer, like the VTT one: escaping with every line ending
   normalised to one escaped newline, 75-octet folding counting the
