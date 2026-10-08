@@ -100,6 +100,10 @@ class SessionsApiView(ApiView):
 
 class SessionApiView(ApiView):
     def build(self, request, preview):
+        # While the program is internal every session answers the same
+        # "coming soon" shape, so the widget never sees an error for it.
+        if not preview and api.program_state(self.conference, False) == "internal":
+            return {"session": None}
         sessions, public_ids = api.sessions_queryset(self.conference, preview)
         session = sessions.filter(slug=self.kwargs["slug"]).first()
         if session is None:
@@ -114,6 +118,17 @@ class SessionApiView(ApiView):
 class PresentersApiView(ApiView):
     def build(self, request, preview):
         return {"presenters": api.presenters_data(self.conference, preview)}
+
+
+class PresenterApiView(ApiView):
+    def build(self, request, preview):
+        # The same "coming soon" shape as one session while internal.
+        if not preview and api.program_state(self.conference, False) == "internal":
+            return {"presenter": None}
+        found = api.presenters_data(self.conference, preview, slug=self.kwargs["slug"])
+        if not found:
+            raise Http404("No public profile.")
+        return {"presenter": found[0]}
 
 
 class ScheduleApiView(ApiView):

@@ -48,7 +48,13 @@ def program_state(conference, previewing):
 
 
 def conference_block(conference):
-    return {"slug": conference.slug, "name": conference.name}
+    # speaker_settings is the conference's one-to-one, cached on the
+    # instance after the module check: no query of its own.
+    return {
+        "slug": conference.slug,
+        "name": conference.name,
+        "timezone": conference.speaker_settings.conference_timezone,
+    }
 
 
 def sessions_queryset(conference, preview=None):
@@ -102,15 +108,7 @@ def session_payload(conference, session, public_ids, base):
         youtube_url=session.youtube_url or None,
         slot=slot_block(session),
         presenters=[
-            {
-                "name": link.presenter.display_name,
-                # A presenter who opted out keeps their name on the session
-                # but has no profile to link to.
-                "slug": (
-                    link.presenter.slug if link.presenter_id in public_ids else None
-                ),
-                "role": link.role.name,
-            }
+            presenter_link(link, link.presenter_id in public_ids, base)
             for link in session.public_links
         ],
         urls={
@@ -124,6 +122,22 @@ def session_payload(conference, session, public_ids, base):
         },
     )
     return payload
+
+
+def presenter_link(link, public, base):
+    """A presenter as their session shows them. One who opted out keeps
+    their name but has no profile to link to and no photo."""
+    presenter = link.presenter
+    return {
+        "name": presenter.display_name,
+        "slug": presenter.slug if public else None,
+        "role": link.role.name,
+        "headshot_url": (
+            _absolute(base, presenter.headshot.url)
+            if public and presenter.headshot
+            else None
+        ),
+    }
 
 
 def presenter_payload(presenter, sessions, base):
@@ -148,18 +162,22 @@ def presenter_payload(presenter, sessions, base):
     return payload
 
 
-def presenters_data(conference, preview=None):
+def presenters_data(conference, preview=None, slug=None):
+    """Public presenters with their sessions; ``slug`` narrows to one."""
     base = site_base()
     sessions, _ = sessions_queryset(conference, preview)
     by_presenter = {}
     for session in sessions:
         for link in session.public_links:
             by_presenter.setdefault(link.presenter_id, []).append(
-                {"slug": session.slug, "title": session.title}
+                {"slug": session.slug, "title": session.title, **slot_block(session)}
             )
+    presenters = public_presenters(conference, preview)
+    if slug is not None:
+        presenters = presenters.filter(slug=slug)
     return [
         presenter_payload(presenter, by_presenter.get(presenter.pk, []), base)
-        for presenter in public_presenters(conference, preview)
+        for presenter in presenters
     ]
 
 

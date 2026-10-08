@@ -2,6 +2,7 @@
 and a preview link for the website build."""
 
 import importlib
+import re
 from datetime import datetime, timedelta, timezone
 
 import pytest
@@ -13,7 +14,7 @@ from django.urls import reverse
 
 from portal.models import Conference
 from speakers.constants import ProgramVisibility, SessionStatus
-from speakers.models import ActivityLog, SpeakerSettings
+from speakers.models import ActivityLog, AllowedOrigin, SpeakerSettings
 from speakers.public import (
     preview_is_valid,
     preview_token,
@@ -33,6 +34,7 @@ from .factories import (
 T0 = datetime(2026, 12, 5, 14, 0, tzinfo=timezone.utc)
 FEED = reverse("speakers:schedule_feed")
 PUBLISHING = reverse("speakers:program_publishing")
+SHARE = reverse("speakers:program_share")
 INTERNAL = ProgramVisibility.INTERNAL
 PUBLISHED = ProgramVisibility.PUBLISHED
 
@@ -258,10 +260,10 @@ class TestPublishingPage:
         client.force_login(organizer)
         content = client.get(PUBLISHING).content.decode()
         assert "Placed panel" in content
-        assert "Not on the published schedule yet" in content
+        assert "Not on the confirmed schedule yet" in content
         assert content.count("disabled") == 1
-        assert "1 is on it now" in content
-        assert "?preview=" in content
+        assert "On it now: 1 program item." in content
+        assert "Not public yet" in content
 
     def test_ticking_publishes_and_unticking_takes_off(
         self, client, organizer, conference, settings_row
@@ -295,7 +297,9 @@ class TestPublishingPage:
             PUBLISHING, {"action": "visibility", "visibility": PUBLISHED}, follow=True
         )
         assert "The program is public." in response.content.decode()
-        assert "preview links are switched off" in response.content.decode()
+        assert "Take back to internal" in response.content.decode()
+        share = client.get(SHARE).content.decode()
+        assert "preview tokens are switched off" in share
         settings_row.refresh_from_db()
         assert settings_row.program_visibility == PUBLISHED
         assert ActivityLog.objects.filter(action="program.visibility").count() == 1
@@ -309,8 +313,11 @@ class TestPublishingPage:
     def test_regenerate(self, client, organizer, conference, settings_row):
         old = preview_token(settings_row)
         client.force_login(organizer)
-        response = client.post(PUBLISHING, {"action": "regenerate"}, follow=True)
-        assert "Every earlier link has stopped working." in response.content.decode()
+        response = client.post(
+            PUBLISHING, {"action": "regenerate", "next": "share"}, follow=True
+        )
+        assert response.redirect_chain[-1][0] == SHARE
+        assert "Every earlier one has stopped working." in response.content.decode()
         assert not preview_is_valid(Conference.objects.get(pk=conference.pk), old)
         assert ActivityLog.objects.filter(action="program.preview_regenerated").exists()
 
@@ -384,3 +391,134 @@ class TestReview466:
         assert quiet.program_visibility == INTERNAL
         assert settings_row.preview_key != quiet.preview_key
         assert "same-for-all" not in (settings_row.preview_key, quiet.preview_key)
+
+
+class TestAllowedWebsites:
+    def test_an_admin_sees_the_list_and_the_admin_link(
+        self, client, conference, settings_row
+    ):
+        for url in ("https://2026.conference.pyladies.com/", "https://Example.org"):
+            AllowedOrigin.objects.create(settings=settings_row, url=url)
+        admin = User.objects.create_superuser(
+            username="admin", email="admin@example.com", password=None
+        )
+        client.force_login(admin)
+        content = client.get(SHARE).content.decode()
+        listed = re.findall(r'<li class="font-monospace">\s*(\S+)\s*</li>', content)
+        assert listed == ["https://2026.conference.pyladies.com", "https://example.org"]
+        assert (
+            reverse("admin:speakers_speakersettings_change", args=[settings_row.pk])
+            in content
+        )
+        assert "ask one to list yours" not in content
+
+    def test_an_organizer_is_told_to_ask_an_admin(
+        self, client, organizer, conference, settings_row
+    ):
+        client.force_login(organizer)
+        content = client.get(SHARE).content.decode()
+        assert "None yet" in content
+        assert "ask one to list yours" in content
+        assert "/admin/speakers/speakersettings/" not in content
+
+
+PREVIEW = reverse("speakers:program_preview")
+
+
+@pytest.mark.django_db
+class TestPreviewPage:
+    def test_organizers_only(self, client, conference, settings_row):
+        user = User.objects.create_user(username="someone", email="s@example.com")
+        client.force_login(user)
+        assert client.get(PREVIEW).status_code == 403
+
+    def test_the_draft_carries_the_preview_token(
+        self, client, organizer, conference, settings_row
+    ):
+        client.force_login(organizer)
+        content = client.get(PREVIEW).content.decode()
+        # The page signed its token a moment ago; check it validates rather
+        # than re-signing one now, which can land in the next second.
+        token = re.search(r'data-preview="([^"]+)"', content).group(1)
+        assert preview_is_valid(Conference.objects.get(pk=conference.pk), token)
+        assert 'data-pyladiescon-widget="schedule"' in content
+        assert 'data-conference="2025"' in content
+        assert "Public now" in content
+
+    def test_public_now_and_other_views(
+        self, client, organizer, conference, settings_row
+    ):
+        client.force_login(organizer)
+        content = client.get(PREVIEW, {"show": "public", "view": "speakers"}).content
+        content = content.decode()
+        assert "data-preview=" not in content
+        assert 'data-pyladiescon-widget="speakers"' in content
+        assert "coming soon" in content
+        odd = client.get(PREVIEW, {"view": "nonsense"}).content.decode()
+        assert 'data-pyladiescon-widget="schedule"' in odd
+
+    def test_once_public_there_is_no_draft(
+        self, client, organizer, conference, settings_row
+    ):
+        go(settings_row, PUBLISHED)
+        client.force_login(organizer)
+        content = client.get(PREVIEW).content.decode()
+        assert "data-preview=" not in content
+        assert "Public now" not in content
+        assert "the program is public" in content
+
+    def test_the_editor_and_the_publishing_page_link_it(
+        self, client, organizer, conference, settings_row
+    ):
+        client.force_login(organizer)
+        for page in (reverse("speakers:schedule_editor"), PUBLISHING):
+            assert f'href="{PREVIEW}"' in client.get(page).content.decode()
+
+
+@pytest.mark.django_db
+class TestTabs:
+    def test_the_switch_returns_to_the_tab_it_was_used_on(
+        self, client, organizer, conference, settings_row
+    ):
+        client.force_login(organizer)
+        for tab, url in (("share", SHARE), ("preview", PREVIEW)):
+            response = client.post(
+                PUBLISHING,
+                {"action": "visibility", "visibility": INTERNAL, "next": tab},
+            )
+            assert response.url == url
+        response = client.post(
+            PUBLISHING,
+            {"action": "visibility", "visibility": INTERNAL, "next": "elsewhere"},
+        )
+        assert response.url == PUBLISHING
+
+    def test_every_tab_carries_the_header(
+        self, client, organizer, conference, settings_row
+    ):
+        client.force_login(organizer)
+        for url in (PUBLISHING, PREVIEW, SHARE):
+            content = client.get(url).content.decode()
+            assert "Make public" in content
+            for tab in (PUBLISHING, PREVIEW, SHARE):
+                assert f'href="{tab}"' in content
+
+    def test_share_is_for_organizers(self, client, conference, settings_row):
+        user = User.objects.create_user(username="someone", email="s@example.com")
+        client.force_login(user)
+        assert client.get(SHARE).status_code == 403
+
+
+@pytest.mark.django_db
+class TestSelectAll:
+    def test_offered_once_two_sessions_can_be_ticked(
+        self, client, organizer, conference, settings_row
+    ):
+        client.force_login(organizer)
+        on_schedule(conference, title="First")
+        confirmed_only(conference)
+        assert "Select all" not in client.get(PUBLISHING).content.decode()
+        on_schedule(conference, title="Second")
+        content = client.get(PUBLISHING).content.decode()
+        assert content.count('data-check-all="publish"') == 2
+        assert "js/check-all" in content

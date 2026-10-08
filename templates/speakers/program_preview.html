@@ -1,0 +1,49 @@
+{% extends "speakers/_organize_shell.html" %}
+{% load i18n static %}
+{% block head_title %}
+    {% trans "Preview" %}
+{% endblock head_title %}
+{% block breadcrumb %}
+    {% url 'speakers:program_publishing' as bc_url %}
+    {% trans "Publishing" as bc_section %}
+    {% trans "Preview" as bc_page %}
+    {% include "portal/_breadcrumbs.html" with section=bc_section section_url=bc_url page=bc_page %}
+{% endblock breadcrumb %}
+{% block content %}
+    {% include "speakers/_publishing_header.html" %}
+    <p class="text-secondary">
+        {% if draft %}
+            {% trans "The draft: everything on the confirmed schedule, ticked for publishing or not, as the website's widget will show it. Changes on the schedule grid appear here once you confirm the schedule. This page carries the preview token in its source, so copying its HTML copies the token." %}
+        {% elif program_published %}
+            {% trans "What visitors see now: the program is public." %}
+        {% else %}
+            {% trans "What visitors see now: the program is internal, so the website shows it as coming soon." %}
+        {% endif %}
+    </p>
+    <div class="d-flex flex-wrap gap-2 align-items-center mb-3">
+        {% if not program_published %}
+            <div class="btn-group btn-group-sm" role="group">
+                <a class="btn {% if draft %}btn-primary{% else %}btn-outline-primary{% endif %}"
+                   href="?view={{ view }}"
+                   {% if draft %}aria-current="page"{% endif %}>{% trans "Draft" %}</a>
+                <a class="btn {% if not draft %}btn-primary{% else %}btn-outline-primary{% endif %}"
+                   href="?view={{ view }}&show=public"
+                   {% if not draft %}aria-current="page"{% endif %}>{% trans "Public now" %}</a>
+            </div>
+        {% endif %}
+        <ul class="nav nav-pills">
+            {% for key, label in views %}
+                <li class="nav-item">
+                    <a class="nav-link py-1 {% if key == view %}active{% endif %}"
+                       href="?view={{ key }}{% if not draft and not program_published %}&show=public{% endif %}"
+                       {% if key == view %}aria-current="page"{% endif %}>{% trans label %}</a>
+                </li>
+            {% endfor %}
+        </ul>
+    </div>
+    <div data-pyladiescon-widget="{{ view }}"
+         data-conference="{{ conference.slug }}"
+         {% if preview_token %}data-preview="{{ preview_token }}"{% endif %}>
+    </div>
+    <script src="{% static 'widget/v1.js' %}" defer></script>
+{% endblock content %}

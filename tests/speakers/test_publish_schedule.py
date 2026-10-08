@@ -349,7 +349,7 @@ class TestPublishView:
         make_slot(session, start_utc=T0)
         client.force_login(organizer)
         content = client.get(EDITOR, {"day": "2026-12-05"}).content.decode()
-        assert "Publish schedule" in content
+        assert "Confirm schedule" in content
         assert "schedule-card-dirty" in content
         assert ">1</span>" in content
         publish_schedule(conference, organizer, notify=False)

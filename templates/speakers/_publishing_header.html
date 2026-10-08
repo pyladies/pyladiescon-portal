@@ -1,0 +1,47 @@
+{% load i18n %}
+{% comment %}
+The Publishing page's header, on every tab: the title, the program's
+master switch as one line, and the tabs. Params: tab, program_published.
+{% endcomment %}
+<h1 class="h3 mb-2">
+    {% trans "Publishing" %}
+</h1>
+<form method="post"
+      action="{% url 'speakers:program_publishing' %}"
+      class="d-flex flex-wrap align-items-center gap-2 mb-3 small">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="visibility">
+    <input type="hidden" name="next" value="{{ tab }}">
+    {% if program_published %}
+        <span class="badge text-bg-success">{% trans "Public" %}</span>
+        <span>{% trans "Published sessions, breaks and keynotes are on the website." %}</span>
+        <input type="hidden" name="visibility" value="INTERNAL">
+        <button class="btn btn-outline-danger btn-sm py-0" type="submit">
+            {% trans "Take back to internal" %}
+        </button>
+    {% else %}
+        <span class="badge text-bg-secondary">{% trans "Internal" %}</span>
+        <span>{% trans "Not public yet: the website shows “Program coming soon”." %}</span>
+        <input type="hidden" name="visibility" value="PUBLISHED">
+        <button class="btn btn-primary btn-sm py-0" type="submit">
+            <i class="fa-solid fa-globe" aria-hidden="true"></i> {% trans "Make public" %}
+        </button>
+    {% endif %}
+</form>
+<ul class="nav nav-tabs mb-3">
+    <li class="nav-item">
+        <a class="nav-link {% if tab == 'publish' %}active{% endif %}"
+           href="{% url 'speakers:program_publishing' %}"
+           {% if tab == 'publish' %}aria-current="page"{% endif %}>{% trans "Publish" %}</a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link {% if tab == 'preview' %}active{% endif %}"
+           href="{% url 'speakers:program_preview' %}"
+           {% if tab == 'preview' %}aria-current="page"{% endif %}>{% trans "Preview" %}</a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link {% if tab == 'share' %}active{% endif %}"
+           href="{% url 'speakers:program_share' %}"
+           {% if tab == 'share' %}aria-current="page"{% endif %}>{% trans "Share" %}</a>
+    </li>
+</ul>

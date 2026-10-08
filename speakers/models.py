@@ -1015,11 +1015,11 @@ class Session(TimestampedModel):
 
         Scheduling means the speakers were told (§10.1): the working grid
         is a draft, and the lock, the checklist lines and the reminders
-        all wait for "Publish schedule".
+        all wait for "Confirm schedule".
         """
         self._require_status(SessionStatus.CONFIRMED, SessionStatus.SCHEDULED)
         if not self.has_published_slot:
-            raise TransitionError("Publish the schedule with this session first.")
+            raise TransitionError("Confirm the schedule with this session first.")
         self.status = SessionStatus.SCHEDULED
         if save:
             self.save(update_fields=["status"])
@@ -1043,7 +1043,7 @@ class Session(TimestampedModel):
         self._require_status(SessionStatus.SCHEDULED, SessionStatus.PUBLISHED)
         if not self.has_published_slot:
             raise TransitionError(
-                "A session needs a published schedule slot to go public."
+                "A session needs a confirmed schedule slot to go public."
             )
         self.status = SessionStatus.PUBLISHED
         self.is_public = True
@@ -1398,7 +1398,7 @@ class ScheduleSlot(TimestampedModel):
 class PublishedSlot(TimestampedModel):
     """The schedule as the speakers last saw it (design §10.1).
 
-    A snapshot of the working slot, written only by "Publish schedule":
+    A snapshot of the working slot, written only by "Confirm schedule":
     the working grid (``ScheduleSlot``) is the organizers' draft, and
     nothing a speaker reads — their schedule page, the checklist rules,
     the calendar feeds, later the public program — looks anywhere but

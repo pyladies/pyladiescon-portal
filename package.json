@@ -1,0 +1,11 @@
+{
+  "name": "pyladiescon-portal-frontend",
+  "private": true,
+  "description": "Build step for the public program widget only; the portal itself needs no Node.",
+  "scripts": {
+    "build:widget": "node frontend/build-widget.mjs"
+  },
+  "devDependencies": {
+    "terser": "5.51.2"
+  }
+}

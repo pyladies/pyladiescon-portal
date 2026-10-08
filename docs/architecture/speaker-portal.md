@@ -143,7 +143,8 @@ The website embeds a widget served by the portal. When the team publishes in the
 
 - The schedule shows in the visitor's timezone, with breaks as bands and sessions as cards.
 - Every session has a subscribe link — a calendar feed for that one session, so a reschedule updates the attendee's calendar automatically.
-- Visitors can star sessions and subscribe to just those, with no account.
+- A session title opens its full details in an overlay; a speaker's name or photo opens their bio, links and sessions the same way.
+- Several rooms show as columns on a time axis on wide screens, so staggered sessions line up; on phones the program is one list.
 - Unpublished sessions simply aren't there; no "TBA" rows.
 
 The website already depends on the portal for `stats.json`, so this adds no new dependency. The widget is long-cached behind the CDN and shows a link to the portal's schedule page if the API is unreachable.
@@ -627,10 +628,12 @@ A timezone switcher on the grid shows the whole schedule as a specific presenter
 | Audience | Reads | Changes when |
 |---|---|---|
 | Organizers (the editor) | `ScheduleSlot` — the working grid | every drag |
-| Speakers (their schedule page, checklists, feeds) | **`PublishedSlot`** — the snapshot | an organizer clicks **Publish schedule** |
+| Speakers (their schedule page, checklists, feeds) | **`PublishedSlot`** — the snapshot | an organizer clicks **Confirm schedule** |
 | The public (§11, later) | `PublishedSlot` of public sessions | ditto, behind `program_visibility` |
 
 `PublishedSlot` is one row per session, same shape as the working slot (`room` nullable, `start_utc`, `end_utc`) plus `published_at` and `ics_sequence` — the feeds (§11.3) serve published times, so the `SEQUENCE` counter lives here and bumps when a publish moves a session, never while organizers shuffle. One word, two scopes, said explicitly wherever it matters: the **schedule** is published to speakers; a **session** is published to the world (`PUBLISHED` status, §11). Publishing the schedule exposes nothing to the public side.
+
+> **Naming.** The button is labelled **Confirm schedule** (renamed 7 October 2026) so that "publish" only ever means public (§11.5); this section and the code keep the original publish names (`publish_schedule`, `PublishedSlot`) for the speaker-facing snapshot.
 
 **Publishing** is one action for the whole edition, never per day: a snapshot of half a schedule would show speakers a grid that contradicts itself. It diffs the working grid against the last snapshot — placed, moved, removed — then, in one transaction: upserts `PublishedSlot` rows, advances newly published `CONFIRMED` sessions to `SCHEDULED` (this is where the identity lock and the checklist effects now fire), bumps `ics_sequence` on moved ones, and for sessions taken off the grid since the last publish, deletes the snapshot row and returns the session to `CONFIRMED`, reopening its identity. A public session's slot cannot be removed by a publish (same rule as deleting its slot); a cancelled session's published row is removed on the next publish and its working row already frees the time (§8.5). The editor shows how many unpublished differences exist, marks the affected cards, and the confirm popover lists the counts before the click. `Session.schedule()` therefore comes to mean "has a published slot": the status machine, the rules registry entries `SESSION_SCHEDULED` (both kinds) and the speaker page all re-key from `ScheduleSlot` to `PublishedSlot`; the editor keeps the working grid's overlap rules exactly as they are.
 
@@ -654,7 +657,7 @@ Three view-layer changes, no model impact:
 
 ## 11. Public embeds and export
 
-> **Partly built.** §11.1 (the JSON API) and §11.5 (draft vs. published) are built (October 2026), and so are the §11.3 feeds; the widget (§11.2) and the exports (§11.4) are not.
+> **Partly built.** §11.1 (the JSON API), §11.2 (the widget script) and §11.5 (draft vs. published) are built (October 2026), and so are the §11.3 feeds; the iframe embed and the exports (§11.4) are not.
 
 The conference website is static. The portal exposes read-only data and a drop-in widget so the site never needs a rebuild when the program changes.
 
@@ -676,6 +679,8 @@ Only published sessions and public presenters (others appear by name only on the
 <script src="https://portal.pyladies.com/static/widget/v1.js" defer></script>
 ```
 
+> **Built** (7 October 2026, task 6.3): `portal/static/widget/v1.js`; the snippet for an edition is on the organizers' Publishing page. The iframe version is task 6.4.
+
 A small self-contained script (no framework) that renders `schedule`, `speakers`, or a single `session` into the host element, in the visitor's timezone, with minimal CSS the conference site can restyle through CSS variables. An iframe version exists for pages that cannot add scripts.
 
 The widget is served by the portal. The conference site already depends on the portal for `stats.json`, so this does not add a new failure mode; what it adds is mitigation: the script and other static assets are long-cached behind the CDN so a stalled application keeps serving the last good copy, the widget shows a link to the portal's own schedule page instead of a blank box if the API is unreachable, and no portal deploys happen during the conference weekend except hotfixes.
@@ -693,7 +698,7 @@ GET /api/v1/<conference>/presenters/<slug>.ics                 everything one pr
 ```
 
 - Every feed is subscribable (`webcal://`), not just downloadable. Subscribing to a session means a reschedule updates the attendee's calendar.
-- The widget lets a visitor star sessions; the stars are kept in the browser and joined into one feed URL. No account needed.
+- The widget once let a visitor star sessions and subscribe to just those; the user removed starring on 7 October 2026 (each session keeps its own subscribe link, and `?sessions=` still works for anyone building such a link).
 - Feeds use stable UIDs per session, bump the sequence on every change, and emit cancelled events rather than dropping them, so subscribed calendars stay correct.
 - Logged-in presenters get their own feed including unpublished sessions, so their calendar is right before the program is public.
 

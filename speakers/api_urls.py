@@ -26,6 +26,11 @@ urlpatterns = [
         name="presenters",
     ),
     path(
+        "<slug:conference>/presenters/<slug:slug>/",
+        api_views.PresenterApiView.as_view(),
+        name="presenter",
+    ),
+    path(
         "<slug:conference>/schedule/",
         api_views.ScheduleApiView.as_view(),
         name="schedule",
