@@ -437,8 +437,10 @@ class TestPreviewPage:
     ):
         client.force_login(organizer)
         content = client.get(PREVIEW).content.decode()
-        token = preview_token(SpeakerSettings.objects.get(pk=settings_row.pk))
-        assert f'data-preview="{token}"' in content
+        # The page signed its token a moment ago; check it validates rather
+        # than re-signing one now, which can land in the next second.
+        token = re.search(r'data-preview="([^"]+)"', content).group(1)
+        assert preview_is_valid(Conference.objects.get(pk=conference.pk), token)
         assert 'data-pyladiescon-widget="schedule"' in content
         assert 'data-conference="2025"' in content
         assert "Public now" in content
