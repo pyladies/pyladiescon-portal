@@ -1091,8 +1091,8 @@ installed; this app keeps small factory functions in `tests/speakers/factories.p
   path, and refused with a path) are read through
   `SpeakerSettings.api_origins` and echoed back to a listed `Origin`,
   with `Vary: Origin`; a preflight (`OPTIONS`) answers a listed origin
-  with GET/HEAD and whatever request headers it asked for, so the site
-  may send `If-None-Match` and the like. The list is not in the cache
+  with GET/HEAD and the conditional headers (`If-None-Match`,
+  `If-Modified-Since`), so the site may revalidate its cache. The list is not in the cache
   invalidation set: the header is computed per request. No public per-presenter `.ics` yet.
 - The calendar feeds (design §11.3) are `speakers/feeds.py` (a hand-
   rolled ICS writer, like the VTT one: escaping with every line ending

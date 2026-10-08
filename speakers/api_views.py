@@ -60,15 +60,16 @@ class ApiView(ApiConferenceMixin, View):
 
     def options(self, request, *args, **kwargs):
         """A browser's preflight, when the site sends a header that needs
-        one (If-None-Match, say): GET for a listed origin, whatever headers
-        it asked for, remembered a day."""
-        response = super().options(request, *args, **kwargs)
-        response["Access-Control-Allow-Methods"] = "GET, HEAD, OPTIONS"
-        asked = request.headers.get("Access-Control-Request-Headers")
-        if asked:
-            response["Access-Control-Allow-Headers"] = asked
-        response["Access-Control-Max-Age"] = "86400"
-        return self.with_cors(request, response)
+        one: GET for a listed origin, the conditional headers a cache
+        revalidation uses, remembered a day."""
+        response = self.with_cors(request, super().options(request, *args, **kwargs))
+        if response.has_header("Access-Control-Allow-Origin"):
+            response["Access-Control-Allow-Methods"] = "GET, HEAD, OPTIONS"
+            response["Access-Control-Allow-Headers"] = (
+                "If-None-Match, If-Modified-Since"
+            )
+            response["Access-Control-Max-Age"] = "86400"
+        return response
 
     def payload(self, request, preview, previewing):
         return {

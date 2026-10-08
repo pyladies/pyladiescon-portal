@@ -494,7 +494,10 @@ class TestCors:
             == "https://2026.conference.pyladies.com"
         )
         assert response["Access-Control-Allow-Methods"] == "GET, HEAD, OPTIONS"
-        assert response["Access-Control-Allow-Headers"] == "if-none-match"
+        assert (
+            response["Access-Control-Allow-Headers"]
+            == "If-None-Match, If-Modified-Since"
+        )
         assert response["Access-Control-Max-Age"] == "86400"
         bare = client.options(
             url("sessions"), headers={"Origin": "https://evil.example"}
