@@ -107,9 +107,13 @@ class TestPresenterList:
             "Grace",
         ]
         assert "Django 101" in content and "Presenter" in content
-        assert "Not sent" in content
-        assert "not yet" in content  # account column
         assert "Lena" in content
+        assert "Discord" in content  # the basic list reaches people
+        assert "Not sent" not in content  # invitations have their own view
+        invitations = client.get(LIST, {"view": "invitations"}).content.decode()
+        assert "Not sent" in invitations
+        assert "not yet" in invitations  # account column
+        assert "Discord" not in invitations
 
     def test_liaison_scoped(self, client, liaison, presenters):
         client.force_login(liaison)
@@ -891,7 +895,8 @@ class TestEndToEnd:
         client.force_login(organizer)
         content = client.get(presenter.get_absolute_url()).content.decode()
         assert "Accepted" in content and "linked" not in content.split("Account")[0]
-        assert "Accepted" in client.get(LIST).content.decode()
+        invitations = client.get(LIST, {"view": "invitations"}).content.decode()
+        assert "Accepted" in invitations
 
 
 @pytest.mark.django_db

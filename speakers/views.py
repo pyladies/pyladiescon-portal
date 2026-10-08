@@ -159,7 +159,12 @@ from .services import (
     submit_proposal,
     withdraw_proposal,
 )
-from .tables import PresenterDataTable, PresenterTable, SessionTable
+from .tables import (
+    PresenterDataTable,
+    PresenterInvitationTable,
+    PresenterTable,
+    SessionTable,
+)
 from .tasks import send_copresenter_suggestion_task
 from .transcription import auto_transcribe
 
@@ -563,15 +568,27 @@ class PresenterListView(
     template_name = "speakers/presenter_list.html"
     paginate_by = 50
 
+    VIEWS = {
+        # The basic list, the default: name, email, sessions, Discord, liaison.
+        "basic": PresenterTable,
+        # Expanded: everything the team looks up, full width, unpaginated,
+        # with the downloads.
+        "data": PresenterDataTable,
+        # Where invitations stand and whether accounts are linked.
+        "invitations": PresenterInvitationTable,
+    }
+
+    @property
+    def view(self):
+        wanted = self.request.GET.get("view")
+        return wanted if wanted in self.VIEWS else "basic"
+
     @property
     def data_view(self):
-        """``?view=data``: the spreadsheet-like view of everything the team
-        looks up about a speaker, full width and unpaginated, with a CSV
-        of the same rows. The default view is about invitations."""
-        return self.request.GET.get("view") == "data"
+        return self.view == "data"
 
     def get_table_class(self):
-        return PresenterDataTable if self.data_view else PresenterTable
+        return self.VIEWS[self.view]
 
     def get_table_pagination(self, table):
         if self.data_view:
@@ -595,8 +612,9 @@ class PresenterListView(
         context = super().get_context_data(**kwargs)
         context["conference"] = self.conference
         context["rail_active"] = "presenters"
+        context["view"] = self.view
         context["data_view"] = self.data_view
-        # The toggle and the download keep the current filters.
+        # The toggles and the downloads keep the current filters.
         query = self.request.GET.copy()
         query.pop("view", None)
         query.pop("page", None)

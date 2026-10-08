@@ -152,26 +152,18 @@ def invitation_badge(invitation):
 
 
 class PresenterTable(tables.Table):
-    """The presenter list: who, how to reach them, what they are on, where
-    their invitation stands, who looks after them."""
+    """The presenter list's basic view: who, how to reach them (email and
+    Discord), what they are on, who looks after them."""
 
     display_name = tables.Column(verbose_name="Name")
     email = tables.Column()
     sessions = tables.Column(empty_values=(), orderable=False)
-    invitation = tables.Column(empty_values=(), orderable=False)
-    account = tables.Column(empty_values=(), orderable=False)
+    discord_username = tables.Column(verbose_name="Discord", orderable=False)
     liaison = tables.Column(accessor="liaison", orderable=False)
 
     class Meta:
         model = Presenter
-        fields = (
-            "display_name",
-            "email",
-            "sessions",
-            "invitation",
-            "account",
-            "liaison",
-        )
+        fields = ("display_name", "email", "sessions", "discord_username", "liaison")
         attrs = {
             "class": "table table-hover table-bordered table-sm",
             "thead": {"class": "table-light"},
@@ -196,6 +188,28 @@ class PresenterTable(tables.Table):
             ),
         )
 
+    def render_liaison(self, value):
+        return value.get_full_name() or value.username
+
+
+class PresenterInvitationTable(PresenterTable):
+    """The presenter list's invitations view: where each invitation stands
+    and whether the account is linked, instead of Discord."""
+
+    invitation = tables.Column(empty_values=(), orderable=False)
+    account = tables.Column(empty_values=(), orderable=False)
+
+    class Meta(PresenterTable.Meta):
+        fields = (
+            "display_name",
+            "email",
+            "sessions",
+            "invitation",
+            "account",
+            "liaison",
+        )
+        exclude = ("discord_username",)
+
     def render_invitation(self, record):
         return invitation_badge(record.latest_invitation)
 
@@ -203,9 +217,6 @@ class PresenterTable(tables.Table):
         if record.user_id is None:
             return format_html('<span class="text-secondary">not yet</span>')
         return format_html('<i class="fa-solid fa-check text-success"></i> linked')
-
-    def render_liaison(self, value):
-        return value.get_full_name() or value.username
 
 
 class PresenterDataTable(tables.Table):

@@ -1058,8 +1058,11 @@ installed; this app keeps small factory functions in `tests/speakers/factories.p
   grid. A drag can only reach an hour past the current window; the
   window grows after each change, so stretching further takes a few
   drags, or "Show the whole day".
-- The Presenters page has two views. The default is about invitations.
-  `?view=data` is the data view: everything the team looks up about a
+- The Presenters page has three views. The default is the basic list:
+  name, email, sessions with roles, Discord username, liaison.
+  `?view=invitations` is about where each invitation stands and whether
+  the account is linked (`PresenterInvitationTable`). "Expand", or
+  `?view=data`, is the data view: everything the team looks up about a
   speaker (pronouns, email, Discord username, timezone, location, the
   links, whether there is a photo and a public profile, sessions with
   roles, liaison) as one spreadsheet-like table that takes the whole
@@ -1075,9 +1078,9 @@ installed; this app keeps small factory functions in `tests/speakers/factories.p
   response streams, so a hundred phone-sized headshots cost disk and
   seconds, not RAM. Headshots are stored as uploaded (no resize or cap),
   which is what sets the package's size. `speakers/directory.py` holds the one column
-  list the CSV uses and a test keeps the table's headers equal to it. Both
-  views are liaison-scoped like the rest of the page; nothing here is
-  public, which is why the download is not on the Publishing page.
+  list the CSV uses and a test keeps the table's headers equal to it. All
+  three views are liaison-scoped like the rest of the page; nothing here
+  is public, which is why the downloads are not on the Publishing page.
 - The presenter's schedule page (design §2.4) is `schedule.presenter_schedule`:
   public sessions plus the viewer's own in any on-schedule status, grouped
   by the presenter's LOCAL day with times pre-formatted in Python, because

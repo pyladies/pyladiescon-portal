@@ -96,19 +96,34 @@ class TestDataView:
         assert len(cells) >= 2  # photo and public profile, for Ada
         assert "Django 101" in content and "Moderator" in content
         assert "Lena" in content
-        assert "Download CSV" in content and "Invitations view" in content
+        assert "Download CSV" in content and "Collapse" in content
         assert not hasattr(response.context["table"], "page")  # unpaginated
 
-    def test_the_default_view_is_still_about_invitations(
-        self, client, organizer, people
-    ):
+    def test_the_default_is_the_basic_list(self, client, organizer, people):
+        """Name, email, sessions, Discord, liaison; no links, no invitation
+        state; Expand and Invitations offered."""
         client.force_login(organizer)
         response = client.get(LIST)
         content = response.content.decode()
-        assert response.context["data_view"] is False
+        assert response.context["view"] == "basic"
         assert "page-wide" not in content
+        assert "ada_l" in content and "Lena" in content and "Django 101" in content
+        assert "github.com/ada" not in content and "Europe/London" not in content
+        assert "Expand" in content and "?view=data" in content
+        assert "?view=invitations" in content
+        nonsense = client.get(LIST, {"view": "nonsense"})
+        assert nonsense.context["view"] == "basic"
+
+    def test_the_invitations_view(self, client, organizer, people):
+        client.force_login(organizer)
+        response = client.get(LIST, {"view": "invitations"})
+        content = response.content.decode()
+        assert response.context["view"] == "invitations"
+        assert re.search(r">\s*Invitation\s*<", content)
+        assert re.search(r">\s*Account\s*<", content)
         assert "ada_l" not in content
-        assert "?view=data" in content
+        assert "Basic list" in content and "Expand" in content
+        assert 'name="view" value="invitations"' in content
 
     def test_the_csv_matches_the_rows_and_the_filters(self, client, organizer, people):
         client.force_login(organizer)
@@ -151,6 +166,7 @@ class TestDataView:
         client.force_login(organizer)
         content = client.get(LIST, {"search": "ada", "page": "1"}).content.decode()
         assert "?view=data&search=ada" in content
+        assert "?view=invitations&search=ada" in content
         content = client.get(LIST, {"view": "data", "search": "ada"}).content.decode()
         assert f'href="{CSV}?search=ada"' in content
         assert f'href="{LIST}?search=ada"' in content
