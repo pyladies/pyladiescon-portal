@@ -58,6 +58,7 @@ from .constants import (
     ReadyOverride,
     SessionStatus,
 )
+from .directory import write_presenters_csv
 from .emails import render_invitation_preview
 from .feeds import presenter_feed_token, subscribe_links
 from .filters import PresenterFilter, SessionFilter
@@ -158,7 +159,7 @@ from .services import (
     submit_proposal,
     withdraw_proposal,
 )
-from .tables import PresenterTable, SessionTable
+from .tables import PresenterDataTable, PresenterTable, SessionTable
 from .tasks import send_copresenter_suggestion_task
 from .transcription import auto_transcribe
 
@@ -562,6 +563,21 @@ class PresenterListView(
     template_name = "speakers/presenter_list.html"
     paginate_by = 50
 
+    @property
+    def data_view(self):
+        """``?view=data``: the spreadsheet-like view of everything the team
+        looks up about a speaker, full width and unpaginated, with a CSV
+        of the same rows. The default view is about invitations."""
+        return self.request.GET.get("view") == "data"
+
+    def get_table_class(self):
+        return PresenterDataTable if self.data_view else PresenterTable
+
+    def get_table_pagination(self, table):
+        if self.data_view:
+            return False  # a spreadsheet shows every row
+        return super().get_table_pagination(table)
+
     def get_queryset(self):
         return (
             Presenter.objects.for_conference(self.conference)
@@ -579,7 +595,27 @@ class PresenterListView(
         context = super().get_context_data(**kwargs)
         context["conference"] = self.conference
         context["rail_active"] = "presenters"
+        context["data_view"] = self.data_view
+        # The toggle and the download keep the current filters.
+        query = self.request.GET.copy()
+        query.pop("view", None)
+        query.pop("page", None)
+        context["filter_query"] = query.urlencode()
         return context
+
+
+class PresenterDataExportView(PresenterListView):
+    """The data view as a CSV download, same rows, same filters."""
+
+    def get(self, request, *args, **kwargs):
+        self.object_list = self.get_queryset()
+        presenters = self.get_filterset(self.get_filterset_class()).qs
+        response = HttpResponse(content_type="text/csv")
+        response["Content-Disposition"] = (
+            f'attachment; filename="presenters-{self.conference.slug}.csv"'
+        )
+        write_presenters_csv(presenters, response)
+        return response
 
 
 class PresenterScopedMixin(LoginRequiredMixin, SpeakerStaffRequiredMixin):

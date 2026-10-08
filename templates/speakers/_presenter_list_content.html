@@ -1,0 +1,64 @@
+{% load i18n %}
+{% load django_bootstrap5 %}
+{% load render_table from django_tables2 %}
+{% comment %}
+The Presenters page in either of its two views: invitations (default)
+or data (?view=data: everything the team looks up about a speaker, full
+width, with a CSV of the same rows). Params: data_view, filter_query.
+{% endcomment %}
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+    <div>
+        <h1 class="h3 mb-0">
+            {% trans "Presenters" %}
+        </h1>
+        <p class="text-secondary mb-0">
+            {% if data_view %}
+                {% trans "Everything the team looks up about a speaker: links, Discord, timezone, photo. Email and Discord are never public." %}
+            {% else %}
+                {% trans "Speakers, panelists, moderators, hosts and performers, and where their invitations stand." %}
+            {% endif %}
+        </p>
+    </div>
+    <div class="d-flex flex-wrap gap-2">
+        {% if data_view %}
+            <a class="btn btn-outline-secondary"
+               href="{% url 'speakers:presenter_list' %}{% if filter_query %}?{{ filter_query }}{% endif %}">
+                <i class="fa-solid fa-envelope-open-text"></i> {% trans "Invitations view" %}
+            </a>
+            <a class="btn btn-outline-primary"
+               href="{% url 'speakers:presenter_data_csv' %}{% if filter_query %}?{{ filter_query }}{% endif %}">
+                <i class="fa-solid fa-download"></i> {% trans "Download CSV" %}
+            </a>
+        {% else %}
+            <a class="btn btn-outline-secondary"
+               href="{% url 'speakers:presenter_list' %}?view=data{% if filter_query %}&{{ filter_query }}{% endif %}">
+                <i class="fa-solid fa-table"></i> {% trans "Data view" %}
+            </a>
+        {% endif %}
+        {% if is_organizer %}
+            <a class="btn btn-primary" href="{% url 'speakers:presenter_create' %}">
+                <i class="fa-solid fa-plus"></i> {% trans "New presenter" %}
+            </a>
+        {% endif %}
+    </div>
+</div>
+<form method="get" class="row row-cols-lg-auto g-2 align-items-end mb-3">
+    {% if data_view %}
+        <input type="hidden" name="view" value="data">
+    {% endif %}
+    {% bootstrap_form filter.form layout="inline" %}
+    <div class="col-12">
+        {% bootstrap_button "Filter" button_type="submit" button_class="btn-secondary" %}
+        {% if filter.form.is_bound %}
+            <a href="{% url 'speakers:presenter_list' %}{% if data_view %}?view=data{% endif %}"
+               class="btn btn-link">{% trans "Reset" %}</a>
+        {% endif %}
+    </div>
+</form>
+{% if data_view %}
+    <div class="table-responsive">
+        {% render_table table %}
+    </div>
+{% else %}
+    {% render_table table %}
+{% endif %}
