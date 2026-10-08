@@ -15,24 +15,28 @@ A preview token, handed to the website build, bypasses the first two
 switches until it is regenerated or the program goes public.
 """
 
-import secrets
-
 from django.core import signing
 from django.db.models import Q
 
 from .constants import ProgramVisibility, SessionStatus
-from .models import Presenter, Session, SpeakerSettings
+from .models import Presenter, Session, SpeakerSettings, new_preview_key
 
 PREVIEW_SALT = "speakers.program-preview"
 
 
 def _settings(conference):
-    return SpeakerSettings.objects.filter(conference=conference).first()
+    """The edition's settings row, or None. Read through the conference's
+    one-to-one, which Django caches on the instance, so the callers below
+    cost one query per request however often they ask."""
+    try:
+        return conference.speaker_settings
+    except SpeakerSettings.DoesNotExist:
+        return None
 
 
-def program_is_published(conference):
+def program_is_published(conference, settings=None):
     """Whether the master switch is on for ``conference``."""
-    settings = _settings(conference)
+    settings = settings or _settings(conference)
     return (
         settings is not None
         and settings.program_visibility == ProgramVisibility.PUBLISHED
@@ -40,25 +44,24 @@ def program_is_published(conference):
 
 
 def preview_token(settings):
-    """The current preview link token, minting the key on first use."""
-    if not settings.preview_key:
-        settings.preview_key = secrets.token_urlsafe(16)
-        settings.save(update_fields=["preview_key"])
+    """The current preview token: signs the edition's key, which is minted
+    when the settings row is created and replaced by ``regenerate_preview``.
+    Reads nothing and writes nothing."""
     return signing.dumps(
         {"c": settings.conference_id, "k": settings.preview_key}, salt=PREVIEW_SALT
     )
 
 
 def regenerate_preview(settings):
-    """Revoke every preview link handed out so far; returns the new token."""
-    settings.preview_key = secrets.token_urlsafe(16)
+    """Revoke every preview token handed out so far; returns the new one."""
+    settings.preview_key = new_preview_key()
     settings.save(update_fields=["preview_key"])
     return preview_token(settings)
 
 
-def preview_is_valid(conference, token):
+def preview_is_valid(conference, token, settings=None):
     """A token for this edition, of the current generation, while the
-    program is still internal. No time limit: the link works until it is
+    program is still internal. No time limit: the token works until it is
     regenerated or the program goes public."""
     if not token:
         return False
@@ -66,7 +69,7 @@ def preview_is_valid(conference, token):
         data = signing.loads(token, salt=PREVIEW_SALT)
     except signing.BadSignature:
         return False
-    settings = _settings(conference)
+    settings = settings or _settings(conference)
     return bool(
         settings is not None
         and settings.preview_key
@@ -82,8 +85,9 @@ def public_program(conference, preview=None):
     token, which shows every session on the published schedule whether or
     not an organizer has published it yet.
     """
-    previewing = preview_is_valid(conference, preview)
-    if not previewing and not program_is_published(conference):
+    settings = _settings(conference)
+    previewing = preview_is_valid(conference, preview, settings)
+    if not previewing and not program_is_published(conference, settings):
         return Session.objects.none()
     sessions = (
         Session.objects.for_conference(conference)

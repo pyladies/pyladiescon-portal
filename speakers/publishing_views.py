@@ -18,7 +18,9 @@ from .mixins import SpeakerOrganizerRequiredMixin
 from .models import ActivityLog, Session, SpeakerSettings
 from .public import preview_token, regenerate_preview
 
-PUBLISHABLE = (SessionStatus.SCHEDULED, SessionStatus.PUBLISHED)
+# Sessions in these statuses can be ticked: they are on the confirmed
+# schedule. Not schedule.PUBLISHABLE_STATUSES, which is about the schedule.
+TICKABLE = (SessionStatus.SCHEDULED, SessionStatus.PUBLISHED)
 
 
 class ProgramPublishingView(
@@ -38,7 +40,7 @@ class ProgramPublishingView(
             Session.objects.for_conference(self.conference)
             .filter(
                 kind__is_content=True,
-                status__in=(SessionStatus.CONFIRMED, *PUBLISHABLE),
+                status__in=(SessionStatus.CONFIRMED, *TICKABLE),
             )
             .select_related("kind", "published_slot", "published_slot__room")
             .order_by("published_slot__start_utc", "title")
@@ -53,7 +55,7 @@ class ProgramPublishingView(
             settings=settings,
             program_published=published,
             sessions=[
-                {"session": session, "can_publish": session.status in PUBLISHABLE}
+                {"session": session, "can_publish": session.status in TICKABLE}
                 for session in self.content_sessions()
             ],
             program_item_count=Session.objects.for_conference(self.conference)
@@ -113,7 +115,7 @@ class ProgramPublishingView(
         the published schedule; anything else on the form is ignored."""
         published = unpublished = 0
         with transaction.atomic():
-            for session in self.content_sessions().filter(status__in=PUBLISHABLE):
+            for session in self.content_sessions().filter(status__in=TICKABLE):
                 wanted = session.slug in ticked
                 if wanted and session.status == SessionStatus.SCHEDULED:
                     session.publish()

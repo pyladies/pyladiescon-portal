@@ -16,6 +16,11 @@
         };
         if (navigator.clipboard && window.isSecureContext) {
             navigator.clipboard.writeText(field.value).then(done, function () {});
+        } else {
+            /* Plain http or an old browser: the text is selected, so say so. */
+            var label = button.textContent;
+            button.textContent = "Selected, press Ctrl+C";
+            window.setTimeout(function () { button.textContent = label; }, 2500);
         }
     });
 })();

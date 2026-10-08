@@ -1056,7 +1056,8 @@ installed; this app keeps small factory functions in `tests/speakers/factories.p
   (`schedule/publishing/`, `publishing_views.py`) holds the switch, the
   ticks (disabled until a session is on the published schedule) and the
   website's preview link: a token signed with SECRET_KEY naming
-  `SpeakerSettings.preview_key`, with NO expiry by the user's decision;
+  `SpeakerSettings.preview_key` (minted when the settings row is created,
+  so showing the token never writes), with NO expiry by the user's decision;
   "make a new link" changes the key and revokes every older one, and
   every link stops working once the program goes public. The preview
   shows every session on the published schedule, published or not, but

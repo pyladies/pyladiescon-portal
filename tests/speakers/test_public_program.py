@@ -1,10 +1,14 @@
 """The public program (task 6.1, design §11.5): three switches, one helper,
 and a preview link for the website build."""
 
+import importlib
 from datetime import datetime, timedelta, timezone
 
 import pytest
+from django.apps import apps
 from django.contrib.auth.models import User
+from django.db import connection
+from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 
 from portal.models import Conference
@@ -190,7 +194,8 @@ class TestPreview:
     def test_a_cleared_key_rejects(self, conference, settings_row):
         token = preview_token(settings_row)
         SpeakerSettings.objects.filter(pk=settings_row.pk).update(preview_key="")
-        assert not preview_is_valid(conference, token)
+        # A fresh edition object: the settings row is cached on the instance.
+        assert not preview_is_valid(Conference.objects.get(pk=conference.pk), token)
 
 
 @pytest.mark.django_db
@@ -303,7 +308,7 @@ class TestPublishingPage:
         client.force_login(organizer)
         response = client.post(PUBLISHING, {"action": "regenerate"}, follow=True)
         assert "Every earlier link has stopped working." in response.content.decode()
-        assert not preview_is_valid(conference, old)
+        assert not preview_is_valid(Conference.objects.get(pk=conference.pk), old)
         assert ActivityLog.objects.filter(action="program.preview_regenerated").exists()
 
     @pytest.mark.parametrize(
@@ -320,3 +325,59 @@ class TestPublishingPage:
         client.force_login(organizer)
         content = client.get(reverse("speakers:schedule_editor")).content.decode()
         assert PUBLISHING in content
+
+
+@pytest.mark.django_db
+class TestReview466:
+    def test_a_get_of_the_page_writes_nothing(
+        self, client, organizer, conference, settings_row
+    ):
+        """The key is minted when the settings row is created, so showing
+        the token is a pure read."""
+        key = settings_row.preview_key
+        assert key
+        client.force_login(organizer)
+        assert client.get(PUBLISHING).status_code == 200
+        settings_row.refresh_from_db()
+        assert settings_row.preview_key == key
+
+    def test_one_settings_read_per_program_call(self, conference, settings_row):
+        token = preview_token(settings_row)
+        edition = Conference.objects.get(pk=conference.pk)
+        with CaptureQueriesContext(connection) as context:
+            list(public_program(edition, preview=token))
+            list(public_program(edition))
+        settings_reads = [
+            q for q in context.captured_queries if "speakersettings" in q["sql"]
+        ]
+        assert len(settings_reads) == 1
+
+    def test_no_settings_row_is_read_once_too(self, conference):
+        edition = Conference.objects.get(pk=conference.pk)
+        with CaptureQueriesContext(connection) as context:
+            assert not public_program(edition).exists()
+            assert not preview_is_valid(edition, "x")
+        assert sum("speakersettings" in q["sql"] for q in context.captured_queries) == 1
+
+    def test_the_migration_keeps_todays_public_sessions_public(
+        self, conference, settings_row
+    ):
+        """0019: an edition with a public session on the confirmed schedule
+        starts PUBLISHED; one without starts INTERNAL; each gets its own
+        key."""
+        on_schedule(conference, publish=True)
+        other = Conference.objects.create(
+            year=2024, name="PyLadiesCon 2024", slug="2024"
+        )
+        quiet = make_settings(other)
+        SpeakerSettings.objects.update(preview_key="same-for-all")
+        migration = importlib.import_module(
+            "speakers.migrations.0019_program_visibility"
+        )
+        migration.settle_each_edition(apps, None)
+        settings_row.refresh_from_db()
+        quiet.refresh_from_db()
+        assert settings_row.program_visibility == PUBLISHED
+        assert quiet.program_visibility == INTERNAL
+        assert settings_row.preview_key != quiet.preview_key
+        assert "same-for-all" not in (settings_row.preview_key, quiet.preview_key)

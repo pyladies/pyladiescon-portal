@@ -144,6 +144,11 @@ def _validate_slug(instance, model, noun):
         raise ValidationError({"slug": f"Another {noun} already uses this address."})
 
 
+def new_preview_key():
+    """A fresh generation for an edition's preview tokens."""
+    return secrets.token_urlsafe(16)
+
+
 class SpeakerSettings(TimestampedModel):
     """Per-edition configuration for the speaker module.
 
@@ -273,7 +278,11 @@ class SpeakerSettings(TimestampedModel):
     # names the current generation of them, so changing it revokes every
     # link handed out before.
     preview_key = models.CharField(
-        max_length=32, blank=True, default="", db_default="", editable=False
+        max_length=32,
+        blank=True,
+        default=new_preview_key,
+        db_default="",
+        editable=False,
     )
 
     @property
