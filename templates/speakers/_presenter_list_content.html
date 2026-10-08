@@ -26,20 +26,20 @@ downloads). Params: view, data_view, filter_query.
                href="{% url 'speakers:presenter_list' %}{% if filter_query %}?{{ filter_query }}{% endif %}">
                 <i class="fa-solid fa-compress"></i> {% trans "Collapse" %}
             </a>
-            <a class="btn btn-outline-primary"
-               href="{% url 'speakers:presenter_data_csv' %}{% if filter_query %}?{{ filter_query }}{% endif %}">
-                <i class="fa-solid fa-download"></i> {% trans "Download CSV" %}
-            </a>
-            <a class="btn btn-outline-primary"
-               href="{% url 'speakers:presenter_data_zip' %}{% if filter_query %}?{{ filter_query }}{% endif %}">
-                <i class="fa-solid fa-file-zipper"></i> {% trans "Download package (CSV and photos)" %}
-            </a>
         {% else %}
             <a class="btn btn-outline-secondary"
                href="{% url 'speakers:presenter_list' %}?view=data{% if filter_query %}&{{ filter_query }}{% endif %}">
                 <i class="fa-solid fa-expand"></i> {% trans "Expand" %}
             </a>
         {% endif %}
+        <a class="btn btn-outline-primary"
+           href="{% url 'speakers:presenter_data_csv' %}{% if filter_query %}?{{ filter_query }}{% endif %}">
+            <i class="fa-solid fa-download"></i> {% trans "Download CSV" %}
+        </a>
+        <a class="btn btn-outline-primary"
+           href="{% url 'speakers:presenter_data_zip' %}{% if filter_query %}?{{ filter_query }}{% endif %}">
+            <i class="fa-solid fa-file-zipper"></i> {% trans "Download package (CSV and photos)" %}
+        </a>
         {% if is_organizer %}
             <a class="btn btn-primary" href="{% url 'speakers:presenter_create' %}">
                 <i class="fa-solid fa-plus"></i> {% trans "New presenter" %}

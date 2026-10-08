@@ -113,6 +113,7 @@ class TestDataView:
         assert "github.com/ada" not in content and "Europe/London" not in content
         assert "Expand" in content and "?view=data" in content
         assert "?view=invitations" not in content and "Account" not in content
+        assert f'href="{CSV}"' in content and f'href="{ZIP}"' in content
         nonsense = client.get(LIST, {"view": "nonsense"})
         assert nonsense.context["view"] == "basic"
 

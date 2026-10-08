@@ -1066,8 +1066,8 @@ installed; this app keeps small factory functions in `tests/speakers/factories.p
   links, whether there is a photo and a public profile, sessions with
   roles, invitation state, liaison) as one spreadsheet-like table that takes the whole
   screen like the schedule's wide mode, unpaginated, with the same search
-  and liaison filters; "Download CSV" (`presenters.csv`) gives the
-  same rows and columns, filters applied, every cell through
+  and liaison filters; "Download CSV" (`presenters.csv`), offered in both
+  views, gives the data view's rows and columns, filters applied, every cell through
   `spreadsheet.safe_cell`; "Download package" (`presenters.zip`) is the
   same CSV plus a "Photo file" column, every headshot under `photos/`
   named by the presenter's address, and a README, for designers who need
