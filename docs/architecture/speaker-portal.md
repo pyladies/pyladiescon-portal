@@ -299,6 +299,7 @@ The person, independent of any session. One presenter can run a workshop and sit
 | `display_name`, `pronouns`, `bio_md`, `headshot`, `location`, `timezone` | `timezone` drives reminder timing and the speaker's own schedule view |
 | `email` | invitation and reminder target; unique per conference |
 | `website_url`, `github_username`, `mastodon_url`, `linkedin_url`, `bluesky_username` | the links shown on a public presenter card |
+| `discord_username` | for the speaker role and channel on the conference Discord; organizer-facing, never public. Asked once per person: when the account has a volunteer profile (where it is required) the speaker forms drop the field and the row follows the volunteer profile; a volunteer form prefills from the presenter row |
 | `is_public` | presenter-controlled: opt out of a public bio page while still being named on the schedule |
 
 ### 8.3 SessionPresenter

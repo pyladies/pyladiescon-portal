@@ -53,6 +53,7 @@ from speakers.models import (
     SessionPresenter,
     SessionType,
     SpeakerSettings,
+    volunteer_discord_username,
 )
 from speakers.program_types import PROPOSABLE_CODES, presenter_role, session_type
 from speakers.readiness import refresh_for_conference
@@ -512,7 +513,12 @@ class Command(BaseCommand):
             presenter, _ = Presenter.objects.get_or_create(
                 conference=self.conference,
                 email=user.email,
-                defaults={"display_name": name, "timezone": "UTC", "user": user},
+                defaults={
+                    "display_name": name,
+                    "timezone": "UTC",
+                    "user": user,
+                    "discord_username": volunteer_discord_username(user.pk),
+                },
             )
             if Proposal.objects.filter(
                 conference=self.conference, presenter=presenter, session__title=title

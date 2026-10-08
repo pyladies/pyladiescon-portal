@@ -683,9 +683,29 @@ exception: the conference edit form carries the speaker-portal switch,
 which lives on `SpeakerSettings`. `portal/forms.py` reaches it through
 `apps.get_model` behind an `apps.is_installed("speakers")` guard rather
 than importing this app, so the core form still loads without the feature
-module and there is no import cycle waiting to happen. If a second such
-edge ever appears, give it a thin accessor module here rather than
-repeating the registry lookup.
+module and there is no import cycle waiting to happen. The second edge is
+`speakers/shared.py`: the volunteer form asks it for the Discord username
+a presenter row already holds, through the same registry lookup and guard.
+Any further one goes in that module too.
+
+### Discord username, asked once
+
+`Presenter.discord_username` is organizer-facing (the speaker role and
+channel on the conference Discord) and never public. The volunteer profile
+has the same field, required there, and a volunteer who also speaks is
+asked once:
+
+- The speaker profile and proposal forms drop the field when the account
+  has a volunteer profile with a username, show that value read-only, and
+  write it to the presenter row on save (`_adopt_volunteer_discord`).
+- Accepting an invitation copies it in (`link_presenter_user`), and saving
+  a volunteer profile pushes it to the person's presenter rows
+  (`receivers.follow_volunteer_discord`), so the organizer side never shows
+  a stale one.
+- The volunteer form prefills from the presenter row when there is no prior
+  volunteer profile (`speakers/shared.py`).
+
+Both fields validate with `portal.validators.validate_discord_username`.
 
 ### Background jobs
 

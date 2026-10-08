@@ -9,6 +9,7 @@ from django.utils.safestring import mark_safe
 from common.tasks import enqueue
 from portal.models import Conference
 from portal.validators import validate_linked_in_pattern
+from speakers.shared import presenter_discord_username
 
 from .constants import ApplicationStatus
 from .models import Language, Role, Team, VolunteerProfile
@@ -254,11 +255,15 @@ class VolunteerProfileForm(ModelForm):
             .order_by("-conference__year")
             .first()
         )
-        if prior is None:
-            return
-        for field in self.PREFILL_FIELDS:
-            self.initial.setdefault(field, getattr(prior, field))
-        self.initial.setdefault("language", list(prior.language.all()))
+        if prior is not None:
+            for field in self.PREFILL_FIELDS:
+                self.initial.setdefault(field, getattr(prior, field))
+            self.initial.setdefault("language", list(prior.language.all()))
+        # Someone who spoke before volunteering gave their Discord username
+        # on the speaker side; a prior volunteer profile still wins.
+        from_speaking = presenter_discord_username(self.user)
+        if from_speaking:
+            self.initial.setdefault("discord_username", from_speaking)
 
     def save(self, commit=True):
         if self.user:
