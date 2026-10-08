@@ -78,6 +78,7 @@ urlpatterns = [
     path("webhooks/", include("webhooks.urls", namespace="webhooks")),
     path("speakers/", include("speakers.urls", namespace="speakers")),
     path("api/v1/", include("speakers.api_urls", namespace="speakers_api")),
+    path("embed/", include("speakers.embed_urls", namespace="speakers_embed")),
     path(
         "portal_account/",
         include("portal_account.urls", namespace="portal_account"),

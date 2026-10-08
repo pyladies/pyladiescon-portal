@@ -679,7 +679,7 @@ Only published sessions and public presenters (others appear by name only on the
 <script src="https://portal.pyladies.com/static/widget/v1.js" defer></script>
 ```
 
-> **Built** (7 October 2026, task 6.3): `portal/static/widget/v1.js`; the snippet for an edition is on the organizers' Publishing page. The iframe version is task 6.4.
+> **Built** (7 October 2026, tasks 6.3 and 6.4): the widget (`portal/static/widget/v1.js`, built from `frontend/widget/v1.js`) and the iframe version at `/embed/<edition>/<view>/`, which reports its height to the host page so its frame can fit; both snippets are on the Publishing page's Share tab.
 
 A small self-contained script (no framework) that renders `schedule`, `speakers`, or a single `session` into the host element, in the visitor's timezone, with minimal CSS the conference site can restyle through CSS variables. An iframe version exists for pages that cannot add scripts.
 

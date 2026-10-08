@@ -1156,6 +1156,22 @@ installed; this app keeps small factory functions in `tests/speakers/factories.p
   demos), and by the user in Firefox and Safari on 8 October 2026 (grid,
   overlays, timezone switch, narrow layout). It relies on `<dialog>`, CSS
   container queries and localStorage.
+- The iframe embed (design §11.2, task 6.4) is `embed_views.py`, mounted
+  at `/embed/` by `portal/urls.py`: `/embed/<edition>/<view>/` with view
+  `schedule`, `sessions` or `speakers` is a bare page (no portal chrome,
+  transparent background, `static/css/embed.css`) holding the widget,
+  for websites that can't add a script tag. It is exempt from
+  X-Frame-Options on purpose: public data, nothing to click that changes
+  anything. Inside a frame, `static/js/embed-frame.js` posts
+  `{type: "pyladiescon-embed", height}` to the host whenever the page
+  height changes, so a host running the listener from the Share tab
+  sizes its iframe to fit (without it, the iframe's own height applies
+  and it scrolls); it also opens an overlay near the click instead of
+  the middle of a tall frame. `?accent=` takes a hex colour only (a host
+  page's CSS can't reach inside an iframe); `?preview=` passes through
+  to the widget and makes the page `no-store`. The page needs no
+  allowed website: the widget inside it calls its own origin. It is
+  also the widget's default fallback link.
 - The calendar feeds (design §11.3) are `speakers/feeds.py` (a hand-
   rolled ICS writer, like the VTT one: escaping with every line ending
   normalised to one escaped newline, 75-octet folding counting the

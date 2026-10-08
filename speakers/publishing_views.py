@@ -205,6 +205,8 @@ class ProgramShareView(PublishingTabView):
         settings = self.settings_row
         context.update(
             widget_snippets=self.widget_snippets(),
+            iframe_snippet=self.iframe_snippet(),
+            iframe_listener=self.iframe_listener(),
             data_links=self.data_links(),
             allowed_origins=settings.api_origins,
         )
@@ -240,6 +242,33 @@ class ProgramShareView(PublishingTabView):
                 ("sessions", "Sessions"),
             )
         ]
+
+    def iframe_snippet(self):
+        """The schedule in an iframe, for a site that can't add scripts.
+        A fixed height works alone; the listener lets it fit."""
+        url = self.request.build_absolute_uri(
+            reverse("speakers_embed:embed", args=[self.conference.slug, "schedule"])
+        )
+        return (
+            f'<iframe src="{url}" title="{self.conference.name} schedule" '
+            f'style="width:100%;height:900px;border:0" loading="lazy"></iframe>'
+        )
+
+    def iframe_listener(self):
+        """Optional, next to the iframe: grows it to the program's height."""
+        origin = self.request.build_absolute_uri("/").rstrip("/")
+        return (
+            "<script>\n"
+            'addEventListener("message", function (event) {\n'
+            f'  if (event.origin !== "{origin}" || !event.data '
+            '|| event.data.type !== "pyladiescon-embed") return;\n'
+            '  document.querySelectorAll("iframe").forEach(function (frame) {\n'
+            "    if (frame.contentWindow === event.source) "
+            'frame.style.height = event.data.height + "px";\n'
+            "  });\n"
+            "});\n"
+            "</script>"
+        )
 
     def data_links(self):
         """The public endpoints, for anyone building their own page."""
