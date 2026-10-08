@@ -173,7 +173,9 @@ class TestPreview:
 
     def test_regenerating_revokes_older_links(self, conference, settings_row):
         old = preview_token(settings_row)
-        assert preview_token(settings_row) == old
+        # Tokens carry a signing timestamp, so two are compared by validity,
+        # never by equality: a second may tick between them.
+        assert preview_is_valid(conference, old)
         new = regenerate_preview(settings_row)
         assert new != old
         assert not preview_is_valid(conference, old)
