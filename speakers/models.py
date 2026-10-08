@@ -10,6 +10,7 @@ import secrets
 import zoneinfo
 from datetime import timedelta
 from functools import lru_cache
+from urllib.parse import urlsplit
 
 from django.conf import settings
 from django.contrib.contenttypes.fields import GenericForeignKey
@@ -274,14 +275,6 @@ class SpeakerSettings(TimestampedModel):
         help_text="The master switch (design §11.5): while internal, the "
         "public program is empty and the website shows it as coming soon.",
     )
-    api_allowed_origins = models.TextField(
-        blank=True,
-        default="",
-        db_default="",
-        help_text="Websites whose pages may read the public API from the "
-        "browser, one origin per line, for example "
-        "https://2026.conference.pyladies.com.",
-    )
     # Not a secret: preview links are signed with SECRET_KEY, and this only
     # names the current generation of them, so changing it revokes every
     # link handed out before.
@@ -296,6 +289,11 @@ class SpeakerSettings(TimestampedModel):
     @property
     def tzinfo(self):
         return zoneinfo.ZoneInfo(self.conference_timezone)
+
+    @property
+    def api_origins(self):
+        """The websites that may read the public API from the browser."""
+        return [origin.url for origin in self.allowed_origins.all()]
 
     @property
     def pretix_event_slug(self):
@@ -329,6 +327,49 @@ class SpeakerSettings(TimestampedModel):
             from .program_types import seed_program_types
 
             seed_program_types(self.conference)
+
+
+def normalize_origin(url):
+    """A website's origin as browsers send it: lower-case scheme and host,
+    no trailing slash."""
+    parts = urlsplit(url.strip())
+    return f"{parts.scheme.lower()}://{parts.netloc.lower()}"
+
+
+class AllowedOrigin(TimestampedModel):
+    """A website whose pages may read an edition's public API from the
+    browser (design §11.1): the conference site, its preview builds."""
+
+    settings = models.ForeignKey(
+        SpeakerSettings, on_delete=models.CASCADE, related_name="allowed_origins"
+    )
+    url = models.URLField(
+        "website",
+        help_text="The site's address only, for example "
+        "https://2026.conference.pyladies.com.",
+    )
+
+    class Meta:
+        ordering = ["url"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["settings", "url"], name="speakers_allowed_origin_once"
+            )
+        ]
+
+    def __str__(self):
+        return self.url
+
+    def clean(self):
+        parts = urlsplit(self.url or "")
+        if parts.path not in ("", "/") or parts.query or parts.fragment:
+            raise ValidationError(
+                {"url": "Just the website's address, without a page path."}
+            )
+
+    def save(self, *args, **kwargs):
+        self.url = normalize_origin(self.url)
+        super().save(*args, **kwargs)
 
 
 def media_for_speakers(conference):

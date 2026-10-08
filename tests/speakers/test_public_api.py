@@ -4,13 +4,15 @@ import json
 from datetime import datetime, timedelta, timezone
 
 import pytest
+from django.contrib.auth.models import User
 from django.core.cache import cache
+from django.core.exceptions import ValidationError
 from django.db import connection
 from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 
 from speakers.constants import ProgramVisibility
-from speakers.models import Presenter, Session, SpeakerSettings
+from speakers.models import AllowedOrigin, Presenter, Session, SpeakerSettings
 from speakers.public import preview_token
 
 from .factories import (
@@ -38,11 +40,11 @@ def fresh_cache():
 
 @pytest.fixture
 def settings_row(conference):
-    return make_settings(
-        conference,
-        program_visibility=ProgramVisibility.PUBLISHED,
-        api_allowed_origins="https://2026.conference.pyladies.com/\n\n",
+    row = make_settings(conference, program_visibility=ProgramVisibility.PUBLISHED)
+    AllowedOrigin.objects.create(
+        settings=row, url="https://2026.conference.pyladies.com/"
     )
+    return row
 
 
 def scheduled_break(conference, start, title):
@@ -468,3 +470,41 @@ class TestCalendarAliases:
         assert one.status_code == 200
         assert "Python\\, kindly" in one.content.decode()
         assert client.get(url("schedule_ics", conference="1999")).status_code == 404
+
+
+@pytest.mark.django_db
+class TestAllowedOrigin:
+    def test_stored_as_browsers_send_it(self, settings_row):
+        origin = AllowedOrigin.objects.create(
+            settings=settings_row, url=" HTTPS://Site.Example:8443/ "
+        )
+        assert origin.url == "https://site.example:8443"
+        assert str(origin) == "https://site.example:8443"
+        assert "https://site.example:8443" in settings_row.api_origins
+
+    @pytest.mark.parametrize(
+        "url",
+        [
+            "https://site.example/schedule/",
+            "https://site.example/?x=1",
+            "https://site.example/#top",
+        ],
+    )
+    def test_only_the_site_address(self, settings_row, url):
+        origin = AllowedOrigin(settings=settings_row, url=url)
+        with pytest.raises(ValidationError, match="without a page path"):
+            origin.full_clean()
+
+    def test_a_bare_address_is_valid(self, settings_row):
+        AllowedOrigin(settings=settings_row, url="https://site.example/").full_clean()
+
+    def test_the_admin_edits_the_websites_as_rows(self, client, settings_row):
+        admin = User.objects.create_superuser(
+            username="admin", email="admin@example.com", password=None
+        )
+        client.force_login(admin)
+        content = client.get(
+            reverse("admin:speakers_speakersettings_change", args=[settings_row.pk])
+        ).content.decode()
+        assert "Websites allowed to show the program" in content
+        assert 'value="https://2026.conference.pyladies.com"' in content

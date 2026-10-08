@@ -30,14 +30,6 @@ class ApiConferenceMixin:
         return View.dispatch(self, request, *args, **kwargs)
 
 
-def allowed_origins(conference):
-    return {
-        line.strip().rstrip("/")
-        for line in conference.speaker_settings.api_allowed_origins.splitlines()
-        if line.strip()
-    }
-
-
 class ApiView(ApiConferenceMixin, View):
     """GET only; subclasses build the payload."""
 
@@ -73,7 +65,7 @@ class ApiView(ApiConferenceMixin, View):
     def with_cors(self, request, response):
         patch_vary_headers(response, ["Origin"])
         origin = request.headers.get("Origin", "").rstrip("/")
-        if origin and origin in allowed_origins(self.conference):
+        if origin and origin in self.conference.speaker_settings.api_origins:
             response["Access-Control-Allow-Origin"] = origin
         return response
 

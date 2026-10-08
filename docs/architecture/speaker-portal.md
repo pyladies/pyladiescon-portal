@@ -667,7 +667,7 @@ GET /api/v1/<conference>/schedule/            slots by day, plus rooms
 GET /api/v1/<conference>/sessions/<slug>/     one session
 ```
 
-Only published sessions and public presenters (others appear by name only on their sessions), never emails or internal notes. Responses are cached for five minutes per conference and invalidated on save; a preview response is never cached. The conference site's origins are listed per edition (`SpeakerSettings.api_allowed_origins`) so its pages may call the API from the browser. Built 7 October 2026 (task 6.2) as plain Django views. Program-kind sessions carry `is_content: false` so the widget can draw breaks as bands rather than cards.
+Only published sessions and public presenters (others appear by name only on their sessions), never emails or internal notes. Responses are cached for five minutes per conference and invalidated on save; a preview response is never cached. The conference site's origins are listed per edition (`AllowedOrigin`, one website per row in the admin) so its pages may call the API from the browser. Built 7 October 2026 (task 6.2) as plain Django views. Program-kind sessions carry `is_content: false` so the widget can draw breaks as bands rather than cards.
 
 ### 11.2 Embeddable widget
 

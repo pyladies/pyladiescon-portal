@@ -1079,9 +1079,12 @@ installed; this app keeps small factory functions in `tests/speakers/factories.p
   `receivers.public_api_changed` bumps after commit on any save or delete
   of a session, presenter, link, published slot, room, session type,
   role or the settings; `?preview=` responses are built fresh with
-  `Cache-Control: no-store`. CORS: `SpeakerSettings.api_allowed_origins`
-  (one origin per line) is echoed back to a listed `Origin`, with
-  `Vary: Origin`. No public per-presenter `.ics` yet.
+  `Cache-Control: no-store`. CORS: each edition's `AllowedOrigin` rows
+  (one website per row, edited as a list in the speaker-settings admin;
+  stored as browsers send an origin, lower-case scheme and host with no
+  path, and refused with a path) are read through
+  `SpeakerSettings.api_origins` and echoed back to a listed `Origin`,
+  with `Vary: Origin`. No public per-presenter `.ics` yet.
 - The calendar feeds (design §11.3) are `speakers/feeds.py` (a hand-
   rolled ICS writer, like the VTT one: escaping with every line ending
   normalised to one escaped newline, 75-octet folding counting the
