@@ -102,6 +102,12 @@ portal already knows.
                                             {% trans "This is what we would put on the schedule if your session is accepted." %}
                                         </p>
                                         {% bootstrap_form profile_form %}
+                                        {% if profile_form.shared_discord_username %}
+                                            <p class="text-secondary small mb-0">
+                                                <i class="fa-brands fa-discord"></i>
+                                                {% blocktranslate with username=profile_form.shared_discord_username %}Discord username: <strong>{{ username }}</strong>, from your volunteer profile.{% endblocktranslate %}
+                                            </p>
+                                        {% endif %}
                                     </div>
                                 </div>
                             </div>

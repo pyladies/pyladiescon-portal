@@ -12,6 +12,7 @@ from django.db.models.signals import post_delete, post_save
 from django.dispatch import receiver
 
 from attendee.models import PretixOrder
+from volunteer.models import VolunteerProfile
 
 from .api import invalidate as invalidate_public_api
 from .checklists import (
@@ -90,6 +91,20 @@ def create_session_checklist(sender, session, **kwargs):
 def _touches(kwargs, *fields):
     update_fields = kwargs.get("update_fields")
     return update_fields is None or not set(fields).isdisjoint(update_fields)
+
+
+@receiver(post_save, sender=VolunteerProfile, dispatch_uid="speakers.discord.follow")
+def follow_volunteer_discord(sender, instance, **kwargs):
+    """The volunteer profile is where a volunteer who also speaks keeps
+    their Discord username (it is required there); their presenter rows
+    follow it, so the organizer side never shows a stale one."""
+    if not instance.discord_username:
+        return
+    for presenter in Presenter.objects.filter(user=instance.user_id).exclude(
+        discord_username=instance.discord_username
+    ):
+        presenter.discord_username = instance.discord_username
+        presenter.save(update_fields=["discord_username", "modified_date"])
 
 
 @receiver(post_save, sender=Presenter, dispatch_uid="speakers.rules.presenter")

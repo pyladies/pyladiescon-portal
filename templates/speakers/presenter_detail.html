@@ -360,16 +360,56 @@
                     <div>
                         <strong>{% trans "Public bio" %}:</strong> {{ presenter.is_public|yesno }}
                     </div>
-                    {% if presenter.website_url %}
-                        <div>
+                    <div>
+                        <strong>{% trans "Website" %}:</strong>
+                        {% if presenter.website_url %}
                             <a href="{{ presenter.website_url }}" rel="noopener">{{ presenter.website_url }}</a>
-                        </div>
-                    {% endif %}
-                    {% if presenter.github_username %}
-                        <div>
-                            GitHub: {{ presenter.github_username }}
-                        </div>
-                    {% endif %}
+                        {% else %}
+                            —
+                        {% endif %}
+                    </div>
+                    <div>
+                        <strong>GitHub:</strong>
+                        {% if presenter.github_username %}
+                            <a href="https://github.com/{{ presenter.github_username }}"
+                               rel="noopener">{{ presenter.github_username }}</a>
+                        {% else %}
+                            —
+                        {% endif %}
+                    </div>
+                    <div>
+                        <strong>Mastodon:</strong>
+                        {% if presenter.mastodon_url %}
+                            <a href="{{ presenter.mastodon_url }}" rel="noopener">{{ presenter.mastodon_url }}</a>
+                        {% else %}
+                            —
+                        {% endif %}
+                    </div>
+                    <div>
+                        <strong>LinkedIn:</strong>
+                        {% if presenter.linkedin_url %}
+                            <a href="{{ presenter.linkedin_url }}" rel="noopener">{{ presenter.linkedin_url }}</a>
+                        {% else %}
+                            —
+                        {% endif %}
+                    </div>
+                    <div>
+                        <strong>Bluesky:</strong>
+                        {% if presenter.bluesky_username %}
+                            <a href="https://bsky.app/profile/{{ presenter.bluesky_username }}"
+                               rel="noopener">{{ presenter.bluesky_username }}</a>
+                        {% else %}
+                            —
+                        {% endif %}
+                    </div>
+                    <div>
+                        <strong>Discord:</strong>
+                        {% if presenter.discord_username %}
+                            {{ presenter.discord_username }}
+                        {% else %}
+                            —
+                        {% endif %}
+                    </div>
                 </div>
             </div>
             <div class="card">

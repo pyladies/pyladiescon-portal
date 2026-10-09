@@ -2784,10 +2784,16 @@ class ProposeSessionView(ProposalsOpenMixin, TemplateView):
 
     def forms(self, data=None, files=None):
         presenter = self.get_presenter()
+        user = self.request.user
         profile = (
             None
             if presenter is not None
-            else ProposalProfileForm(data, files, prefix="you")
+            else ProposalProfileForm(
+                data,
+                files,
+                prefix="you",
+                user=user if user.is_authenticated else None,
+            )
         )
         return profile, ProposalSessionForm(
             data, files, prefix="session", conference=self.conference

@@ -45,6 +45,13 @@
                 </dl>
             </div>
         {% endif %}
+        {% if form.shared_discord_username %}
+            <div class="alert alert-secondary small" role="note">
+                <i class="fa-brands fa-discord"></i>
+                {% url 'volunteer:index' as volunteer_url %}
+                {% blocktranslate with username=form.shared_discord_username %}Discord username: <strong>{{ username }}</strong>, from your <a href="{{ volunteer_url }}" class="alert-link">volunteer profile</a>. Change it there and it follows here.{% endblocktranslate %}
+            </div>
+        {% endif %}
         {% bootstrap_form form %}
         {% bootstrap_button "Save profile" button_type="submit" %}
     </form>

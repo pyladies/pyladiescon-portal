@@ -33,6 +33,7 @@ from .models import (
     Session,
     SessionPresenter,
     SessionType,
+    volunteer_discord_username,
 )
 from .people import assignee_candidates, liaison_candidates, picker_label
 from .services import proposable_types
@@ -53,6 +54,26 @@ def _slug_field(example, source, who):
         "the session is scheduled; organizers can always rename it. Links "
         "already shared break if it changes.",
     )
+
+
+DISCORD_HELP = (
+    "So we can give you the speaker role on the conference Discord. "
+    "Never shown on the public site."
+)
+
+
+def _adopt_volunteer_discord(form, user_id):
+    """A volunteer who also speaks is asked for their Discord username once.
+
+    When their volunteer profile has one, the field leaves the form, the
+    instance takes that value (so saving the form keeps the presenter row
+    in step) and the value is returned for the template to show read-only.
+    """
+    shared = volunteer_discord_username(user_id)
+    if shared:
+        form.fields.pop("discord_username")
+        form.instance.discord_username = shared
+    return shared
 
 
 class IdentityLockMixin:
@@ -213,16 +234,24 @@ class PresenterForm(forms.ModelForm):
             "mastodon_url",
             "linkedin_url",
             "bluesky_username",
+            "discord_username",
             "is_public",
         ]
         widgets = {"bio_md": forms.Textarea(attrs={"rows": 5})}
-        help_texts = {"bio_md": MARKDOWN_HELP}
+        help_texts = {
+            "bio_md": MARKDOWN_HELP,
+            "discord_username": "For the speaker role and channel. If they volunteer "
+            "too, their volunteer profile's username takes over.",
+        }
 
     def __init__(self, *args, conference, **kwargs):
         super().__init__(*args, **kwargs)
         self.conference = conference
         self.fields["liaison"].queryset = liaison_candidates(conference)
         self.fields["liaison"].label_from_instance = picker_label
+        self.shared_discord_username = _adopt_volunteer_discord(
+            self, self.instance.user_id
+        )
 
     def clean_slug(self):
         return _clean_slug(self, Presenter, "presenter")
@@ -337,6 +366,7 @@ class SpeakerProfileForm(IdentityLockMixin, forms.ModelForm):
             "mastodon_url",
             "linkedin_url",
             "bluesky_username",
+            "discord_username",
             "is_public",
         ]
         widgets = {"bio_md": forms.Textarea(attrs={"rows": 6})}
@@ -344,8 +374,15 @@ class SpeakerProfileForm(IdentityLockMixin, forms.ModelForm):
         help_texts = {
             "bio_md": MARKDOWN_HELP + " A couple of sentences is plenty.",
             "headshot": "A square photo works best.",
+            "discord_username": DISCORD_HELP,
             "is_public": "Your name still appears on your sessions when this is off.",
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.shared_discord_username = _adopt_volunteer_discord(
+            self, self.instance.user_id
+        )
 
     def clean_slug(self):
         return _clean_slug(self, Presenter, "presenter")
@@ -1057,14 +1094,19 @@ class ProposalProfileForm(forms.ModelForm):
             "mastodon_url",
             "linkedin_url",
             "bluesky_username",
+            "discord_username",
         ]
         widgets = {"bio_md": forms.Textarea(attrs={"rows": 6})}
         help_texts = {
             "bio_md": MARKDOWN_HELP + " A couple of sentences is plenty.",
             "headshot": "A square photo works best. You can add one later.",
+            "discord_username": DISCORD_HELP,
         }
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, user=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["display_name"].required = True
         self.fields["bio_md"].required = True
+        self.shared_discord_username = _adopt_volunteer_discord(
+            self, user.pk if user is not None else None
+        )
