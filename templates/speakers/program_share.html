@@ -71,6 +71,44 @@
     <section class="card mb-4">
         <div class="card-body">
             <h2 class="h5">
+                {% trans "Embed with an iframe" %}
+            </h2>
+            <p class="text-secondary small">
+                {% trans "For a website that can't add a script tag. The iframe alone shows the schedule in a 900-pixel window that scrolls; add the script too and the frame grows to fit the program. Change schedule at the end of the address to sessions or speakers for those lists. No website needs to be listed above for this." %}
+            </p>
+            <label class="form-label small fw-semibold mb-1" for="embed-iframe">
+                {% trans "The iframe" %}
+            </label>
+            <div class="d-flex gap-2 align-items-start mb-3">
+                <textarea class="form-control form-control-sm font-monospace"
+                          id="embed-iframe"
+                          rows="2"
+                          readonly>{{ iframe_snippet }}</textarea>
+                <button class="btn btn-outline-secondary btn-sm"
+                        type="button"
+                        data-copy-target="embed-iframe">
+                    {% trans "Copy" %}
+                </button>
+            </div>
+            <label class="form-label small fw-semibold mb-1" for="embed-listener">
+                {% trans "Optional: let it grow to fit" %}
+            </label>
+            <div class="d-flex gap-2 align-items-start">
+                <textarea class="form-control form-control-sm font-monospace"
+                          id="embed-listener"
+                          rows="4"
+                          readonly>{{ iframe_listener }}</textarea>
+                <button class="btn btn-outline-secondary btn-sm"
+                        type="button"
+                        data-copy-target="embed-listener">
+                    {% trans "Copy" %}
+                </button>
+            </div>
+        </div>
+    </section>
+    <section class="card mb-4">
+        <div class="card-body">
+            <h2 class="h5">
                 {% trans "Data feeds" %}
             </h2>
             <p class="text-secondary small">

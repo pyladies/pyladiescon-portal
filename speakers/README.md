@@ -1146,7 +1146,8 @@ installed; this app keeps small factory functions in `tests/speakers/factories.p
   `--plc-card`, `--plc-radius`, `--plc-modal-bg`, `--plc-modal-text`);
   text inherits the host page's font. Caching: `/static/widget/v1.js` is
   the stable address (WhiteNoise sends it with a short max-age, so the
-  site always gets the current widget); the hashed copy WhiteNoise also
+  site always gets the current widget; the iframe embed page links the
+  hashed name instead, so a deploy updates it at once); the hashed copy WhiteNoise also
   serves (`widget/v1.<hash>.js`, listed in `staticroot/staticfiles.json`)
   is cached for a year and suits a CDN that should pin one version; bump
   to `v2.js` for breaking changes. A visitor's browser keeps an API
@@ -1156,6 +1157,22 @@ installed; this app keeps small factory functions in `tests/speakers/factories.p
   demos), and by the user in Firefox and Safari on 8 October 2026 (grid,
   overlays, timezone switch, narrow layout). It relies on `<dialog>`, CSS
   container queries and localStorage.
+- The iframe embed (design §11.2, task 6.4) is `embed_views.py`, mounted
+  at `/embed/` by `portal/urls.py`: `/embed/<edition>/<view>/` with view
+  `schedule`, `sessions` or `speakers` is a bare page (no portal chrome,
+  transparent background, `static/css/embed.css`) holding the widget,
+  for websites that can't add a script tag. It is exempt from
+  X-Frame-Options on purpose: public data, nothing to click that changes
+  anything. Inside a frame, `static/js/embed-frame.js` posts
+  `{type: "pyladiescon-embed", height}` to the host whenever the page
+  height changes, so a host running the listener from the Share tab
+  sizes its iframe to fit (without it, the iframe's own height applies
+  and it scrolls); it also opens an overlay near the click instead of
+  the middle of a tall frame. `?accent=` takes a hex colour only (a host
+  page's CSS can't reach inside an iframe); `?preview=` passes through
+  to the widget and makes the page `no-store`. The page needs no
+  allowed website: the widget inside it calls its own origin. It is
+  also the widget's default fallback link.
 - The calendar feeds (design §11.3) are `speakers/feeds.py` (a hand-
   rolled ICS writer, like the VTT one: escaping with every line ending
   normalised to one escaped newline, 75-octet folding counting the

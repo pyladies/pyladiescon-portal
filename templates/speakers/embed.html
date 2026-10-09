@@ -1,0 +1,18 @@
+{% load i18n static %}
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="robots" content="noindex">
+        <title>{{ conference.name }}</title>
+        <link rel="stylesheet" href="{% static 'css/embed.css' %}">
+    </head>
+    <body>
+        {# djlint:off #}
+        <div data-pyladiescon-widget="{{ view }}" data-conference="{{ conference.slug }}"{% if accent %} style="--plc-accent: {{ accent }}"{% endif %}></div>
+        {# djlint:on #}
+        <script src="{% static 'widget/v1.js' %}" defer></script>
+        <script src="{% static 'js/embed-frame.js' %}" defer></script>
+    </body>
+</html>
