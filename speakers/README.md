@@ -1077,9 +1077,12 @@ installed; this app keeps small factory functions in `tests/speakers/factories.p
   response streams, so a hundred phone-sized headshots cost disk and
   seconds, not RAM. Headshots are stored as uploaded (no resize or cap),
   which is what sets the package's size. `speakers/directory.py` holds the one column
-  list the CSV uses and a test keeps the table's headers equal to it. All
-  three views are liaison-scoped like the rest of the page; nothing here
-  is public, which is why the downloads are not on the Publishing page.
+  list the CSV uses and a test keeps the table's headers equal to it. Both
+  downloads take the filters in the page's URL (search, liaison), and a
+  filtered file has the same name as a full one, `presenters-<edition>`,
+  so a designer with two copies should look inside. Both views are
+  liaison-scoped like the rest of the page; nothing here is public, which
+  is why the downloads are not on the Publishing page.
 - The presenter's schedule page (design §2.4) is `schedule.presenter_schedule`:
   public sessions plus the viewer's own in any on-schedule status, grouped
   by the presenter's LOCAL day with times pre-formatted in Python, because

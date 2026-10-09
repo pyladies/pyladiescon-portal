@@ -77,6 +77,12 @@ def rows_of(response):
     return list(csv.reader(io.StringIO(response.content.decode())))
 
 
+def by_name(rows):
+    """The data rows keyed by their first cell: the order the database
+    sorts "Ada" and "=Grace" in depends on its collation."""
+    return {row[0]: row for row in rows[1:]}
+
+
 @pytest.mark.django_db
 class TestDataView:
     def test_the_table_and_the_csv_share_their_columns(self):
@@ -124,7 +130,9 @@ class TestDataView:
         assert 'filename="presenters-2025.csv"' in response["Content-Disposition"]
         rows = rows_of(response)
         assert rows[0] == [header for header, _ in DATA_COLUMNS]
-        ada, grace = rows[1], rows[2]
+        assert len(rows) == 3
+        # A name that would read as a formula is kept as text.
+        ada, grace = by_name(rows)["Ada"], by_name(rows)["'=Grace"]
         assert ada[:6] == [
             "Ada",
             "she/her",
@@ -141,8 +149,6 @@ class TestDataView:
             "ada.example",
         ]
         assert ada[11:] == ["no", "no", "Django 101 (Moderator)", "", "Lena"]
-        # A name that would read as a formula is kept as text.
-        assert grace[0] == "'=Grace"
         assert grace[13] == "" and grace[14] == ""
         filtered = rows_of(client.get(CSV, {"search": "grace@"}))
         assert [row[0] for row in filtered[1:]] == ["'=Grace"]
@@ -182,8 +188,9 @@ class TestPackage:
         ]
         rows = list(csv.reader(io.StringIO(archive.read("presenters.csv").decode())))
         assert rows[0] == [header for header, _ in DATA_COLUMNS] + ["Photo file"]
-        assert rows[1][0] == "Ada" and rows[1][-1] == f"{ada.slug}.png"
-        assert rows[2][0] == "'=Grace" and rows[2][-1] == ""
+        assert len(rows) == 3
+        assert by_name(rows)["Ada"][-1] == f"{ada.slug}.png"
+        assert by_name(rows)["'=Grace"][-1] == ""
         assert archive.read(f"photos/{ada.slug}.png") == PNG
         # Stored, not recompressed: the bytes are already compressed.
         assert (
@@ -191,6 +198,24 @@ class TestPackage:
             == zipfile.ZIP_STORED
         )
         assert "never go on the public site" in archive.read("README.txt").decode()
+
+    def test_a_photo_never_starts_with_a_dash(
+        self, client, organizer, people, settings, tmp_path
+    ):
+        """The address form strips a leading dash, the admin does not; the
+        file name and the CSV cell must not start with one either way."""
+        settings.MEDIA_ROOT = tmp_path
+        ada = people["ada"]
+        ada.slug = "-ada"
+        ada.save()
+        ada.headshot.save("ada.png", SimpleUploadedFile("x.png", PNG))
+        client.force_login(organizer)
+        archive = zipfile.ZipFile(
+            io.BytesIO(b"".join(client.get(ZIP).streaming_content))
+        )
+        assert "photos/ada.png" in archive.namelist()
+        rows = list(csv.reader(io.StringIO(archive.read("presenters.csv").decode())))
+        assert by_name(rows)["Ada"][-1] == "ada.png"
 
     def test_filters_and_scope_apply(self, client, liaison, people):
         client.force_login(liaison)

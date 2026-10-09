@@ -78,10 +78,14 @@ photos/<name>.<ext>: each presenter's headshot as uploaded.
 
 def photo_name(presenter):
     """The photo's name in the package: the presenter's address plus the
-    file's own extension; empty without a photo."""
+    file's own extension; empty without a photo. The address form strips
+    a leading dash or underscore, but the admin does not, and a file name
+    starting with one trips shell tools (and a spreadsheet reads "-" as a
+    formula), so it is stripped here too."""
     if not presenter.headshot:
         return ""
-    return f"{presenter.slug}{os.path.splitext(presenter.headshot.name)[1].lower()}"
+    stem = presenter.slug.lstrip("-_") or f"presenter-{presenter.pk}"
+    return f"{stem}{os.path.splitext(presenter.headshot.name)[1].lower()}"
 
 
 # The zip is built in memory up to this size and on disk beyond it, so a
@@ -113,7 +117,7 @@ def build_presenters_package(presenters):
         for presenter in presenters:
             writer.writerow(
                 [safe_cell(value(presenter)) for _, value in DATA_COLUMNS]
-                + [photo_name(presenter)]
+                + [safe_cell(photo_name(presenter))]
             )
         archive.writestr("presenters.csv", rows.getvalue(), zipfile.ZIP_DEFLATED)
         archive.writestr("README.txt", PACKAGE_README, zipfile.ZIP_DEFLATED)
