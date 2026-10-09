@@ -8,7 +8,7 @@ import portal.validators
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("speakers", "0018_published_schedule"),
+        ("speakers", "0020_allowed_origins"),
     ]
 
     operations = [
