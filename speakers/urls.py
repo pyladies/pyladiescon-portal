@@ -195,6 +195,16 @@ urlpatterns = [
     ),
     path("presenters/", views.PresenterListView.as_view(), name="presenter_list"),
     path(
+        "presenters.csv",
+        views.PresenterDataExportView.as_view(),
+        name="presenter_data_csv",
+    ),
+    path(
+        "presenters.zip",
+        views.PresenterPackageExportView.as_view(),
+        name="presenter_data_zip",
+    ),
+    path(
         "presenters/new/",
         views.PresenterCreateView.as_view(),
         name="presenter_create",

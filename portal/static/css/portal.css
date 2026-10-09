@@ -746,10 +746,23 @@ details.card[open] > summary.card-header::before {
 
 /* The wide (spreadsheet) view breaks out of the page container: full
    viewport width, so every room column gets its share of the screen. */
-.schedule-wide {
+.schedule-wide,
+.page-wide {
     position: relative;
     left: 50%;
     width: 100vw;
     margin-left: -50vw;
     padding: 0 1.5rem;
+}
+
+/* The presenters' data view: a spreadsheet, headers that stay put. */
+.presenter-data {
+    font-size: 0.85rem;
+    white-space: nowrap;
+}
+
+.presenter-data thead th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
 }

@@ -1058,6 +1058,32 @@ installed; this app keeps small factory functions in `tests/speakers/factories.p
   grid. A drag can only reach an hour past the current window; the
   window grows after each change, so stretching further takes a few
   drags, or "Show the whole day".
+- The Presenters page has two views. The default is the basic list:
+  name, email, sessions with roles (one line each), Discord username,
+  the invitation's state, liaison. "Expand", or `?view=data`, is the
+  data view: everything the team looks up about a
+  speaker (pronouns, email, Discord username, timezone, location, the
+  links, whether there is a photo and a public profile, sessions with
+  roles, invitation state, liaison) as one spreadsheet-like table that takes the whole
+  screen like the schedule's wide mode, unpaginated, with the same search
+  and liaison filters; "Download CSV" (`presenters.csv`), offered in both
+  views, gives the data view's rows and columns, filters applied, every cell through
+  `spreadsheet.safe_cell`; "Download package" (`presenters.zip`) is the
+  same CSV plus a "Photo file" column, every headshot under `photos/`
+  named by the presenter's address (a leading dash dropped, `-2` added
+  when two names collide), and a README, for designers who need
+  the photos and handles together. The zip is built in a spooled
+  temporary file (memory up to 32 MB, disk beyond), photos are stored
+  without recompression and fetched from storage a few at a time, and the
+  response streams, so a hundred phone-sized headshots cost disk and
+  seconds, not RAM. Headshots are stored as uploaded (no resize or cap),
+  which is what sets the package's size. `speakers/directory.py` holds the one column
+  list the CSV uses and a test keeps the table's headers equal to it. Both
+  downloads take the filters in the page's URL (search, liaison), and a
+  filtered file has the same name as a full one, `presenters-<edition>`,
+  so a designer with two copies should look inside. Both views are
+  liaison-scoped like the rest of the page; nothing here is public, which
+  is why the downloads are not on the Publishing page.
 - The presenter's schedule page (design §2.4) is `schedule.presenter_schedule`:
   public sessions plus the viewer's own in any on-schedule status, grouped
   by the presenter's LOCAL day with times pre-formatted in Python, because

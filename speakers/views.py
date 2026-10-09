@@ -6,7 +6,7 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import PermissionDenied
 from django.db import transaction
 from django.db.models import Count, F, Q
-from django.http import Http404, HttpResponse, HttpResponseBadRequest
+from django.http import FileResponse, Http404, HttpResponse, HttpResponseBadRequest
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -58,6 +58,7 @@ from .constants import (
     ReadyOverride,
     SessionStatus,
 )
+from .directory import build_presenters_package, write_presenters_csv
 from .emails import render_invitation_preview
 from .feeds import presenter_feed_token, subscribe_links
 from .filters import PresenterFilter, SessionFilter
@@ -158,7 +159,7 @@ from .services import (
     submit_proposal,
     withdraw_proposal,
 )
-from .tables import PresenterTable, SessionTable
+from .tables import PresenterDataTable, PresenterTable, SessionTable
 from .tasks import send_copresenter_suggestion_task
 from .transcription import auto_transcribe
 
@@ -562,6 +563,32 @@ class PresenterListView(
     template_name = "speakers/presenter_list.html"
     paginate_by = 50
 
+    VIEWS = {
+        # The basic list, the default: name, email, sessions, Discord, the
+        # invitation's state, liaison.
+        "basic": PresenterTable,
+        # Expanded: everything the team looks up, full width, unpaginated,
+        # with the downloads.
+        "data": PresenterDataTable,
+    }
+
+    @property
+    def view(self):
+        wanted = self.request.GET.get("view")
+        return wanted if wanted in self.VIEWS else "basic"
+
+    @property
+    def data_view(self):
+        return self.view == "data"
+
+    def get_table_class(self):
+        return self.VIEWS[self.view]
+
+    def get_table_pagination(self, table):
+        if self.data_view:
+            return False  # a spreadsheet shows every row
+        return super().get_table_pagination(table)
+
     def get_queryset(self):
         return (
             Presenter.objects.for_conference(self.conference)
@@ -579,7 +606,43 @@ class PresenterListView(
         context = super().get_context_data(**kwargs)
         context["conference"] = self.conference
         context["rail_active"] = "presenters"
+        context["view"] = self.view
+        context["data_view"] = self.data_view
+        # The toggles and the downloads keep the current filters.
+        query = self.request.GET.copy()
+        query.pop("view", None)
+        query.pop("page", None)
+        context["filter_query"] = query.urlencode()
         return context
+
+
+class PresenterDataExportView(PresenterListView):
+    """The data view as a CSV download, same rows, same filters."""
+
+    def rows(self):
+        self.object_list = self.get_queryset()
+        return self.get_filterset(self.get_filterset_class()).qs
+
+    def get(self, request, *args, **kwargs):
+        response = HttpResponse(content_type="text/csv")
+        response["Content-Disposition"] = (
+            f'attachment; filename="presenters-{self.conference.slug}.csv"'
+        )
+        write_presenters_csv(self.rows(), response)
+        return response
+
+
+class PresenterPackageExportView(PresenterDataExportView):
+    """The data view as a zip: the CSV, the photos, a README, streamed from
+    a temporary file so a large set of photos never sits in memory."""
+
+    def get(self, request, *args, **kwargs):
+        return FileResponse(
+            build_presenters_package(self.rows()),
+            as_attachment=True,
+            filename=f"presenters-{self.conference.slug}.zip",
+            content_type="application/zip",
+        )
 
 
 class PresenterScopedMixin(LoginRequiredMixin, SpeakerStaffRequiredMixin):

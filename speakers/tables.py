@@ -140,6 +140,23 @@ INVITATION_BADGE_CLASSES = {
 }
 
 
+def session_list(record):
+    """A presenter's sessions, one line each: the title linked, the role."""
+    if not record.session_links:
+        return format_html('<span class="text-secondary">—</span>')
+    return format_html(
+        '<ul class="list-unstyled mb-0">{}</ul>',
+        format_html_join(
+            "",
+            '<li><a href="{}">{}</a> <span class="badge text-bg-light border">{}</span></li>',
+            (
+                (link.session.get_absolute_url(), link.session.title, link.role.name)
+                for link in record.session_links
+            ),
+        ),
+    )
+
+
 def invitation_badge(invitation):
     if invitation is None:
         return format_html('<span class="text-secondary">—</span>')
@@ -152,14 +169,15 @@ def invitation_badge(invitation):
 
 
 class PresenterTable(tables.Table):
-    """The presenter list: who, how to reach them, what they are on, where
-    their invitation stands, who looks after them."""
+    """The presenter list's basic view: who, how to reach them (email and
+    Discord), what they are on, where their invitation stands, who looks
+    after them."""
 
     display_name = tables.Column(verbose_name="Name")
     email = tables.Column()
-    sessions = tables.Column(empty_values=(), orderable=False)
+    sessions = tables.Column(verbose_name="Session", empty_values=(), orderable=False)
+    discord_username = tables.Column(verbose_name="Discord", orderable=False)
     invitation = tables.Column(empty_values=(), orderable=False)
-    account = tables.Column(empty_values=(), orderable=False)
     liaison = tables.Column(accessor="liaison", orderable=False)
 
     class Meta:
@@ -168,8 +186,8 @@ class PresenterTable(tables.Table):
             "display_name",
             "email",
             "sessions",
+            "discord_username",
             "invitation",
-            "account",
             "liaison",
         )
         attrs = {
@@ -181,28 +199,97 @@ class PresenterTable(tables.Table):
         return format_html('<a href="{}">{}</a>', record.get_absolute_url(), value)
 
     def render_sessions(self, record):
-        if not record.session_links:
-            return format_html('<span class="text-secondary">—</span>')
-        return format_html_join(
-            ", ",
-            '<a href="{}">{}</a> <span class="badge text-bg-light border">{}</span>',
-            (
-                (
-                    link.session.get_absolute_url(),
-                    link.session.title,
-                    link.role.name,
-                )
-                for link in record.session_links
-            ),
-        )
+        return session_list(record)
 
     def render_invitation(self, record):
         return invitation_badge(record.latest_invitation)
 
-    def render_account(self, record):
-        if record.user_id is None:
-            return format_html('<span class="text-secondary">not yet</span>')
-        return format_html('<i class="fa-solid fa-check text-success"></i> linked')
+    def render_liaison(self, value):
+        return value.get_full_name() or value.username
+
+
+class PresenterDataTable(tables.Table):
+    """The Presenters page's data view: one row per presenter with the
+    links, Discord username and the rest the team looks up (directory.py
+    lists the same columns for the CSV)."""
+
+    display_name = tables.Column(verbose_name="Name")
+    pronouns = tables.Column(orderable=False)
+    email = tables.Column()
+    discord_username = tables.Column(verbose_name="Discord", orderable=False)
+    timezone = tables.Column(orderable=False)
+    location = tables.Column(orderable=False)
+    website_url = tables.Column(verbose_name="Website", orderable=False)
+    github_username = tables.Column(verbose_name="GitHub", orderable=False)
+    mastodon_url = tables.Column(verbose_name="Mastodon", orderable=False)
+    linkedin_url = tables.Column(verbose_name="LinkedIn", orderable=False)
+    bluesky_username = tables.Column(verbose_name="Bluesky", orderable=False)
+    # empty_values=(): render "no" for a missing photo, not a dash.
+    headshot = tables.Column(verbose_name="Photo", orderable=False, empty_values=())
+    is_public = tables.Column(verbose_name="Public profile", orderable=False)
+    sessions = tables.Column(verbose_name="Session", empty_values=(), orderable=False)
+    invitation = tables.Column(empty_values=(), orderable=False)
+    liaison = tables.Column(accessor="liaison", orderable=False)
+
+    class Meta:
+        model = Presenter
+        fields = (
+            "display_name",
+            "pronouns",
+            "email",
+            "discord_username",
+            "timezone",
+            "location",
+            "website_url",
+            "github_username",
+            "mastodon_url",
+            "linkedin_url",
+            "bluesky_username",
+            "headshot",
+            "is_public",
+            "sessions",
+            "invitation",
+            "liaison",
+        )
+        attrs = {
+            "class": "table table-hover table-bordered table-sm presenter-data",
+            "thead": {"class": "table-light"},
+        }
+
+    def render_display_name(self, value, record):
+        return format_html('<a href="{}">{}</a>', record.get_absolute_url(), value)
+
+    def _link(self, url, text):
+        return format_html(
+            '<a href="{}" target="_blank" rel="noopener">{}</a>', url, text
+        )
+
+    def render_website_url(self, value):
+        return self._link(value, value.replace("https://", "").rstrip("/"))
+
+    def render_github_username(self, value):
+        return self._link(f"https://github.com/{value}", value)
+
+    def render_mastodon_url(self, value):
+        return self._link(value, value.replace("https://", ""))
+
+    def render_linkedin_url(self, value):
+        return self._link(value, value.replace("https://", "").rstrip("/"))
+
+    def render_bluesky_username(self, value):
+        return self._link(f"https://bsky.app/profile/{value}", value)
+
+    def render_headshot(self, value):
+        return "yes" if value else "no"
+
+    def render_is_public(self, value):
+        return "yes" if value else "no"
+
+    def render_sessions(self, record):
+        return session_list(record)
+
+    def render_invitation(self, record):
+        return invitation_badge(record.latest_invitation)
 
     def render_liaison(self, value):
         return value.get_full_name() or value.username

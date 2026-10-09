@@ -107,9 +107,9 @@ class TestPresenterList:
             "Grace",
         ]
         assert "Django 101" in content and "Presenter" in content
-        assert "Not sent" in content
-        assert "not yet" in content  # account column
         assert "Lena" in content
+        assert "Discord" in content  # the basic list reaches people
+        assert "Not sent" in content  # the invitation column
 
     def test_liaison_scoped(self, client, liaison, presenters):
         client.force_login(liaison)
