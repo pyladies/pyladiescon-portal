@@ -9,6 +9,7 @@ Discord usernames are never public.
 
 import csv
 import io
+import itertools
 import os
 import tempfile
 import zipfile
@@ -101,6 +102,25 @@ def _read_photo(presenter):
         return photo.read()
 
 
+def photo_names(presenters):
+    """Each presenter's photo name in the package, distinct: two addresses
+    that differ only by a leading dash would otherwise share one, and a
+    zip with two entries of one name delivers whichever the extractor
+    picks. The second gets "-2", the third "-3"."""
+    names, used = {}, set()
+    for presenter in presenters:
+        name = photo_name(presenter)
+        stem, ext = os.path.splitext(name)
+        for n in itertools.count(2):
+            if name not in used:
+                break
+            name = f"{stem}-{n}{ext}"
+        if name:
+            used.add(name)
+        names[presenter.pk] = name
+    return names
+
+
 def build_presenters_package(presenters):
     """The data view as a zip: the CSV with a "Photo file" column, the
     photos under photos/, and a README. Returns a file object positioned at
@@ -109,6 +129,7 @@ def build_presenters_package(presenters):
     compressed already) and fetched concurrently, and at most a handful
     are in memory at once."""
     presenters = list(presenters)
+    names = photo_names(presenters)
     spool = tempfile.SpooledTemporaryFile(max_size=SPOOL_BYTES)
     with zipfile.ZipFile(spool, "w") as archive:
         rows = io.StringIO()
@@ -117,7 +138,7 @@ def build_presenters_package(presenters):
         for presenter in presenters:
             writer.writerow(
                 [safe_cell(value(presenter)) for _, value in DATA_COLUMNS]
-                + [safe_cell(photo_name(presenter))]
+                + [safe_cell(names[presenter.pk])]
             )
         archive.writestr("presenters.csv", rows.getvalue(), zipfile.ZIP_DEFLATED)
         archive.writestr("README.txt", PACKAGE_README, zipfile.ZIP_DEFLATED)
@@ -125,7 +146,7 @@ def build_presenters_package(presenters):
         with ThreadPoolExecutor(max_workers=PHOTO_FETCHERS) as pool:
             for presenter, data in zip(with_photos, pool.map(_read_photo, with_photos)):
                 archive.writestr(
-                    f"photos/{photo_name(presenter)}", data, zipfile.ZIP_STORED
+                    f"photos/{names[presenter.pk]}", data, zipfile.ZIP_STORED
                 )
     spool.seek(0)
     return spool

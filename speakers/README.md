@@ -1070,7 +1070,8 @@ installed; this app keeps small factory functions in `tests/speakers/factories.p
   views, gives the data view's rows and columns, filters applied, every cell through
   `spreadsheet.safe_cell`; "Download package" (`presenters.zip`) is the
   same CSV plus a "Photo file" column, every headshot under `photos/`
-  named by the presenter's address, and a README, for designers who need
+  named by the presenter's address (a leading dash dropped, `-2` added
+  when two names collide), and a README, for designers who need
   the photos and handles together. The zip is built in a spooled
   temporary file (memory up to 32 MB, disk beyond), photos are stored
   without recompression and fetched from storage a few at a time, and the

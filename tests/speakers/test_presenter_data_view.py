@@ -203,19 +203,29 @@ class TestPackage:
         self, client, organizer, people, settings, tmp_path
     ):
         """The address form strips a leading dash, the admin does not; the
-        file name and the CSV cell must not start with one either way."""
+        file name and the CSV cell must not start with one either way, and
+        when the strip makes two names collide each presenter still gets
+        their own file, the CSV pointing at it."""
         settings.MEDIA_ROOT = tmp_path
         ada = people["ada"]
         ada.slug = "-ada"
         ada.save()
         ada.headshot.save("ada.png", SimpleUploadedFile("x.png", PNG))
+        other = make_presenter(
+            conference=ada.conference, display_name="Other", slug="ada"
+        )
+        other_png = PNG + b"\n"
+        other.headshot.save("other.png", SimpleUploadedFile("y.png", other_png))
         client.force_login(organizer)
         archive = zipfile.ZipFile(
             io.BytesIO(b"".join(client.get(ZIP).streaming_content))
         )
-        assert "photos/ada.png" in archive.namelist()
         rows = list(csv.reader(io.StringIO(archive.read("presenters.csv").decode())))
-        assert by_name(rows)["Ada"][-1] == "ada.png"
+        named = by_name(rows)
+        files = {named["Ada"][-1], named["Other"][-1]}
+        assert files == {"ada.png", "ada-2.png"}
+        assert archive.read(f"photos/{named['Ada'][-1]}") == PNG
+        assert archive.read(f"photos/{named['Other'][-1]}") == other_png
 
     def test_filters_and_scope_apply(self, client, liaison, people):
         client.force_login(liaison)
