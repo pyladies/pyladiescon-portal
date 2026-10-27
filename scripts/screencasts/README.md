@@ -10,9 +10,9 @@ Records the walkthrough videos shown in the user guides:
 | `speaker-upload-video.mp4` | `docs/user/speaker_files.md` | `rec-upload.js` |
 | `speaker-replace-video.mp4` | `docs/user/speaker_files.md` | `rec-replace.js` |
 | `speaker-files-from-the-team.mp4` | `docs/user/speaker_files.md` | `rec-team-files.js` |
-| `organizer-schedule-build.mp4` | `docs/user/organizer_schedule.md` (to come) | `rec-schedule-build.js` |
-| `organizer-schedule-confirm.mp4` | `docs/user/organizer_schedule.md` (to come) | `rec-schedule-confirm.js` |
-| `organizer-schedule-publish.mp4` | `docs/user/organizer_schedule.md` (to come) | `rec-schedule-publish.js` |
+| `organizer-schedule-build.mp4` | `docs/user/organizer_schedule.md` | `rec-schedule-build.js` |
+| `organizer-schedule-confirm.mp4` | `docs/user/organizer_schedule.md` | `rec-schedule-confirm.js` |
+| `organizer-schedule-publish.mp4` | `docs/user/organizer_schedule.md` | `rec-schedule-publish.js` |
 
 The scripts drive the real portal in a headless browser (Playwright), against a
 throwaway database with the sample data, and draw a cursor, click ripples and a
