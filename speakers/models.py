@@ -25,7 +25,7 @@ from django.utils.text import slugify
 from text_unidecode import unidecode
 
 from portal.constants import BASE_PRETIX_URL
-from portal.validators import validate_discord_username
+from portal.validators import validate_discord_id, validate_discord_username
 from volunteer.models import VolunteerProfile
 
 from .clock import today
@@ -476,6 +476,7 @@ class Room(TimestampedModel):
     discord_id = models.CharField(
         max_length=32,
         blank=True,
+        validators=[validate_discord_id],
         help_text="The numeric Discord channel id, when the room is one.",
     )
     url = models.URLField(blank=True)

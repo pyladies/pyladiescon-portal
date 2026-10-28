@@ -3,6 +3,7 @@ import re
 from django.core.exceptions import ValidationError
 
 DISCORD_USERNAME_RE = re.compile(r"^(?=.{2,32}$)(?!.*\.\.)[a-zA-Z0-9._]+$")
+DISCORD_ID_RE = re.compile(r"^\d+$")
 
 
 def validate_linked_in_pattern(value):
@@ -31,3 +32,14 @@ def validate_discord_username(value):
         "Discord username must consist of alphanumeric characters, periods, "
         "underscores, and cannot have two consecutive periods."
     )
+
+
+def validate_discord_id(value):
+    """A Discord id (a channel's, for a room): digits only, as Copy Channel
+    ID gives it, never the channel's name or link, which the bot cannot
+    look up."""
+    if not DISCORD_ID_RE.match(value):
+        raise ValidationError(
+            "Enter the numeric Discord id: turn on Developer Mode, then "
+            "right-click the channel and choose Copy Channel ID."
+        )
