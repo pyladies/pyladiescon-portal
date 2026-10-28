@@ -85,6 +85,8 @@ def test_the_validator_is_the_volunteer_forms_rule(value, message):
         ("#main-stage", False),
         ("https://discord.com/channels/1/1253767145725235229", False),
         (" 1253767145725235229", False),
+        ("1253767145725235229\n", False),
+        ("١٢٣", False),
     ],
 )
 def test_a_room_takes_only_a_numeric_channel_id(value, valid):
