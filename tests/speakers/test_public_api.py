@@ -381,7 +381,8 @@ class TestSnapshots:
     def test_a_room_without_a_channel_has_null_discord_id(
         self, client, program, django_capture_on_commit_callbacks
     ):
-        # Cached first, so the edit below must clear the cache to show.
+        # Cached first: the response below only changes if saving the room
+        # clears the cache.
         get(client, url("schedule"))
         room = program["room"]
         room.discord_id = room.url = ""
