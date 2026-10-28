@@ -12,7 +12,7 @@ from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 
 from speakers.constants import ProgramVisibility
-from speakers.models import AllowedOrigin, Presenter, Room, Session, SpeakerSettings
+from speakers.models import AllowedOrigin, Presenter, Session, SpeakerSettings
 from speakers.public import preview_token
 
 from .factories import (
@@ -378,8 +378,15 @@ class TestSnapshots:
         assert client.get(url("presenter", program["shy"].slug)).status_code == 404
         assert client.get(url("presenter", "nobody")).status_code == 404
 
-    def test_a_room_without_a_channel_has_null_discord_id(self, client, program):
-        Room.objects.filter(pk=program["room"].pk).update(discord_id="", url="")
+    def test_a_room_without_a_channel_has_null_discord_id(
+        self, client, program, django_capture_on_commit_callbacks
+    ):
+        # Cached first, so the edit below must clear the cache to show.
+        get(client, url("schedule"))
+        room = program["room"]
+        room.discord_id = room.url = ""
+        with django_capture_on_commit_callbacks(execute=True):
+            room.save()
         _, data = get(client, url("schedule"))
         expected = {"name": "Main stage", "url": None, "discord_id": None}
         assert data["rooms"] == [expected]
