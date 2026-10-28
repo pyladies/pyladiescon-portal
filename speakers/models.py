@@ -463,8 +463,9 @@ class Room(TimestampedModel):
 
     Deliberately generic: for an online edition a room is typically a
     Discord channel (``url`` and ``discord_id`` record which one, both
-    created on Discord by hand), but nothing else in the portal cares
-    where the room actually is.
+    created on Discord by hand, and the public API returns both for the
+    Discord bot), but nothing else in the portal cares where the room
+    actually is.
     """
 
     conference = models.ForeignKey(
