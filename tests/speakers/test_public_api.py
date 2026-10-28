@@ -318,7 +318,6 @@ class TestSnapshots:
                                 "name": "Main stage",
                                 "url": "https://discord.example/1",
                                 "discord_id": "1253767145725235229",
-                            "discord_id": "1253767145725235229",
                             },
                             "session": {
                                 "slug": talk.slug,
