@@ -67,7 +67,12 @@ def flush_commits():
 @pytest.fixture
 def program(conference, settings_row):
     """A small program with every case the rules care about."""
-    room = make_room(conference, name="Main stage", url="https://discord.example/1")
+    room = make_room(
+        conference,
+        name="Main stage",
+        url="https://discord.example/1",
+        discord_id="1253767145725235229",
+    )
     ada = make_presenter(
         conference,
         display_name="Ada",
@@ -185,6 +190,7 @@ class TestSnapshots:
                         "room": {
                             "name": "Main stage",
                             "url": "https://discord.example/1",
+                            "discord_id": "1253767145725235229",
                         },
                     },
                     "presenters": [
@@ -273,6 +279,7 @@ class TestSnapshots:
                         "room": {
                             "name": "Main stage",
                             "url": "https://discord.example/1",
+                            "discord_id": "1253767145725235229",
                         },
                     }
                 ],
@@ -293,7 +300,13 @@ class TestSnapshots:
             },
             "program": "published",
             "timezone": "America/Vancouver",
-            "rooms": [{"name": "Main stage", "url": "https://discord.example/1"}],
+            "rooms": [
+                {
+                    "name": "Main stage",
+                    "url": "https://discord.example/1",
+                    "discord_id": "1253767145725235229",
+                }
+            ],
             "days": [
                 {
                     "date": "2026-12-05",
@@ -304,6 +317,7 @@ class TestSnapshots:
                             "room": {
                                 "name": "Main stage",
                                 "url": "https://discord.example/1",
+                                "discord_id": "1253767145725235229",
                             },
                             "session": {
                                 "slug": talk.slug,
@@ -363,6 +377,21 @@ class TestSnapshots:
         assert data["presenter"]["sessions"][0]["start"] == "2026-12-05T14:00:00Z"
         assert client.get(url("presenter", program["shy"].slug)).status_code == 404
         assert client.get(url("presenter", "nobody")).status_code == 404
+
+    def test_a_room_without_a_channel_has_null_discord_id(
+        self, client, program, django_capture_on_commit_callbacks
+    ):
+        # Cached first: the response below only changes if saving the room
+        # clears the cache.
+        get(client, url("schedule"))
+        room = program["room"]
+        room.discord_id = room.url = ""
+        with django_capture_on_commit_callbacks(execute=True):
+            room.save()
+        _, data = get(client, url("schedule"))
+        expected = {"name": "Main stage", "url": None, "discord_id": None}
+        assert data["rooms"] == [expected]
+        assert data["days"][0]["slots"][0]["room"] == expected
 
 
 @pytest.mark.django_db
