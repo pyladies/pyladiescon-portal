@@ -1,4 +1,5 @@
-"""The Discord username on a presenter, asked once of a volunteer who speaks."""
+"""The Discord username on a presenter, asked once of a volunteer who speaks,
+and the Discord channel id on a room."""
 
 import pytest
 from allauth.account.models import EmailAddress
@@ -8,8 +9,8 @@ from django.urls import reverse
 from pytest_django.asserts import assertRedirects
 
 from portal.models import Conference
-from portal.validators import validate_discord_username
-from speakers.models import Presenter, volunteer_discord_username
+from portal.validators import validate_discord_id, validate_discord_username
+from speakers.models import Presenter, Room, volunteer_discord_username
 from speakers.program_types import session_type
 from speakers.seeds import seed_checklists
 from speakers.services import link_presenter_user
@@ -75,6 +76,33 @@ def test_the_validator_is_the_volunteer_forms_rule(value, message):
         return
     with pytest.raises(ValidationError, match=message):
         validate_discord_username(value)
+
+
+@pytest.mark.parametrize(
+    "value, valid",
+    [
+        ("1253767145725235229", True),
+        ("#main-stage", False),
+        ("https://discord.com/channels/1/1253767145725235229", False),
+        (" 1253767145725235229", False),
+        ("1253767145725235229\n", False),
+        ("١٢٣", False),
+    ],
+)
+def test_a_room_takes_only_a_numeric_channel_id(value, valid):
+    if valid:
+        validate_discord_id(value)
+        return
+    with pytest.raises(ValidationError, match="Copy Channel ID"):
+        validate_discord_id(value)
+
+
+@pytest.mark.django_db
+def test_the_room_field_runs_the_validator(conference):
+    room = Room(conference=conference, name="Main stage", discord_id="#main-stage")
+    with pytest.raises(ValidationError) as caught:
+        room.full_clean()
+    assert "discord_id" in caught.value.message_dict
 
 
 @pytest.mark.django_db
