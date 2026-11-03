@@ -40,11 +40,11 @@ as a lane marked "retired" while anything is still placed in it.
 
 ## Build the grid
 
-*[Video: Building the schedule. Embedded here once it is on YouTube.]*
+<iframe width="100%" height="480" src="https://www.youtube-nocookie.com/embed/p2DCGMqi06I" title="PyLadiesCon Portal: Build the Schedule Grid" frameborder="0" allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
 
 *Recording: an organizer adds a room, drags sessions onto the grid, creates a
 break, catches a double-booked presenter and views the day in a presenter's
-timezone. Practice data.*
+timezone. Practice data. [Watch it on YouTube](https://youtu.be/p2DCGMqi06I).*
 
 Open **Organize**, then **Schedule**. The grid has one tab per conference
 day, the rooms across the top with an **All rooms** lane first, and
@@ -107,12 +107,11 @@ Published sessions keep their slot.
 
 ## Confirm the schedule
 
-*[Video: Confirming the schedule for the speakers. Embedded here once it is
-on YouTube.]*
+<iframe width="100%" height="480" src="https://www.youtube-nocookie.com/embed/5ALPz2RVP1I" title="PyLadiesCon Portal: Confirm the Schedule for the Speakers" frameborder="0" allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
 
 *Recording: the organizer confirms the grid, moves a session afterwards, and
 the recording switches to a speaker's email and schedule page. Practice
-data.*
+data. [Watch it on YouTube](https://youtu.be/5ALPz2RVP1I).*
 
 A dashed border on a card means the speakers have not been told about it,
 and the **Confirm schedule** button counts how many cards differ from what
@@ -153,11 +152,11 @@ every change.
 
 ## Publish the program
 
-*[Video: Making the program public. Embedded here once it is on YouTube.]*
+<iframe width="100%" height="480" src="https://www.youtube-nocookie.com/embed/2xD6VMF9QSU" title="PyLadiesCon Portal: Publish the Program" frameborder="0" allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
 
 *Recording: the organizer ticks sessions, previews the website's widget,
 looks through the sharing material and makes the program public. Practice
-data.*
+data. [Watch it on YouTube](https://youtu.be/2xD6VMF9QSU).*
 
 Open **Organize**, then **Publishing**. The line under the title is the
 edition's master switch: **Internal** means the website shows "Program coming
