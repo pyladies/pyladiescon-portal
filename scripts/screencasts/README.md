@@ -10,6 +10,9 @@ Records the walkthrough videos shown in the user guides:
 | `speaker-upload-video.mp4` | `docs/user/speaker_files.md` | `rec-upload.js` |
 | `speaker-replace-video.mp4` | `docs/user/speaker_files.md` | `rec-replace.js` |
 | `speaker-files-from-the-team.mp4` | `docs/user/speaker_files.md` | `rec-team-files.js` |
+| `organizer-schedule-build.mp4` | `docs/user/organizer_schedule.md` | `rec-schedule-build.js` |
+| `organizer-schedule-confirm.mp4` | `docs/user/organizer_schedule.md` | `rec-schedule-confirm.js` |
+| `organizer-schedule-publish.mp4` | `docs/user/organizer_schedule.md` | `rec-schedule-publish.js` |
 
 The scripts drive the real portal in a headless browser (Playwright), against a
 throwaway database with the sample data, and draw a cursor, click ripples and a
@@ -24,7 +27,7 @@ to keep the same address).
 - Node.js, `ffmpeg`, and the portal's Python environment (Django, psycopg2).
 - The compose Postgres running (`docker compose up -d postgres`, published on
   port 5433) and maildev (`docker compose up -d maildev`, SMTP 1025, UI 1080).
-  The invited and team takes open an email in maildev. Every take starts by
+  The invited, team and schedule takes open an email in maildev. Every take starts by
   emptying the maildev inbox (its `/email/all` endpoint), so point `MAILDEV_URL`
   at a maildev nothing else relies on.
 - A Chromium for Playwright: either `npx playwright install chromium` in this
@@ -43,7 +46,7 @@ From the repository root:
 scripts/screencasts/run.sh --setup    # once: build and snapshot the database
 scripts/screencasts/run.sh            # record every video
 scripts/screencasts/run.sh volunteer  # or one take: organizer, invited, volunteer,
-                                      # upload, replace, team
+                                      # upload, replace, team, schedule
 ```
 
 `--setup` creates the `pyladiescon_screencasts` database, migrates it, loads the
@@ -70,6 +73,19 @@ team's shared files and sends the day's digest, so the take can open the
 screenshots for the video-upload announcement post (`shoot-media.js`) on the
 same data.
 
+The `schedule` take is three recordings on one database, in order: the
+organizer builds a day of the program (a room in the admin, then the grid),
+confirms the schedule for the speakers and the take switches to a speaker's
+email and schedule page, then makes the program public on the Publishing
+page. `seed-schedule.py` runs first: it brings back the sample sessions and
+presenters the base snapshot removed, adds a few more sessions and people of
+its own (two of them not confirmed), places the Opening, the Closing and the
+later afternoon so the grid opens trimmed and the day looks like a
+conference, draws an initials avatar for every headshot (the sample data
+points at a file that is not there), and gives Juno Kwargs (`juno_kwargs`, New York time) a
+password. The grid drags are real HTML5 drags, driven by `lib.js`'s `drag`
+with a stepped mouse, because `locator.dragTo()` never starts one.
+
 Settings, all optional environment variables:
 
 | Variable | Default | |
@@ -82,6 +98,8 @@ Settings, all optional environment variables:
 | `VIEWPORT_WIDTH`, `VIEWPORT_HEIGHT` | `1024`, `640` | See below. |
 | `SAMPLE_PASSWORD` | `password123` | The sample data's password for every account. |
 | `SCREENCAST_SESSION_TITLE` | `Duck Typing the Blues` | The performer's session in the media takes. |
+| `SCREENCAST_TIMEZONE` | `UTC` | The browser's clock, which is what the schedule grid shows by default. |
+| `SCREENCAST_DAY` | `2026-12-05` | The conference day the schedule takes build, as the grid's day tab names it. |
 | `SPEAKER_MEDIA_BUCKET` | `speaker-media` | The bucket the media takes upload to. |
 | `AWS_S3_ENDPOINT_URL` | `http://localhost:9000` | Its endpoint, reachable from the browser. |
 | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` | `minioadmin` | Its credentials. |
@@ -94,7 +112,7 @@ below that the portal switches to its mobile layout.
 
 ## Narrated takes
 
-The three `rec-*.js` scripts follow a timeline: each step waits for `clock.at(t)`,
+The `rec-*.js` scripts follow a timeline: each step waits for `clock.at(t)`,
 the second at which the narrator says it, and typing is paced to finish by a set
 time. The times come from the speakers' own recordings, so the video matches
 the voice. The audio the current times were made for:
@@ -107,12 +125,16 @@ the voice. The audio the current times were made for:
 | `rec-upload.js` | uploading a performance video | 131.3 s |
 | `rec-replace.js` | a take over the limit, a shorter one, and deleting the video | 121.4 s |
 | `rec-team-files.js` | files from the team, approving the final cut | 91.1 s |
+| `rec-schedule-build.js` | building a day of the schedule | 239.5 s |
+| `rec-schedule-confirm.js` | confirming the schedule, what a speaker sees | 144.5 s |
+| `rec-schedule-publish.js` | making the program public | 137.5 s |
 
 To re-time a script for new audio, transcribe the recording with word times
 (faster-whisper works locally), then set each `clock.at(...)` to when that step
 is spoken. A step that runs later than its time prints `late by ...`, which
 tells you where to leave more room. Set `VOLUNTEER_END`, `INVITED_END`,
-`ORGANIZER_END`, `UPLOAD_END`, `REPLACE_END` or `TEAM_END` (seconds) to make
+`ORGANIZER_END`, `UPLOAD_END`, `REPLACE_END`, `TEAM_END`, `SCHEDULE_BUILD_END`,
+`SCHEDULE_CONFIRM_END` or `SCHEDULE_PUBLISH_END` (seconds) to make
 a video slightly longer than its audio.
 
 Then add the audio to the video, for example:

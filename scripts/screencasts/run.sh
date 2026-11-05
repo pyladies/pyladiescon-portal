@@ -1,11 +1,12 @@
 #!/bin/bash
 # Record the walkthrough videos used in docs/user/speakers.md,
-# docs/user/organizer_invite_speakers.md and docs/user/speaker_files.md.
+# docs/user/organizer_invite_speakers.md, docs/user/speaker_files.md and
+# docs/user/organizer_schedule.md.
 #
 #   scripts/screencasts/run.sh --setup    build the throwaway database first
 #   scripts/screencasts/run.sh            record every video
 #   scripts/screencasts/run.sh organizer  record one: organizer, invited, volunteer,
-#                                         upload, replace or team
+#                                         upload, replace, team or schedule
 #
 # See scripts/screencasts/README.md. Settings come from the environment:
 # PYTHON, PORT, SCREENCAST_DATABASE_URL, MAILDEV_URL, PLAYWRIGHT_CHROME,
@@ -47,6 +48,8 @@ export AWS_S3_REGION_NAME="${AWS_S3_REGION_NAME:-us-east-1}"
 export AWS_ACCESS_KEY_ID="${AWS_ACCESS_KEY_ID:-minioadmin}"
 export AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY:-minioadmin}"
 export SCREENCAST_MEDIA="$MEDIA"
+# Where Django writes uploaded files during a take (screencast_settings.py).
+export SCREENCAST_MEDIA_ROOT="$OUT/media-root"
 # The performer's session in the media takes; seed.py renames the sample
 # PyJam session to this, and the scripts find it by this title.
 export SCREENCAST_SESSION_TITLE="${SCREENCAST_SESSION_TITLE:-Duck Typing the Blues}"
@@ -136,6 +139,7 @@ fresh_server() {
   stop_server
   clear_mail
   db restore
+  rm -rf "$SCREENCAST_MEDIA_ROOT"
   # exec, so the pid is the server's own and stopping it stops the server, not a shell around it.
   (cd "$ROOT" && exec "$PYTHON" manage.py runserver "127.0.0.1:$PORT" --noreload > "$OUT/server.log" 2>&1) &
   SERVER_PID=$!
@@ -143,6 +147,11 @@ fresh_server() {
 }
 
 seed_team() { (cd "$ROOT" && "$PYTHON" manage.py shell < "$HERE/seed-team.py"); keep_mail_to maria@example.com; }
+
+# The program to schedule, and an empty inbox after it: the seed sends the
+# sample invitations and welcomes, and the confirm take opens the one email
+# the schedule confirmation sends.
+seed_schedule() { (cd "$ROOT" && "$PYTHON" manage.py shell < "$HERE/seed-schedule.py"); clear_mail; }
 
 encode() { # <recording dir> <name>
   ffmpeg -v error -y -i "$OUT/$1"/*.webm -c:v libx264 -crf 30 -preset slow -pix_fmt yuv420p \
@@ -191,6 +200,19 @@ record() {
       node "$HERE/rec-team-files.js" "$OUT/team"
       encode team speaker-files-from-the-team
       ;;
+    schedule)
+      # The organizer builds the program, confirms it for the speakers and
+      # publishes it to the website: three takes on one database, in order.
+      rm -rf "$OUT/schedule-build" "$OUT/schedule-confirm" "$OUT/schedule-publish"
+      fresh_server
+      seed_schedule
+      node "$HERE/rec-schedule-build.js" "$OUT/schedule-build"
+      node "$HERE/rec-schedule-confirm.js" "$OUT/schedule-confirm"
+      node "$HERE/rec-schedule-publish.js" "$OUT/schedule-publish"
+      encode schedule-build organizer-schedule-build
+      encode schedule-confirm organizer-schedule-confirm
+      encode schedule-publish organizer-schedule-publish
+      ;;
     shots)
       # Screenshots for the announcement posts (see shoot-blog.js and shoot-media.js).
       sample_media
@@ -227,5 +249,5 @@ record() {
   esac
 }
 
-if [ $# -eq 0 ]; then set -- organizer volunteer upload team; fi
+if [ $# -eq 0 ]; then set -- organizer volunteer upload team schedule; fi
 for take in "$@"; do record "$take"; done

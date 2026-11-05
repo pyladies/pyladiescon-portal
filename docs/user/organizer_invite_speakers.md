@@ -3,6 +3,8 @@
 This guide is for organizers. It shows how to invite someone to speak, how to
 follow what happens to the invitation, and what the speaker sees on their side.
 The speaker-facing version is in the [speaker guide](speakers.md).
+Once your speakers are confirmed, [Building the schedule](organizer_schedule.md)
+covers the grid, the confirmation and the public program.
 
 You need an organizer account (a staff or superuser account) and the speaker
 module has to be switched on for the edition. If you do not see **Sessions**

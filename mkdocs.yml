@@ -56,6 +56,7 @@ nav:
     - Speakers: user/speakers.md
     - Your video and files: user/speaker_files.md
     - Inviting Speakers: user/organizer_invite_speakers.md
+    - Building the Schedule: user/organizer_schedule.md
     - Sponsors: user/sponsor.md
   - Policies:
     - Terms of Service: policies/terms_of_use.md

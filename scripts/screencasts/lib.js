@@ -28,7 +28,7 @@ const OVERLAY = `
         animation:__rip .6s ease-out forwards}
       @keyframes __rip{to{width:56px;height:56px;opacity:0}}
       #__cap{position:fixed;z-index:2147483647;left:0;right:0;bottom:0;padding:12px 24px;
-        background:rgba(24,30,50,.92);color:#fff;font:600 22px/1.3 system-ui,sans-serif;text-align:center}
+        background:rgba(24,30,50,.92);color:#fff;font:600 22px/1.3 system-ui,sans-serif;text-align:center;pointer-events:none}
     \`;
     document.head.appendChild(st);
     const c = document.createElement('div'); c.id='__cur';
@@ -52,7 +52,14 @@ const OVERLAY = `
 
 async function launch({ record, name }) {
   const browser = await chromium.launch({ executablePath: CONFIG.chrome, headless: true });
-  const opts = { viewport: { width: CONFIG.width, height: CONFIG.height }, deviceScaleFactor: 1, locale: "en-US" };
+  // The browser's clock is UTC unless told otherwise, so the times the
+  // schedule shows are the stored ones, not the recording machine's.
+  const opts = {
+    viewport: { width: CONFIG.width, height: CONFIG.height },
+    deviceScaleFactor: 1,
+    locale: "en-US",
+    timezoneId: process.env.SCREENCAST_TIMEZONE || "UTC",
+  };
   if (record) opts.recordVideo = { dir: record, size: { width: CONFIG.width, height: CONFIG.height } };
   const context = await browser.newContext(opts);
   await context.addInitScript(OVERLAY);
@@ -90,6 +97,37 @@ async function click(page, target, { pause = 700 } = {}) {
   await page.evaluate(([a, b]) => window.__ripple && window.__ripple(a, b), [x, y]);
   await sleep(150);
   await loc.click();
+  await sleep(pause);
+}
+
+// Drag one element onto another: the cursor travels from the source to the
+// drop point, the browser performs the real HTML5 drag, and a ripple marks
+// the drop. Used for the schedule grid, whose cards and sidebar rows are
+// draggable="true".
+async function drag(page, source, target, { pause = 900 } = {}) {
+  const src = typeof source === "string" ? page.locator(source).first() : source;
+  const dst = typeof target === "string" ? page.locator(target).first() : target;
+  await src.scrollIntoViewIfNeeded();
+  const a = await src.boundingBox();
+  const ax = a.x + Math.min(a.width / 2, 120);
+  const ay = a.y + a.height / 2;
+  await moveTo(page, ax, ay);
+  await page.evaluate(([x, y]) => window.__ripple && window.__ripple(x, y), [ax, ay]);
+  await sleep(150);
+  // Not locator.dragTo(): the browser only starts an HTML5 drag after the
+  // pointer has moved a little with the button down, and the grid needs
+  // several dragover events on the way, so the mouse travels in steps.
+  await page.mouse.move(ax, ay);
+  await page.mouse.down();
+  await page.mouse.move(ax + 10, ay + 6, { steps: 3 });
+  await dst.scrollIntoViewIfNeeded();
+  const b = await dst.boundingBox();
+  const bx = b.x + b.width / 2;
+  const by = b.y + b.height / 2;
+  await Promise.all([moveTo(page, bx, by), page.mouse.move(bx, by, { steps: 14 })]);
+  await page.mouse.move(bx + 2, by, { steps: 2 });
+  await page.mouse.up();
+  await page.evaluate(([x, y]) => window.__ripple && window.__ripple(x, y), [bx, by]);
   await sleep(pause);
 }
 
@@ -144,4 +182,4 @@ function startClock() {
   };
 }
 
-module.exports = { startClock, CONFIG, launch, sleep, caption, click, type, choose, login, moveTo, shot, path };
+module.exports = { startClock, CONFIG, launch, sleep, caption, click, drag, type, choose, login, moveTo, shot, path };
