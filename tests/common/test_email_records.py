@@ -1,7 +1,7 @@
 """The record of every email the portal sent (design §13.1, task 2.23)."""
 
 import importlib
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from io import StringIO
 from unittest.mock import patch
 
@@ -373,8 +373,11 @@ class TestRetention:
         ]
         kept = [send(["a@x.org"], conference=conference), send(["a@x.org"])]
         stale = send(["a@x.org"])
+        # Dated from the fixed today, not the clock, so the record stays past
+        # the cutoff whenever the test runs.
+        long_ago = datetime.combine(today - timedelta(days=400), datetime.min.time())
         SentEmail.objects.filter(pk=stale.pk).update(
-            sent_at=timezone.now() - timedelta(days=400)
+            sent_at=timezone.make_aware(long_ago)
         )
         assert set(SentEmail.objects.past_retention(today)) == {*expired, stale}
         assert not set(SentEmail.objects.past_retention(today)) & set(kept)
