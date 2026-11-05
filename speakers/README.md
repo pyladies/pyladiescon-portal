@@ -1037,7 +1037,9 @@ installed; this app keeps small factory functions in `tests/speakers/factories.p
 - The schedule's places are `Room` rows (renamed from `DiscordChannel`,
   migration `0017_rooms`): deliberately generic, because only the name
   was Discord-specific. `url` and `discord_id` record which Discord
-  channel a room is when the edition is online; nothing else cares.
+  channel a room is when the edition is online. The public API returns
+  both, so the Discord bot posts a session in its room's channel by
+  `discord_id`; nothing else in the portal cares.
 - The schedule editor (design §10) is `speakers/schedule.py` (the grid's
   layout, day tabs, bulk double-booking warnings and timezone options,
   all in flat queries) and `speakers/schedule_views.py`: one page

@@ -25,7 +25,7 @@ from django.utils.text import slugify
 from text_unidecode import unidecode
 
 from portal.constants import BASE_PRETIX_URL
-from portal.validators import validate_discord_username
+from portal.validators import validate_discord_id, validate_discord_username
 from volunteer.models import VolunteerProfile
 
 from .clock import today
@@ -463,8 +463,9 @@ class Room(TimestampedModel):
 
     Deliberately generic: for an online edition a room is typically a
     Discord channel (``url`` and ``discord_id`` record which one, both
-    created on Discord by hand), but nothing else in the portal cares
-    where the room actually is.
+    created on Discord by hand, and the public API returns both for the
+    Discord bot), but nothing else in the portal cares where the room
+    actually is.
     """
 
     conference = models.ForeignKey(
@@ -476,6 +477,7 @@ class Room(TimestampedModel):
     discord_id = models.CharField(
         max_length=32,
         blank=True,
+        validators=[validate_discord_id],
         help_text="The numeric Discord channel id, when the room is one.",
     )
     url = models.URLField(blank=True)

@@ -78,16 +78,23 @@ def sessions_queryset(conference, preview=None):
     return sessions, public_ids
 
 
+def room_block(room):
+    """A room as the payloads show it. ``discord_id`` lets the Discord bot
+    post in the room's channel; a channel id is in every link to it, so it
+    is not private."""
+    return {
+        "name": room.name,
+        "url": room.url or None,
+        "discord_id": room.discord_id or None,
+    }
+
+
 def slot_block(session):
     row = session.published_slot
     return {
         "start": _stamp(row.start_utc),
         "end": _stamp(row.end_utc),
-        "room": (
-            {"name": row.room.name, "url": row.room.url or None}
-            if row.room_id
-            else None
-        ),
+        "room": room_block(row.room) if row.room_id else None,
     }
 
 
@@ -204,7 +211,7 @@ def schedule_data(conference, preview=None):
     return {
         "timezone": settings.conference_timezone,
         "rooms": [
-            {"name": room.name, "url": room.url or None}
+            room_block(room)
             for room in Room.objects.filter(conference=conference, is_active=True)
         ],
         "days": [{"date": date, "slots": slots} for date, slots in days.items()],
