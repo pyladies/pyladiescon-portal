@@ -12,6 +12,7 @@ from django.contrib.auth import get_user_model
 from django.core import signing
 from django.db import transaction
 from django.db.models import Q
+from django.db.models.functions import Lower
 from django.utils import timezone
 
 from common.tasks import enqueue
@@ -425,6 +426,69 @@ def proposable_types(conference):
 
 def pending_proposals(presenter):
     return presenter.proposals.filter(decision=ProposalDecision.PENDING)
+
+
+def proposing_presenter(conference, user):
+    """The presenter row ``user`` proposes as in this edition, or None.
+
+    Their own row first. Failing that, a row nobody has claimed yet for one
+    of their *verified* addresses: an organizer added them and the
+    invitation is still unanswered. That row is the same person, and a
+    second one would break the one-email-per-edition rule. Verified matters
+    for the same reason as in ``link_presenter_user``: proposing claims the
+    row, and an address the account never proved must not claim anything.
+    """
+    presenters = Presenter.objects.filter(conference=conference)
+    own = presenters.filter(user=user).first()
+    if own is not None:
+        return own
+    verified = [
+        email.lower()
+        for email in EmailAddress.objects.filter(user=user, verified=True).values_list(
+            "email", flat=True
+        )
+    ]
+    return (
+        presenters.filter(user__isnull=True)
+        .annotate(email_lower=Lower("email"))
+        .filter(email_lower__in=verified)
+        .first()
+    )
+
+
+def claim_presenter(presenter, user):
+    """Link ``user`` to the unclaimed row ``proposing_presenter`` found.
+
+    The account is the signed-in one, never a search by address as in
+    ``link_presenter_user``: ``proposing_presenter`` has already matched the
+    row to one of this account's verified addresses. Logged, so organizers
+    can see why a row they added suddenly has an account.
+    """
+    presenter.user = user
+    presenter.discord_username = presenter.discord_username or (
+        volunteer_discord_username(user.pk)
+    )
+    presenter.save(update_fields=["user", "discord_username", "modified_date"])
+    ActivityLog.record(
+        presenter.conference,
+        "presenter.claimed",
+        target=presenter,
+        actor=user,
+        message="Linked their account by proposing a session",
+        presenter_id=presenter.pk,
+    )
+
+
+def proposer_email_taken(conference, email):
+    """Whether a presenter row already holds ``email`` in this edition.
+
+    Asked only after ``proposing_presenter`` found nothing, so a match is a
+    row this person cannot claim: another account's, or one for an address
+    they have not verified. The propose page shows that in place of the
+    form, so nothing is typed, saved or uploaded for an insert the database
+    would refuse.
+    """
+    return Presenter.objects.filter(conference=conference, email__iexact=email).exists()
 
 
 def _refuse_when_full(presenter, closing):

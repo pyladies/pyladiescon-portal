@@ -430,6 +430,18 @@ onboarding, and the organizers keep deciding what is on the program. An
 earlier build let them add a session outright, which left two ways in that
 said different things on the same pages.
 
+Someone an organizer added, who signs up and proposes before answering the
+invitation, proposes as that row: `services.proposing_presenter` falls back
+to an unclaimed row for one of the account's verified addresses, ignoring
+case, and `services.claim_presenter` links the signed-in account to it and
+logs `presenter.claimed`. Only a verified address claims, as with an
+invitation link. The invitation stays open, and accepting it later confirms
+the same account. An address on a row the account cannot claim (another
+account's, or an address not verified yet) gets an explanation in place of
+the form, before anything is typed or uploaded; inserting a second row would
+break `speakers_presenter_email_per_edition`, which is how this was found
+(Sentry, 2026-11-10).
+
 Proposals are capped per presenter per edition (`MAX_PENDING_PROPOSALS`),
 and `Session.created_by_presenter` marks what came in this way.
 
