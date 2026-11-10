@@ -149,9 +149,12 @@ from .services import (
     cancel_invitation,
     change_presenter_role,
     decline_invitation,
+    link_presenter_user,
     pending_proposals,
     presenter_added_to_session,
     proposals_open,
+    proposer_email_taken,
+    proposing_presenter,
     reject_proposal,
     resolve_invitation,
     resubmit_proposal,
@@ -2841,9 +2844,7 @@ class ProposeSessionView(ProposalsOpenMixin, TemplateView):
     def get_presenter(self):
         if not self.request.user.is_authenticated:
             return None
-        return Presenter.objects.filter(
-            conference=self.conference, user=self.request.user
-        ).first()
+        return proposing_presenter(self.conference, self.request.user)
 
     def forms(self, data=None, files=None):
         presenter = self.get_presenter()
@@ -2914,7 +2915,17 @@ class ProposeSessionView(ProposalsOpenMixin, TemplateView):
     def create(self, profile_form, session_form):
         """The presenter, the session, the link and the proposal, together."""
         presenter = self.get_presenter()
+        if presenter is not None and presenter.user_id is None:
+            # An organizer added them and they have not answered the
+            # invitation: proposing claims the row, as accepting would.
+            link_presenter_user(presenter)
         if presenter is None:
+            if proposer_email_taken(self.conference, self.request.user.email):
+                raise ProposalError(
+                    "Your email address is already on this year's speaker "
+                    "list, and we could not match it to your account. "
+                    "Please write to the organizers and we will sort it out."
+                )
             presenter = profile_form.save(commit=False)
             presenter.conference = self.conference
             presenter.user = self.request.user

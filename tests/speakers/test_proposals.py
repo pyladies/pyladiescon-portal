@@ -6,6 +6,7 @@ accepted invitation takes, which is what these tests check hardest.
 """
 
 import pytest
+from allauth.account.models import EmailAddress
 from django.contrib.auth.models import User
 from django.core import mail
 from django.urls import reverse
@@ -20,6 +21,7 @@ from speakers.forms import ProposalSessionForm
 from speakers.models import (
     ActivityLog,
     ChecklistItem,
+    Presenter,
     Proposal,
     Session,
     SessionType,
@@ -377,6 +379,77 @@ class TestProposing:
         assert content.index("navbar-expand-md") < content.index(
             "Propose a session for"
         )
+
+
+@pytest.mark.django_db
+class TestAnInvitedPresenterProposes:
+    """An organizer added them, the invitation is unanswered, and they
+    sign up and propose instead. Their row already holds their email, so a
+    second one is refused by the database (Sentry, 2026-11-10: a 500, and
+    the headshot left in storage)."""
+
+    def invited(self, conference, email="sam@example.com"):
+        return make_presenter(conference, display_name="Sam Invited", email=email)
+
+    def verify(self, user, email=None):
+        EmailAddress.objects.create(
+            user=user, email=email or user.email, verified=True, primary=True
+        )
+
+    def test_they_propose_as_the_row_they_were_invited_on(
+        self, client, conference, enabled, stranger
+    ):
+        presenter = self.invited(conference)
+        self.verify(stranger)
+        client.force_login(stranger)
+        page = client.get(PROPOSE).content.decode()
+        # The row is theirs already, so the page does not ask who they are.
+        assert 'name="you-display_name"' not in page
+        response = propose(client, conference)
+        assert "We have" in response.content.decode()
+        assert Presenter.objects.get() == presenter
+        presenter.refresh_from_db()
+        assert presenter.user == stranger
+        # The organizer's details stand; the form's were never asked for.
+        assert presenter.display_name == "Sam Invited"
+        assert Proposal.objects.get().presenter == presenter
+
+    def test_the_match_ignores_case(self, client, conference, enabled, stranger):
+        presenter = self.invited(conference, email="Sam@Example.com")
+        self.verify(stranger)
+        client.force_login(stranger)
+        propose(client, conference)
+        presenter.refresh_from_db()
+        assert presenter.user == stranger
+        assert Presenter.objects.count() == 1
+
+    def test_an_unverified_address_claims_nothing(
+        self, client, conference, enabled, stranger
+    ):
+        presenter = self.invited(conference)
+        client.force_login(stranger)
+        response = propose(client, conference)
+        assert response.status_code == 200
+        assert "already on this" in response.content.decode()
+        presenter.refresh_from_db()
+        assert presenter.user is None
+        assert Presenter.objects.count() == 1
+        assert not Proposal.objects.exists()
+        assert not Session.objects.filter(title="A talk about testing").exists()
+
+    def test_another_accounts_row_is_not_theirs(
+        self, client, conference, enabled, stranger
+    ):
+        other = User.objects.create_user(username="other", email="other@example.com")
+        presenter = make_presenter(conference, email=stranger.email, user=other)
+        self.verify(stranger)
+        client.force_login(stranger)
+        response = propose(client, conference)
+        assert "already on this" in response.content.decode()
+        presenter.refresh_from_db()
+        assert presenter.user == other
+        assert Presenter.objects.count() == 1
+        assert not Proposal.objects.exists()
 
 
 @pytest.mark.django_db
