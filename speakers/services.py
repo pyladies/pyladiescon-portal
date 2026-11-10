@@ -456,13 +456,37 @@ def proposing_presenter(conference, user):
     )
 
 
+def claim_presenter(presenter, user):
+    """Link ``user`` to the unclaimed row ``proposing_presenter`` found.
+
+    The account is the signed-in one, never a search by address as in
+    ``link_presenter_user``: ``proposing_presenter`` has already matched the
+    row to one of this account's verified addresses. Logged, so organizers
+    can see why a row they added suddenly has an account.
+    """
+    presenter.user = user
+    presenter.discord_username = presenter.discord_username or (
+        volunteer_discord_username(user.pk)
+    )
+    presenter.save(update_fields=["user", "discord_username", "modified_date"])
+    ActivityLog.record(
+        presenter.conference,
+        "presenter.claimed",
+        target=presenter,
+        actor=user,
+        message="Linked their account by proposing a session",
+        presenter_id=presenter.pk,
+    )
+
+
 def proposer_email_taken(conference, email):
     """Whether a presenter row already holds ``email`` in this edition.
 
     Asked only after ``proposing_presenter`` found nothing, so a match is a
     row this person cannot claim: another account's, or one for an address
-    they have not verified. Checked before the new row is saved, so the
-    headshot is never uploaded for an insert the database would refuse.
+    they have not verified. The propose page shows that in place of the
+    form, so nothing is typed, saved or uploaded for an insert the database
+    would refuse.
     """
     return Presenter.objects.filter(conference=conference, email__iexact=email).exists()
 

@@ -148,8 +148,8 @@ from .services import (
     approve_proposal,
     cancel_invitation,
     change_presenter_role,
+    claim_presenter,
     decline_invitation,
-    link_presenter_user,
     pending_proposals,
     presenter_added_to_session,
     proposals_open,
@@ -2841,13 +2841,26 @@ class ProposeSessionView(ProposalsOpenMixin, TemplateView):
 
     template_name = "speakers/propose.html"
 
-    def get_presenter(self):
+    @cached_property
+    def presenter(self):
+        """Who this person proposes as; read once per request. Claiming
+        the row sets ``user`` on this same instance, so it stays current."""
         if not self.request.user.is_authenticated:
             return None
         return proposing_presenter(self.conference, self.request.user)
 
+    @cached_property
+    def email_taken(self):
+        """Their address is on a row they cannot claim, so the page says so
+        in place of a form whose save the database would refuse."""
+        return (
+            self.request.user.is_authenticated
+            and self.presenter is None
+            and proposer_email_taken(self.conference, self.request.user.email)
+        )
+
     def forms(self, data=None, files=None):
-        presenter = self.get_presenter()
+        presenter = self.presenter
         user = self.request.user
         profile = (
             None
@@ -2868,13 +2881,17 @@ class ProposeSessionView(ProposalsOpenMixin, TemplateView):
         settings_row = SpeakerSettings.objects.filter(
             conference=self.conference
         ).first()
-        presenter = self.get_presenter()
+        presenter = self.presenter
         profile_form, session_form = kwargs.get("forms") or self.forms()
         context.update(
             {
                 "conference": self.conference,
                 "open_for_proposals": self.open_for_proposals,
                 "intro_md": settings_row.proposals_intro_md if settings_row else "",
+                "email_taken": self.email_taken,
+                "organizers_email": (
+                    settings_row.organizers_email if settings_row else ""
+                ),
                 "presenter": presenter,
                 "profile_form": profile_form,
                 "session_form": session_form,
@@ -2891,6 +2908,9 @@ class ProposeSessionView(ProposalsOpenMixin, TemplateView):
     def post(self, request, *args, **kwargs):
         if not self.open_for_proposals or not request.user.is_authenticated:
             raise PermissionDenied("Proposals are not open.")
+        if self.email_taken:
+            # The page explains; nothing posted is saved or uploaded.
+            return self.render_to_response(self.get_context_data())
         profile_form, session_form = self.forms(request.POST, request.FILES)
         forms_valid = session_form.is_valid() and (
             profile_form is None or profile_form.is_valid()
@@ -2914,18 +2934,12 @@ class ProposeSessionView(ProposalsOpenMixin, TemplateView):
     @transaction.atomic
     def create(self, profile_form, session_form):
         """The presenter, the session, the link and the proposal, together."""
-        presenter = self.get_presenter()
+        presenter = self.presenter
         if presenter is not None and presenter.user_id is None:
             # An organizer added them and they have not answered the
-            # invitation: proposing claims the row, as accepting would.
-            link_presenter_user(presenter)
+            # invitation: proposing claims the row for this account.
+            claim_presenter(presenter, self.request.user)
         if presenter is None:
-            if proposer_email_taken(self.conference, self.request.user.email):
-                raise ProposalError(
-                    "Your email address is already on this year's speaker "
-                    "list, and we could not match it to your account. "
-                    "Please write to the organizers and we will sort it out."
-                )
             presenter = profile_form.save(commit=False)
             presenter.conference = self.conference
             presenter.user = self.request.user

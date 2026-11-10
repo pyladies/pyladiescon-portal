@@ -39,6 +39,21 @@ portal already knows.
                     <a class="btn btn-primary" href="{{ signup_url }}">{% trans "Create an account" %}</a>
                     <a class="btn btn-outline-primary" href="{{ login_url }}">{% trans "Sign in to the one I have" %}</a>
                 </div>
+            {% elif email_taken %}
+                <div class="alert alert-warning" role="alert">
+                    <p>
+                        {% blocktranslate with email=user.email %}{{ email }} is already on this year's speaker list, on a presenter we could not match to your account, so this form cannot send a proposal for you.{% endblocktranslate %}
+                    </p>
+                    <p class="mb-0">
+                        {% url 'account_email' as email_url %}
+                        {% blocktranslate %}If that address is not verified on your account yet, <a class="alert-link" href="{{ email_url }}">verify it under your email addresses</a> and come back.{% endblocktranslate %}
+                        {% if organizers_email %}
+                            {% blocktranslate with address=organizers_email %}Otherwise, write to the organizers at <a class="alert-link" href="mailto:{{ address }}">{{ address }}</a> and we will sort it out.{% endblocktranslate %}
+                        {% else %}
+                            {% trans "Otherwise, write to the organizers and we will sort it out." %}
+                        {% endif %}
+                    </p>
+                </div>
             {% elif pending_count >= max_pending %}
                 <div class="alert alert-warning" role="alert">
                     {% blocktranslate count counter=max_pending %}You already have {{ counter }} proposal waiting for an answer.{% plural %}You already have {{ counter }} proposals waiting for an answer.{% endblocktranslate %}
@@ -132,7 +147,7 @@ portal already knows.
                                 <div class="accordion-body">
                                     {% if not profile_form %}
                                         <p class="text-secondary small">
-                                            {% blocktranslate with name=presenter.display_name %}Proposing as {{ name }}. Your details are already with us.{% endblocktranslate %}
+                                            {% blocktranslate with name=presenter.display_name %}Proposing as {{ name }}, with the details we already have for you.{% endblocktranslate %}
                                         </p>
                                     {% endif %}
                                     {% bootstrap_form session_form %}

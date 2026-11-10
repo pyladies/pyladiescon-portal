@@ -1068,7 +1068,8 @@ class ProposalProfileForm(forms.ModelForm):
     """The "about you" half, for someone the portal has never met.
 
     A speaker who already has a presenter row does not see this: they
-    filled it in when they accepted.
+    filled it in at onboarding, or an organizer added them, and the bio and
+    headshot item on their checklist asks for whatever is missing.
     """
 
     timezone = forms.ChoiceField(

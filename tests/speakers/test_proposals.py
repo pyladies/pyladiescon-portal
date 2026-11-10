@@ -9,6 +9,8 @@ import pytest
 from allauth.account.models import EmailAddress
 from django.contrib.auth.models import User
 from django.core import mail
+from django.db import connection
+from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 
 from speakers.constants import (
@@ -21,6 +23,7 @@ from speakers.forms import ProposalSessionForm
 from speakers.models import (
     ActivityLog,
     ChecklistItem,
+    Invitation,
     Presenter,
     Proposal,
     Session,
@@ -31,7 +34,9 @@ from speakers.program_types import session_type
 from speakers.seeds import seed_checklists
 from speakers.services import (
     ProposalError,
+    accept_invitation,
     reject_proposal,
+    send_invitation,
     submit_proposal,
 )
 from speakers.tasks import (
@@ -369,7 +374,7 @@ class TestProposing:
         propose(client, conference)
         content = client.get(PROPOSE).content.decode()
         assert "About you" not in content
-        assert "Your details are already with us" in content
+        assert "with the details we already have for you" in content
         assert content.count("accordion-item") == 1
 
     def test_the_page_sits_below_the_navbar(self, client, conference, enabled):
@@ -393,7 +398,7 @@ class TestAnInvitedPresenterProposes:
 
     def verify(self, user, email=None):
         EmailAddress.objects.create(
-            user=user, email=email or user.email, verified=True, primary=True
+            user=user, email=email or user.email, verified=True, primary=email is None
         )
 
     def test_they_propose_as_the_row_they_were_invited_on(
@@ -423,14 +428,99 @@ class TestAnInvitedPresenterProposes:
         assert presenter.user == stranger
         assert Presenter.objects.count() == 1
 
-    def test_an_unverified_address_claims_nothing(
+    def test_a_verified_second_address_claims_too(
+        self, client, conference, enabled, stranger
+    ):
+        presenter = self.invited(conference, email="sam@work.example.com")
+        self.verify(stranger)
+        self.verify(stranger, email="sam@work.example.com")
+        client.force_login(stranger)
+        propose(client, conference)
+        presenter.refresh_from_db()
+        assert presenter.user == stranger
+        assert Proposal.objects.get().presenter == presenter
+
+    def test_claiming_is_logged_and_the_invitation_still_works(
         self, client, conference, enabled, stranger
     ):
         presenter = self.invited(conference)
+        session = make_session(conference)
+        add_presenter(session, presenter)
+        invitation = Invitation.objects.create(
+            conference=conference,
+            presenter=presenter,
+            session=session,
+            sent_to=presenter.email,
+        )
+        send_invitation(invitation)
+        self.verify(stranger)
         client.force_login(stranger)
-        response = propose(client, conference)
+        propose(client, conference)
+        entry = ActivityLog.for_target(presenter).get(action="presenter.claimed")
+        assert entry.actor == stranger
+        # Proposing is not accepting: the invitation stays open, and
+        # accepting it later confirms the same account.
+        invitation.refresh_from_db()
+        assert invitation.is_open
+        accept_invitation(invitation)
+        presenter.refresh_from_db()
+        assert presenter.user == stranger
+        assert presenter.session_presenters.get(session=session).is_confirmed
+        assert User.objects.filter(email__iexact=stranger.email).count() == 1
+
+    def test_the_claim_is_undone_with_a_refused_proposal(
+        self, client, conference, enabled, stranger, monkeypatch
+    ):
+        monkeypatch.setattr("speakers.services.MAX_PENDING_PROPOSALS", 0)
+        presenter = self.invited(conference)
+        self.verify(stranger)
+        client.force_login(stranger)
+        propose(client, conference)
+        presenter.refresh_from_db()
+        assert presenter.user is None
+        assert not ActivityLog.objects.filter(action="presenter.claimed").exists()
+
+    def test_the_page_costs_the_same_however_many_rows_and_addresses(
+        self, client, conference, enabled, stranger
+    ):
+        """The fallback is one query for the addresses and one for the
+        match, never one per address or per presenter."""
+        self.invited(conference)
+        self.verify(stranger)
+        client.force_login(stranger)
+
+        def page_queries():
+            with CaptureQueriesContext(connection) as queries:
+                assert client.get(PROPOSE).status_code == 200
+            return len(queries)
+
+        before = page_queries()
+        for n in range(3):
+            self.verify(stranger, email=f"alt{n}@example.com")
+            make_presenter(conference, email=f"someone{n}@example.com")
+        assert page_queries() == before
+
+
+@pytest.mark.django_db
+class TestAnAddressTheyCannotClaim:
+    """Their address is on a row that is not theirs to claim. The page says
+    so before anything is typed, and a post saves and uploads nothing."""
+
+    def refused(self, response):
+        content = response.content.decode()
         assert response.status_code == 200
-        assert "already on this" in response.content.decode()
+        assert "on a presenter we could not match to your account" in content
+        assert 'name="session-title"' not in content
+        return content
+
+    def test_an_unverified_address_claims_nothing(
+        self, client, conference, enabled, stranger
+    ):
+        presenter = make_presenter(conference, email=stranger.email)
+        client.force_login(stranger)
+        content = self.refused(client.get(PROPOSE))
+        assert reverse("account_email") in content
+        self.refused(propose(client, conference))
         presenter.refresh_from_db()
         assert presenter.user is None
         assert Presenter.objects.count() == 1
@@ -442,14 +532,26 @@ class TestAnInvitedPresenterProposes:
     ):
         other = User.objects.create_user(username="other", email="other@example.com")
         presenter = make_presenter(conference, email=stranger.email, user=other)
-        self.verify(stranger)
+        EmailAddress.objects.create(
+            user=stranger, email=stranger.email, verified=True, primary=True
+        )
         client.force_login(stranger)
-        response = propose(client, conference)
-        assert "already on this" in response.content.decode()
+        self.refused(propose(client, conference))
         presenter.refresh_from_db()
         assert presenter.user == other
         assert Presenter.objects.count() == 1
         assert not Proposal.objects.exists()
+
+    def test_it_names_the_organizers_address_when_there_is_one(
+        self, client, conference, enabled, stranger
+    ):
+        make_presenter(conference, email=stranger.email)
+        client.force_login(stranger)
+        assert "mailto:" not in self.refused(client.get(PROPOSE))
+        enabled.organizers_email = "speakers@example.com"
+        enabled.save()
+        content = self.refused(client.get(PROPOSE))
+        assert 'href="mailto:speakers@example.com"' in content
 
 
 @pytest.mark.django_db
