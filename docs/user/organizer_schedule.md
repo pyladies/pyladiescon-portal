@@ -74,12 +74,13 @@ on the right, with its type, length and status.
     The grid is drawn in 5-minute rows, so a chapter video or a lightning
     talk sits on it at its real length, and several can run back to back.
     A length or start off those rows (a 7-minute video, a talk at 10:03)
-    is typed in the pencil form; the card is drawn on the nearest rows and
-    its label shows the exact times. Dragging snaps the start to a row and
-    keeps the length; resizing changes the length 5 minutes at a time.
+    is typed in the pencil form; the card sits on the rows its start and
+    end fall in, and its tooltip shows the exact times. Dragging snaps the
+    start to a row and keeps the length; resizing changes the length 5
+    minutes at a time.
     A card under a quarter hour is a thin strip: hover over it, or tab to
-    it, and it opens to show its title and pencil. Grab it anywhere but
-    its bottom edge to move it.
+    it, and it opens to show its title and pencil. Grab it anywhere to
+    move it; its bottom edge resizes it.
 
 ### What the grid refuses, and what it only warns about
 

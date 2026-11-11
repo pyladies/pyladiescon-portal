@@ -22,7 +22,7 @@ from django.urls import reverse
 from django.views import View
 from django.views.generic import TemplateView
 
-from .constants import OFF_SCHEDULE_STATUSES, SessionStatus
+from .constants import MIN_SLOT_MINUTES, OFF_SCHEDULE_STATUSES, SessionStatus
 from .forms import ProgramItemForm
 from .mixins import SpeakerOrganizerRequiredMixin
 from .models import ActivityLog, Room, ScheduleSlot, Session
@@ -41,9 +41,6 @@ from .schedule import (
 )
 
 MAX_SLOT_MINUTES = ROWS_PER_DAY * STEP_MINUTES
-# Any whole number of minutes from one row up: a slot shorter than a row
-# could share its row with the next card and be drawn underneath it.
-MIN_SLOT_MINUTES = STEP_MINUTES
 
 
 class SlotError(Exception):

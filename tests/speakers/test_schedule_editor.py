@@ -1023,9 +1023,7 @@ class TestFiveMinuteSlots:
         self, client, organizer, enabled, conference
     ):
         """A 7-minute video keeps its 7 minutes, and the card after it,
-        at :07, starts on the next row rather than on top of it. The
-        5-minute floor is what guarantees that: every slot reaches past
-        its own start row."""
+        at :07, starts on the next row rather than on top of it."""
         room = make_room(conference)
         video = make_session(conference, kind="LIGHTNING")
         make_slot(video, room=room, start_utc=T0)
@@ -1052,6 +1050,27 @@ class TestFiveMinuteSlots:
         }
         assert cards[nxt.pk]["row"] == cards[video.pk]["row"] + 1
         assert (cards[video.pk]["minutes"], cards[nxt.pk]["minutes"]) == (7, 5)
+
+    def test_no_route_saves_a_slot_under_five_minutes(
+        self, client, organizer, enabled, conference
+    ):
+        """Below one row, a slot could share its row with the next card
+        and be drawn underneath it: an explicit end is refused like a
+        short duration, and a fresh slot for a shorter session gets a
+        full row."""
+        session = make_session(conference)
+        make_slot(session, start_utc=T0)
+        client.force_login(organizer)
+        response = send(
+            client, session, {"end": (T0 + timedelta(minutes=2)).isoformat()}
+        )
+        assert response.status_code == 400
+        assert "at least 5 minutes" in response.json()["errors"][0]
+        brief = make_session(conference, kind="ANNOUNCEMENT", duration_minutes=2)
+        later = T0 + timedelta(hours=3)
+        assert send(client, brief, {"start": later.isoformat()}).status_code == 200
+        slot = ScheduleSlot.objects.get(session=brief)
+        assert slot.end_utc - slot.start_utc == timedelta(minutes=5)
 
     def test_three_run_back_to_back_in_one_room(self, conference, enabled):
         room = make_room(conference)
