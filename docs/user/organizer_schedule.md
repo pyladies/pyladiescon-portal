@@ -90,12 +90,15 @@ on the right, with its type, length and status.
 - **A presenter in two places at once** is allowed, because a moderator
   moving between rooms is legitimate, but both cards show a warning naming
   the other session. Fix it by moving one of them.
-- **Two cards drawn in one row** are allowed, side by side, and both warn.
+- **Cards drawn in one row** are allowed, side by side, and each warns.
   A slot under 5 minutes can end inside the row where the next card in
   that room starts: a 4-minute announcement at 10:00 and a video at 10:04
-  both sit on the 10:00 row, so each takes half the lane (the website
-  draws them the same way), and each card names the other. To give the
-  later one its own row, start it at 10:05.
+  both sit on the 10:00 row, so they share the lane in equal parts,
+  earliest on the left (the website draws them the same way), and each
+  card names the others. To give the later one its own row, start it at
+  10:05. A band that spans every room cannot share a lane this way: a
+  short band and a room card on one row overlap, and both warn that one
+  covers the other. Move one of them.
 - **A draft or invited session** can go on the grid as a pencil mark: its
   card is dotted and reads "Pencilled in, publishes once confirmed". It stays
   out of everything the speakers see until everyone on it has accepted, then
@@ -255,7 +258,8 @@ browser's copy expires.
 | A session is not in the Unscheduled list | Only confirmed, draft and invited sessions can be placed. A proposal waiting for an answer, or a cancelled session, cannot. |
 | A drop is refused | The time is taken in that room, or the slot would cross a band that spans every room. Pick another cell, or move the other card first. |
 | "A slot runs between 1 minute and a day" | The length asked for is zero, negative or over a day. Pick a length in that range in the pencil form. |
-| A card warns "Shares a row with" another | The two do not overlap in time, but the earlier is under 5 minutes and ends inside the row where the later starts, so they are drawn side by side, here and on the website. That is fine to keep; to give the later one its own row, start it on the next 5-minute mark. |
+| A card warns "Shares a row with" another, "the cards are drawn side by side" | The cards do not overlap in time, but a slot under 5 minutes ends inside the row where the next starts, so they share the lane in parts, here and on the website. That is fine to keep; to give the later one its own row, start it on the next 5-minute mark. |
+| A card warns "Shares a row with" another, "one card covers the other" | A short band (every room) and a room card land on one row. A band cannot share a lane, so one hides the other, here and on the website. Move one to the next 5-minute mark. |
 | The card is dotted | The session is a draft or still invited. It publishes to the speakers once everyone on it has accepted and you confirm again. |
 | The card is dashed | The speakers have not been told about this placement or move yet. Confirm the schedule when ready. |
 | A speaker says their session is wrong or missing | Their page shows the last confirmed snapshot, not the grid. Confirm the schedule, with the email ticked so they hear about it. |

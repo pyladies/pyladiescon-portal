@@ -207,16 +207,21 @@
             startY: event.clientY,
             row: parseInt(card.style.gridRow, 10),
             /* Minutes past its row the slot starts (a talk at 10:03 is
-             * 3), so the preview's end lands where the grid draws it. */
-            offset: new Date(
-                card.querySelector("[data-utc]").dataset.utc
-            ).getUTCMinutes() % stepOf(grid),
+             * 3), so the preview's end lands where the grid draws it; 0
+             * for a card from the day before, drawn from the first row. */
+            offset: resizeOffset(card, grid, cell),
             column: card.style.gridColumn,
             band: card.classList.contains("schedule-band"),
             grid: grid
         };
         event.preventDefault();
     });
+
+    function resizeOffset(card, grid, cell) {
+        var start = new Date(card.querySelector("[data-utc]").dataset.utc);
+        if (cell && start < new Date(cell.dataset.time)) return 0;
+        return start.getUTCMinutes() % stepOf(grid);
+    }
 
     function resizeMinutes(event) {
         var rows = Math.round(

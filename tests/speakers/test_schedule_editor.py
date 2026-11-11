@@ -1168,7 +1168,10 @@ class TestFiveMinuteSlots:
             "Shares a row with “First talk” (14:04 UTC); one card covers the "
             "other, so move one of them"
         ]
-        assert len(cards[talk.pk]["warnings"]) == 1
+        assert cards[talk.pk]["warnings"] == [
+            "Shares a row with “Opening” (14:00 UTC); one card covers the other, "
+            "so move one of them"
+        ]
         assert cards[opening.pk]["parts"] == cards[talk.pk]["parts"] == 0
 
     def test_three_run_back_to_back_in_one_room(self, conference, enabled):
