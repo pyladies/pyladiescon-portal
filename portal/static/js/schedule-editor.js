@@ -266,8 +266,11 @@
     }, true);
 
     document.addEventListener("click", function (event) {
+        /* A keyboard click (detail 0) had no press of its own, so a
+         * leftover from a right-click must not count for it. */
         closeCardMenus(
-            event.target.closest("details.schedule-card-menu") || pressedMenu
+            event.target.closest("details.schedule-card-menu") ||
+                (event.detail ? pressedMenu : null)
         );
         pressedMenu = null;
     });
