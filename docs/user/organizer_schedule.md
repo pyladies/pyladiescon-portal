@@ -48,7 +48,7 @@ timezone. Practice data. [Watch it on YouTube](https://youtu.be/p2DCGMqi06I).*
 
 Open **Organize**, then **Schedule**. The grid has one tab per conference
 day, the rooms across the top with an **All rooms** lane first, and
-15-minute steps down the side. The grid is trimmed to the program, an hour
+5-minute steps down the side, with a line every quarter hour. The grid is trimmed to the program, an hour
 either side; **Show the whole day** opens it up. Everything confirmed and not
 yet placed waits in the **Unscheduled** list on the right, with its type,
 length and status.
@@ -70,10 +70,12 @@ length and status.
   appears in the Unscheduled list ready to drag; the cell panel creates and
   places one in a single step.
 
-!!! note "Slots are 15 minutes or longer"
-    A slot runs between 15 minutes and a day, in whole quarter hours. A
-    session type with a shorter default length (a 5-minute lightning talk,
-    for example) cannot be placed until its session's length is raised to 15.
+!!! note "Slots are 5 minutes or longer"
+    A slot runs between 5 minutes and a day, in steps of 5 minutes, so a
+    chapter video or a lightning talk sits on the grid at its real length,
+    and several can run back to back. A card under a quarter hour is a thin
+    strip: hover over it, or tab to it, and it opens to show its title and
+    pencil.
 
 ### What the grid refuses, and what it only warns about
 
@@ -241,7 +243,7 @@ browser's copy expires.
 | Only the **All rooms** lane | No room is recorded for the edition yet. Add rooms in the admin, under **Speaker portal**, **Rooms**. |
 | A session is not in the Unscheduled list | Only confirmed, draft and invited sessions can be placed. A proposal waiting for an answer, or a cancelled session, cannot. |
 | A drop is refused | The time is taken in that room, or the slot would cross a band that spans every room. Pick another cell, or move the other card first. |
-| "A slot runs between 15 minutes and a day" | The session is shorter than one grid step. Raise its length on the session page, or in the pencil form. |
+| "A slot runs between 5 minutes and a day" | The length asked for is under 5 minutes or over a day. Pick a length in that range in the pencil form. |
 | The card is dotted | The session is a draft or still invited. It publishes to the speakers once everyone on it has accepted and you confirm again. |
 | The card is dashed | The speakers have not been told about this placement or move yet. Confirm the schedule when ready. |
 | A speaker says their session is wrong or missing | Their page shows the last confirmed snapshot, not the grid. Confirm the schedule, with the email ticked so they hear about it. |

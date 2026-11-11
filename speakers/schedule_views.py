@@ -28,6 +28,7 @@ from .mixins import SpeakerOrganizerRequiredMixin
 from .models import ActivityLog, Room, ScheduleSlot, Session
 from .schedule import (
     ROWS_PER_DAY,
+    ROWS_PER_HOUR,
     STEP_MINUTES,
     also_in,
     day_bounds,
@@ -154,6 +155,7 @@ class ScheduleEditorView(
                 ),
                 "unpublished_total": sum(counts.values()),
                 "step_minutes": STEP_MINUTES,
+                "rows_per_hour": ROWS_PER_HOUR,
                 "program_item_form": kwargs.get("program_item_form")
                 or ProgramItemForm(conference=self.conference),
             }

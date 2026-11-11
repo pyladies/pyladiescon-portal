@@ -9,12 +9,20 @@
 (function () {
     "use strict";
 
-    var STEP_MINUTES = 15;
+    /* The grid's step comes from speakers/schedule.py, on the grid
+     * element, so the server and the page cannot disagree. */
+    var STEP_MINUTES = 5;
+    var QUARTER_MINUTES = 15;
     var dragged = null;
     var resizing = null;
 
     function board() {
         return document.getElementById("schedule-board");
+    }
+
+    function stepOf(grid) {
+        var step = grid ? parseInt(grid.dataset.stepMinutes, 10) : NaN;
+        return step > 0 ? step : STEP_MINUTES;
     }
 
     function csrfToken() {
@@ -151,8 +159,9 @@
         event.preventDefault();
         cell.classList.add("schedule-drop");
         hideDropPreview();
-        var ghost = dropPreview(cell.closest(".schedule-grid"));
-        var span = Math.max(1, Math.round(dragged.minutes / STEP_MINUTES));
+        var grid = cell.closest(".schedule-grid");
+        var ghost = dropPreview(grid);
+        var span = Math.max(1, Math.round(dragged.minutes / stepOf(grid)));
         ghost.style.gridRow = cell.style.gridRow + " / span " + span;
         ghost.style.gridColumn = cell.dataset.room
             ? cell.style.gridColumn
@@ -180,7 +189,8 @@
         dragged = null;
     });
 
-    /* Resizing: the handle at a card's bottom edge, in 15-minute steps. */
+    /* Resizing: the handle at a card's bottom edge, one grid step at a
+     * time. */
     document.addEventListener("pointerdown", function (event) {
         var handle = event.target.closest(".schedule-resize");
         if (!handle) return;
@@ -190,7 +200,8 @@
         resizing = {
             url: card.dataset.slotUrl,
             minutes: parseInt(card.dataset.minutes, 10),
-            rowHeight: cell ? cell.offsetHeight : 18,
+            rowHeight: cell ? cell.offsetHeight : 8,
+            step: stepOf(grid),
             startY: event.clientY,
             row: parseInt(card.style.gridRow, 10),
             column: card.style.gridColumn,
@@ -204,7 +215,7 @@
         var rows = Math.round(
             (event.clientY - resizing.startY) / resizing.rowHeight
         );
-        return Math.max(STEP_MINUTES, resizing.minutes + rows * STEP_MINUTES);
+        return Math.max(resizing.step, resizing.minutes + rows * resizing.step);
     }
     document.addEventListener("pointermove", function (event) {
         if (!resizing) return;
@@ -213,7 +224,7 @@
         var ghost = dropPreview(resizing.grid);
         ghost.style.gridRow =
             resizing.row + " / span " +
-            Math.max(1, Math.round(minutes / STEP_MINUTES));
+            Math.max(1, Math.round(minutes / resizing.step));
         ghost.style.gridColumn = resizing.column;
         ghost.classList.toggle("schedule-drop-band", resizing.band);
         ghost.querySelector(".schedule-drop-label").textContent =
@@ -296,7 +307,8 @@
         send(form.dataset.url, "PATCH", {
             room: value("room") || null,
             start: value("date") + "T" + time + ":00+00:00",
-            duration: parseInt(value("duration"), 10) || STEP_MINUTES
+            duration: parseInt(value("duration"), 10) ||
+                stepOf(board().querySelector(".schedule-grid"))
         });
     });
 
@@ -397,11 +409,14 @@
     }
 
     /* The density switch: row height by name, or computed to fit the
-     * viewport (design §10.2). */
+     * viewport (design §10.2). The names are quarter-hour heights, as
+     * they were when a row was a quarter hour; a row is a step of it. */
     function applyDensity() {
         var select = document.getElementById("schedule-density");
         if (!select || !board()) return;
         board().querySelectorAll(".schedule-grid").forEach(function (grid) {
+            var perQuarter = Math.max(1, QUARTER_MINUTES / stepOf(grid));
+            grid.style.setProperty("--schedule-rows-per-quarter", perQuarter);
             grid.classList.toggle(
                 "schedule-density-compact", select.value !== "comfortable"
             );
@@ -411,13 +426,16 @@
             if (select.value === "comfortable") {
                 grid.style.removeProperty("--schedule-row-height");
             } else if (select.value === "compact") {
-                grid.style.setProperty("--schedule-row-height", "0.55rem");
+                grid.style.setProperty(
+                    "--schedule-row-height",
+                    "calc(0.55rem / " + perQuarter + ")"
+                );
             } else {
                 var rows = parseInt(grid.dataset.rows, 10) || 1;
                 var room = window.innerHeight - 120;
-                var height = Math.max(3, Math.floor(room / rows));
+                var height = Math.max(1, room / rows);
                 grid.style.setProperty(
-                    "--schedule-row-height", height + "px"
+                    "--schedule-row-height", height.toFixed(2) + "px"
                 );
             }
         });

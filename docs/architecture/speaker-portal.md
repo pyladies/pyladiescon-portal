@@ -113,7 +113,7 @@ Checklists are templates the team edits in the portal — items can be renamed, 
 
 ### 3.4 Building the schedule
 
-A grid with the rooms as columns and 15-minute steps as rows. Unscheduled sessions wait on the side and are dragged in; a "+ program item" button drops an opening or break straight onto the grid, spanning every room. Conflicts — two sessions in one room, a presenter double-booked — are highlighted where they happen.
+A grid with the rooms as columns and 5-minute steps as rows. Unscheduled sessions wait on the side and are dragged in; a "+ program item" button drops an opening or break straight onto the grid, spanning every room. Conflicts — two sessions in one room, a presenter double-booked — are highlighted where they happen.
 
 The timezone switcher shows the grid as a specific presenter would see it, which is how "we scheduled her at 3 a.m." gets caught before the confirmation email.
 
@@ -610,7 +610,7 @@ A pre-recorded session still takes a schedule slot — the premiere or watch-par
 
 > **Partly built** (M3). The organizer editor below is built (4 October 2026): the grid, dragging, resizing, a keyboard form per card, the inline program item, the timezone switcher and the double-booking warnings, all through one slot endpoint per session (`PATCH`/`DELETE sessions/<slug>/slot/`, JSON errors). "Preview as public" waits for the public program work (§11). The presenter view below is built (5 October 2026): everything public plus their own unpublished sessions badged "not yet public", grouped by their local day; its calendar links are placeholders until the feeds (task 4.4).
 
-**Organizer editor** — a day-by-time grid: columns are the rooms, rows are 15-minute steps across the conference days. Unscheduled sessions wait in a sidebar and are dragged onto the grid; dragging moves a session, resizing changes its duration. A "+ program item" button on any cell creates an opening, break, or social inline, so the skeleton of a day is built without leaving the grid. Every-room slots render as full-width bands. Conflicts — room overlap, a presenter double-booked — are highlighted in place.
+**Organizer editor** — a day-by-time grid: columns are the rooms, rows are 5-minute steps across the conference days, with a line every quarter hour, so a 5-minute chapter video or lightning talk is placed at its real length. Unscheduled sessions wait in a sidebar and are dragged onto the grid; dragging moves a session, resizing changes its duration. A "+ program item" button on any cell creates an opening, break, or social inline, so the skeleton of a day is built without leaving the grid. Every-room slots render as full-width bands. Conflicts — room overlap, a presenter double-booked — are highlighted in place.
 
 A timezone switcher on the grid shows the whole schedule as a specific presenter would see it. That is how the team catches "we scheduled her at 3 a.m." before sending the confirmation.
 
@@ -650,7 +650,7 @@ A timezone switcher on the grid shows the whole schedule as a specific presenter
 
 Three view-layer changes, no model impact:
 
-- **Trim the day to its active window.** The grid renders 96 quarter-hours; a conference day uses a fraction of them. The grid starts one hour before the first slot and ends one hour after the last (full day when empty), with "earlier / later" reveals at the edges, so the default page shows the program, not the empty night.
+- **Trim the day to its active window.** The grid renders 288 five-minute rows; a conference day uses a fraction of them. The grid starts one hour before the first slot and ends one hour after the last (full day when empty), with "earlier / later" reveals at the edges, so the default page shows the program, not the empty night.
 - **A density switch** beside the timezone switcher — Comfortable (today's 1.5rem rows), Compact (~0.6rem: one-line cards, details in the tooltip and the pencil), and **Fit**, which divides the viewport height by the trimmed window's rows and sets the row height to match, floor of a few pixels: the whole day on one screen, cards as colored blocks when they must be. Pure CSS variable plus a line of arithmetic, remembered per organizer like the timezone.
 - **Every day side by side** (later, if wanted): an "All days" tab laying the per-day grids out horizontally in Fit density — the spreadsheet's one-page view. Costs only template work once the density switch exists, so it is listed, not promised.
 
