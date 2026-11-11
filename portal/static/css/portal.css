@@ -613,6 +613,11 @@ details.card[open] > summary.card-header::before {
     height: 0.45rem;
     cursor: ns-resize;
 }
+/* An open short card is about 22px tall, and a 0.45rem handle took a
+   third of it: most grabs resized the card instead of moving it. */
+.schedule-card-short .schedule-resize {
+    height: 3px;
+}
 .schedule-pending {
     cursor: grab;
 }
