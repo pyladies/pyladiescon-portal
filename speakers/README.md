@@ -1176,7 +1176,7 @@ installed; this app keeps small factory functions in `tests/speakers/factories.p
   the repo's only Node dependency; the portal itself needs no Node). The
   build stamps the source's sha256 in the served file's header, and
   `tests/speakers/test_widget.py` fails when the source changed without a
-  rebuild, or when the served file passes 15 KB; CI needs no Node. The
+  rebuild, or when the served file passes 16 KB; CI needs no Node. The
   site pastes the snippet the Publishing page shows:
   `<div data-pyladiescon-widget="schedule" data-conference="<slug>">`
   plus the script tag (it offers one per whole-program view, and copyable

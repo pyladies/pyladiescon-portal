@@ -28,10 +28,12 @@
     ".plc-line{border-top:1px dashed var(--plc-border);height:0;margin:0!important;align-self:start;opacity:.6}",
     ".plc-hour{border-top-style:solid;opacity:1}",
     ".plc-card,.plc-band{position:relative;z-index:1}",
+    /* Cards sharing a row split the lane (renderSchedule). */
+    ".plc-grid>[style*=--n]{width:calc(100%/var(--n));margin-left:calc(100%*var(--i)/var(--n))}",
     ".plc-grid>*{margin-bottom:.4rem}",
     ".plc-head{font-weight:600;font-size:.875em;color:var(--plc-muted);padding-bottom:.25rem}",
     ".plc-time{font-size:.8em;color:var(--plc-muted);white-space:nowrap;line-height:1;transform:translateY(-.4em);margin:0!important}",
-    "@container (max-width:40rem){.plc-grid{display:flex;flex-direction:column}.plc-head,.plc-time,.plc-line{display:none}}",
+    "@container (max-width:40rem){.plc-grid{display:flex;flex-direction:column}.plc-head,.plc-time,.plc-line{display:none}.plc-grid>[style*=--n]{width:auto;margin-left:0}}",
     ".plc-card{border:1px solid var(--plc-border);border-radius:var(--plc-radius);padding:.6rem .7rem;background:var(--plc-card);min-width:0}",
     ".plc-band{background:var(--plc-band);border-radius:var(--plc-radius);padding:.4rem .7rem;color:var(--plc-muted);display:flex;flex-wrap:wrap;gap:.25rem .75rem;align-items:center}",
     ".plc-meta{color:var(--plc-muted);font-size:.85em}",
@@ -284,27 +286,24 @@
     }
     /* A card covers the rows its start and end fall in, as in the
      * organizers' grid. A slot under STEP minutes can end inside the row
-     * where the next one in its room starts; the two then share that
-     * row side by side rather than one covering the other. */
-    var placed = shown.map(function (s) {
+     * where the next one in its room starts; cards in one lane that
+     * land on a row together share the lane in parts, earliest left. */
+    var placed = shown.map(function (s, n) {
       var from = row(s.slot.start);
-      var col = s.slot.room ? columns.indexOf(s.slot.room.name) + 2 : 2;
-      return {
-        s: s, from: from, to: Math.max(from + 1, row(s.slot.end)),
-        left: col, right: s.slot.room ? col + 1 : columns.length + 2, half: ""
-      };
+      return { s: s, n: n, from: from, to: Math.max(from + 1, row(s.slot.end)), lane: s.slot.room && s.slot.room.name };
     });
-    placed.forEach(function (a, i) {
-      placed.slice(i + 1).forEach(function (b) {
-        if (a.left >= b.right || b.left >= a.right || a.from >= b.to || b.from >= a.to) return;
-        if (a.s.slot.start < b.s.slot.end && b.s.slot.start < a.s.slot.end) return;
-        a.half = ";width:50%;justify-self:start";
-        b.half = ";width:50%;justify-self:end";
+    placed.forEach(function (a) {
+      placed.forEach(function (b) {
+        if (b.n <= a.n || a.lane != b.lane || b.from >= a.to || a.s.slot.end > b.s.slot.start) return;
+        var g = a.g || [a];
+        (b.g || [b]).forEach(function (c) { if (g.indexOf(c) < 0) g.push(c); c.g = g; });
+        a.g = g;
       });
     });
     placed.forEach(function (p) {
       var s = p.s;
-      var place = "grid-row:" + p.from + " / " + p.to + ";grid-column:" + (s.slot.room ? p.left : "2 / -1") + p.half;
+      var place = "grid-row:" + p.from + "/" + p.to + ";grid-column:" + (s.slot.room ? columns.indexOf(s.slot.room.name) + 2 : "2/-1") +
+        (p.g ? ";--i:" + p.g.sort(function (x, y) { return x.n - y.n; }).indexOf(p) + ";--n:" + p.g.length : "");
       cells.push(s.is_content ? h("article", { "class": "plc-card", style: place }, [
         h("div", { "class": "plc-meta" }, [span(s.slot, tz), " · " + s.kind.name, s.slot.room ? " · " + s.slot.room.name : null]),
         self.title(s),
