@@ -751,6 +751,15 @@ details.card[open] > summary.card-header::before {
     border-style: dotted;
     opacity: 0.75;
 }
+/* A closed short card has no top or bottom border to carry the dashes,
+   so they are painted along its top edge, above the lettering, taking no
+   row height. */
+.schedule-card-short.schedule-card-dirty:not(:hover):not(:focus-within):not(.schedule-card-open) {
+    background-image: repeating-linear-gradient(90deg, #6ea8fe 0 4px, transparent 4px 7px);
+    background-size: 100% 1px;
+    background-repeat: no-repeat;
+    background-position: top;
+}
 
 /* Compact and Fit densities (design §10.2): one-line cards, the detail
    stays in the tooltip and the pencil. */
@@ -809,7 +818,8 @@ details.card[open] > summary.card-header::before {
     font-size: 0.75rem;
     line-height: 1.25;
 }
-.schedule-density-compact .schedule-card-short:is(:hover, :focus-within, .schedule-card-open) .schedule-card-edit {
+.schedule-density-compact .schedule-card-short:is(:hover, :focus-within, .schedule-card-open) .schedule-card-edit,
+.schedule-density-compact .schedule-card-short:is(:hover, :focus-within, .schedule-card-open) .text-warning-emphasis[role="img"] {
     padding: 0 0.3rem;
     font-size: 0.7rem;
     line-height: 1.3;
