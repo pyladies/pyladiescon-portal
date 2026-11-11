@@ -29,7 +29,7 @@
     ".plc-hour{border-top-style:solid;opacity:1}",
     ".plc-card,.plc-band{position:relative;z-index:1}",
     /* Cards sharing a row split the lane (renderSchedule). */
-    ".plc-grid>[style*=--n]{width:calc(100%/var(--n));margin-left:calc(100%*var(--i)/var(--n))}",
+    ".plc-grid>[style*=--n]{width:calc(100%/var(--n) - 4px);margin-left:calc(100%*var(--i)/var(--n))}",
     ".plc-grid>*{margin-bottom:.4rem}",
     ".plc-head{font-weight:600;font-size:.875em;color:var(--plc-muted);padding-bottom:.25rem}",
     ".plc-time{font-size:.8em;color:var(--plc-muted);white-space:nowrap;line-height:1;transform:translateY(-.4em);margin:0!important}",
