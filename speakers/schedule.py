@@ -31,8 +31,8 @@ from .tasks import send_schedule_update_task
 # Five minutes, so a chapter video or a lightning talk sits on the grid
 # at its real length and three of them can run back to back. Lines still
 # mark every quarter hour, so the grid reads as it did at 15. A slot may
-# be shorter than a row; two that land in one row are drawn side by side
-# and warn (shared_row_warnings).
+# be shorter than a row; cards that land in one row share it and warn
+# (shared_row_warnings).
 STEP_MINUTES = 5
 ROWS_PER_HOUR = 60 // STEP_MINUTES
 ROWS_PER_QUARTER = 15 // STEP_MINUTES
@@ -191,7 +191,8 @@ def grid_for_day(conference, day, full_day=False):
                     or not published[slot.session_id].matches(slot)
                 ),
                 "warnings": warnings.get(slot.pk, []),
-                "beside": None,
+                "part": 0,
+                "parts": 0,
             }
         )
     shared_row_warnings(cards)
@@ -222,16 +223,19 @@ def also_in(presenter, session):
 
 
 def shared_row_warnings(cards):
-    """Draw two cards that land on one row side by side, and say so.
+    """Split a row that several cards land on, and warn on each of them.
 
     A slot shorter than a row (a 4-minute announcement) can end inside
-    the row where the next card in its room starts, so both are placed
-    on that row, and the later one would cover the earlier completely
-    though their times never overlap. The earlier takes the left half
-    (``beside`` "start"), the later the right, and each warns, naming
-    the other. Times that do overlap are already refused, or are two
-    program bands allowed to coexist, so only the drawing is checked.
+    the row where the next card starts, so both are placed on that row
+    though their times never overlap, and the later would cover the
+    earlier. Cards in the same lane that collide this way, two or more,
+    share it in parts, earliest first (``part`` of ``parts``). A band
+    against a room card cannot be split, since they span different
+    lanes; both warn that one covers the other. Times that do overlap
+    are already refused, or are two program bands allowed to coexist,
+    so only the drawing is checked.
     """
+    groups = {}
     for card in cards:
         for other in cards:
             if other is card:
@@ -249,11 +253,30 @@ def shared_row_warnings(cards):
             mine, theirs = card["slot"], other["slot"]
             if mine.start_utc < theirs.end_utc and theirs.start_utc < mine.end_utc:
                 continue
-            card["beside"] = "start" if mine.start_utc < theirs.start_utc else "end"
+            same_lane = (card["start_column"], card["end_column"]) == (
+                other["start_column"],
+                other["end_column"],
+            )
             card["warnings"].append(
                 f"Shares a row with “{other['session'].title}” "
-                f"({theirs.start_utc:%H:%M} UTC); the two are drawn side by side"
+                f"({theirs.start_utc:%H:%M} UTC); "
+                + (
+                    "the cards are drawn side by side"
+                    if same_lane
+                    else "one card covers the other, so move one of them"
+                )
             )
+            if same_lane:
+                mine_group = groups.setdefault(id(card), [card])
+                their_group = groups.setdefault(id(other), [other])
+                if mine_group is not their_group:
+                    mine_group.extend(their_group)
+                    for member in their_group:
+                        groups[id(member)] = mine_group
+    for group in {id(group): group for group in groups.values()}.values():
+        group.sort(key=lambda member: member["slot"].start_utc)
+        for part, member in enumerate(group):
+            member["part"], member["parts"] = part, len(group)
 
 
 def presenter_warnings(slots):

@@ -1093,22 +1093,22 @@ class TestFiveMinuteSlots:
         }
         assert cards[announcement.pk]["row"] == cards[video.pk]["row"]
         assert cards[announcement.pk]["warnings"] == [
-            "Shares a row with “Chapter video” (14:04 UTC); the two are drawn "
+            "Shares a row with “Chapter video” (14:04 UTC); the cards are drawn "
             "side by side"
         ]
         assert cards[video.pk]["warnings"] == [
-            "Shares a row with “Welcome” (14:00 UTC); the two are drawn side by side"
+            "Shares a row with “Welcome” (14:00 UTC); the cards are drawn side by side"
         ]
-        assert (cards[announcement.pk]["beside"], cards[video.pk]["beside"]) == (
-            "start",
-            "end",
-        )
+        parts = [
+            (cards[s.pk]["part"], cards[s.pk]["parts"]) for s in (announcement, video)
+        ]
+        assert parts == [(0, 2), (1, 2)]
         client.force_login(organizer)
         content = client.get(EDITOR, {"day": "2026-12-05"}).content.decode()
         assert "schedule-warned" in content
         assert 'aria-label="See the warnings"' in content
-        assert "schedule-card-beside-start" in content
-        assert "schedule-card-beside-end" in content
+        assert "schedule-card-split" in content
+        assert "--part: 1;" in content
 
     def test_only_cards_drawn_over_each_other_warn(self, conference, enabled):
         """Other rooms, later rows, and two program bands that share their
@@ -1127,7 +1127,49 @@ class TestFiveMinuteSlots:
             )
         grid = grid_for_day(conference, date(2026, 12, 5))
         assert all(card["warnings"] == [] for card in grid["cards"])
-        assert all(card["beside"] is None for card in grid["cards"])
+        assert all(card["parts"] == 0 for card in grid["cards"])
+
+    def test_three_in_one_row_split_it_in_thirds(self, conference, enabled):
+        room = make_room(conference)
+        sessions = [make_session(conference, kind="ANNOUNCEMENT") for _ in range(3)]
+        for i, (session, length) in enumerate(zip(sessions, (2, 2, 5))):
+            start = T0 + timedelta(minutes=2 * i)
+            make_slot(
+                session,
+                room=room,
+                start_utc=start,
+                end_utc=start + timedelta(minutes=length),
+            )
+        cards = {
+            card["session"].pk: card
+            for card in grid_for_day(conference, date(2026, 12, 5))["cards"]
+        }
+        assert [(cards[s.pk]["part"], cards[s.pk]["parts"]) for s in sessions] == [
+            (0, 3),
+            (1, 3),
+            (2, 3),
+        ]
+        assert all(len(cards[s.pk]["warnings"]) == 2 for s in sessions)
+
+    def test_a_band_and_a_room_card_in_one_row_warn_unsplit(self, conference, enabled):
+        """A band spans every lane, so it cannot share one in parts: both
+        warn that one covers the other, and neither is split."""
+        first = make_room(conference)
+        make_room(conference)
+        opening = make_session(conference, kind="BREAK", title="Opening")
+        make_slot(opening, start_utc=T0, end_utc=T0 + timedelta(minutes=4))
+        talk = make_session(conference, kind="LIGHTNING", title="First talk")
+        make_slot(talk, room=first, start_utc=T0 + timedelta(minutes=4))
+        cards = {
+            card["session"].pk: card
+            for card in grid_for_day(conference, date(2026, 12, 5))["cards"]
+        }
+        assert cards[opening.pk]["warnings"] == [
+            "Shares a row with “First talk” (14:04 UTC); one card covers the "
+            "other, so move one of them"
+        ]
+        assert len(cards[talk.pk]["warnings"]) == 1
+        assert cards[opening.pk]["parts"] == cards[talk.pk]["parts"] == 0
 
     def test_three_run_back_to_back_in_one_room(self, conference, enabled):
         room = make_room(conference)

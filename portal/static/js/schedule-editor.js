@@ -206,6 +206,11 @@
             step: stepOf(grid),
             startY: event.clientY,
             row: parseInt(card.style.gridRow, 10),
+            /* Minutes past its row the slot starts (a talk at 10:03 is
+             * 3), so the preview's end lands where the grid draws it. */
+            offset: new Date(
+                card.querySelector("[data-utc]").dataset.utc
+            ).getUTCMinutes() % stepOf(grid),
             column: card.style.gridColumn,
             band: card.classList.contains("schedule-band"),
             grid: grid
@@ -227,9 +232,13 @@
         event.preventDefault();
         var minutes = resizeMinutes(event);
         var ghost = dropPreview(resizing.grid);
+        /* The rows the new end falls in, counted as the grid counts
+         * them: from the start minute, not from the top of its row. */
         ghost.style.gridRow =
             resizing.row + " / span " +
-            Math.max(1, Math.round(minutes / resizing.step));
+            Math.max(1, Math.floor(
+                (resizing.offset + minutes) / resizing.step
+            ));
         ghost.style.gridColumn = resizing.column;
         ghost.classList.toggle("schedule-drop-band", resizing.band);
         ghost.querySelector(".schedule-drop-label").textContent =
