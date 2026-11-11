@@ -257,8 +257,19 @@
         });
     }
 
+    /* "Elsewhere" is judged by where the press began: selecting the
+     * minutes with a drag that ends past the box fires the click on an
+     * ancestor outside the popover, which closed it mid-edit. */
+    var pressedMenu = null;
+    document.addEventListener("pointerdown", function (event) {
+        pressedMenu = event.target.closest("details.schedule-card-menu");
+    }, true);
+
     document.addEventListener("click", function (event) {
-        closeCardMenus(event.target.closest("details.schedule-card-menu"));
+        closeCardMenus(
+            event.target.closest("details.schedule-card-menu") || pressedMenu
+        );
+        pressedMenu = null;
     });
 
     /* A card clips its own content (long titles), which would clip an
