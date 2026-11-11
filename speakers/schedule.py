@@ -13,7 +13,7 @@ from django.db.models import Q
 from django.utils import timezone as dj_timezone
 
 from .clock import today
-from .constants import MIN_SLOT_MINUTES, OFF_SCHEDULE_STATUSES, SessionStatus
+from .constants import OFF_SCHEDULE_STATUSES, SessionStatus
 from .models import (
     ActivityLog,
     ChecklistItem,
@@ -28,11 +28,11 @@ from .models import (
 from .readiness import refresh_readiness
 from .tasks import send_schedule_update_task
 
-# One row is the shortest slot (five minutes), so a chapter video or a
-# lightning talk sits on the grid at its real length and three of them
-# can run back to back. Lines still mark every quarter hour, so the grid
-# reads as it did at 15.
-STEP_MINUTES = MIN_SLOT_MINUTES
+# Five minutes, so a chapter video or a lightning talk sits on the grid
+# at its real length and three of them can run back to back. Lines still
+# mark every quarter hour, so the grid reads as it did at 15. A slot may
+# be shorter than a row; two that land in one row warn (shared_row_warnings).
+STEP_MINUTES = 5
 ROWS_PER_HOUR = 60 // STEP_MINUTES
 ROWS_PER_QUARTER = 15 // STEP_MINUTES
 ROWS_PER_DAY = 24 * ROWS_PER_HOUR
@@ -192,6 +192,7 @@ def grid_for_day(conference, day, full_day=False):
                 "warnings": warnings.get(slot.pk, []),
             }
         )
+    shared_row_warnings(cards)
     rows = [
         {
             "index": FIRST_TIME_ROW + i,
@@ -216,6 +217,38 @@ def grid_for_day(conference, day, full_day=False):
 def also_in(presenter, session):
     """The double-booking warning line, one wording everywhere."""
     return f"{presenter.display_name} is also in “{session.title}”"
+
+
+def shared_row_warnings(cards):
+    """Warn on both cards when two are drawn over each other.
+
+    A slot shorter than a row (a 4-minute announcement) can end inside
+    the row where the next card in its room starts, so both are placed
+    on that row and one hides the other, though their times never
+    overlap. Times that do overlap are already refused, or are two
+    program bands allowed to coexist, so only the drawing is checked.
+    """
+    for card in cards:
+        for other in cards:
+            if other is card:
+                continue
+            if (
+                card["start_column"] >= other["end_column"]
+                or other["start_column"] >= card["end_column"]
+            ):
+                continue
+            if (
+                card["row"] >= other["row"] + other["span"]
+                or other["row"] >= card["row"] + card["span"]
+            ):
+                continue
+            mine, theirs = card["slot"], other["slot"]
+            if mine.start_utc < theirs.end_utc and theirs.start_utc < mine.end_utc:
+                continue
+            card["warnings"].append(
+                f"Drawn in the same row as “{other['session'].title}” "
+                f"({theirs.start_utc:%H:%M} UTC), so one card can hide the other"
+            )
 
 
 def presenter_warnings(slots):

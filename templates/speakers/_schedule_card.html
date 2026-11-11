@@ -31,11 +31,11 @@ dict), lanes, days.
     </div>
     <div class="d-flex gap-1">
         {% if card.warnings %}
-            {% trans "Presenter double-booked" as double_booked %}
+            {% trans "See the warnings" as warning_label %}
             <span class="text-warning-emphasis"
                   tabindex="0"
                   role="img"
-                  aria-label="{{ double_booked }}"
+                  aria-label="{{ warning_label }}"
                   title="{% for warning in card.warnings %}{{ warning }}{% if not forloop.last %}; {% endif %}{% endfor %}">
                 <i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i>
             </span>

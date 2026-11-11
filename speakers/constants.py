@@ -36,12 +36,6 @@ UNACCEPTED_STATUSES = frozenset({SessionStatus.PROPOSED, SessionStatus.REJECTED}
 # never reached the grid. The overlap rules look through them.
 OFF_SCHEDULE_STATUSES = UNACCEPTED_STATUSES | {SessionStatus.CANCELLED}
 
-# The shortest slot: one row of the schedule grid. A slot shorter than a
-# row could share its row with the next card in the room and be drawn
-# underneath it. Above this, any whole number of minutes. It is also the
-# grid's row height (schedule.STEP_MINUTES), so it must divide 15.
-MIN_SLOT_MINUTES = 5
-
 
 # What a session's status means to the person giving it. The organizers'
 # vocabulary (draft, invited, confirmed) is about their own work; a speaker

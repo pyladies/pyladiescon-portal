@@ -70,11 +70,11 @@ on the right, with its type, length and status.
   appears in the Unscheduled list ready to drag; the cell panel creates and
   places one in a single step.
 
-!!! note "Slots run from 5 minutes to a day, in whole minutes"
+!!! note "Slots run from 1 minute to a day, in whole minutes"
     The grid is drawn in 5-minute rows, so a chapter video or a lightning
     talk sits on it at its real length, and several can run back to back.
-    A length or start off those rows (a 7-minute video, a talk at 10:03)
-    is typed in the pencil form; the card sits on the rows its start and
+    A length or start off those rows (a 4-minute announcement, a 7-minute
+    video, a talk at 10:03) is typed in the pencil form; the card sits on the rows its start and
     end fall in, and its tooltip shows the exact times. Dragging snaps the
     start to a row and keeps the length; resizing changes the length 5
     minutes at a time.
@@ -90,6 +90,11 @@ on the right, with its type, length and status.
 - **A presenter in two places at once** is allowed, because a moderator
   moving between rooms is legitimate, but both cards show a warning naming
   the other session. Fix it by moving one of them.
+- **Two cards drawn in one row** are allowed, but both warn. A slot under
+  5 minutes can end inside the row where the next card in that room
+  starts: a 4-minute announcement at 10:00 and a video at 10:04 both sit
+  on the 10:00 row, and one hides the other. Each card names the other;
+  start the second one on the next row (10:05) if the gap is acceptable.
 - **A draft or invited session** can go on the grid as a pencil mark: its
   card is dotted and reads "Pencilled in, publishes once confirmed". It stays
   out of everything the speakers see until everyone on it has accepted, then
@@ -248,8 +253,8 @@ browser's copy expires.
 | Only the **All rooms** lane | No room is recorded for the edition yet. Add rooms in the admin, under **Speaker portal**, **Rooms**. |
 | A session is not in the Unscheduled list | Only confirmed, draft and invited sessions can be placed. A proposal waiting for an answer, or a cancelled session, cannot. |
 | A drop is refused | The time is taken in that room, or the slot would cross a band that spans every room. Pick another cell, or move the other card first. |
-| "A slot runs between 5 minutes and a day" | The length asked for is under 5 minutes or over a day. Pick a length in that range in the pencil form. |
-| "A slot runs at least 5 minutes" (in the admin) | **End utc** is less than 5 minutes after **Start utc**. Set it later, or leave it blank to use the session's length. |
+| "A slot runs between 1 minute and a day" | The length asked for is zero, negative or over a day. Pick a length in that range in the pencil form. |
+| A card warns "Drawn in the same row as" another | The two do not overlap in time, but a short slot ends inside the row where the other starts, so one is drawn over the other. Move one to the next row, or leave it if you know both are there. |
 | The card is dotted | The session is a draft or still invited. It publishes to the speakers once everyone on it has accepted and you confirm again. |
 | The card is dashed | The speakers have not been told about this placement or move yet. Confirm the schedule when ready. |
 | A speaker says their session is wrong or missing | Their page shows the last confirmed snapshot, not the grid. Confirm the schedule, with the email ticked so they hear about it. |

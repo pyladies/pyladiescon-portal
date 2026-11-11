@@ -22,7 +22,7 @@ from django.urls import reverse
 from django.views import View
 from django.views.generic import TemplateView
 
-from .constants import MIN_SLOT_MINUTES, OFF_SCHEDULE_STATUSES, SessionStatus
+from .constants import OFF_SCHEDULE_STATUSES, SessionStatus
 from .forms import ProgramItemForm
 from .mixins import SpeakerOrganizerRequiredMixin
 from .models import ActivityLog, Room, ScheduleSlot, Session
@@ -396,10 +396,8 @@ class SlotView(LoginRequiredMixin, SpeakerOrganizerRequiredMixin, View):
         ``room`` (a pk, or null for all rooms), ``start`` and either
         ``end`` or ``duration`` (minutes) are each optional: a drag sends
         room and start, a resize sends duration, the keyboard form sends
-        everything. A move without an explicit end keeps the slot's length,
-        lengthened to ``MIN_SLOT_MINUTES`` if it was saved shorter; a fresh
-        slot without one gets the session's default duration (at least
-        the floor).
+        everything. A move without an explicit end keeps the slot's length;
+        a fresh slot without one gets the session's default duration.
         """
         if session.status in OFF_SCHEDULE_STATUSES:
             raise SlotError("This session is not on the program.")
@@ -412,11 +410,7 @@ class SlotView(LoginRequiredMixin, SpeakerOrganizerRequiredMixin, View):
             slot.room = _resolve_room(self.conference, payload["room"])
         if "start" in payload:
             slot.start_utc = _parse_moment(payload["start"], "start")
-            slot.end_utc = (
-                slot.start_utc + max(length, timedelta(minutes=MIN_SLOT_MINUTES))
-                if length
-                else None
-            )
+            slot.end_utc = slot.start_utc + length if length else None
         if slot.start_utc is None:
             raise SlotError("Give the slot a start time.")
         if "duration" in payload:
@@ -424,10 +418,8 @@ class SlotView(LoginRequiredMixin, SpeakerOrganizerRequiredMixin, View):
                 minutes = int(payload["duration"])
             except (TypeError, ValueError):
                 minutes = 0
-            if not MIN_SLOT_MINUTES <= minutes <= MAX_SLOT_MINUTES:
-                raise SlotError(
-                    f"A slot runs between {MIN_SLOT_MINUTES} minutes and a day."
-                )
+            if not 1 <= minutes <= MAX_SLOT_MINUTES:
+                raise SlotError("A slot runs between 1 minute and a day.")
             slot.end_utc = slot.start_utc + timedelta(minutes=minutes)
         elif "end" in payload:
             slot.end_utc = (

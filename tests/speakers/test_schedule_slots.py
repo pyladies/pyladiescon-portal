@@ -121,14 +121,6 @@ class TestWindow:
             place(make_session(conference), length=0)
         assert "end_utc" in excinfo.value.message_dict
 
-    def test_the_slot_runs_at_least_five_minutes(self, conference):
-        """The admin and objects.create get the editor's floor: a slot
-        under one grid row could share it with the next card."""
-        with pytest.raises(ValidationError) as excinfo:
-            place(make_session(conference), length=4)
-        assert "at least 5 minutes" in str(excinfo.value.message_dict["end_utc"])
-        assert place(make_session(conference), minutes=10, length=5).pk
-
     def test_the_rules_wait_for_the_fields(self, conference):
         assert ScheduleSlot().clean() is None
         slot = ScheduleSlot(session=make_session(conference))

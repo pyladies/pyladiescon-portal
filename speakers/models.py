@@ -33,7 +33,6 @@ from .constants import (
     CAN_BE_APPROVED,
     DEFAULT_GUIDE_KEY,
     IDENTITY_LOCKED_STATUSES,
-    MIN_SLOT_MINUTES,
     OFF_SCHEDULE_STATUSES,
     OPEN_ITEM_STATUSES,
     PROPOSER_CAN_EDIT,
@@ -1339,9 +1338,7 @@ class ScheduleSlot(TimestampedModel):
     def clean(self):
         """Refuse a slot that collides with another (design §8.5).
 
-        The window must end after it starts, run at least
-        ``MIN_SLOT_MINUTES`` (a fresh slot for a shorter session gets that
-        much), and may not share a room
+        The window must end after it starts, and may not share a room
         with another slot, nor cross an every-room band, except that two
         program-kind bands may coexist. A session still waiting for an
         answer cannot hold a slot at all: the overlap rules look through
@@ -1365,14 +1362,10 @@ class ScheduleSlot(TimestampedModel):
             )
         if not self.end_utc:
             self.end_utc = self.start_utc + timedelta(
-                minutes=max(self.session.duration_minutes, MIN_SLOT_MINUTES)
+                minutes=self.session.duration_minutes
             )
         if self.end_utc <= self.start_utc:
             raise ValidationError({"end_utc": "The slot must end after it starts."})
-        if self.end_utc - self.start_utc < timedelta(minutes=MIN_SLOT_MINUTES):
-            raise ValidationError(
-                {"end_utc": f"A slot runs at least {MIN_SLOT_MINUTES} minutes."}
-            )
         clash = self.conflicts().first()
         if clash is not None:
             raise ValidationError(

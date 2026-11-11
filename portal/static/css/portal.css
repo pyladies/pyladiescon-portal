@@ -575,6 +575,12 @@ details.card[open] > summary.card-header::before {
 .schedule-warned {
     border-color: var(--bs-warning-border-subtle, #ffe69c);
 }
+/* A closed short strip has no room for the warning icon, and the
+   warning that matters most there (two cards drawn in one row) is easy
+   to miss, so the strip itself turns warning yellow (yellow-100). */
+.schedule-card-short.schedule-warned {
+    background-color: #fff3cd;
+}
 .schedule-card-title {
     color: inherit;
     text-decoration: none;
