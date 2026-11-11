@@ -31,7 +31,8 @@ from .tasks import send_schedule_update_task
 # Five minutes, so a chapter video or a lightning talk sits on the grid
 # at its real length and three of them can run back to back. Lines still
 # mark every quarter hour, so the grid reads as it did at 15. A slot may
-# be shorter than a row; two that land in one row warn (shared_row_warnings).
+# be shorter than a row; two that land in one row are drawn side by side
+# and warn (shared_row_warnings).
 STEP_MINUTES = 5
 ROWS_PER_HOUR = 60 // STEP_MINUTES
 ROWS_PER_QUARTER = 15 // STEP_MINUTES
@@ -190,6 +191,7 @@ def grid_for_day(conference, day, full_day=False):
                     or not published[slot.session_id].matches(slot)
                 ),
                 "warnings": warnings.get(slot.pk, []),
+                "beside": None,
             }
         )
     shared_row_warnings(cards)
@@ -220,12 +222,14 @@ def also_in(presenter, session):
 
 
 def shared_row_warnings(cards):
-    """Warn on both cards when two are drawn over each other.
+    """Draw two cards that land on one row side by side, and say so.
 
     A slot shorter than a row (a 4-minute announcement) can end inside
     the row where the next card in its room starts, so both are placed
-    on that row and one hides the other, though their times never
-    overlap. Times that do overlap are already refused, or are two
+    on that row, and the later one would cover the earlier completely
+    though their times never overlap. The earlier takes the left half
+    (``beside`` "start"), the later the right, and each warns, naming
+    the other. Times that do overlap are already refused, or are two
     program bands allowed to coexist, so only the drawing is checked.
     """
     for card in cards:
@@ -245,9 +249,10 @@ def shared_row_warnings(cards):
             mine, theirs = card["slot"], other["slot"]
             if mine.start_utc < theirs.end_utc and theirs.start_utc < mine.end_utc:
                 continue
+            card["beside"] = "start" if mine.start_utc < theirs.start_utc else "end"
             card["warnings"].append(
-                f"Drawn in the same row as “{other['session'].title}” "
-                f"({theirs.start_utc:%H:%M} UTC), so one card can hide the other"
+                f"Shares a row with “{other['session'].title}” "
+                f"({theirs.start_utc:%H:%M} UTC); the two are drawn side by side"
             )
 
 

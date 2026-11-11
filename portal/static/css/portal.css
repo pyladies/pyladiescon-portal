@@ -558,6 +558,13 @@ details.card[open] > summary.card-header::before {
     line-height: 1.25;
     box-shadow: 0 0.25rem 0.5rem rgba(0, 0, 0, 0.15);
 }
+/* Open, a short card drawn beside another takes the whole lane, so its
+   title and pencil have the room. */
+.schedule-card-short.schedule-card-beside-start:is(:hover, :focus-within, .schedule-card-open),
+.schedule-card-short.schedule-card-beside-end:is(:hover, :focus-within, .schedule-card-open) {
+    width: auto;
+    justify-self: stretch;
+}
 .schedule-card-short:hover .schedule-card-edit,
 .schedule-card-short:focus-within .schedule-card-edit,
 .schedule-card-short.schedule-card-open .schedule-card-edit,
@@ -574,6 +581,19 @@ details.card[open] > summary.card-header::before {
 }
 .schedule-warned {
     border-color: var(--bs-warning-border-subtle, #ffe69c);
+}
+/* Two cards drawn on one row (a slot under 5 minutes, then the next
+   card in the room) share it side by side, so neither covers the
+   other. An open short card takes the full lane again, above. */
+.schedule-card-beside-start,
+.schedule-card-beside-end {
+    width: calc(50% - 2px);
+}
+.schedule-card-beside-start {
+    justify-self: start;
+}
+.schedule-card-beside-end {
+    justify-self: end;
 }
 /* A closed short strip has no room for the warning icon, and the
    warning that matters most there (two cards drawn in one row) is easy

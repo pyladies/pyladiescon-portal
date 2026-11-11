@@ -217,7 +217,10 @@
         var rows = Math.round(
             (event.clientY - resizing.startY) / resizing.rowHeight
         );
-        return Math.max(resizing.step, resizing.minutes + rows * resizing.step);
+        /* No rows moved, no change: a 4-minute card caught by its edge
+         * must not round up to 5. A slot may be as short as a minute. */
+        if (!rows) return resizing.minutes;
+        return Math.max(1, resizing.minutes + rows * resizing.step);
     }
     document.addEventListener("pointermove", function (event) {
         if (!resizing) return;

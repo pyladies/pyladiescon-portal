@@ -1071,11 +1071,12 @@ class TestFiveMinuteSlots:
         slot = ScheduleSlot.objects.get(session=brief)
         assert slot.end_utc - slot.start_utc == timedelta(minutes=2)
 
-    def test_cards_drawn_in_one_row_both_warn(
+    def test_cards_drawn_in_one_row_sit_side_by_side_and_warn(
         self, client, organizer, enabled, conference
     ):
         """A 4-minute slot and the one after it at :04 do not overlap in
-        time, but both are drawn on the 14:00 row; each card says so."""
+        time, but both are drawn on the 14:00 row: the earlier takes the
+        left half, the later the right, and each card says so."""
         room = make_room(conference)
         announcement = make_session(conference, kind="ANNOUNCEMENT", title="Welcome")
         make_slot(
@@ -1092,17 +1093,22 @@ class TestFiveMinuteSlots:
         }
         assert cards[announcement.pk]["row"] == cards[video.pk]["row"]
         assert cards[announcement.pk]["warnings"] == [
-            "Drawn in the same row as “Chapter video” (14:04 UTC), so one "
-            "card can hide the other"
+            "Shares a row with “Chapter video” (14:04 UTC); the two are drawn "
+            "side by side"
         ]
         assert cards[video.pk]["warnings"] == [
-            "Drawn in the same row as “Welcome” (14:00 UTC), so one card "
-            "can hide the other"
+            "Shares a row with “Welcome” (14:00 UTC); the two are drawn side by side"
         ]
+        assert (cards[announcement.pk]["beside"], cards[video.pk]["beside"]) == (
+            "start",
+            "end",
+        )
         client.force_login(organizer)
         content = client.get(EDITOR, {"day": "2026-12-05"}).content.decode()
         assert "schedule-warned" in content
         assert 'aria-label="See the warnings"' in content
+        assert "schedule-card-beside-start" in content
+        assert "schedule-card-beside-end" in content
 
     def test_only_cards_drawn_over_each_other_warn(self, conference, enabled):
         """Other rooms, later rows, and two program bands that share their
@@ -1121,6 +1127,7 @@ class TestFiveMinuteSlots:
             )
         grid = grid_for_day(conference, date(2026, 12, 5))
         assert all(card["warnings"] == [] for card in grid["cards"])
+        assert all(card["beside"] is None for card in grid["cards"])
 
     def test_three_run_back_to_back_in_one_room(self, conference, enabled):
         room = make_room(conference)

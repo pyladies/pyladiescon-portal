@@ -282,11 +282,29 @@
         cells.push(h("div", { "class": "plc-head", style: "grid-row:1;grid-column:" + (i + 2), text: name }));
       });
     }
-    shown.forEach(function (s) {
+    /* A card covers the rows its start and end fall in, as in the
+     * organizers' grid. A slot under STEP minutes can end inside the row
+     * where the next one in its room starts; the two then share that
+     * row side by side rather than one covering the other. */
+    var placed = shown.map(function (s) {
       var from = row(s.slot.start);
-      var rows = Math.max(1, Math.round(minutes(s.slot.start, s.slot.end) / STEP));
-      var column = s.slot.room ? columns.indexOf(s.slot.room.name) + 2 : 2;
-      var place = "grid-row:" + from + " / span " + rows + ";grid-column:" + (s.slot.room ? column : "2 / -1");
+      var col = s.slot.room ? columns.indexOf(s.slot.room.name) + 2 : 2;
+      return {
+        s: s, from: from, to: Math.max(from + 1, row(s.slot.end)),
+        left: col, right: s.slot.room ? col + 1 : columns.length + 2, half: ""
+      };
+    });
+    placed.forEach(function (a, i) {
+      placed.slice(i + 1).forEach(function (b) {
+        if (a.left >= b.right || b.left >= a.right || a.from >= b.to || b.from >= a.to) return;
+        if (a.s.slot.start < b.s.slot.end && b.s.slot.start < a.s.slot.end) return;
+        a.half = ";width:50%;justify-self:start";
+        b.half = ";width:50%;justify-self:end";
+      });
+    });
+    placed.forEach(function (p) {
+      var s = p.s;
+      var place = "grid-row:" + p.from + " / " + p.to + ";grid-column:" + (s.slot.room ? p.left : "2 / -1") + p.half;
       cells.push(s.is_content ? h("article", { "class": "plc-card", style: place }, [
         h("div", { "class": "plc-meta" }, [span(s.slot, tz), " · " + s.kind.name, s.slot.room ? " · " + s.slot.room.name : null]),
         self.title(s),
