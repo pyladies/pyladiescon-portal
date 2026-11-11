@@ -200,7 +200,9 @@
         resizing = {
             url: card.dataset.slotUrl,
             minutes: parseInt(card.dataset.minutes, 10),
-            rowHeight: cell ? cell.offsetHeight : 8,
+            /* Unrounded: Compact and Fit rows are fractions of a pixel,
+             * and a rounded height drifts over a long drag. */
+            rowHeight: cell ? cell.getBoundingClientRect().height || 8 : 8,
             step: stepOf(grid),
             startY: event.clientY,
             row: parseInt(card.style.gridRow, 10),

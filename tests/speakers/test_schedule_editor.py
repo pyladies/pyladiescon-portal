@@ -980,7 +980,7 @@ class TestFiveMinuteSlots:
     """Chapter videos and lightning talks run five minutes, and the grid
     places them at that length, back to back."""
 
-    def test_a_five_minute_session_places_at_its_length(
+    def test_a_dropped_five_minute_session_is_one_short_row(
         self, client, organizer, enabled, conference
     ):
         video = make_session(conference, kind="LIGHTNING")
@@ -988,6 +988,24 @@ class TestFiveMinuteSlots:
         assert send(client, video, {"start": T0.isoformat()}).status_code == 200
         slot = ScheduleSlot.objects.get(session=video)
         assert slot.end_utc - slot.start_utc == timedelta(minutes=5)
+        card = grid_for_day(conference, date(2026, 12, 5), full_day=True)["cards"][0]
+        assert (card["row"], card["span"]) == (FIRST_TIME_ROW + 14 * 12, 1)
+        assert card["is_short"] is True
+
+    def test_a_card_cut_off_at_midnight_is_styled_for_what_shows(
+        self, conference, enabled
+    ):
+        """A talk at 23:55 shows one row of its hour, so it is drawn as
+        a short card, not a full one squeezed into 8px."""
+        late = make_session(conference, kind="TALK")
+        make_slot(
+            late,
+            start_utc=datetime(2026, 12, 5, 23, 55, tzinfo=timezone.utc),
+            end_utc=datetime(2026, 12, 6, 0, 55, tzinfo=timezone.utc),
+        )
+        card = grid_for_day(conference, date(2026, 12, 5), full_day=True)["cards"][0]
+        assert (card["span"], card["minutes"]) == (1, 60)
+        assert (card["is_tight"], card["is_short"]) == (True, True)
 
     def test_the_pencil_form_accepts_five_minutes(
         self, client, organizer, enabled, conference

@@ -523,14 +523,15 @@ details.card[open] > summary.card-header::before {
 }
 /* Under a quarter hour (a chapter video, a lightning talk) a card is
    a sliver of its 5-minute rows: smaller lettering, no padding, the
-   pencil hidden. Hovered or focused, it opens to its content above its
-   neighbours, so the title can be read and the pencil reached; the
-   rows never grow, so nothing else moves. */
+   pencil hidden. Hovered, focused, or with its pencil form open, it
+   opens to its content above its neighbours, so the title can be read
+   and the pencil reached; the rows never grow, so nothing else moves.
+   No top border: the row has no pixel to spare for it, and the bottom
+   margin is the gap between two back to back. */
 .schedule-card-short {
     padding: 0 0.3rem;
-    margin: 0 1px;
+    margin: 0 1px 1px;
     border-top-width: 0;
-    border-bottom: 1px solid var(--bs-body-bg, #fff);
     border-radius: 0.2rem;
     font-size: 7px;
     line-height: 7px;
@@ -543,12 +544,12 @@ details.card[open] > summary.card-header::before {
     visibility: hidden;
 }
 .schedule-card-short:hover,
-.schedule-card-short:focus-within {
+.schedule-card-short:focus-within,
+.schedule-card-short.schedule-card-open {
     align-self: start;
     min-height: 100%;
     padding: 0.1rem 0.3rem;
-    border-width: 1px;
-    border-color: #9ec5fe;
+    border-top-width: 1px;
     overflow: visible;
     z-index: 15;
     font-size: 0.75rem;
@@ -557,8 +558,10 @@ details.card[open] > summary.card-header::before {
 }
 .schedule-card-short:hover .schedule-card-edit,
 .schedule-card-short:focus-within .schedule-card-edit,
+.schedule-card-short.schedule-card-open .schedule-card-edit,
 .schedule-card-short:hover .text-warning-emphasis[role="img"],
-.schedule-card-short:focus-within .text-warning-emphasis[role="img"] {
+.schedule-card-short:focus-within .text-warning-emphasis[role="img"],
+.schedule-card-short.schedule-card-open .text-warning-emphasis[role="img"] {
     visibility: visible;
 }
 .schedule-band {
@@ -768,7 +771,8 @@ details.card[open] > summary.card-header::before {
 }
 /* At Compact and Fit heights a card under a quarter hour has a few
    pixels: a plain strip of colour, its title on hover or focus. */
-.schedule-density-compact .schedule-card-short:not(:hover):not(:focus-within) {
+.schedule-density-compact
+    .schedule-card-short:not(:hover):not(:focus-within):not(.schedule-card-open) {
     font-size: 0;
 }
 
@@ -794,6 +798,14 @@ details.card[open] > summary.card-header::before {
     padding: 0 0.15rem;
     font-size: clamp(7px, calc(var(--schedule-row-height, 0.5rem) * var(--schedule-rows-per-quarter, 3) * 0.7), 0.7rem);
     line-height: 1.1;
+}
+/* An opened short card is read up close, whatever the density. */
+.schedule-density-compact .schedule-card-short:hover,
+.schedule-density-compact .schedule-card-short:focus-within,
+.schedule-density-compact .schedule-card-short.schedule-card-open {
+    padding: 0.1rem 0.3rem;
+    font-size: 0.75rem;
+    line-height: 1.25;
 }
 
 /* The wide (spreadsheet) view breaks out of the page container: full

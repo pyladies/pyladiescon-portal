@@ -159,6 +159,9 @@ def grid_for_day(conference, day, full_day=False):
         row = _row_of(slot.start_utc, window_start, row_count)
         span = max(1, _row_of(slot.end_utc, window_start, row_count) - row)
         minutes = int((slot.end_utc - slot.start_utc).total_seconds() // 60)
+        # The card's styling follows what is drawn, not the slot: a talk
+        # cut off at midnight gets the room its rows give it.
+        shown = min(minutes, span * STEP_MINUTES)
         if slot.room_id is None:
             start_column, end_column = ALL_ROOMS_COLUMN, last_column
         else:
@@ -174,8 +177,8 @@ def grid_for_day(conference, day, full_day=False):
                 "end_column": end_column,
                 "is_band": slot.room_id is None,
                 "minutes": minutes,
-                "is_tight": minutes < TIGHT_MINUTES,
-                "is_short": minutes < SHORT_MINUTES,
+                "is_tight": shown < TIGHT_MINUTES,
+                "is_short": shown < SHORT_MINUTES,
                 # Only what a publish would carry is "unpublished"; a
                 # DRAFT or INVITED card is pencilled in and waits for
                 # its confirmation instead (review of #461).

@@ -48,10 +48,10 @@ timezone. Practice data. [Watch it on YouTube](https://youtu.be/p2DCGMqi06I).*
 
 Open **Organize**, then **Schedule**. The grid has one tab per conference
 day, the rooms across the top with an **All rooms** lane first, and
-5-minute steps down the side, with a line every quarter hour. The grid is trimmed to the program, an hour
-either side; **Show the whole day** opens it up. Everything confirmed and not
-yet placed waits in the **Unscheduled** list on the right, with its type,
-length and status.
+5-minute steps down the side, with a line every quarter hour. The grid is
+trimmed to the program, an hour either side; **Show the whole day** opens it
+up. Everything confirmed and not yet placed waits in the **Unscheduled** list
+on the right, with its type, length and status.
 
 ### Placing and moving
 
@@ -71,9 +71,9 @@ length and status.
   places one in a single step.
 
 !!! note "Slots are 5 minutes or longer"
-    A slot runs between 5 minutes and a day, in steps of 5 minutes, so a
-    chapter video or a lightning talk sits on the grid at its real length,
-    and several can run back to back. A card under a quarter hour is a thin
+    A slot runs between 5 minutes and a day, placed on the 5-minute grid,
+    so a chapter video or a lightning talk sits on the grid at its real
+    length, and several can run back to back. A card under a quarter hour is a thin
     strip: hover over it, or tab to it, and it opens to show its title and
     pencil.
 
