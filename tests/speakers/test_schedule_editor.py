@@ -342,10 +342,10 @@ class TestSlotPatch:
         session = make_session(conference)
         make_slot(session, start_utc=T0)
         client.force_login(organizer)
-        for minutes in (0, -5):
+        for minutes in (4, 0, -5):
             response = send(client, session, {"duration": minutes})
             assert response.status_code == 400
-            assert "between 1 minute and a day" in response.json()["errors"][0]
+            assert "between 5 minutes and a day" in response.json()["errors"][0]
         assert send(client, session, {"duration": "soon"}).status_code == 400
 
     def test_explicit_end_and_recomputed_end(
@@ -1023,7 +1023,9 @@ class TestFiveMinuteSlots:
         self, client, organizer, enabled, conference
     ):
         """A 7-minute video keeps its 7 minutes, and the card after it,
-        at :07, starts on the next row rather than on top of it."""
+        at :07, starts on the next row rather than on top of it. The
+        5-minute floor is what guarantees that: every slot reaches past
+        its own start row."""
         room = make_room(conference)
         video = make_session(conference, kind="LIGHTNING")
         make_slot(video, room=room, start_utc=T0)
@@ -1037,19 +1039,19 @@ class TestFiveMinuteSlots:
             send(
                 client,
                 nxt,
-                {"room": room.pk, "start": start.isoformat(), "duration": 3},
+                {"room": room.pk, "start": start.isoformat(), "duration": 5},
             ).status_code
             == 200
         )
         assert ScheduleSlot.objects.get(session=nxt).end_utc == start + timedelta(
-            minutes=3
+            minutes=5
         )
         cards = {
             card["session"].pk: card
             for card in grid_for_day(conference, date(2026, 12, 5))["cards"]
         }
         assert cards[nxt.pk]["row"] == cards[video.pk]["row"] + 1
-        assert (cards[video.pk]["minutes"], cards[nxt.pk]["minutes"]) == (7, 3)
+        assert (cards[video.pk]["minutes"], cards[nxt.pk]["minutes"]) == (7, 5)
 
     def test_three_run_back_to_back_in_one_room(self, conference, enabled):
         room = make_room(conference)
@@ -1084,4 +1086,4 @@ class TestFiveMinuteSlots:
         assert "schedule-cell-quarter" in content
         assert "schedule-card-short" in content
         assert 'step="60"' in content
-        assert 'min="1"' in content
+        assert 'min="5"' in content

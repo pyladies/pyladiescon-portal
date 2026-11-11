@@ -41,9 +41,9 @@ from .schedule import (
 )
 
 MAX_SLOT_MINUTES = ROWS_PER_DAY * STEP_MINUTES
-# Any whole number of minutes: the grid draws in 5-minute rows, but a
-# 7-minute video is placed at its real length through the pencil form.
-MIN_SLOT_MINUTES = 1
+# Any whole number of minutes from one row up: a slot shorter than a row
+# could share its row with the next card and be drawn underneath it.
+MIN_SLOT_MINUTES = STEP_MINUTES
 
 
 class SlotError(Exception):
@@ -422,7 +422,9 @@ class SlotView(LoginRequiredMixin, SpeakerOrganizerRequiredMixin, View):
             except (TypeError, ValueError):
                 minutes = 0
             if not MIN_SLOT_MINUTES <= minutes <= MAX_SLOT_MINUTES:
-                raise SlotError("A slot runs between 1 minute and a day.")
+                raise SlotError(
+                    f"A slot runs between {MIN_SLOT_MINUTES} minutes and a day."
+                )
             slot.end_utc = slot.start_utc + timedelta(minutes=minutes)
         elif "end" in payload:
             slot.end_utc = (

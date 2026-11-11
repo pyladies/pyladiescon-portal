@@ -70,13 +70,16 @@ on the right, with its type, length and status.
   appears in the Unscheduled list ready to drag; the cell panel creates and
   places one in a single step.
 
-!!! note "Slots can be any number of minutes"
+!!! note "Slots run from 5 minutes to a day, in whole minutes"
     The grid is drawn in 5-minute rows, so a chapter video or a lightning
     talk sits on it at its real length, and several can run back to back.
-    Dragging and resizing snap to those rows; for a length or start off
-    them (a 7-minute video, a talk at 10:03), type it in the pencil form. A card under a quarter hour
-    is a thin strip: hover over it, or tab to it, and it opens to show its
-    title and pencil.
+    A length or start off those rows (a 7-minute video, a talk at 10:03)
+    is typed in the pencil form; the card is drawn on the nearest rows and
+    its label shows the exact times. Dragging snaps the start to a row and
+    keeps the length; resizing changes the length 5 minutes at a time.
+    A card under a quarter hour is a thin strip: hover over it, or tab to
+    it, and it opens to show its title and pencil. Grab it anywhere but
+    its bottom edge to move it.
 
 ### What the grid refuses, and what it only warns about
 
@@ -244,7 +247,7 @@ browser's copy expires.
 | Only the **All rooms** lane | No room is recorded for the edition yet. Add rooms in the admin, under **Speaker portal**, **Rooms**. |
 | A session is not in the Unscheduled list | Only confirmed, draft and invited sessions can be placed. A proposal waiting for an answer, or a cancelled session, cannot. |
 | A drop is refused | The time is taken in that room, or the slot would cross a band that spans every room. Pick another cell, or move the other card first. |
-| "A slot runs between 1 minute and a day" | The length asked for is under a minute or over a day. Pick a length in that range in the pencil form. |
+| "A slot runs between 5 minutes and a day" | The length asked for is under 5 minutes or over a day. Pick a length in that range in the pencil form. |
 | The card is dotted | The session is a draft or still invited. It publishes to the speakers once everyone on it has accepted and you confirm again. |
 | The card is dashed | The speakers have not been told about this placement or move yet. Confirm the schedule when ready. |
 | A speaker says their session is wrong or missing | Their page shows the last confirmed snapshot, not the grid. Confirm the schedule, with the email ticked so they hear about it. |
