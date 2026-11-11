@@ -73,9 +73,9 @@ on the right, with its type, length and status.
 !!! note "Slots are 5 minutes or longer"
     A slot runs between 5 minutes and a day, placed on the 5-minute grid,
     so a chapter video or a lightning talk sits on the grid at its real
-    length, and several can run back to back. A card under a quarter hour is a thin
-    strip: hover over it, or tab to it, and it opens to show its title and
-    pencil.
+    length, and several can run back to back. A card under a quarter hour
+    is a thin strip: hover over it, or tab to it, and it opens to show its
+    title and pencil.
 
 ### What the grid refuses, and what it only warns about
 
