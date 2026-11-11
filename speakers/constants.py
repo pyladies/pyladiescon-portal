@@ -38,7 +38,8 @@ OFF_SCHEDULE_STATUSES = UNACCEPTED_STATUSES | {SessionStatus.CANCELLED}
 
 # The shortest slot: one row of the schedule grid. A slot shorter than a
 # row could share its row with the next card in the room and be drawn
-# underneath it. Above this, any whole number of minutes.
+# underneath it. Above this, any whole number of minutes. It is also the
+# grid's row height (schedule.STEP_MINUTES), so it must divide 15.
 MIN_SLOT_MINUTES = 5
 
 

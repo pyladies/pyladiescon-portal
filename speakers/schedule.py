@@ -28,8 +28,9 @@ from .models import (
 from .readiness import refresh_readiness
 from .tasks import send_schedule_update_task
 
-# Five minutes, so a chapter video or a lightning talk sits on the grid
-# at its real length and three of them can run back to back. Lines still
+# One row is the shortest slot (five minutes), so a chapter video or a
+# lightning talk sits on the grid at its real length and three of them
+# can run back to back. Lines still
 # mark every quarter hour, so the grid reads as it did at 15.
 STEP_MINUTES = MIN_SLOT_MINUTES
 ROWS_PER_HOUR = 60 // STEP_MINUTES

@@ -248,7 +248,8 @@ browser's copy expires.
 | Only the **All rooms** lane | No room is recorded for the edition yet. Add rooms in the admin, under **Speaker portal**, **Rooms**. |
 | A session is not in the Unscheduled list | Only confirmed, draft and invited sessions can be placed. A proposal waiting for an answer, or a cancelled session, cannot. |
 | A drop is refused | The time is taken in that room, or the slot would cross a band that spans every room. Pick another cell, or move the other card first. |
-| "A slot runs between 5 minutes and a day", or "A slot runs at least 5 minutes" | The length asked for, or the end time given, makes the slot under 5 minutes (or, for the first, over a day). Pick a length in that range in the pencil form. |
+| "A slot runs between 5 minutes and a day" | The length asked for is under 5 minutes or over a day. Pick a length in that range in the pencil form. |
+| "A slot runs at least 5 minutes" (in the admin) | The End is less than 5 minutes after the Start. Set it later, or leave it blank to use the session's length. |
 | The card is dotted | The session is a draft or still invited. It publishes to the speakers once everyone on it has accepted and you confirm again. |
 | The card is dashed | The speakers have not been told about this placement or move yet. Confirm the schedule when ready. |
 | A speaker says their session is wrong or missing | Their page shows the last confirmed snapshot, not the grid. Confirm the schedule, with the email ticked so they hear about it. |

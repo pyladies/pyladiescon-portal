@@ -396,8 +396,10 @@ class SlotView(LoginRequiredMixin, SpeakerOrganizerRequiredMixin, View):
         ``room`` (a pk, or null for all rooms), ``start`` and either
         ``end`` or ``duration`` (minutes) are each optional: a drag sends
         room and start, a resize sends duration, the keyboard form sends
-        everything. A move without an explicit end keeps the slot's length;
-        a fresh slot without one gets the session's default duration.
+        everything. A move without an explicit end keeps the slot's length,
+        lengthened to ``MIN_SLOT_MINUTES`` if it was saved shorter; a fresh
+        slot without one gets the session's default duration (at least
+        the floor).
         """
         if session.status in OFF_SCHEDULE_STATUSES:
             raise SlotError("This session is not on the program.")
@@ -410,8 +412,6 @@ class SlotView(LoginRequiredMixin, SpeakerOrganizerRequiredMixin, View):
             slot.room = _resolve_room(self.conference, payload["room"])
         if "start" in payload:
             slot.start_utc = _parse_moment(payload["start"], "start")
-            # A slot saved short before the floor existed is lengthened
-            # to it, so the move still goes through.
             slot.end_utc = (
                 slot.start_utc + max(length, timedelta(minutes=MIN_SLOT_MINUTES))
                 if length
