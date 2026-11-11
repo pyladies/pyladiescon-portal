@@ -1072,6 +1072,20 @@ class TestFiveMinuteSlots:
         slot = ScheduleSlot.objects.get(session=brief)
         assert slot.end_utc - slot.start_utc == timedelta(minutes=5)
 
+    def test_a_slot_saved_short_before_the_floor_moves_at_five(
+        self, client, organizer, enabled, conference
+    ):
+        session = make_session(conference)
+        slot = make_slot(session, start_utc=T0)
+        ScheduleSlot.objects.filter(pk=slot.pk).update(
+            end_utc=T0 + timedelta(minutes=3)
+        )
+        client.force_login(organizer)
+        later = T0 + timedelta(hours=2)
+        assert send(client, session, {"start": later.isoformat()}).status_code == 200
+        slot.refresh_from_db()
+        assert (slot.start_utc, slot.end_utc) == (later, later + timedelta(minutes=5))
+
     def test_three_run_back_to_back_in_one_room(self, conference, enabled):
         room = make_room(conference)
         videos = [make_session(conference, kind="LIGHTNING") for _ in range(3)]

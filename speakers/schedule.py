@@ -13,7 +13,7 @@ from django.db.models import Q
 from django.utils import timezone as dj_timezone
 
 from .clock import today
-from .constants import OFF_SCHEDULE_STATUSES, SessionStatus
+from .constants import MIN_SLOT_MINUTES, OFF_SCHEDULE_STATUSES, SessionStatus
 from .models import (
     ActivityLog,
     ChecklistItem,
@@ -31,7 +31,7 @@ from .tasks import send_schedule_update_task
 # Five minutes, so a chapter video or a lightning talk sits on the grid
 # at its real length and three of them can run back to back. Lines still
 # mark every quarter hour, so the grid reads as it did at 15.
-STEP_MINUTES = 5
+STEP_MINUTES = MIN_SLOT_MINUTES
 ROWS_PER_HOUR = 60 // STEP_MINUTES
 ROWS_PER_QUARTER = 15 // STEP_MINUTES
 ROWS_PER_DAY = 24 * ROWS_PER_HOUR

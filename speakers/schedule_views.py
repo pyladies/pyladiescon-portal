@@ -410,7 +410,13 @@ class SlotView(LoginRequiredMixin, SpeakerOrganizerRequiredMixin, View):
             slot.room = _resolve_room(self.conference, payload["room"])
         if "start" in payload:
             slot.start_utc = _parse_moment(payload["start"], "start")
-            slot.end_utc = slot.start_utc + length if length else None
+            # A slot saved short before the floor existed is lengthened
+            # to it, so the move still goes through.
+            slot.end_utc = (
+                slot.start_utc + max(length, timedelta(minutes=MIN_SLOT_MINUTES))
+                if length
+                else None
+            )
         if slot.start_utc is None:
             raise SlotError("Give the slot a start time.")
         if "duration" in payload:
