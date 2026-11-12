@@ -9,12 +9,20 @@
 (function () {
     "use strict";
 
-    var STEP_MINUTES = 15;
+    /* The grid's step comes from speakers/schedule.py, on the grid
+     * element; this copy is only the fallback for a grid without it. */
+    var STEP_MINUTES = 5;
+    var QUARTER_MINUTES = 15;
     var dragged = null;
     var resizing = null;
 
     function board() {
         return document.getElementById("schedule-board");
+    }
+
+    function stepOf(grid) {
+        var step = grid ? parseInt(grid.dataset.stepMinutes, 10) : NaN;
+        return step > 0 ? step : STEP_MINUTES;
     }
 
     function csrfToken() {
@@ -151,8 +159,9 @@
         event.preventDefault();
         cell.classList.add("schedule-drop");
         hideDropPreview();
-        var ghost = dropPreview(cell.closest(".schedule-grid"));
-        var span = Math.max(1, Math.round(dragged.minutes / STEP_MINUTES));
+        var grid = cell.closest(".schedule-grid");
+        var ghost = dropPreview(grid);
+        var span = Math.max(1, Math.round(dragged.minutes / stepOf(grid)));
         ghost.style.gridRow = cell.style.gridRow + " / span " + span;
         ghost.style.gridColumn = cell.dataset.room
             ? cell.style.gridColumn
@@ -180,7 +189,8 @@
         dragged = null;
     });
 
-    /* Resizing: the handle at a card's bottom edge, in 15-minute steps. */
+    /* Resizing: the handle at a card's bottom edge, one grid step at a
+     * time. */
     document.addEventListener("pointerdown", function (event) {
         var handle = event.target.closest(".schedule-resize");
         if (!handle) return;
@@ -190,9 +200,18 @@
         resizing = {
             url: card.dataset.slotUrl,
             minutes: parseInt(card.dataset.minutes, 10),
-            rowHeight: cell ? cell.offsetHeight : 18,
+            /* Unrounded: Compact and Fit rows are fractions of a pixel,
+             * and a rounded height drifts over a long drag. */
+            rowHeight: cell ? cell.getBoundingClientRect().height || 8 : 8,
+            step: stepOf(grid),
             startY: event.clientY,
             row: parseInt(card.style.gridRow, 10),
+            /* Minutes past its row the slot starts (a talk at 10:03 is
+             * 3), so the preview's end lands where the grid draws it. A
+             * card from the day before, or one drawn from the next row
+             * after a short card (speakers/schedule.py), starts before
+             * its row, so its offset is negative. */
+            offset: resizeOffset(card, grid, cell),
             column: card.style.gridColumn,
             band: card.classList.contains("schedule-band"),
             grid: grid
@@ -200,20 +219,37 @@
         event.preventDefault();
     });
 
+    function resizeOffset(card, grid, cell) {
+        var start = new Date(card.querySelector("[data-utc]").dataset.utc);
+        if (!cell) return start.getUTCMinutes() % stepOf(grid);
+        var rows = parseInt(card.style.gridRow, 10) -
+            parseInt(cell.style.gridRow, 10);
+        var drawn = new Date(cell.dataset.time).getTime() +
+            rows * stepOf(grid) * 60000;
+        return (start - drawn) / 60000;
+    }
+
     function resizeMinutes(event) {
         var rows = Math.round(
             (event.clientY - resizing.startY) / resizing.rowHeight
         );
-        return Math.max(STEP_MINUTES, resizing.minutes + rows * STEP_MINUTES);
+        /* No rows moved, no change: a 4-minute card caught by its edge
+         * must not round up to 5. A slot may be as short as a minute. */
+        if (!rows) return resizing.minutes;
+        return Math.max(1, resizing.minutes + rows * resizing.step);
     }
     document.addEventListener("pointermove", function (event) {
         if (!resizing) return;
         event.preventDefault();
         var minutes = resizeMinutes(event);
         var ghost = dropPreview(resizing.grid);
+        /* The rows the new end falls in, counted as the grid counts
+         * them: from the start minute, not from the top of its row. */
         ghost.style.gridRow =
             resizing.row + " / span " +
-            Math.max(1, Math.round(minutes / STEP_MINUTES));
+            Math.max(1, Math.floor(
+                (resizing.offset + minutes) / resizing.step
+            ));
         ghost.style.gridColumn = resizing.column;
         ghost.classList.toggle("schedule-drop-band", resizing.band);
         ghost.querySelector(".schedule-drop-label").textContent =
@@ -244,14 +280,31 @@
         });
     }
 
+    /* "Elsewhere" is judged by where the press began: selecting the
+     * minutes with a drag that ends past the box fires the click on an
+     * ancestor outside the popover, which closed it mid-edit. */
+    var pressedMenu = null;
+    document.addEventListener("pointerdown", function (event) {
+        pressedMenu = event.target.closest("details.schedule-card-menu");
+    }, true);
+
     document.addEventListener("click", function (event) {
-        closeCardMenus(event.target.closest("details.schedule-card-menu"));
+        /* A keyboard click (detail 0) had no press of its own, so a
+         * leftover from a right-click must not count for it. */
+        closeCardMenus(
+            event.target.closest("details.schedule-card-menu") ||
+                (event.detail ? pressedMenu : null)
+        );
+        pressedMenu = null;
     });
 
     /* A card clips its own content (long titles), which would clip an
      * open popover to the card's height too; while a menu is open the
-     * card lifts the clipping and stacks above its neighbours. The
-     * toggle event does not bubble, so it is captured. */
+     * card lifts the clipping and stacks above its neighbours. It also
+     * stops being draggable: the form sits inside the card, and a press
+     * and drag in the minutes box, to select the value, dragged the
+     * card instead. The toggle event does not bubble, so it is
+     * captured. */
     document.addEventListener(
         "toggle",
         function (event) {
@@ -263,6 +316,7 @@
             var card = menu.closest(".schedule-card, .schedule-pending");
             if (card) {
                 card.classList.toggle("schedule-card-open", menu.open);
+                card.draggable = !menu.open;
             }
         },
         true
@@ -296,7 +350,8 @@
         send(form.dataset.url, "PATCH", {
             room: value("room") || null,
             start: value("date") + "T" + time + ":00+00:00",
-            duration: parseInt(value("duration"), 10) || STEP_MINUTES
+            duration: parseInt(value("duration"), 10) ||
+                stepOf(board().querySelector(".schedule-grid"))
         });
     });
 
@@ -397,11 +452,14 @@
     }
 
     /* The density switch: row height by name, or computed to fit the
-     * viewport (design §10.2). */
+     * viewport (design §10.2). The names are quarter-hour heights, as
+     * they were when a row was a quarter hour; a row is a step of it. */
     function applyDensity() {
         var select = document.getElementById("schedule-density");
         if (!select || !board()) return;
         board().querySelectorAll(".schedule-grid").forEach(function (grid) {
+            var perQuarter = Math.max(1, QUARTER_MINUTES / stepOf(grid));
+            grid.style.setProperty("--schedule-rows-per-quarter", perQuarter);
             grid.classList.toggle(
                 "schedule-density-compact", select.value !== "comfortable"
             );
@@ -411,13 +469,16 @@
             if (select.value === "comfortable") {
                 grid.style.removeProperty("--schedule-row-height");
             } else if (select.value === "compact") {
-                grid.style.setProperty("--schedule-row-height", "0.55rem");
+                grid.style.setProperty(
+                    "--schedule-row-height",
+                    "calc(0.55rem / " + perQuarter + ")"
+                );
             } else {
                 var rows = parseInt(grid.dataset.rows, 10) || 1;
                 var room = window.innerHeight - 120;
-                var height = Math.max(3, Math.floor(room / rows));
+                var height = Math.max(1, room / rows);
                 grid.style.setProperty(
-                    "--schedule-row-height", height + "px"
+                    "--schedule-row-height", height.toFixed(2) + "px"
                 );
             }
         });

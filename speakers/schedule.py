@@ -1,6 +1,6 @@
 """Building the schedule editor's grid (design §10, task 4.2).
 
-Rooms across, 15-minute steps down, one day at a time. Everything is
+Rooms across, 5-minute steps down, one day at a time. Everything is
 computed in UTC; the browser relabels the times in whatever timezone the
 organizer picks (``static/js/schedule-editor.js`` reads the ``data-utc``
 attributes this module's cards carry).
@@ -28,8 +28,21 @@ from .models import (
 from .readiness import refresh_readiness
 from .tasks import send_schedule_update_task
 
-STEP_MINUTES = 15
-ROWS_PER_DAY = 24 * 60 // STEP_MINUTES
+# Five minutes, so a chapter video or a lightning talk sits on the grid
+# at its real length and three of them can run back to back. Lines still
+# mark every quarter hour, so the grid reads as it did at 15. A slot may
+# be shorter than a row; cards that land in one row share it and warn
+# (shared_row_warnings).
+STEP_MINUTES = 5
+ROWS_PER_HOUR = 60 // STEP_MINUTES
+ROWS_PER_QUARTER = 15 // STEP_MINUTES
+ROWS_PER_DAY = 24 * ROWS_PER_HOUR
+
+# A card this short gets one line: the title, with the rest in its
+# tooltip and pencil. Under a quarter hour it is a sliver that opens up
+# while hovered or focused.
+TIGHT_MINUTES = 30
+SHORT_MINUTES = 15
 
 # The grid's first two columns: the hour gutter and the all-rooms lane
 # where the opening and the breaks go. Rooms start in the third.
@@ -37,7 +50,7 @@ GUTTER_COLUMN = 1
 ALL_ROOMS_COLUMN = 2
 FIRST_ROOM_COLUMN = 3
 
-# The header row is row 1; the day's first quarter hour is row 2.
+# The header row is row 1; the day's first time step is row 2.
 FIRST_TIME_ROW = 2
 
 
@@ -87,7 +100,7 @@ def _hour_of(moment):
 def _window(day_start, day_end, slots, full_day):
     """The hours the grid renders: the program plus an hour each side.
 
-    A conference day occupies a fraction of its 96 quarter-hours; the
+    A conference day occupies a fraction of its rows; the
     page shows the part that matters (design §10.2) unless asked for the
     whole day, or when there is nothing placed yet to trim around.
     """
@@ -147,6 +160,7 @@ def grid_for_day(conference, day, full_day=False):
     for slot in slots:
         row = _row_of(slot.start_utc, window_start, row_count)
         span = max(1, _row_of(slot.end_utc, window_start, row_count) - row)
+        minutes = int((slot.end_utc - slot.start_utc).total_seconds() // 60)
         if slot.room_id is None:
             start_column, end_column = ALL_ROOMS_COLUMN, last_column
         else:
@@ -161,7 +175,7 @@ def grid_for_day(conference, day, full_day=False):
                 "start_column": start_column,
                 "end_column": end_column,
                 "is_band": slot.room_id is None,
-                "minutes": int((slot.end_utc - slot.start_utc).total_seconds() // 60),
+                "minutes": minutes,
                 # Only what a publish would carry is "unpublished"; a
                 # DRAFT or INVITED card is pencilled in and waits for
                 # its confirmation instead (review of #461).
@@ -172,13 +186,24 @@ def grid_for_day(conference, day, full_day=False):
                     or not published[slot.session_id].matches(slot)
                 ),
                 "warnings": warnings.get(slot.pk, []),
+                "part": 0,
+                "parts": 0,
             }
         )
+    shared_row_warnings(cards)
+    for card in cards:
+        # The card's styling follows what is drawn, not the slot: a talk
+        # cut off at midnight, or drawn from the next row after a short
+        # card, gets the room its rows give it.
+        shown = min(card["minutes"], card["span"] * STEP_MINUTES)
+        card["is_tight"] = shown < TIGHT_MINUTES
+        card["is_short"] = shown < SHORT_MINUTES
     rows = [
         {
             "index": FIRST_TIME_ROW + i,
             "utc": window_start + timedelta(minutes=STEP_MINUTES * i),
-            "is_hour": i % 4 == 0,
+            "is_hour": i % ROWS_PER_HOUR == 0,
+            "is_quarter": i % ROWS_PER_QUARTER == 0,
         }
         for i in range(row_count)
     ]
@@ -197,6 +222,80 @@ def grid_for_day(conference, day, full_day=False):
 def also_in(presenter, session):
     """The double-booking warning line, one wording everywhere."""
     return f"{presenter.display_name} is also in “{session.title}”"
+
+
+def shared_row_warnings(cards):
+    """Split a row that several cards land on, and warn on each of them.
+
+    A slot shorter than a row (a 4-minute announcement) can end inside
+    the row where the next card starts, so both are placed on that row
+    though their times never overlap, and the later would cover the
+    earlier. Cards in the same lane that collide this way, two or more,
+    share it in parts, earliest first (``part`` of ``parts``). A band
+    against a room card cannot be split, since they span different
+    lanes; both warn that one covers the other. Times that do overlap
+    are already refused, or are two program bands allowed to coexist,
+    so only the drawing is checked.
+
+    A longer card that starts in the row an earlier one ends in (a
+    keynote at 14:03 after a 3-minute announcement) is drawn from the
+    next row instead, full width, rather than split for its whole hour
+    (review of #478). Its times are unchanged; only the drawing starts
+    up to four minutes late. Only cards that fit in the one row split.
+    """
+    for card in cards:
+        if card["span"] < 2:
+            continue
+        if any(
+            other["slot"].end_utc <= card["slot"].start_utc
+            and other["row"] <= card["row"] < other["row"] + other["span"]
+            and card["start_column"] < other["end_column"]
+            and other["start_column"] < card["end_column"]
+            for other in cards
+        ):
+            card["row"] += 1
+            card["span"] -= 1
+    groups = {}
+    for card in cards:
+        for other in cards:
+            if other is card:
+                continue
+            if (
+                card["start_column"] >= other["end_column"]
+                or other["start_column"] >= card["end_column"]
+            ):
+                continue
+            if (
+                card["row"] >= other["row"] + other["span"]
+                or other["row"] >= card["row"] + card["span"]
+            ):
+                continue
+            mine, theirs = card["slot"], other["slot"]
+            if mine.start_utc < theirs.end_utc and theirs.start_utc < mine.end_utc:
+                continue
+            same_lane = (card["start_column"], card["end_column"]) == (
+                other["start_column"],
+                other["end_column"],
+            )
+            card["warnings"].append(
+                f"Shares a row with “{other['session'].title}”; "
+                + (
+                    "the cards are drawn side by side"
+                    if same_lane
+                    else "one card covers the other, so move one of them"
+                )
+            )
+            if same_lane:
+                mine_group = groups.setdefault(id(card), [card])
+                their_group = groups.setdefault(id(other), [other])
+                if mine_group is not their_group:
+                    mine_group.extend(their_group)
+                    for member in their_group:
+                        groups[id(member)] = mine_group
+    for group in {id(group): group for group in groups.values()}.values():
+        group.sort(key=lambda member: member["slot"].start_utc)
+        for part, member in enumerate(group):
+            member["part"], member["parts"] = part, len(group)
 
 
 def presenter_warnings(slots):

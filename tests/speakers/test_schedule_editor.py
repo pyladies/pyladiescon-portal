@@ -145,8 +145,10 @@ class TestEditorPage:
         grid = grid_for_day(conference, date(2026, 12, 5), full_day=True)
         by_session = {card["session"].pk: card for card in grid["cards"]}
         placed = by_session[talk.pk]
-        assert placed["row"] == FIRST_TIME_ROW + 14 * 4
-        assert placed["span"] == 2
+        assert placed["row"] == FIRST_TIME_ROW + 14 * 12
+        assert placed["span"] == 6
+        assert placed["is_tight"] is False
+        assert placed["is_short"] is False
         assert placed["start_column"] == FIRST_ROOM_COLUMN
         assert placed["end_column"] == FIRST_ROOM_COLUMN + 1
         spanning = by_session[band.pk]
@@ -159,8 +161,8 @@ class TestEditorPage:
         make_slot(session, start_utc=datetime(2026, 12, 5, 23, 30, tzinfo=timezone.utc))
         grid = grid_for_day(conference, date(2026, 12, 5), full_day=True)
         card = grid["cards"][0]
-        assert card["row"] == FIRST_TIME_ROW + 94
-        assert card["span"] == 2
+        assert card["row"] == FIRST_TIME_ROW + 23 * 12 + 6
+        assert card["span"] == 6
 
     def test_a_retired_room_with_a_slot_keeps_its_lane(self, conference, enabled):
         room = make_room(conference, name="old-stage", is_active=False)
@@ -340,7 +342,10 @@ class TestSlotPatch:
         session = make_session(conference)
         make_slot(session, start_utc=T0)
         client.force_login(organizer)
-        assert send(client, session, {"duration": 10}).status_code == 400
+        for minutes in (0, -5):
+            response = send(client, session, {"duration": minutes})
+            assert response.status_code == 400
+            assert "between 1 minute and a day" in response.json()["errors"][0]
         assert send(client, session, {"duration": "soon"}).status_code == 400
 
     def test_explicit_end_and_recomputed_end(
@@ -757,19 +762,19 @@ class TestTrimmedWindow:
         grid = grid_for_day(conference, date(2026, 12, 5))
         assert grid["trimmed"] is True
         assert grid["rows"][0]["utc"].hour == 13
-        assert len(grid["rows"]) == 12
-        assert grid["cards"][0]["row"] == FIRST_TIME_ROW + 4
+        assert len(grid["rows"]) == 36
+        assert grid["cards"][0]["row"] == FIRST_TIME_ROW + 12
 
     def test_full_day_on_request_and_when_empty(self, conference, enabled):
         empty = grid_for_day(conference, date(2026, 12, 5))
         assert empty["trimmed"] is False
-        assert len(empty["rows"]) == 96
+        assert len(empty["rows"]) == 288
         session = make_session(conference, kind="TALK")
         make_slot(session, start_utc=T0)
         full = grid_for_day(conference, date(2026, 12, 5), full_day=True)
         assert full["trimmed"] is False
-        assert len(full["rows"]) == 96
-        assert full["cards"][0]["row"] == FIRST_TIME_ROW + 14 * 4
+        assert len(full["rows"]) == 288
+        assert full["cards"][0]["row"] == FIRST_TIME_ROW + 14 * 12
 
     def test_the_window_clamps_to_the_day(self, conference, enabled):
         early = make_session(conference, kind="TALK")
@@ -778,7 +783,7 @@ class TestTrimmedWindow:
         make_slot(late, start_utc=datetime(2026, 12, 5, 23, 30, tzinfo=timezone.utc))
         grid = grid_for_day(conference, date(2026, 12, 5))
         assert grid["trimmed"] is False
-        assert len(grid["rows"]) == 96
+        assert len(grid["rows"]) == 288
 
     def test_a_stray_second_cannot_shift_the_window(self):
         """Review of #462: a 10:00:30 start moved every row time to :30
@@ -798,7 +803,7 @@ class TestTrimmedWindow:
 
     def test_slots_store_whole_minutes(self, conference, enabled):
         """The admin form and the PATCH endpoint accept seconds; the
-        stored slot drops them, so the grid stays on its quarter-hours."""
+        stored slot drops them, so the grid stays on its 5-minute rows."""
         clean = make_session(conference, kind="TALK")
         make_slot(clean, start_utc=T0)
         stray = make_session(conference, kind="TALK")
@@ -814,7 +819,7 @@ class TestTrimmedWindow:
         assert grid["rows"][0]["utc"] == datetime(2026, 12, 5, 9, tzinfo=timezone.utc)
         assert all(row["utc"].second == 0 for row in grid["rows"])
         by_title = {card["session"].pk: card["row"] for card in grid["cards"]}
-        assert by_title[clean.pk] == FIRST_TIME_ROW + 5 * 4
+        assert by_title[clean.pk] == FIRST_TIME_ROW + 5 * 12
 
     def test_a_trim_that_saves_little_is_not_offered(self, conference, enabled):
         """Slots near both midnight ends would trim four rows: a no-op
@@ -825,7 +830,7 @@ class TestTrimmedWindow:
         make_slot(late, start_utc=datetime(2026, 12, 5, 21, 30, tzinfo=timezone.utc))
         grid = grid_for_day(conference, date(2026, 12, 5))
         assert grid["trimmed"] is False
-        assert len(grid["rows"]) == 96
+        assert len(grid["rows"]) == 288
 
     def test_the_page_offers_the_toggle_and_the_density_switch(
         self, client, organizer, enabled, conference
@@ -968,3 +973,320 @@ class TestViewModeStickiness:
         ).content.decode()
         assert "schedule/publish/?day=2026-12-05&amp;wide=1" in content
         assert "schedule/clear/?day=2026-12-05&amp;wide=1" in content
+
+
+@pytest.mark.django_db
+class TestFiveMinuteSlots:
+    """Chapter videos and lightning talks run five minutes, and the grid
+    places them at that length, back to back."""
+
+    def test_a_dropped_five_minute_session_is_one_short_row(
+        self, client, organizer, enabled, conference
+    ):
+        video = make_session(conference, kind="LIGHTNING")
+        client.force_login(organizer)
+        assert send(client, video, {"start": T0.isoformat()}).status_code == 200
+        slot = ScheduleSlot.objects.get(session=video)
+        assert slot.end_utc - slot.start_utc == timedelta(minutes=5)
+        card = grid_for_day(conference, date(2026, 12, 5), full_day=True)["cards"][0]
+        assert (card["row"], card["span"]) == (FIRST_TIME_ROW + 14 * 12, 1)
+        assert card["is_short"] is True
+
+    def test_a_card_cut_off_at_midnight_is_styled_for_what_shows(
+        self, conference, enabled
+    ):
+        """A talk at 23:55 shows one row of its hour, so it is drawn as
+        a short card, not a full one squeezed into 8px."""
+        late = make_session(conference, kind="TALK")
+        make_slot(
+            late,
+            start_utc=datetime(2026, 12, 5, 23, 55, tzinfo=timezone.utc),
+            end_utc=datetime(2026, 12, 6, 0, 55, tzinfo=timezone.utc),
+        )
+        card = grid_for_day(conference, date(2026, 12, 5), full_day=True)["cards"][0]
+        assert (card["span"], card["minutes"]) == (1, 60)
+        assert (card["is_tight"], card["is_short"]) == (True, True)
+
+    def test_the_pencil_form_accepts_five_minutes(
+        self, client, organizer, enabled, conference
+    ):
+        session = make_session(conference)
+        make_slot(session, start_utc=T0)
+        client.force_login(organizer)
+        start = T0 + timedelta(minutes=35)
+        response = send(client, session, {"start": start.isoformat(), "duration": 5})
+        assert response.status_code == 200
+        slot = ScheduleSlot.objects.get(session=session)
+        assert (slot.start_utc, slot.end_utc) == (start, start + timedelta(minutes=5))
+
+    def test_lengths_off_the_five_minute_grid_are_kept(
+        self, client, organizer, enabled, conference
+    ):
+        """A 7-minute video keeps its 7 minutes, and the card after it,
+        at :07, starts on the next row rather than on top of it."""
+        room = make_room(conference)
+        video = make_session(conference, kind="LIGHTNING")
+        make_slot(video, room=room, start_utc=T0)
+        client.force_login(organizer)
+        assert send(client, video, {"duration": 7}).status_code == 200
+        slot = ScheduleSlot.objects.get(session=video)
+        assert slot.end_utc == T0 + timedelta(minutes=7)
+        nxt = make_session(conference, kind="LIGHTNING")
+        start = T0 + timedelta(minutes=7)
+        assert (
+            send(
+                client,
+                nxt,
+                {"room": room.pk, "start": start.isoformat(), "duration": 5},
+            ).status_code
+            == 200
+        )
+        assert ScheduleSlot.objects.get(session=nxt).end_utc == start + timedelta(
+            minutes=5
+        )
+        cards = {
+            card["session"].pk: card
+            for card in grid_for_day(conference, date(2026, 12, 5))["cards"]
+        }
+        assert cards[nxt.pk]["row"] == cards[video.pk]["row"] + 1
+        assert (cards[video.pk]["minutes"], cards[nxt.pk]["minutes"]) == (7, 5)
+
+    def test_a_slot_can_run_under_five_minutes(
+        self, client, organizer, enabled, conference
+    ):
+        """A 4-minute announcement is placed at 4 minutes, by duration,
+        by explicit end, or from the session's own length."""
+        session = make_session(conference)
+        make_slot(session, start_utc=T0)
+        client.force_login(organizer)
+        assert send(client, session, {"duration": 4}).status_code == 200
+        slot = ScheduleSlot.objects.get(session=session)
+        assert slot.end_utc - slot.start_utc == timedelta(minutes=4)
+        end = T0 + timedelta(minutes=2)
+        assert send(client, session, {"end": end.isoformat()}).status_code == 200
+        assert ScheduleSlot.objects.get(session=session).end_utc == end
+        brief = make_session(conference, kind="ANNOUNCEMENT", duration_minutes=2)
+        later = T0 + timedelta(hours=3)
+        assert send(client, brief, {"start": later.isoformat()}).status_code == 200
+        slot = ScheduleSlot.objects.get(session=brief)
+        assert slot.end_utc - slot.start_utc == timedelta(minutes=2)
+
+    def test_cards_drawn_in_one_row_sit_side_by_side_and_warn(
+        self, client, organizer, enabled, conference
+    ):
+        """A 4-minute slot and the one after it at :04 do not overlap in
+        time, but both are drawn on the 14:00 row: the earlier takes the
+        left half, the later the right, and each card says so."""
+        room = make_room(conference)
+        announcement = make_session(conference, kind="ANNOUNCEMENT", title="Welcome")
+        make_slot(
+            announcement,
+            room=room,
+            start_utc=T0,
+            end_utc=T0 + timedelta(minutes=4),
+        )
+        video = make_session(conference, kind="LIGHTNING", title="Chapter video")
+        make_slot(video, room=room, start_utc=T0 + timedelta(minutes=4))
+        cards = {
+            card["session"].pk: card
+            for card in grid_for_day(conference, date(2026, 12, 5))["cards"]
+        }
+        assert cards[announcement.pk]["row"] == cards[video.pk]["row"]
+        assert cards[announcement.pk]["warnings"] == [
+            "Shares a row with “Chapter video”; the cards are drawn side by side"
+        ]
+        assert cards[video.pk]["warnings"] == [
+            "Shares a row with “Welcome”; the cards are drawn side by side"
+        ]
+        parts = [
+            (cards[s.pk]["part"], cards[s.pk]["parts"]) for s in (announcement, video)
+        ]
+        assert parts == [(0, 2), (1, 2)]
+        client.force_login(organizer)
+        content = client.get(EDITOR, {"day": "2026-12-05"}).content.decode()
+        assert "schedule-warned" in content
+        assert 'aria-label="See the warnings"' in content
+        assert "schedule-card-split" in content
+        assert "--part: 1;" in content
+
+    def test_only_cards_drawn_over_each_other_warn(self, conference, enabled):
+        """Other rooms, later rows, and two program bands that share their
+        time (allowed to coexist) draw no row warning."""
+        first, second = make_room(conference), make_room(conference)
+        short = make_session(conference, kind="ANNOUNCEMENT")
+        make_slot(short, room=first, start_utc=T0, end_utc=T0 + timedelta(minutes=3))
+        elsewhere = make_session(conference, kind="LIGHTNING")
+        make_slot(elsewhere, room=second, start_utc=T0 + timedelta(minutes=3))
+        after = make_session(conference, kind="LIGHTNING")
+        make_slot(after, room=first, start_utc=T0 + timedelta(minutes=5))
+        for _ in range(2):
+            make_slot(
+                make_session(conference, kind="BREAK"),
+                start_utc=T0 + timedelta(hours=2),
+            )
+        grid = grid_for_day(conference, date(2026, 12, 5))
+        assert all(card["warnings"] == [] for card in grid["cards"])
+        assert all(card["parts"] == 0 for card in grid["cards"])
+
+    def test_three_in_one_row_split_it_in_thirds(self, conference, enabled):
+        room = make_room(conference)
+        sessions = [make_session(conference, kind="ANNOUNCEMENT") for _ in range(3)]
+        for i, (session, length) in enumerate(zip(sessions, (2, 2, 5))):
+            start = T0 + timedelta(minutes=2 * i)
+            make_slot(
+                session,
+                room=room,
+                start_utc=start,
+                end_utc=start + timedelta(minutes=length),
+            )
+        cards = {
+            card["session"].pk: card
+            for card in grid_for_day(conference, date(2026, 12, 5))["cards"]
+        }
+        assert [(cards[s.pk]["part"], cards[s.pk]["parts"]) for s in sessions] == [
+            (0, 3),
+            (1, 3),
+            (2, 3),
+        ]
+        assert all(len(cards[s.pk]["warnings"]) == 2 for s in sessions)
+
+    def test_a_band_and_a_room_card_in_one_row_warn_unsplit(self, conference, enabled):
+        """A band spans every lane, so it cannot share one in parts: both
+        warn that one covers the other, and neither is split."""
+        first = make_room(conference)
+        make_room(conference)
+        opening = make_session(conference, kind="BREAK", title="Opening")
+        make_slot(opening, start_utc=T0, end_utc=T0 + timedelta(minutes=4))
+        talk = make_session(conference, kind="LIGHTNING", title="First talk")
+        make_slot(talk, room=first, start_utc=T0 + timedelta(minutes=4))
+        cards = {
+            card["session"].pk: card
+            for card in grid_for_day(conference, date(2026, 12, 5))["cards"]
+        }
+        assert cards[opening.pk]["warnings"] == [
+            "Shares a row with “First talk”; one card covers the "
+            "other, so move one of them"
+        ]
+        assert cards[talk.pk]["warnings"] == [
+            "Shares a row with “Opening”; one card covers the other, "
+            "so move one of them"
+        ]
+        assert cards[opening.pk]["parts"] == cards[talk.pk]["parts"] == 0
+
+    def test_a_long_card_after_a_short_one_starts_on_the_next_row(
+        self, conference, enabled
+    ):
+        """A keynote at 14:03 after a 3-minute announcement is drawn
+        from 14:05, full width, instead of half width for its whole hour
+        (review of #478). A band before a room card is the same."""
+        room = make_room(conference)
+        announce = make_session(conference, kind="ANNOUNCEMENT")
+        make_slot(announce, room=room, start_utc=T0, end_utc=T0 + timedelta(minutes=3))
+        keynote = make_session(conference, kind="KEYNOTE")
+        make_slot(
+            keynote,
+            room=room,
+            start_utc=T0 + timedelta(minutes=3),
+            end_utc=T0 + timedelta(minutes=63),
+        )
+        opening = make_session(conference, kind="BREAK")
+        later = T0 + timedelta(hours=3)
+        make_slot(opening, start_utc=later, end_utc=later + timedelta(minutes=4))
+        talk = make_session(conference, kind="LIGHTNING")
+        make_slot(
+            talk,
+            room=room,
+            start_utc=later + timedelta(minutes=4),
+            end_utc=later + timedelta(minutes=30),
+        )
+        grid = grid_for_day(conference, date(2026, 12, 5), full_day=True)
+        cards = {card["session"].pk: card for card in grid["cards"]}
+        first_row = FIRST_TIME_ROW + 14 * 12
+        assert (cards[announce.pk]["row"], cards[announce.pk]["span"]) == (
+            first_row,
+            1,
+        )
+        assert (cards[keynote.pk]["row"], cards[keynote.pk]["span"]) == (
+            first_row + 1,
+            11,
+        )
+        assert (cards[talk.pk]["row"], cards[talk.pk]["span"]) == (
+            first_row + 37,
+            5,
+        )
+        assert all(card["warnings"] == [] for card in grid["cards"])
+        assert all(card["parts"] == 0 for card in grid["cards"])
+
+    def test_a_pushed_card_is_styled_for_the_rows_it_keeps(self, conference, enabled):
+        """A 15-minute card at 14:03 after a 3-minute one is drawn on two
+        rows, 10 minutes high, so it is styled short; a long card in
+        another room starting in that row is not moved at all."""
+        room, other_room = make_room(conference), make_room(conference)
+        make_slot(
+            make_session(conference, kind="ANNOUNCEMENT"),
+            room=room,
+            start_utc=T0,
+            end_utc=T0 + timedelta(minutes=3),
+        )
+        pushed = make_session(conference, kind="LIGHTNING")
+        make_slot(
+            pushed,
+            room=room,
+            start_utc=T0 + timedelta(minutes=3),
+            end_utc=T0 + timedelta(minutes=18),
+        )
+        elsewhere = make_session(conference, kind="KEYNOTE")
+        make_slot(
+            elsewhere,
+            room=other_room,
+            start_utc=T0 + timedelta(minutes=3),
+            end_utc=T0 + timedelta(minutes=63),
+        )
+        grid = grid_for_day(conference, date(2026, 12, 5), full_day=True)
+        cards = {card["session"].pk: card for card in grid["cards"]}
+        first_row = FIRST_TIME_ROW + 14 * 12
+        assert (cards[pushed.pk]["row"], cards[pushed.pk]["span"]) == (
+            first_row + 1,
+            2,
+        )
+        assert cards[pushed.pk]["is_short"]
+        assert (cards[elsewhere.pk]["row"], cards[elsewhere.pk]["span"]) == (
+            first_row,
+            12,
+        )
+        assert not cards[elsewhere.pk]["is_tight"]
+
+    def test_three_run_back_to_back_in_one_room(self, conference, enabled):
+        room = make_room(conference)
+        videos = [make_session(conference, kind="LIGHTNING") for _ in range(3)]
+        for i, video in enumerate(videos):
+            make_slot(video, room=room, start_utc=T0 + timedelta(minutes=5 * i))
+        grid = grid_for_day(conference, date(2026, 12, 5), full_day=True)
+        cards = {card["session"].pk: card for card in grid["cards"]}
+        rows = [cards[video.pk]["row"] for video in videos]
+        assert rows == [FIRST_TIME_ROW + 14 * 12 + i for i in range(3)]
+        assert all(cards[video.pk]["span"] == 1 for video in videos)
+        assert all(cards[video.pk]["is_short"] for video in videos)
+        assert all(cards[video.pk]["is_tight"] for video in videos)
+
+    def test_a_quarter_hour_card_is_tight_but_not_short(self, conference, enabled):
+        make_slot(
+            make_session(conference, kind="BREAK"),
+            start_utc=T0,
+            end_utc=T0 + timedelta(minutes=15),
+        )
+        card = grid_for_day(conference, date(2026, 12, 5))["cards"][0]
+        assert (card["span"], card["is_tight"], card["is_short"]) == (3, True, False)
+
+    def test_the_grid_marks_hours_and_quarters(
+        self, client, organizer, enabled, conference
+    ):
+        make_slot(make_session(conference, kind="LIGHTNING"), start_utc=T0)
+        client.force_login(organizer)
+        content = client.get(EDITOR, {"day": "2026-12-05"}).content.decode()
+        assert 'data-step-minutes="5"' in content
+        assert "span 12;" in content
+        assert "schedule-cell-quarter" in content
+        assert "schedule-card-short" in content
+        assert 'step="60"' in content
+        assert 'min="1"' in content

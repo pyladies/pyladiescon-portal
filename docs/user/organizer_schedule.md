@@ -48,10 +48,10 @@ timezone. Practice data. [Watch it on YouTube](https://youtu.be/p2DCGMqi06I).*
 
 Open **Organize**, then **Schedule**. The grid has one tab per conference
 day, the rooms across the top with an **All rooms** lane first, and
-15-minute steps down the side. The grid is trimmed to the program, an hour
-either side; **Show the whole day** opens it up. Everything confirmed and not
-yet placed waits in the **Unscheduled** list on the right, with its type,
-length and status.
+5-minute steps down the side, with a line every quarter hour. The grid is
+trimmed to the program, an hour either side; **Show the whole day** opens it
+up. Everything confirmed and not yet placed waits in the **Unscheduled** list
+on the right, with its type, length and status.
 
 ### Placing and moving
 
@@ -70,10 +70,17 @@ length and status.
   appears in the Unscheduled list ready to drag; the cell panel creates and
   places one in a single step.
 
-!!! note "Slots are 15 minutes or longer"
-    A slot runs between 15 minutes and a day, in whole quarter hours. A
-    session type with a shorter default length (a 5-minute lightning talk,
-    for example) cannot be placed until its session's length is raised to 15.
+!!! note "Slots run from 1 minute to a day, in whole minutes"
+    The grid is drawn in 5-minute rows, so a chapter video or a lightning
+    talk sits on it at its real length, and several can run back to back.
+    A length or start off those rows (a 4-minute announcement, a 7-minute
+    video, a talk at 10:03) is typed in the pencil form; the card sits on
+    the rows its start and end fall in, and its tooltip shows the exact
+    times. Dragging snaps the start to a row and keeps the length;
+    resizing changes the length 5 minutes at a time.
+    A card under a quarter hour is a thin strip: hover over it, or tab to
+    it, and it opens to show its title and pencil. Grab it anywhere to
+    move it; its bottom edge resizes it.
 
 ### What the grid refuses, and what it only warns about
 
@@ -83,6 +90,18 @@ length and status.
 - **A presenter in two places at once** is allowed, because a moderator
   moving between rooms is legitimate, but both cards show a warning naming
   the other session. Fix it by moving one of them.
+- **Cards drawn in one row** are allowed, side by side, and each warns.
+  A slot under 5 minutes can end inside the row where the next card in
+  that room starts: a 4-minute announcement at 10:00 and a video at 10:04
+  both sit on the 10:00 row, so they share the lane in equal parts,
+  earliest on the left (the website draws them the same way), and each
+  card names the others. To give the later one its own row, start it at
+  10:05. A later card longer than that row needs nothing: a keynote at
+  10:03 after a 3-minute announcement is drawn from 10:05 at full width,
+  with no warning, and keeps its 10:03 start everywhere else. Two bands
+  share their lane the same way, but a band and a room card cannot: when
+  both fit in the one row, they overlap, and both warn that one covers
+  the other. Move one of them.
 - **A draft or invited session** can go on the grid as a pencil mark: its
   card is dotted and reads "Pencilled in, publishes once confirmed". It stays
   out of everything the speakers see until everyone on it has accepted, then
@@ -241,7 +260,9 @@ browser's copy expires.
 | Only the **All rooms** lane | No room is recorded for the edition yet. Add rooms in the admin, under **Speaker portal**, **Rooms**. |
 | A session is not in the Unscheduled list | Only confirmed, draft and invited sessions can be placed. A proposal waiting for an answer, or a cancelled session, cannot. |
 | A drop is refused | The time is taken in that room, or the slot would cross a band that spans every room. Pick another cell, or move the other card first. |
-| "A slot runs between 15 minutes and a day" | The session is shorter than one grid step. Raise its length on the session page, or in the pencil form. |
+| "A slot runs between 1 minute and a day" | The length asked for is zero, negative or over a day. Pick a length in that range in the pencil form. |
+| A card warns "Shares a row with" another, "the cards are drawn side by side" | The cards do not overlap in time, but a slot under 5 minutes ends inside the row where the next starts, so they share the lane in parts, here and on the website. That is fine to keep; to give the later one its own row, start it on the next 5-minute mark. A later card longer than the row is already drawn from the next row instead, with no warning. |
+| A card warns "Shares a row with" another, "one card covers the other" | A band (every room) and a room card both fit in one 5-minute row. They are in different lanes and cannot share one, so one hides the other, here and on the website. Move one to the next 5-minute mark. |
 | The card is dotted | The session is a draft or still invited. It publishes to the speakers once everyone on it has accepted and you confirm again. |
 | The card is dashed | The speakers have not been told about this placement or move yet. Confirm the schedule when ready. |
 | A speaker says their session is wrong or missing | Their page shows the last confirmed snapshot, not the grid. Confirm the schedule, with the email ticked so they hear about it. |

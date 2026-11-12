@@ -5,13 +5,15 @@ resizes; the pencil opens the keyboard form. Params: card (schedule.py's
 dict), lanes, days.
 {% endcomment %}
 {# djlint:off #}
-<div class="schedule-card {% if card.is_band %}schedule-band{% endif %} {% if card.warnings %}schedule-warned{% endif %} {% if card.span < 2 %}schedule-card-tight{% endif %} {% if card.is_dirty %}schedule-card-dirty{% endif %} {% if card.is_pencilled %}schedule-card-pencilled{% endif %}"
+<div class="schedule-card {% if card.is_band %}schedule-band{% endif %} {% if card.warnings %}schedule-warned{% endif %} {% if card.is_tight %}schedule-card-tight{% endif %} {% if card.is_short %}schedule-card-short{% endif %} {% if card.is_dirty %}schedule-card-dirty{% endif %} {% if card.is_pencilled %}schedule-card-pencilled{% endif %} {% if card.parts %}schedule-card-split{% endif %}"
      draggable="true"
      data-slot-url="{% url 'speakers:session_slot' card.session.slug %}"
      data-minutes="{{ card.minutes }}"
      title="{{ card.session.title }} · {{ card.slot.start_utc|date:'H:i' }} to {{ card.slot.end_utc|date:'H:i' }} UTC"
      style="grid-row: {{ card.row }} / span {{ card.span }};
-            grid-column: {{ card.start_column }} / {{ card.end_column }}">
+            grid-column: {{ card.start_column }} / {{ card.end_column }}{% if card.parts %};
+            --part: {{ card.part }};
+            --parts: {{ card.parts }}{% endif %}">
 {# djlint:on #}
 <div class="d-flex align-items-start gap-1 {% if not card.is_band %}justify-content-between{% endif %}">
     <div class="schedule-card-body">
@@ -31,11 +33,11 @@ dict), lanes, days.
     </div>
     <div class="d-flex gap-1">
         {% if card.warnings %}
-            {% trans "Presenter double-booked" as double_booked %}
+            {% trans "See the warnings" as warning_label %}
             <span class="text-warning-emphasis"
                   tabindex="0"
                   role="img"
-                  aria-label="{{ double_booked }}"
+                  aria-label="{{ warning_label }}"
                   title="{% for warning in card.warnings %}{{ warning }}{% if not forloop.last %}; {% endif %}{% endfor %}">
                 <i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i>
             </span>

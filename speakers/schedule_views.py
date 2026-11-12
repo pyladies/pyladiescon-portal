@@ -28,6 +28,7 @@ from .mixins import SpeakerOrganizerRequiredMixin
 from .models import ActivityLog, Room, ScheduleSlot, Session
 from .schedule import (
     ROWS_PER_DAY,
+    ROWS_PER_HOUR,
     STEP_MINUTES,
     also_in,
     day_bounds,
@@ -154,6 +155,7 @@ class ScheduleEditorView(
                 ),
                 "unpublished_total": sum(counts.values()),
                 "step_minutes": STEP_MINUTES,
+                "rows_per_hour": ROWS_PER_HOUR,
                 "program_item_form": kwargs.get("program_item_form")
                 or ProgramItemForm(conference=self.conference),
             }
@@ -416,10 +418,8 @@ class SlotView(LoginRequiredMixin, SpeakerOrganizerRequiredMixin, View):
                 minutes = int(payload["duration"])
             except (TypeError, ValueError):
                 minutes = 0
-            if not STEP_MINUTES <= minutes <= MAX_SLOT_MINUTES:
-                raise SlotError(
-                    f"A slot runs between {STEP_MINUTES} minutes and a day."
-                )
+            if not 1 <= minutes <= MAX_SLOT_MINUTES:
+                raise SlotError("A slot runs between 1 minute and a day.")
             slot.end_utc = slot.start_utc + timedelta(minutes=minutes)
         elif "end" in payload:
             slot.end_utc = (

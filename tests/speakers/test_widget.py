@@ -21,7 +21,7 @@ BUILT = Path(finders.find("widget/v1.js"))
 
 
 def test_the_served_widget_stays_within_its_budget():
-    assert BUILT.stat().st_size <= 15 * 1024
+    assert BUILT.stat().st_size <= 16 * 1024
 
 
 def test_the_served_widget_is_built_from_the_current_source():

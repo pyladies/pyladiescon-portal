@@ -2,13 +2,15 @@
 {% comment %}
 The day's grid alone, so the page can refetch it after every change
 (?grid=1). Columns: hour gutter, the all-rooms lane, one per room.
-Rows: 15-minute steps across the UTC day. Cells are drop targets; cards
-sit on top with inline grid positions computed in speakers/schedule.py.
+Rows: 5-minute steps across the UTC day, a line every quarter hour.
+Cells are drop targets; cards sit on top with inline grid positions
+computed in speakers/schedule.py.
 {% endcomment %}
 <div class="schedule-scroll">
     {# djlint:off #}
     <div class="schedule-grid"
          data-rows="{{ rows|length }}"
+         data-step-minutes="{{ step_minutes }}"
          style="--schedule-columns: {{ rooms|length }}">
         <div class="schedule-head" style="grid-column: 1">
         </div>
@@ -20,13 +22,13 @@ sit on top with inline grid positions computed in speakers/schedule.py.
         {% for row in rows %}
             {% if row.is_hour %}
                 <div class="schedule-hour"
-                     style="grid-row: {{ row.index }} / span 4;
+                     style="grid-row: {{ row.index }} / span {{ rows_per_hour }};
                             grid-column: 1">
                     <span data-utc="{{ row.utc.isoformat }}">{{ row.utc|date:"H:i" }}</span>
                 </div>
             {% endif %}
             {% for lane in lanes %}
-                <div class="schedule-cell {% if row.is_hour %}schedule-cell-hour{% endif %}"
+                <div class="schedule-cell {% if row.is_hour %}schedule-cell-hour{% elif row.is_quarter %}schedule-cell-quarter{% endif %}"
                      data-time="{{ row.utc.isoformat }}"
                      data-room="{{ lane.pk }}"
                      data-room-name="{{ lane.name }}"

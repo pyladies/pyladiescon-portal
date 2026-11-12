@@ -28,10 +28,12 @@
     ".plc-line{border-top:1px dashed var(--plc-border);height:0;margin:0!important;align-self:start;opacity:.6}",
     ".plc-hour{border-top-style:solid;opacity:1}",
     ".plc-card,.plc-band{position:relative;z-index:1}",
+    /* Cards sharing a row split the lane (renderSchedule). */
+    ".plc-grid>[style*=--n]{width:calc(100%/var(--n) - 4px);margin-left:calc(100%*var(--i)/var(--n))}",
     ".plc-grid>*{margin-bottom:.4rem}",
     ".plc-head{font-weight:600;font-size:.875em;color:var(--plc-muted);padding-bottom:.25rem}",
     ".plc-time{font-size:.8em;color:var(--plc-muted);white-space:nowrap;line-height:1;transform:translateY(-.4em);margin:0!important}",
-    "@container (max-width:40rem){.plc-grid{display:flex;flex-direction:column}.plc-head,.plc-time,.plc-line{display:none}}",
+    "@container (max-width:40rem){.plc-grid{display:flex;flex-direction:column}.plc-head,.plc-time,.plc-line{display:none}.plc-grid>[style*=--n]{width:auto;margin-left:0}}",
     ".plc-card{border:1px solid var(--plc-border);border-radius:var(--plc-radius);padding:.6rem .7rem;background:var(--plc-card);min-width:0}",
     ".plc-band{background:var(--plc-band);border-radius:var(--plc-radius);padding:.4rem .7rem;color:var(--plc-muted);display:flex;flex-wrap:wrap;gap:.25rem .75rem;align-items:center}",
     ".plc-meta{color:var(--plc-muted);font-size:.85em}",
@@ -282,11 +284,35 @@
         cells.push(h("div", { "class": "plc-head", style: "grid-row:1;grid-column:" + (i + 2), text: name }));
       });
     }
-    shown.forEach(function (s) {
+    /* A card covers the rows its start and end fall in, as in the
+     * organizers' grid. A slot under STEP minutes can end inside the row
+     * where the next one in its room starts; cards in one lane that
+     * land on a row together share the lane in parts, earliest left.
+     * A longer card starting in the row an earlier one ends in is drawn
+     * from the next row instead, full width, as the organizers' grid
+     * does, so a keynote after a 3-minute announcement is not split. */
+    var placed = shown.map(function (s, n) {
       var from = row(s.slot.start);
-      var rows = Math.max(1, Math.round(minutes(s.slot.start, s.slot.end) / STEP));
-      var column = s.slot.room ? columns.indexOf(s.slot.room.name) + 2 : 2;
-      var place = "grid-row:" + from + " / span " + rows + ";grid-column:" + (s.slot.room ? column : "2 / -1");
+      return { s: s, n: n, from: from, to: Math.max(from + 1, row(s.slot.end)), lane: s.slot.room && s.slot.room.name };
+    });
+    placed.forEach(function (p) {
+      if (p.to - p.from > 1 && placed.some(function (q) {
+        return q.s.slot.end <= p.s.slot.start && q.from <= p.from && p.from < q.to && (!q.lane || !p.lane || q.lane == p.lane);
+      })) p.from++;
+    });
+    placed.forEach(function (a) {
+      placed.forEach(function (b) {
+        if (b.n <= a.n || a.lane != b.lane || b.from >= a.to || a.s.slot.end > b.s.slot.start) return;
+        var g = a.g || [a];
+        (b.g || [b]).forEach(function (c) { if (g.indexOf(c) < 0) g.push(c); c.g = g; });
+        a.g = g;
+      });
+    });
+    placed.forEach(function (p) { if (p.g) p.g.sort(function (x, y) { return x.n - y.n; }); });
+    placed.forEach(function (p) {
+      var s = p.s;
+      var place = "grid-row:" + p.from + "/" + p.to + ";grid-column:" + (s.slot.room ? columns.indexOf(s.slot.room.name) + 2 : "2/-1") +
+        (p.g ? ";--i:" + p.g.indexOf(p) + ";--n:" + p.g.length : "");
       cells.push(s.is_content ? h("article", { "class": "plc-card", style: place }, [
         h("div", { "class": "plc-meta" }, [span(s.slot, tz), " · " + s.kind.name, s.slot.room ? " · " + s.slot.room.name : null]),
         self.title(s),
