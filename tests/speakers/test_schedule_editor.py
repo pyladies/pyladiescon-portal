@@ -1093,11 +1093,10 @@ class TestFiveMinuteSlots:
         }
         assert cards[announcement.pk]["row"] == cards[video.pk]["row"]
         assert cards[announcement.pk]["warnings"] == [
-            "Shares a row with “Chapter video” (14:04 UTC); the cards are drawn "
-            "side by side"
+            "Shares a row with “Chapter video”; the cards are drawn " "side by side"
         ]
         assert cards[video.pk]["warnings"] == [
-            "Shares a row with “Welcome” (14:00 UTC); the cards are drawn side by side"
+            "Shares a row with “Welcome”; the cards are drawn side by side"
         ]
         parts = [
             (cards[s.pk]["part"], cards[s.pk]["parts"]) for s in (announcement, video)
@@ -1165,14 +1164,58 @@ class TestFiveMinuteSlots:
             for card in grid_for_day(conference, date(2026, 12, 5))["cards"]
         }
         assert cards[opening.pk]["warnings"] == [
-            "Shares a row with “First talk” (14:04 UTC); one card covers the "
+            "Shares a row with “First talk”; one card covers the "
             "other, so move one of them"
         ]
         assert cards[talk.pk]["warnings"] == [
-            "Shares a row with “Opening” (14:00 UTC); one card covers the other, "
+            "Shares a row with “Opening”; one card covers the other, "
             "so move one of them"
         ]
         assert cards[opening.pk]["parts"] == cards[talk.pk]["parts"] == 0
+
+    def test_a_long_card_after_a_short_one_starts_on_the_next_row(
+        self, conference, enabled
+    ):
+        """A keynote at 14:03 after a 3-minute announcement is drawn
+        from 14:05, full width, instead of half width for its whole hour
+        (review of #478). A band before a room card is the same."""
+        room = make_room(conference)
+        announce = make_session(conference, kind="ANNOUNCEMENT")
+        make_slot(announce, room=room, start_utc=T0, end_utc=T0 + timedelta(minutes=3))
+        keynote = make_session(conference, kind="KEYNOTE")
+        make_slot(
+            keynote,
+            room=room,
+            start_utc=T0 + timedelta(minutes=3),
+            end_utc=T0 + timedelta(minutes=63),
+        )
+        opening = make_session(conference, kind="BREAK")
+        later = T0 + timedelta(hours=3)
+        make_slot(opening, start_utc=later, end_utc=later + timedelta(minutes=4))
+        talk = make_session(conference, kind="LIGHTNING")
+        make_slot(
+            talk,
+            room=room,
+            start_utc=later + timedelta(minutes=4),
+            end_utc=later + timedelta(minutes=30),
+        )
+        grid = grid_for_day(conference, date(2026, 12, 5), full_day=True)
+        cards = {card["session"].pk: card for card in grid["cards"]}
+        first_row = FIRST_TIME_ROW + 14 * 12
+        assert (cards[announce.pk]["row"], cards[announce.pk]["span"]) == (
+            first_row,
+            1,
+        )
+        assert (cards[keynote.pk]["row"], cards[keynote.pk]["span"]) == (
+            first_row + 1,
+            11,
+        )
+        assert (cards[talk.pk]["row"], cards[talk.pk]["span"]) == (
+            first_row + 37,
+            5,
+        )
+        assert all(card["warnings"] == [] for card in grid["cards"])
+        assert all(card["parts"] == 0 for card in grid["cards"])
 
     def test_three_run_back_to_back_in_one_room(self, conference, enabled):
         room = make_room(conference)

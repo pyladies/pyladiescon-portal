@@ -10,7 +10,7 @@
     "use strict";
 
     /* The grid's step comes from speakers/schedule.py, on the grid
-     * element, so the server and the page cannot disagree. */
+     * element; this copy is only the fallback for a grid without it. */
     var STEP_MINUTES = 5;
     var QUARTER_MINUTES = 15;
     var dragged = null;
@@ -208,8 +208,9 @@
             row: parseInt(card.style.gridRow, 10),
             /* Minutes past its row the slot starts (a talk at 10:03 is
              * 3), so the preview's end lands where the grid draws it. A
-             * card from the day before is drawn from the first row, so
-             * its offset is negative: the minutes before that row. */
+             * card from the day before, or one drawn from the next row
+             * after a short card (speakers/schedule.py), starts before
+             * its row, so its offset is negative. */
             offset: resizeOffset(card, grid, cell),
             column: card.style.gridColumn,
             band: card.classList.contains("schedule-band"),
@@ -220,9 +221,12 @@
 
     function resizeOffset(card, grid, cell) {
         var start = new Date(card.querySelector("[data-utc]").dataset.utc);
-        var first = cell && new Date(cell.dataset.time);
-        if (first && start < first) return (start - first) / 60000;
-        return start.getUTCMinutes() % stepOf(grid);
+        if (!cell) return start.getUTCMinutes() % stepOf(grid);
+        var rows = parseInt(card.style.gridRow, 10) -
+            parseInt(cell.style.gridRow, 10);
+        var drawn = new Date(cell.dataset.time).getTime() +
+            rows * stepOf(grid) * 60000;
+        return (start - drawn) / 60000;
     }
 
     function resizeMinutes(event) {

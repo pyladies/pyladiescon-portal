@@ -234,7 +234,25 @@ def shared_row_warnings(cards):
     lanes; both warn that one covers the other. Times that do overlap
     are already refused, or are two program bands allowed to coexist,
     so only the drawing is checked.
+
+    A longer card that starts in the row an earlier one ends in (a
+    keynote at 14:03 after a 3-minute announcement) is drawn from the
+    next row instead, full width, rather than split for its whole hour
+    (review of #478). Its times are unchanged; only the drawing starts
+    up to four minutes late. Only cards that fit in the one row split.
     """
+    for card in cards:
+        if card["span"] < 2:
+            continue
+        if any(
+            other["slot"].end_utc <= card["slot"].start_utc
+            and other["row"] <= card["row"] < other["row"] + other["span"]
+            and card["start_column"] < other["end_column"]
+            and other["start_column"] < card["end_column"]
+            for other in cards
+        ):
+            card["row"] += 1
+            card["span"] -= 1
     groups = {}
     for card in cards:
         for other in cards:
@@ -258,8 +276,7 @@ def shared_row_warnings(cards):
                 other["end_column"],
             )
             card["warnings"].append(
-                f"Shares a row with “{other['session'].title}” "
-                f"({theirs.start_utc:%H:%M} UTC); "
+                f"Shares a row with “{other['session'].title}”; "
                 + (
                     "the cards are drawn side by side"
                     if same_lane
