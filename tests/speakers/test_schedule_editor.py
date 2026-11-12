@@ -1093,7 +1093,7 @@ class TestFiveMinuteSlots:
         }
         assert cards[announcement.pk]["row"] == cards[video.pk]["row"]
         assert cards[announcement.pk]["warnings"] == [
-            "Shares a row with “Chapter video”; the cards are drawn " "side by side"
+            "Shares a row with “Chapter video”; the cards are drawn side by side"
         ]
         assert cards[video.pk]["warnings"] == [
             "Shares a row with “Welcome”; the cards are drawn side by side"
@@ -1216,6 +1216,45 @@ class TestFiveMinuteSlots:
         )
         assert all(card["warnings"] == [] for card in grid["cards"])
         assert all(card["parts"] == 0 for card in grid["cards"])
+
+    def test_a_pushed_card_is_styled_for_the_rows_it_keeps(self, conference, enabled):
+        """A 15-minute card at 14:03 after a 3-minute one is drawn on two
+        rows, 10 minutes high, so it is styled short; a long card in
+        another room starting in that row is not moved at all."""
+        room, other_room = make_room(conference), make_room(conference)
+        make_slot(
+            make_session(conference, kind="ANNOUNCEMENT"),
+            room=room,
+            start_utc=T0,
+            end_utc=T0 + timedelta(minutes=3),
+        )
+        pushed = make_session(conference, kind="LIGHTNING")
+        make_slot(
+            pushed,
+            room=room,
+            start_utc=T0 + timedelta(minutes=3),
+            end_utc=T0 + timedelta(minutes=18),
+        )
+        elsewhere = make_session(conference, kind="KEYNOTE")
+        make_slot(
+            elsewhere,
+            room=other_room,
+            start_utc=T0 + timedelta(minutes=3),
+            end_utc=T0 + timedelta(minutes=63),
+        )
+        grid = grid_for_day(conference, date(2026, 12, 5), full_day=True)
+        cards = {card["session"].pk: card for card in grid["cards"]}
+        first_row = FIRST_TIME_ROW + 14 * 12
+        assert (cards[pushed.pk]["row"], cards[pushed.pk]["span"]) == (
+            first_row + 1,
+            2,
+        )
+        assert cards[pushed.pk]["is_short"]
+        assert (cards[elsewhere.pk]["row"], cards[elsewhere.pk]["span"]) == (
+            first_row,
+            12,
+        )
+        assert not cards[elsewhere.pk]["is_tight"]
 
     def test_three_run_back_to_back_in_one_room(self, conference, enabled):
         room = make_room(conference)
