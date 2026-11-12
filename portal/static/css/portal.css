@@ -611,6 +611,10 @@ details.card[open] > summary.card-header::before {
 }
 .schedule-card-menu > summary {
     list-style: none;
+}
+/* Only a card's pencil is squeezed: the toolbar's menus (Confirm
+   schedule, Unschedule all) keep a normal button's size. */
+.schedule-card-menu > summary.schedule-card-edit {
     padding: 0 0.3rem;
     line-height: 1.2;
 }
